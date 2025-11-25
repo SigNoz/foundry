@@ -43,7 +43,7 @@ Adjust values as needed for your environment.
 Run the forge to render the molds:
 
 ```
-./foundry/forge.sh standard
+./foundry/forge.sh
 ```
 
 This will:

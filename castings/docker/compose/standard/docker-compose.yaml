@@ -80,13 +80,13 @@ services:
       - ./pours/clickhouse/user_scripts:/var/lib/clickhouse/user_scripts/
   zookeeper-1:
     !!merge <<: *zookeeper-defaults
-    container_name: signoz-zookeeper-1
+    container_name  : signoz-zookeeper-1
     volumes:
       - zookeeper-1:/bitnami/zookeeper
     env_file: ./pours/zookeeper/.env
   clickhouse:
     container_name: signoz-clickhouse
-    !!merge <<: *clickhouse-defaults
+    !!merge <<: *clickhouse-defaults'
     volumes:
       - ./pours/clickhouse/config.xml:/etc/clickhouse-server/config.xml
       - ./pours/clickhouse/users.xml:/etc/clickhouse-server/users.xml

@@ -1,0 +1,16 @@
+[Unit]
+Description=SigNoz OTel Collector
+Documentation=https://signoz.io/docs
+After=clickhouse-server.service
+
+[Service]
+User=signoz
+Group=signoz
+Type=simple
+KillMode=mixed
+Restart=on-failure
+WorkingDirectory=${OTEL_INSTALL_DIR}
+ExecStart=${OTEL_INSTALL_DIR}/bin/signoz-otel-collector --config=${OTEL_INSTALL_DIR}/conf/config.yaml --manager-config=${OTEL_INSTALL_DIR}/conf/opamp.yaml --copy-path=${OTEL_DATA_DIR}/config.yaml
+
+[Install]
+WantedBy=multi-user.target
