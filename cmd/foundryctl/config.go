@@ -3,7 +3,7 @@ package main
 import "github.com/spf13/cobra"
 
 var (
-	// Stores input configuration
+	// Stores input configuration.
 	cfg config
 )
 

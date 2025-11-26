@@ -12,7 +12,7 @@ func registerGaugeCmd(rootCmd *cobra.Command) {
 		Use:   "gauge",
 		Short: "Gauge whether required tools are available.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger := instrumentation.NewLogger(cfg.Debug).With("cmd.name", "gauge")
+			logger := instrumentation.NewLogger(cfg.Debug).With(slog.String("cmd.name", "gauge"))
 			ctx := cmd.Context()
 
 			logger.DebugContext(ctx, "starting command", slog.String("cfg.file", cfg.File))

@@ -12,7 +12,7 @@ func registerForgeCmd(rootCmd *cobra.Command) {
 		Use:   "forge",
 		Short: "Forge configuration files from moldings.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger := instrumentation.NewLogger(cfg.Debug).With("cmd.name", "forge")
+			logger := instrumentation.NewLogger(cfg.Debug).With(slog.String("cmd.name", "forge"))
 			ctx := cmd.Context()
 
 			logger.DebugContext(ctx, "starting command", slog.String("cfg.file", cfg.File))
