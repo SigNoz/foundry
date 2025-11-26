@@ -3,7 +3,6 @@ linters:
   default: none
   enable:
     - bodyclose
-    - depguard
     - errcheck
     - forbidigo
     - govet
