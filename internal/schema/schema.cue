@@ -1,5 +1,9 @@
 package schema
 
+import (
+	oc "github.com/signoz/foundry/moldings/otel_collector"
+)
+
 // Schema version must follow semantic versioning
 #SchemaVersion: =~"^v[0-9]+$"
 
@@ -20,6 +24,12 @@ package schema
 	env?: [...#EnvVar]
 }
 
+// Otel Collector Defination
+#OtelCollectorComponent: {
+	#Component
+
+	config: oc.#OtelCollector
+}
 // Platform-specific requirements
 _requirements: {
 	docker: ["docker", "docker-compose"]
@@ -37,7 +47,10 @@ _requirements: {
 	platform:      #Platform
 
 	// Components involved in the deployment
-	components: [string]: #Component
+	components: {
+		[string]: #Component
+		"otel-collector"?: #OtelCollectorComponent
+	}
 
 	// Requirements based on platform
 	requirements: _requirements[platform]
