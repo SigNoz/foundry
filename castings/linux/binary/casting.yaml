@@ -1,7 +1,0 @@
-platform: linux
-components:
-  zookeeper:
-    env:
-  postgres:
-    enabled: false
-  
