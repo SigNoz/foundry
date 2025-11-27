@@ -16,7 +16,10 @@ components:
     enabled: true
     replicas: 1 # Single instance
     version: "3.7"
-  signoz-collector:
-    enabled: true
+  otelCollector:
+    enabled: true 
     replicas: 2 # HA configuration
     version: "0.39.2"
+    config:
+      otlp:
+        grpc_endpoint: "0.0.0.0:4317"

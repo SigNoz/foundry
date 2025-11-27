@@ -13,6 +13,7 @@ import (
 	"cuelang.org/go/encoding/yaml"
 	"github.com/SigNoz/foundry/internal/instrumentation"
 	"github.com/spf13/cobra"
+	"cuelang.org/go/cue/load"
 )
 
 var (
@@ -22,7 +23,7 @@ var (
 )
 
 const (
-	schemaFileName = "../../internal/schema/schema.cue"
+	schemaFileName = "internal/schema/schema.cue"
 )
 
 func registerGaugeCmd(rootCmd *cobra.Command) {
@@ -77,23 +78,32 @@ func compileDataFile(ctx *cue.Context, filename string, data []byte) (cue.Value,
 	return expr, err
 }
 
+func loadSchema(ctx *cue.Context) (cue.Value, error) {
+	cfg := &load.Config{
+		Dir: ".",                // repo root relative to cmd/foundryctl
+		Module: "github.com/signoz/foundry",
+	}
+	insts := load.Instances([]string{"./internal/schema"}, cfg)
+	if len(insts) == 0 {
+		return cue.Value{}, fmt.Errorf("no schema instances found")
+	}
+	if insts[0].Err != nil {
+		return cue.Value{}, insts[0].Err
+	}
+	return ctx.BuildInstance(insts[0]), nil
+}
+
 func validateConfig(filename string) error {
 	configFile, err := os.ReadFile(filename)
 	if err != nil {
 		return errorFilenotFound
 	}
 
-	schemaFile, err := os.ReadFile(schemaFileName)
-	if err != nil {
-		return errorSchemaNotFound
-	}
-
 	ctx := cuecontext.New()
 
-	// Compile schema
-	schema := ctx.CompileBytes(schemaFile, cue.Filename(schemaFileName))
-	if schema.Err() != nil {
-		return fmt.Errorf("schema compilation error:\n%s", errors.Details(schema.Err(), nil))
+	schema, err := loadSchema(ctx)
+	if err != nil {
+		return fmt.Errorf("schema compilation error:\n%s", errors.Details(err, nil))
 	}
 
 	// Compile data based on file extension
@@ -111,11 +121,11 @@ func validateConfig(filename string) error {
 	// Unify and validate
 	unified := configSchema.Unify(data)
 	if err := unified.Validate(cue.Concrete(true)); err != nil {
-		// Use errors.Details for much better error messages
+		// Use errors.Details for much better error messages``
 		logger.Error("Validation failed")
-		return fmt.Errorf("validation failed")
+		return fmt.Errorf("validation failed: %s", errors.Details(err, nil))
 	}
 
-	logger.Info("✓ Valid Schema")
+	logger.Info("✓ Valid Configuration")
 	return nil
 }
