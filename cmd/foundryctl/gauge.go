@@ -23,7 +23,7 @@ var (
 )
 
 const (
-	schemaFileName = "internal/schema/schema.cue"
+	schemaFileName = "internal/molding/schema.cue"
 )
 
 func registerGaugeCmd(rootCmd *cobra.Command) {

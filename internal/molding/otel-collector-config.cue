@@ -74,6 +74,7 @@ package otel_collector
 	}
 }
 
+
 // Receivers builder
 #Receivers: {
 	_config: #Config
@@ -103,7 +104,8 @@ package otel_collector
 #Processors: {
 	_config: #Config
 
-	batch: {
+	batch: {`
+	f`
 		send_batch_size:     _config.batch.send_size
 		send_batch_max_size: _config.batch.max_size
 		timeout:             _config.batch.timeout
