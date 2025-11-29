@@ -1,18 +1,23 @@
 package schema
 
 import (
-    oc "github.com/signoz/foundry/moldings/otel_collector"
+    oc "github.com/signoz/foundry/internal/molding/otel_collector"
 )
 
+// Matches versions like v1, v2, v3
 #SchemaVersion: =~"^v[0-9]+$"
+
+// Supported platform identifiers
 #Platform: "docker" | "linux" | "kubernetes" | "aws" | "gcp" | "azure" | "windows"
 
+// Environment variable key-value pair
 #EnvVar: {
     key:   string
     value: string
 }
 
-// 1. OPEN Base: Defines the fields, but allows extension
+// Base definition for a deployable component.
+// Common fields shared across all components.
 _baseComponent: {
     enabled:  bool
     replicas: int & >=1
@@ -20,19 +25,23 @@ _baseComponent: {
     env?: [...#EnvVar]
 }
 
-// 2. CLOSED Default: Used for standard components (signoz, etc.)
+// Generic component definition used when a component
+// does not require any special fields.
 #Component: _baseComponent
 
-// 3. CLOSED Specific: Used for otelCollector
+// Component definition for the SigNoz OTel Collector.
+// Adds an optional `config` field validated by the OTel Collector schema.
 #OtelCollectorComponent: _baseComponent & {
-    config?: oc.#OtelCollector
+    config?: oc.#CollectorConfig
 }
 
-// 4. Registry: ONLY contains special cases. NO [string] fallback here.
+// Known components that have special schemas.
+// Components listed here override the generic component definition.
 #ComponentRegistry: {
-    otelCollector: #OtelCollectorComponent
+    signozOtelCollector: #OtelCollectorComponent
 }
 
+// Platform-specific external requirements.
 _requirements: {
     docker:     ["docker", "docker-compose"]
     linux:      ["systemd", "curl", "tar"]
@@ -43,15 +52,14 @@ _requirements: {
     windows:    ["powershell", "chocolatey"]
 }
 
+// Top-level configuration schema for a Foundry casting.
+// Selects the appropriate component schema based on ID.
+// Falls back to the generic component definition if not matched.
 #Config: {
     schemaVersion: #SchemaVersion
     platform:      #Platform
 
     components: {
-        // THE FIX:
-        // Try to look up the ID in the Registry.
-        // If found, use that schema.
-        // If NOT found (lookup returns bottom _|_), fall back to #Component.
         [ID=string]: #ComponentRegistry[ID] | #Component
     }
 

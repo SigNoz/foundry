@@ -1,1 +1,0 @@
-server_endpoint: ws://${SIGNOZ_HOST}:4320/v1/opamp

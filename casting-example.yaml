@@ -8,6 +8,9 @@ components:
     env:
       - key: CLICKHOUSE_HOST
         value: localhost:9000
+    # config:
+    #   alertmanager:
+    #     provider: xxxx
   clickhouse:
     enabled: true
     replicas: 3 # HA configuration
@@ -20,6 +23,12 @@ components:
     enabled: true 
     replicas: 2 # HA configuration
     version: "0.39.2"
+    env:
+      - key: CLICKHOUSE_HOST
+        value: localhost:9000
     config:
-  signozSchemaMigrator:
-    
+      receivers:
+        otlp:
+          protocols:
+            grpc:
+              endpoint: "0.0.0.0:4317"
