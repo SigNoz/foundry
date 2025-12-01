@@ -1,6 +1,6 @@
 package signoz
 
-// Common enums / helpers
+// Common enums
 #LogLevel: "debug" | "info" | "warn" | "error"
 
 #CacheProvider: "memory" | "redis"

@@ -1,4 +1,3 @@
-// internal/molding/signoz/defaults.cue
 package signoz
 
 #BaseConfig: #ConfigSpec & {

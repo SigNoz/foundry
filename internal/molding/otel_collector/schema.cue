@@ -1,9 +1,6 @@
 package otel_collector
-// =========================================================
-//                     OTel Collector Schema
-// =========================================================
 
-// ----------- Common Types ----------
+// Common Types
 #Endpoint: string & =~"^[^:]+:[0-9]+$"
 
 #TLSConfig: {
@@ -13,7 +10,7 @@ package otel_collector
     insecure?: bool
 }
 
-// ----------- OTLP Receiver ----------
+// OTLP Receiver
 #GRPCProtocol: {
     endpoint?: #Endpoint
     transport?: string & =~"^(tcp|unix)$"
@@ -35,7 +32,7 @@ package otel_collector
     }
 }
 
-// ----------- Prometheus Receiver ----------
+// Prometheus Receiver
 #ScrapeConfig: {
     job_name: string
     scrape_interval?: string & =~"^[0-9]+(s|m|h)$"
@@ -54,7 +51,7 @@ package otel_collector
     }
 }
 
-// ----------- Top-level Sections ----------
+// Top-level Sections
 #Receivers: {
     otlp?: #OTLPReceiver
     prometheus?: #PrometheusReceiver

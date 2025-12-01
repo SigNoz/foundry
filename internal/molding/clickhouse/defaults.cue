@@ -1,19 +1,14 @@
-// internal/molding/clickhouse/defaults.cue
 package clickhouse
-
-// Validation enums strictly for fields used in your config
-_loggerLevel: "none" | "fatal" | "critical" | "error" | "warning" | "notice" | "information" | "debug" | "trace"
-_loggerFormattingType: "json" | "pattern" | "console"
 
 _server: {
     clickhouse: {
         // ClickHouse override semantics
         '@replace': *"true" | string
         logger: {
-            level: *"information" | _loggerLevel
+            level: *"information" | #LoggerLevel
 
             formatting: {
-                type: *"json" | _loggerFormattingType
+                type: *"json" | #LoggerFormattingType
             }
 
             log:      *"/var/log/clickhouse-server/clickhouse-server.log" | string
@@ -71,21 +66,14 @@ _server: {
 }
 
 
-// Allowed load_balancing strategies from ClickHouse docs.
-_loadBalancing: "random" |
-    "nearest_hostname" |
-    "hostname_levenshtein_distance" |
-    "in_order" |
-    "first_or_random"
-
-// This models the users.xml-style config (clickhouse root).
+// users.xml-style config
 _users: {
     clickhouse: {
         profiles: {
             // Default profile
             default: {
                 max_memory_usage: *10000000000 | int
-                load_balancing: *"random" | _loadBalancing
+                load_balancing: *"random" | #LoadBalancing
                 user_compressed_cache: *0 | int
                 log_queries: *1 | int
             }
@@ -125,6 +113,7 @@ _users: {
     ...
 }
 
+// custom-function.xml style config
 _customFunction : {
     functions: {
         function: {

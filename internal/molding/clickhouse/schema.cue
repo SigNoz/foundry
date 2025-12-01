@@ -1,5 +1,13 @@
-// internal/molding/clickhouse/schema.cue
 package clickhouse
+
+// Commons helpers
+#LoggerLevel: "none" | "fatal" | "critical" | "error" | "warning" | "notice" | "information" | "debug" | "trace"
+#LoggerFormattingType: "json" | "pattern" | "console"
+#LoadBalancing: "random" |
+    "nearest_hostname" |
+    "hostname_levenshtein_distance" |
+    "in_order" |
+    "first_or_random"
 
 #ConfigSpec: {	
 	// File: config.yaml (main ClickHouse configuration)

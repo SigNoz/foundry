@@ -1,9 +1,5 @@
 package otel_collector
-// =========================================================
-//                  DEFAULT OTel Collector Config
-// =========================================================
 
-// Clickhouse host and port, values taken from environment variables
 _clickhouse: {
         host:    *"clickhouse"| string @tag(CLICKHOUSE_HOST)
 		port:    *9000 | int @tag(CLICKHOUSE_PORT)
