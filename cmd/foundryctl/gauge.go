@@ -18,13 +18,9 @@ import (
 
 var (
 	errorFilenotFound   = errors.New("File not found")
-	errorSchemaNotFound = errors.New("Schema file not found")
 	logger              = instrumentation.NewLogger(cfg.Debug).With(slog.String("cmd.name", "gauge"))
 )
 
-const (
-	schemaFileName = "internal/molding/schema.cue"
-)
 
 func registerGaugeCmd(rootCmd *cobra.Command) {
 	gaugeCmd := &cobra.Command{
