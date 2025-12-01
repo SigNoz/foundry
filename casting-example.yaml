@@ -15,6 +15,10 @@ components:
     enabled: true
     replicas: 3 # HA configuration
     version: "24.8"
+    config:
+      serverConfig:
+        clickhouse:
+          logger: "trace"
   zookeeper:
     enabled: true
     replicas: 1 # Single instance

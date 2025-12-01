@@ -2,6 +2,8 @@ package schema
 
 import (
     oc "github.com/signoz/foundry/internal/molding/otel_collector"
+    ch "github.com/signoz/foundry/internal/molding/clickhouse"
+
 )
 
 // Matches versions like v1, v2, v3
@@ -29,16 +31,15 @@ _baseComponent: {
 // does not require any special fields.
 #Component: _baseComponent
 
-// Component definition for the SigNoz OTel Collector.
-// Adds an optional `config` field validated by the OTel Collector schema.
-#OtelCollectorComponent: _baseComponent & {
-    config?: oc.#CollectorConfig
-}
-
 // Known components that have special schemas.
 // Components listed here override the generic component definition.
 #ComponentRegistry: {
-    signozOtelCollector: #OtelCollectorComponent
+    signozOtelCollector: _baseComponent & {
+        config?: oc.#Config
+    }
+    clickhouse: _baseComponent & {
+        config?: ch.#Config
+    }
 }
 
 // Platform-specific external requirements.
@@ -60,7 +61,8 @@ _requirements: {
     platform:      #Platform
 
     components: {
-        [ID=string]: #ComponentRegistry[ID] | #Component
+        [ID=string]: (#ComponentRegistry[ID] | *#Component)
+
     }
 
     requirements: _requirements[platform]
