@@ -9,7 +9,7 @@ _clickhouse: {
 		port:    *9000 | int @tag(CLICKHOUSE_PORT)
 }
 
-_baseConfigValues: #ConfigSpec & {
+#BaseConfig: #ConfigSpec & {
     connectors:{
         signozmeter:{
             metrics_flush_interval: *"1h" | string
@@ -155,8 +155,3 @@ _baseConfigValues: #ConfigSpec & {
         }
     }
 }
-
-_overrides: #ConfigSpec
-
-// Merge and output
-#BaseConfig: #ConfigSpec & _baseConfigValues & _overrides
