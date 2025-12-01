@@ -24,6 +24,8 @@ components:
     enabled: true
     replicas: 1 # Single instance
     version: "3.7"
+    config:
+      tickTime: 2182
   signozOtelCollector:
     enabled: true 
     replicas: 2 # HA configuration
@@ -37,3 +39,5 @@ components:
           protocols:
             grpc:
               endpoint: "0.0.0.0:4317"
+        azure:
+          endpoint: "0.0.0.0:4317"

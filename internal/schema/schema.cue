@@ -4,6 +4,8 @@ import (
     otelCollectorConfig "github.com/signoz/foundry/internal/molding/otel_collector"
     clickhouseConfig    "github.com/signoz/foundry/internal/molding/clickhouse"
     signozConfig        "github.com/signoz/foundry/internal/molding/signoz"
+    zookeeperConfig        "github.com/signoz/foundry/internal/molding/zookeeper"
+
 )
 
 // Matches versions like v1, v2, v3
@@ -42,6 +44,9 @@ _baseComponent: {
     }
     signoz: _baseComponent & {
         config?: signozConfig.#BaseConfig
+    }
+    zookeeper: _baseComponent & {
+        config?: zookeeperConfig.#BaseConfig
     }
 }
 
