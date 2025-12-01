@@ -25,3 +25,5 @@ package zookeeper
     // Allow user to extend anything
     ...
 }
+
+#BaseConfig

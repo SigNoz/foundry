@@ -14,19 +14,12 @@ import (
 // Supported platform identifiers
 #Platform: "docker" | "linux" | "kubernetes" | "aws" | "gcp" | "azure" | "windows"
 
-// Environment variable key-value pair
-#EnvVar: {
-    key:   string
-    value: string
-}
-
 // Base definition for a deployable component.
 // Common fields shared across all components.
 _baseComponent: {
     enabled:  bool
     replicas: int & >=1
     version:  string & =~"^[0-9]+\\.[0-9]+(\\.[0-9]+)?(-.*)?$"
-    env?: [...#EnvVar]
 }
 
 // Generic component definition used when a component

@@ -8,7 +8,7 @@ _loggerFormattingType: "json" | "pattern" | "console"
 _server: {
     clickhouse: {
         // ClickHouse override semantics
-        replace: *"true" | string
+        '@replace': *"true" | string
         logger: {
             level: *"information" | _loggerLevel
 
@@ -156,3 +156,4 @@ _customFunction : {
     usersConfig: _users
     customFunctionConfig: _customFunction
 }
+#BaseConfig

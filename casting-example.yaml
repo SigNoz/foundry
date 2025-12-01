@@ -4,17 +4,14 @@ components:
   signoz:
     enabled: true
     replicas: 3 # HA configuration
-    version: "0.39.2"
-    env:
-      - key: CLICKHOUSE_HOST
-        value: localhost:9000
+    version: "0.100.2"
     config:
       alertmanager:
         provider: signoz
   clickhouse:
     enabled: true
     replicas: 3 # HA configuration
-    version: "24.8"
+    version: "25.5.6"
     config:
       serverConfig:
         clickhouse:
@@ -29,10 +26,7 @@ components:
   signozOtelCollector:
     enabled: true 
     replicas: 2 # HA configuration
-    version: "0.39.2"
-    env:
-      - key: CLICKHOUSE_HOST
-        value: localhost:9000
+    version: "0.139.2"
     config:
       receivers:
         otlp:

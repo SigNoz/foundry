@@ -252,3 +252,5 @@ package signoz
         }
     }
 }
+
+#BaseConfig
