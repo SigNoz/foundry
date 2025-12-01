@@ -84,7 +84,7 @@ package otel_collector
     pipelines?: #Pipelines
 }
 
-#Config: {
+#ConfigSpec: {
     connectors?: #Connectors
     receivers?:  #Receivers
     processors?: #Processors

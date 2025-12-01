@@ -1,10 +1,9 @@
 package schema
 
 import (
-    oc "github.com/signoz/foundry/internal/molding/otel_collector"
-    ch "github.com/signoz/foundry/internal/molding/clickhouse"
-    signoz_molding "github.com/signoz/foundry/internal/molding/signoz"
-
+    otelCollectorConfig "github.com/signoz/foundry/internal/molding/otel_collector"
+    clickhouseConfig    "github.com/signoz/foundry/internal/molding/clickhouse"
+    signozConfig        "github.com/signoz/foundry/internal/molding/signoz"
 )
 
 // Matches versions like v1, v2, v3
@@ -36,13 +35,13 @@ _baseComponent: {
 // Components listed here override the generic component definition.
 #ComponentRegistry: {
     signozOtelCollector: _baseComponent & {
-        config?: oc.#Defaults
+        config?: otelCollectorConfig.#BaseConfig
     }
     clickhouse: _baseComponent & {
-        config?: ch.#Defaults
+        config?: clickhouseConfig.#BaseConfig
     }
     signoz: _baseComponent & {
-        config?: signoz_molding.#Defaults
+        config?: signozConfig.#BaseConfig
     }
 }
 

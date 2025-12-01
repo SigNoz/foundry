@@ -9,7 +9,7 @@ _clickhouse: {
 		port:    *9000 | int @tag(CLICKHOUSE_PORT)
 }
 
-_defaults: #Config & {
+_baseConfigValues: #ConfigSpec & {
     connectors:{
         signozmeter:{
             metrics_flush_interval: *"1h" | string
@@ -156,12 +156,7 @@ _defaults: #Config & {
     }
 }
 
-// =========================================================
-//                  Final Output
-// =========================================================
-
-// Import overrides
-_overrides: #Config
+_overrides: #ConfigSpec
 
 // Merge and output
-#Defaults: #Config & _defaults & _overrides
+#BaseConfig: #ConfigSpec & _baseConfigValues & _overrides

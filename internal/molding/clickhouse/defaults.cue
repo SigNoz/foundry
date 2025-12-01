@@ -151,7 +151,7 @@ _customFunction : {
     }
 }
 
-#Defaults: #Config & {
+#BaseConfig: #ConfigSpec & {
     serverConfig: _server
     usersConfig: _users
     customFunctionConfig: _customFunction

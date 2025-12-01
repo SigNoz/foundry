@@ -1,7 +1,7 @@
 // internal/molding/clickhouse/schema.cue
 package clickhouse
 
-#Config: {	
+#ConfigSpec: {	
 	// File: config.yaml (main ClickHouse configuration)
 	serverConfig?: {
 		[string]: _ 

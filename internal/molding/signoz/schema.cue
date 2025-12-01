@@ -13,7 +13,7 @@ package signoz
 // Go-style duration strings: 1s, 5m, 6h, 120h, etc.
 #Duration: =~"^[0-9]+(ns|us|µs|ms|s|m|h)$"
 
-#Config: {
+#ConfigSpec: {
     version: {
         banner: {
             enabled: bool

@@ -1,7 +1,7 @@
 // internal/molding/signoz/defaults.cue
 package signoz
 
-#Defaults: #Config & {
+#BaseConfig: #ConfigSpec & {
     version: {
         banner: {
             enabled: *true | bool
