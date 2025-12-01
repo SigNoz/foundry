@@ -8,9 +8,9 @@ components:
     env:
       - key: CLICKHOUSE_HOST
         value: localhost:9000
-    # config:
-    #   alertmanager:
-    #     provider: xxxx
+    config:
+      alertmanager:
+        provider: signoz
   clickhouse:
     enabled: true
     replicas: 3 # HA configuration
@@ -18,7 +18,8 @@ components:
     config:
       serverConfig:
         clickhouse:
-          logger: "trace"
+          logger: 
+            level: "trace"
   zookeeper:
     enabled: true
     replicas: 1 # Single instance

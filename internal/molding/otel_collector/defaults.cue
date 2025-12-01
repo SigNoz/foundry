@@ -164,4 +164,4 @@ _defaults: #Config & {
 _overrides: #Config
 
 // Merge and output
-config: #Config & _defaults & _overrides
+#Defaults: #Config & _defaults & _overrides
