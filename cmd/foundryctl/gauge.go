@@ -21,6 +21,25 @@ var (
 	logger              = instrumentation.NewLogger(cfg.Debug).With(slog.String("cmd.name", "gauge"))
 )
 
+var(
+	module = "github.com/signoz/foundry"
+	schemaPath = "./internal/casting.cue"
+)
+
+func loadSchema(ctx *cue.Context)(cue.Value, error){
+	cfg := &load.Config{
+		Dir: ".",
+		Module: module,
+	}
+
+	insts := load.Instances([]string{schemaPath}, cfg)
+	if len(insts) == 0{
+		return cue.Value{}, insts[0].Err
+	}
+
+	return ctx.BuildInstance(insts[0]), nil
+}
+
 
 func registerGaugeCmd(rootCmd *cobra.Command) {
 	gaugeCmd := &cobra.Command{
@@ -74,20 +93,6 @@ func compileDataFile(ctx *cue.Context, filename string, data []byte) (cue.Value,
 	return expr, err
 }
 
-func loadSchema(ctx *cue.Context) (cue.Value, error) {
-	cfg := &load.Config{
-		Dir: ".",                // repo root relative to cmd/foundryctl
-		Module: "github.com/signoz/foundry",
-	}
-	insts := load.Instances([]string{"./internal/schema"}, cfg)
-	if len(insts) == 0 {
-		return cue.Value{}, fmt.Errorf("no schema instances found")
-	}
-	if insts[0].Err != nil {
-		return cue.Value{}, insts[0].Err
-	}
-	return ctx.BuildInstance(insts[0]), nil
-}
 
 func validateConfig(filename string) error {
 	configFile, err := os.ReadFile(filename)
