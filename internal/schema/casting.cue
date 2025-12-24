@@ -1,9 +1,9 @@
 
 import (
-	signozOtelCollectorConfig "github.com/signoz/foundry/internal/molding/signozotelcollector"
-	clickhouseConfig "github.com/signoz/foundry/internal/molding/clickhouse"
-	signozConfig "github.com/signoz/foundry/internal/molding/signoz"
-	zookeeperConfig "github.com/signoz/foundry/internal/molding/zookeeper"
+	signozOtelCollectorConfig "github.com/signoz/foundry/internal/schema/molding/signozotelcollector"
+	clickhouseConfig "github.com/signoz/foundry/internal/schema/molding/clickhouse"
+	signozConfig "github.com/signoz/foundry/internal/schema/molding/signoz"
+	zookeeperConfig "github.com/signoz/foundry/internal/schema/molding/zookeeper"
 
 )
 

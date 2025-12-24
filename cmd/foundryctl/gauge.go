@@ -23,7 +23,7 @@ var (
 
 var(
 	module = "github.com/signoz/foundry"
-	schemaPath = "./internal/casting.cue"
+	schemaPath = "./internal/schema/casting.cue"
 )
 
 func loadSchema(ctx *cue.Context)(cue.Value, error){
