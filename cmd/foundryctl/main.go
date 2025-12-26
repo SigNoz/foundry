@@ -9,7 +9,6 @@ import (
 )
 
 func main() {
-
 	rootCmd := &cobra.Command{
 		Use:          "foundryctl",
 		SilenceUsage: true,
