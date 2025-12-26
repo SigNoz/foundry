@@ -27,17 +27,27 @@ const (
 
 func loadSchema(ctx *cue.Context, logger *slog.Logger) (cue.Value, error) {
 	cfg := &load.Config{
-		Dir:    ".",
+		Dir:    "../../", // Moved to the root of the repository in latest changes, adjusting
 		Module: module,
 	}
 	logger.Debug("Loading and compiling schema", slog.String("schema.path", schemaPath))
 
 	instance := load.Instances([]string{schemaPath}, cfg)
 	if len(instance) == 0 {
-		return cue.Value{}, instance[0].Err
+		return cue.Value{}, fmt.Errorf("no instances loaded for schema path %s", schemaPath)
 	}
 
-	return ctx.BuildInstance(instance[0]), nil
+	inst := instance[0]
+	if inst.Err != nil {
+		return cue.Value{}, fmt.Errorf("schema loading error:\n%s", errors.Details(inst.Err, nil))
+	}
+
+	value := ctx.BuildInstance(inst)
+	if value.Err() != nil {
+		return cue.Value{}, fmt.Errorf("schema compilation error:\n%s", errors.Details(value.Err(), nil))
+	}
+
+	return value, nil
 }
 
 func registerGaugeCmd(rootCmd *cobra.Command) {
@@ -82,7 +92,7 @@ func compileDataFile(ctx *cue.Context, filename string, data []byte) (cue.Value,
 		expr = ctx.BuildExpr(jsonExpr)
 
 	default:
-		return cue.Value{}, fmt.Errorf("unsupported file format: %s (supported: .yaml, .yml, .json, .toml)", ext)
+		return cue.Value{}, fmt.Errorf("unsupported file format: %s (supported: .yaml, .yml, .json)", ext)
 	}
 
 	if expr.Err() != nil {
@@ -105,6 +115,8 @@ func validateConfig(filename string, logger *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("schema compilation error:\n%s", errors.Details(err, nil))
 	}
+	schemaString, _ := schema.String()
+	logger.Debug("Schema loaded:", slog.String("schema", schemaString))
 
 	// Compile data based on file extension
 	data, err := compileDataFile(ctx, filename, configFile)
