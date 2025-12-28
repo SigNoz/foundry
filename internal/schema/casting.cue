@@ -1,3 +1,5 @@
+package casting
+
 import (
 	signozOtelCollectorConfig "github.com/signoz/foundry/internal/schema/molding/signozotelcollector"
 	clickhouseConfig "github.com/signoz/foundry/internal/schema/molding/clickhouse"
