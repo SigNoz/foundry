@@ -27,6 +27,7 @@ const (
 	schemaPath = "./internal/schema/casting.cue"
 )
 
+// func loadSchema loads and compiles the CUE schema from the specified path.
 func loadSchema(ctx *cue.Context, logger *slog.Logger) (cue.Value, error) {
 	cfg := &load.Config{
 		Dir:    "../../", // Moved to the root of the repository in latest changes, adjusting
@@ -52,6 +53,7 @@ func loadSchema(ctx *cue.Context, logger *slog.Logger) (cue.Value, error) {
 	return value, nil
 }
 
+// func RunGauge is the main function for the gauge command.
 func runGauge(cmd *cobra.Command, _ []string) error {
 	logger := instrumentation.NewLogger(cfg.Debug).With(slog.String("cmd.name", "gauge"))
 	ctx := cmd.Context()
@@ -78,6 +80,7 @@ func runGauge(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
+// func compileDataFile compiles the configuration file based on its extension.
 func compileDataFile(ctx *cue.Context, filename string, data []byte) (cue.Value, error) {
 	ext := filepath.Ext(filename)
 
@@ -110,6 +113,7 @@ func compileDataFile(ctx *cue.Context, filename string, data []byte) (cue.Value,
 	return expr, err
 }
 
+// func validateConfig validates the configuration file against the schema.
 func validateConfig(filename string, logger *slog.Logger) (cue.Value, error) {
 	configFile, err := os.ReadFile(filename)
 	if err != nil {
@@ -152,6 +156,7 @@ func validateConfig(filename string, logger *slog.Logger) (cue.Value, error) {
 	return cueFileParsed, nil
 }
 
+// func getRequirements extracts the list of required tools from the CUE configuration.
 func getRequirements(cueFile cue.Value, logger *slog.Logger) ([]string, error) {
 	var requirements []string
 	reqList := cueFile.LookupPath(cue.ParsePath("requirements"))
@@ -174,12 +179,13 @@ func getRequirements(cueFile cue.Value, logger *slog.Logger) ([]string, error) {
 	return requirements, nil
 }
 
-// func checkToolExists validates the tool is installed on the system
+// func checkToolExists validates the tool is installed on the system.
 func checkToolExists(toolName string) error {
 	_, err := exec.LookPath(toolName)
 	return err
 }
 
+// func registerGaugeCmd registers the gauge command with the root command.
 func registerGaugeCmd(rootCmd *cobra.Command) {
 	gaugeCmd := &cobra.Command{
 		Use:   "gauge",
