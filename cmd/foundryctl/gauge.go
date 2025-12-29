@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"cuelang.org/go/cue"
@@ -18,6 +19,7 @@ import (
 
 var (
 	errorFilenotFound = errors.New("File not found")
+	cueFileParsed     cue.Value
 )
 
 const (
@@ -50,24 +52,30 @@ func loadSchema(ctx *cue.Context, logger *slog.Logger) (cue.Value, error) {
 	return value, nil
 }
 
-func registerGaugeCmd(rootCmd *cobra.Command) {
-	gaugeCmd := &cobra.Command{
-		Use:   "gauge",
-		Short: "Gauge whether required tools are available.",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			logger := instrumentation.NewLogger(cfg.Debug).With(slog.String("cmd.name", "gauge"))
-			ctx := cmd.Context()
-			logger.DebugContext(ctx, "Starting Gauge command, using:", slog.String("cfg.file", cfg.File))
-			err := validateConfig(cfg.File, logger)
-			if err != nil {
-				logger.ErrorContext(ctx, "failed to validate config", slog.String("cfg.file", cfg.File), slog.String("error", err.Error()))
-			}
-
-			return nil
-		},
+func runGauge(cmd *cobra.Command, _ []string) error {
+	logger := instrumentation.NewLogger(cfg.Debug).With(slog.String("cmd.name", "gauge"))
+	ctx := cmd.Context()
+	logger.DebugContext(ctx, "Starting Gauge command, using:", slog.String("cfg.file", cfg.File))
+	config, err := validateConfig(cfg.File, logger)
+	if err != nil {
+		logger.ErrorContext(ctx, "failed to validate config", slog.String("cfg.file", cfg.File), slog.String("error", err.Error()))
+		return err
 	}
-
-	rootCmd.AddCommand(gaugeCmd)
+	requirements, err := getRequirements(config, logger)
+	if err != nil {
+		logger.ErrorContext(ctx, "failed to get requirements from config", slog.String("cfg.file", cfg.File), slog.String("error", err.Error()))
+		return err
+	}
+	logger.InfoContext(ctx, "Required tools:", slog.String("tools", fmt.Sprintf("%v", requirements)))
+	for _, v := range requirements {
+		err := checkToolExists(v)
+		if err != nil {
+			logger.WarnContext(ctx, "Tool not found", slog.String("tool.name", v))
+		} else {
+			logger.InfoContext(ctx, "Tool is available", slog.String("tool.name", v))
+		}
+	}
+	return nil
 }
 
 func compileDataFile(ctx *cue.Context, filename string, data []byte) (cue.Value, error) {
@@ -102,10 +110,10 @@ func compileDataFile(ctx *cue.Context, filename string, data []byte) (cue.Value,
 	return expr, err
 }
 
-func validateConfig(filename string, logger *slog.Logger) error {
+func validateConfig(filename string, logger *slog.Logger) (cue.Value, error) {
 	configFile, err := os.ReadFile(filename)
 	if err != nil {
-		return errorFilenotFound
+		return cueFileParsed, errorFilenotFound
 	}
 	logger.Debug("Read configuration file", slog.String("file.path", filename))
 
@@ -113,7 +121,7 @@ func validateConfig(filename string, logger *slog.Logger) error {
 
 	schema, err := loadSchema(ctx, logger)
 	if err != nil {
-		return fmt.Errorf("schema compilation error:\n%s", errors.Details(err, nil))
+		return cueFileParsed, fmt.Errorf("schema compilation error:\n%s", errors.Details(err, nil))
 	}
 	schemaString, _ := schema.String()
 	logger.Debug("Schema loaded:", slog.String("schema", schemaString))
@@ -121,13 +129,13 @@ func validateConfig(filename string, logger *slog.Logger) error {
 	// Compile data based on file extension
 	data, err := compileDataFile(ctx, filename, configFile)
 	if err != nil {
-		return err
+		return cueFileParsed, err
 	}
 
 	// Lookup #Config definition
 	configSchema := schema.LookupPath(cue.ParsePath("#Config"))
 	if configSchema.Err() != nil {
-		return fmt.Errorf("#Config not found in schema:\n%s", errors.Details(configSchema.Err(), nil))
+		return cueFileParsed, fmt.Errorf("#Config not found in schema:\n%s", errors.Details(configSchema.Err(), nil))
 	}
 
 	// Unify and validate
@@ -135,9 +143,49 @@ func validateConfig(filename string, logger *slog.Logger) error {
 	if err := unified.Validate(cue.Concrete(true)); err != nil {
 		// Use errors.Details for much better error messages``
 		logger.Error("Validation failed")
-		return fmt.Errorf("validation failed: %s", errors.Details(err, nil))
+		return cueFileParsed, fmt.Errorf("validation failed: %s", errors.Details(err, nil))
 	}
 
+	cueFileParsed = unified
+
 	logger.Info("✓ Valid Configuration")
-	return nil
+	return cueFileParsed, nil
+}
+
+func getRequirements(cueFile cue.Value, logger *slog.Logger) ([]string, error) {
+	var requirements []string
+	reqList := cueFile.LookupPath(cue.ParsePath("requirements"))
+	logger.Debug("Looking up requirements")
+	if reqList.Err() != nil {
+		return requirements, fmt.Errorf("failed to lookup requirements:\n%s", errors.Details(reqList.Err(), nil))
+	}
+	iter, err := reqList.List()
+	if err != nil {
+		return requirements, fmt.Errorf("failed to iterate requirements:\n%s", errors.Details(err, nil))
+	}
+	for iter.Next() {
+		req := iter.Value()
+		reqStr, err := req.String()
+		if err != nil {
+			return requirements, fmt.Errorf("failed to convert requirement to string:\n%s", errors.Details(err, nil))
+		}
+		requirements = append(requirements, reqStr)
+	}
+	return requirements, nil
+}
+
+// func checkToolExists validates the tool is installed on the system
+func checkToolExists(toolName string) error {
+	_, err := exec.LookPath(toolName)
+	return err
+}
+
+func registerGaugeCmd(rootCmd *cobra.Command) {
+	gaugeCmd := &cobra.Command{
+		Use:   "gauge",
+		Short: "Gauge whether required tools are available.",
+		RunE:  runGauge,
+	}
+
+	rootCmd.AddCommand(gaugeCmd)
 }

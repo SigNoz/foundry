@@ -1,0 +1,19 @@
+schemaVersion: v1
+platform: linux
+components:
+  signoz:
+    enabled: true
+    replicas: 1
+    version: 0.100.0
+  zookeeper:
+    enabled: true
+    replicas: 1
+    version: 0.1.0
+  clickhouse:
+    enabled: true
+    replicas: 1
+    version: 1.0.0
+  signozOtelCollector:
+    enabled: true
+    replicas: 1
+    version: 0.130.0
