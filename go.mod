@@ -1,4 +1,4 @@
-module github.com/SigNoz/foundry
+module github.com/signoz/foundry
 
 go 1.25.3
 

@@ -3,10 +3,10 @@ package main
 import (
 	"log/slog"
 
-	"github.com/SigNoz/foundry/internal/instrumentation"
-	"github.com/SigNoz/foundry/internal/loader"
-	"github.com/SigNoz/foundry/internal/output"
-	"github.com/SigNoz/foundry/internal/registry"
+	"github.com/signoz/foundry/internal/instrumentation"
+	"github.com/signoz/foundry/internal/loader"
+	"github.com/signoz/foundry/internal/output"
+	"github.com/signoz/foundry/internal/registry"
 	"github.com/spf13/cobra"
 )
 

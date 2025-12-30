@@ -3,10 +3,10 @@
 package casting
 
 import (
-	clickhouseConfig "github.com/SigNoz/foundry/internal/schema/molding/clickhouse"
-	signozConfig "github.com/SigNoz/foundry/internal/schema/molding/signoz"
-	signozOtelCollectorConfig "github.com/SigNoz/foundry/internal/schema/molding/signozotelcollector"
-	zookeeperConfig "github.com/SigNoz/foundry/internal/schema/molding/zookeeper"
+	clickhouseConfig "github.com/signoz/foundry/internal/schema/molding/clickhouse"
+	signozConfig "github.com/signoz/foundry/internal/schema/molding/signoz"
+	signozOtelCollectorConfig "github.com/signoz/foundry/internal/schema/molding/signozotelcollector"
+	zookeeperConfig "github.com/signoz/foundry/internal/schema/molding/zookeeper"
 )
 
 // Matches versions like v1, v2, v3

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"errors"
 	"gopkg.in/yaml.v3"
-	casting "github.com/SigNoz/foundry/internal/schema"
+	casting "github.com/signoz/foundry/internal/schema"
 )
 
 type Generator struct{}

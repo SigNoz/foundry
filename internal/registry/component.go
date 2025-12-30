@@ -2,12 +2,12 @@ package registry
 
 import (
 	"errors"
-	"github.com/SigNoz/foundry/internal/generator"
-	"github.com/SigNoz/foundry/internal/generator/clickhouse"
-	"github.com/SigNoz/foundry/internal/generator/signoz"
-	"github.com/SigNoz/foundry/internal/generator/signozotelcollector"
-	"github.com/SigNoz/foundry/internal/generator/zookeeper"
-	"github.com/SigNoz/foundry/internal/schema"
+	"github.com/signoz/foundry/internal/generator"
+	"github.com/signoz/foundry/internal/generator/clickhouse"
+	"github.com/signoz/foundry/internal/generator/signoz"
+	"github.com/signoz/foundry/internal/generator/signozotelcollector"
+	"github.com/signoz/foundry/internal/generator/zookeeper"
+	"github.com/signoz/foundry/internal/schema"
 )
 
 type ComponentID string

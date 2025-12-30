@@ -1,8 +1,8 @@
 package registry
 
 import (
-	"github.com/SigNoz/foundry/internal/loader"
-	"github.com/SigNoz/foundry/internal/schema"
+	"github.com/signoz/foundry/internal/loader"
+	"github.com/signoz/foundry/internal/schema"
 )
 
 type Factory struct {

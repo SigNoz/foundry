@@ -7,8 +7,8 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/errors"
-	"github.com/SigNoz/foundry/internal/instrumentation"
-	"github.com/SigNoz/foundry/internal/loader"
+	"github.com/signoz/foundry/internal/instrumentation"
+	"github.com/signoz/foundry/internal/loader"
 	"github.com/spf13/cobra"
 )
 

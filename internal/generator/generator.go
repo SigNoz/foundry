@@ -1,7 +1,7 @@
 package generator
 
 import (
-	casting "github.com/SigNoz/foundry/internal/schema"
+	casting "github.com/signoz/foundry/internal/schema"
 )
 
 type Generator interface {
