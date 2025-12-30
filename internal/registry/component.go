@@ -10,10 +10,9 @@ import (
 	"github.com/SigNoz/foundry/internal/schema"
 )
 
-// ComponentID represents a type-safe component identifier
 type ComponentID string
 
-// Component identifiers from CUE schema
+// Component identifiers
 const (
 	ComponentClickHouse          ComponentID = "clickhouse"
 	ComponentSignoz              ComponentID = "signoz"
@@ -21,20 +20,17 @@ const (
 	ComponentZooKeeper           ComponentID = "zookeeper"
 )
 
-// ComponentDefinition links component with its generator
 type ComponentDefinition struct {
 	ID       ComponentID
 	Generator generator.Generator
 }
 
-// ComponentRegistry manages component generators with typed config
 type ComponentRegistry struct {
 	components    map[ComponentID]*ComponentDefinition
 	castingConfig casting.Config
 	enabledComponents map[string]bool
 }
 
-// NewComponentRegistry creates a new component registry with typed config
 func NewComponentRegistry(config casting.Config, enabledComponents map[string]bool) *ComponentRegistry {
 	registry := &ComponentRegistry{
 		components:       make(map[ComponentID]*ComponentDefinition),
@@ -42,7 +38,7 @@ func NewComponentRegistry(config casting.Config, enabledComponents map[string]bo
 		enabledComponents: enabledComponents,
 	}
 	
-	// Auto-register all components
+	// register all components
 	registry.registerAll()
 	return registry
 }
@@ -70,19 +66,19 @@ func (r *ComponentRegistry) registerAll() {
 	})
 }
 
-// register adds a component to the registry
+
 func (r *ComponentRegistry) register(def *ComponentDefinition) {
 	r.components[def.ID] = def
 }
 
-// GetByID retrieves component by type-safe ID
+// GetByID retrieves component by ID
 func (r *ComponentRegistry) GetByID(id ComponentID) (*ComponentDefinition, bool) {
 	def, ok := r.components[id]
 	return def, ok
 }
 
 
-// GenerateFiles generates files for a component by name
+// GenerateFiles generates files for a component by ID
 func (r *ComponentRegistry) GenerateFiles(id ComponentID) (map[string][]byte, error) {
 	def, ok := r.GetByID(id)
 	if !ok {
@@ -92,7 +88,6 @@ func (r *ComponentRegistry) GenerateFiles(id ComponentID) (map[string][]byte, er
 	return def.Generator.GenerateComponent(r.castingConfig)
 }
 
-// isComponentEnabled checks if a component is enabled in the configuration
 func (r *ComponentRegistry) isComponentEnabled(id ComponentID) bool {
 	if r.enabledComponents == nil {
 		return false

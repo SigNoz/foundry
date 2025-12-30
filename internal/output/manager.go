@@ -44,7 +44,6 @@ func (m *Manager) WriteComponent(name string, files map[string][]byte) error {
 
 // WriteOrchestration writes orchestration files (docker-compose, etc.)
 func (m *Manager) WriteOrchestration(files map[string][]byte) error {
-	// Write all orchestration files to root of output directory
 	for filename, content := range files {
 		fullPath := filepath.Join(m.targetDir, filename)
 		if err := os.WriteFile(fullPath, content, 0644); err != nil {

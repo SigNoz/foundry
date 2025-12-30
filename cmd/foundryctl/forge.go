@@ -57,7 +57,6 @@ func registerForgeCmd(rootCmd *cobra.Command) {
 			componentName := string(componentID)
 			logger.DebugContext(ctx, "✓ Component generated", slog.String("component", componentName),slog.Int("files", len(files)))
 				
-			// Write files to output manager
 			if err := outputMgr.WriteComponent(componentName, files); err != nil {
 				logger.ErrorContext(ctx, "write component failed", slog.String("component", componentName), slog.Any("error", err))
 				return err

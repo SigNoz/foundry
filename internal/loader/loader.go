@@ -19,7 +19,7 @@ var(
 	errorFilenotFound   = errors.New("File not found")
 )
 
-// LoadedConfig holds the parsed and validated configuration
+// LoadedConfig holds the cue values, used for generation of configs
 type LoadedConfig struct {
 	Unified           cue.Value         // User config merged with defaults
 	Platform          string            // Deployment platform (docker, linux, etc.)
@@ -81,7 +81,6 @@ func ValidateConfig(filename string) error {
 	}
 
 	if err := unified.Validate(cue.Concrete(true)); err != nil {
-		// Use errors.Details for much better error messages``
 		return fmt.Errorf("validation failed: %s", errors.Details(err, nil))
 	}
 	return nil
@@ -96,13 +95,11 @@ func unify(filename string)(cue.Value, error){
 
 	ctx := cuecontext.New()
 
-	// Load schema (reuse existing function)
 	schema, err := loadSchema(ctx)
 	if err != nil {
 		return cue.Value{}, fmt.Errorf("schema compilation error:\n%s", errors.Details(err, nil))
 	}
 
-	// Compile user data (reuse existing function)
 	data, err := compileDataFile(ctx, filename, configFile)
 	if err != nil {
 		return cue.Value{}, err
@@ -114,7 +111,6 @@ func unify(filename string)(cue.Value, error){
 		return cue.Value{}, fmt.Errorf("#Config not found in schema:\n%s", errors.Details(configSchema.Err(), nil))
 	}
 
-	// Unify schema with user data (applies defaults automatically)
 	return configSchema.Unify(data), nil
 }
 
@@ -128,7 +124,6 @@ func LoadConfig(filename string) (*LoadedConfig, error) {
 	}
 
 	if err := unified.Validate(cue.Concrete(true)); err != nil {
-		// Use errors.Details for much better error messages``
 		return &LoadedConfig{}, errors.New("validation failed:" + err.Error())
 	}
 	
@@ -136,7 +131,7 @@ func LoadConfig(filename string) (*LoadedConfig, error) {
 	platform, _ := unified.LookupPath(cue.ParsePath("platform")).String()
 	schemaVersion, _ := unified.LookupPath(cue.ParsePath("schemaVersion")).String()
 
-	// 7. Build enabled components map
+	// Build enabled components map
 	enabled := make(map[string]bool)
 	components := unified.LookupPath(cue.ParsePath("components"))
 	iter, _ := components.Fields()
@@ -154,41 +149,4 @@ func LoadConfig(filename string) (*LoadedConfig, error) {
 		SchemaVersion:     schemaVersion,
 		EnabledComponents: enabled,
 	}, nil
-}
-
-// GetComponentConfig extracts the config for a specific component
-func (lc *LoadedConfig) GetComponentConfig(name string) (cue.Value, error) {
-	path := cue.ParsePath(fmt.Sprintf("components.%s.config", name))
-	v := lc.Unified.LookupPath(path)
-
-	if !v.Exists() {
-		return cue.Value{}, fmt.Errorf("component %s not found", name)
-	}
-
-	return v, nil
-}
-
-// GetComponentVersion extracts the version for a specific component
-func (lc *LoadedConfig) GetComponentVersion(name string) (string, error) {
-	path := cue.ParsePath(fmt.Sprintf("components.%s.version", name))
-	v := lc.Unified.LookupPath(path)
-
-	if !v.Exists() {
-		return "", fmt.Errorf("version for component %s not found", name)
-	}
-
-	return v.String()
-}
-
-// GetComponentReplicas extracts the replica count for a specific component
-func (lc *LoadedConfig) GetComponentReplicas(name string) (int, error) {
-	path := cue.ParsePath(fmt.Sprintf("components.%s.replicas", name))
-	v := lc.Unified.LookupPath(path)
-
-	if !v.Exists() {
-		return 0, fmt.Errorf("replicas for component %s not found", name)
-	}
-
-	replicas, err := v.Int64()
-	return int(replicas), err
 }
