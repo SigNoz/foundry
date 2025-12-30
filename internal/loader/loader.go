@@ -2,7 +2,6 @@ package loader
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -121,7 +120,7 @@ func unify(filename string)(cue.Value, error){
 
 // LoadConfig loads and validates the casting configuration, returning the parsed config
 // with defaults applied. This is used by the forge command to generate deployment files.
-func LoadConfig(filename string, logger *slog.Logger) (*LoadedConfig, error) {
+func LoadConfig(filename string) (*LoadedConfig, error) {
 
 	unified, err := unify(filename)
 	if err != nil {
@@ -130,7 +129,7 @@ func LoadConfig(filename string, logger *slog.Logger) (*LoadedConfig, error) {
 
 	if err := unified.Validate(cue.Concrete(true)); err != nil {
 		// Use errors.Details for much better error messages``
-		return &LoadedConfig{}, fmt.Errorf("validation failed: %s", errors.Details(err, nil))
+		return &LoadedConfig{}, errors.New("validation failed:" + err.Error())
 	}
 	
 	// Extract metadata

@@ -1,7 +1,7 @@
 package zookeeper
 
 import (
-	"fmt"
+	"errors"
 	"gopkg.in/yaml.v3"
 	casting "github.com/SigNoz/foundry/internal/schema"
 )
@@ -13,12 +13,12 @@ func (g *Generator) GenerateComponent(config casting.Config) (map[string][]byte,
 
 	zookeeperComponent, exists := config.Components["zookeeper"]
 	if !exists {
-		return nil, fmt.Errorf("zookeeper component not found in config")
+		return nil, errors.New("zookeeper component not found in config")
 	}
 
 	configBytes, err := yaml.Marshal(zookeeperComponent["config"])
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal config: %w", err)
+		return nil, errors.New("failed to marshal config: " + err.Error())
 	}
 	files["zoo.cfg"] = configBytes
 

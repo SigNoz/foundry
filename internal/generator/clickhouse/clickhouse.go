@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"fmt"
+	"errors"
 	"gopkg.in/yaml.v3"
 	casting "github.com/SigNoz/foundry/internal/schema"
 )
@@ -14,7 +15,7 @@ func (g *Generator) GenerateComponent(config casting.Config) (map[string][]byte,
 
 	clickhouseComponent, exists := config.Components["clickhouse"]
 	if !exists {
-		return nil, fmt.Errorf("clickhouse component not found in config")
+		return nil, errors.New("clickhouse component not found in config")
 	}
 
 	componentConfig, ok := clickhouseComponent["config"].(map[string]any)
@@ -22,11 +23,11 @@ func (g *Generator) GenerateComponent(config casting.Config) (map[string][]byte,
 		var configBytes []byte
 		configBytes, ok = clickhouseComponent["config"].([]byte)
 		if !ok {
-			return nil, fmt.Errorf("invalid component config format")
+			return nil, errors.New("invalid component config format")
 		}
 		err := yaml.Unmarshal(configBytes, &componentConfig)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal component config: %w", err)
+			return nil, errors.New("failed to unmarshal component config: " + err.Error())
 		}
 	}
 
@@ -34,7 +35,7 @@ func (g *Generator) GenerateComponent(config casting.Config) (map[string][]byte,
 	if serverConfig, exists := componentConfig["serverConfig"]; exists {
 		configYAML, err := yaml.Marshal(serverConfig)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal serverConfig: %w", err)
+			return nil, errors.New("failed to marshal serverConfig: " + err.Error())
 		}
 		files["config.yaml"] = configYAML
 	}
@@ -43,7 +44,7 @@ func (g *Generator) GenerateComponent(config casting.Config) (map[string][]byte,
 	if usersConfig, exists := componentConfig["usersConfig"]; exists {
 		usersYAML, err := yaml.Marshal(usersConfig)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal usersConfig: %w", err)
+			return nil, errors.New("failed to marshal usersConfig: " + err.Error())
 		}
 		files["users.yaml"] = usersYAML
 	}
@@ -52,7 +53,7 @@ func (g *Generator) GenerateComponent(config casting.Config) (map[string][]byte,
 	if customFnConfig, exists := componentConfig["customFunctionConfig"]; exists {
 		customFnYAML, err := yaml.Marshal(customFnConfig)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal customFunctionConfig: %w", err)
+			return nil, errors.New("failed to marshal customFunctionConfig: " + err.Error())
 		}
 		files["custom-function.yaml"] = customFnYAML
 	}
@@ -63,7 +64,7 @@ func (g *Generator) GenerateComponent(config casting.Config) (map[string][]byte,
 			for filename, content := range configFiles {
 				fileYAML, err := yaml.Marshal(content)
 				if err != nil {
-					return nil, fmt.Errorf("failed to marshal config_d/%s: %w", filename, err)
+					return nil, errors.New("failed to marshal config_d/" + filename + ": " + err.Error())
 				}
 				files[fmt.Sprintf("config.d/%s.yaml", filename)] = fileYAML
 			}
@@ -76,7 +77,7 @@ func (g *Generator) GenerateComponent(config casting.Config) (map[string][]byte,
 			for filename, content := range userFiles {
 				fileYAML, err := yaml.Marshal(content)
 				if err != nil {
-					return nil, fmt.Errorf("failed to marshal users_d/%s: %w", filename, err)
+					return nil, errors.New("failed to marshal users_d/" + filename + ": " + err.Error())
 				}
 				files[fmt.Sprintf("users.d/%s.yaml", filename)] = fileYAML
 			}

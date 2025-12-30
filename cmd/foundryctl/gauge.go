@@ -22,7 +22,7 @@ func runGauge(cmd *cobra.Command, _ []string) error {
 	logger := instrumentation.NewLogger(cfg.Debug).With(slog.String("cmd.name", "gauge"))
 	ctx := cmd.Context()
 	logger.DebugContext(ctx, "Starting Gauge command, using:", slog.String("cfg.file", cfg.File))
-	config, err := loader.LoadConfig(cfg.File, logger)
+	config, err := loader.LoadConfig(cfg.File)
 	if err != nil {
 		logger.ErrorContext(ctx, "failed to validate config", slog.String("cfg.file", cfg.File), slog.String("error", err.Error()))
 		return err

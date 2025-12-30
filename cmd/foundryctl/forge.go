@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log/slog"
 
 	"github.com/SigNoz/foundry/internal/instrumentation"
@@ -24,9 +23,10 @@ func registerForgeCmd(rootCmd *cobra.Command) {
 		ctx := cmd.Context()
 		logger := instrumentation.NewLogger(cfg.Debug).With(slog.String("cmd.name", "forge"))
 			
-		config, err := loader.LoadConfig(cfg.File, logger)
+		config, err := loader.LoadConfig(cfg.File)
 		if err != nil {
-			return fmt.Errorf("config load failed: %w", err)
+			logger.ErrorContext(ctx, "config load failed", slog.String("error", err.Error()))
+			return err
 		}
 			
 		logger.DebugContext(ctx, "Configuration loaded",
@@ -35,18 +35,21 @@ func registerForgeCmd(rootCmd *cobra.Command) {
 
 		outputMgr, err := output.NewManager(outputDir)
 		if err != nil {
-			return fmt.Errorf("output manager init failed: %w", err)
+			logger.ErrorContext(ctx, "output manager init failed", slog.Any("error", err))
+			return err
 		}
 
 		factory, err := registry.NewFactory(config)
 		if err != nil {
-			return fmt.Errorf("failed to create registry factory: %w", err)
+			logger.ErrorContext(ctx, "failed to create registry factory", slog.Any("error", err))
+			return err
 		}
 		componentRegistry := factory.CreateComponentRegistry()
 
 		allFiles, err := componentRegistry.GenerateAllEnabled()
 		if err != nil {
-			return fmt.Errorf("failed to generate components: %w", err)
+			logger.ErrorContext(ctx, "failed to generate components", slog.Any("error", err))
+			return err
 		}
 
 		// Write all generated files
@@ -56,7 +59,8 @@ func registerForgeCmd(rootCmd *cobra.Command) {
 				
 			// Write files to output manager
 			if err := outputMgr.WriteComponent(componentName, files); err != nil {
-				return fmt.Errorf("write %s: %w", componentName, err)
+				logger.ErrorContext(ctx, "write component failed", slog.String("component", componentName), slog.Any("error", err))
+				return err
 			}
 		}
 

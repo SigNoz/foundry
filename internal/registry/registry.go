@@ -28,10 +28,10 @@ func (f *Factory) CreateComponentRegistry() *ComponentRegistry {
 	return NewComponentRegistry(f.castingConfig, f.enabledComponents)
 }
 
-func (f *Factory) CreateOrchestratorRegistry() *OrchestratorRegistry {
-	return NewOrchestratorRegistry(f.castingConfig)
-}
+// func (f *Factory) CreateOrchestratorRegistry() *OrchestratorRegistry {
+// 	return NewOrchestratorRegistry(f.castingConfig)
+// }
 
-func (f *Factory) CreateBoth() (*ComponentRegistry, *OrchestratorRegistry) {
-	return f.CreateComponentRegistry(), f.CreateOrchestratorRegistry()
-}
+// func (f *Factory) CreateBoth() (*ComponentRegistry, *OrchestratorRegistry) {
+// 	return f.CreateComponentRegistry(), f.CreateOrchestratorRegistry()
+// }

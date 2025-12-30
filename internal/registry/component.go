@@ -1,7 +1,7 @@
 package registry
 
 import (
-	"fmt"
+	"errors"
 	"github.com/SigNoz/foundry/internal/generator"
 	"github.com/SigNoz/foundry/internal/generator/clickhouse"
 	"github.com/SigNoz/foundry/internal/generator/signoz"
@@ -84,13 +84,11 @@ func (r *ComponentRegistry) GetByID(id ComponentID) (*ComponentDefinition, bool)
 
 // GenerateFiles generates files for a component by name
 func (r *ComponentRegistry) GenerateFiles(id ComponentID) (map[string][]byte, error) {
-	// Get component definition
 	def, ok := r.GetByID(id)
 	if !ok {
-		return nil, fmt.Errorf("unknown component: %s", id)
+		return nil, errors.New("unknown component: " + string(id))
 	}
 	
-// Generate files using the full casting config
 	return def.Generator.GenerateComponent(r.castingConfig)
 }
 
@@ -115,7 +113,7 @@ func (r *ComponentRegistry) GenerateAllEnabled() (map[ComponentID]map[string][]b
 		
 		files, err := r.GenerateFiles(id)
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate %s: %w", id, err)
+			return nil, errors.New("failed to generate " + string(id) + ": " + err.Error())
 		}
 		results[id] = files
 	}

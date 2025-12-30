@@ -1,7 +1,7 @@
 package signoz
 
 import (
-	"fmt"
+	"errors"
 	"gopkg.in/yaml.v3"
 	casting "github.com/SigNoz/foundry/internal/schema"
 )
@@ -13,12 +13,12 @@ func (g *Generator) GenerateComponent(config casting.Config) (map[string][]byte,
 
 	signozComponent, exists := config.Components["signoz"]
 	if !exists {
-		return nil, fmt.Errorf("signoz component not found in config")
+		return nil, errors.New("signoz component not found in config")
 	}
 
 	configYAML, err := yaml.Marshal(signozComponent["config"])
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal config: %w", err)
+		return nil, errors.New("failed to marshal config: " + err.Error())
 	}
 	files["config.yaml"] = configYAML
 
