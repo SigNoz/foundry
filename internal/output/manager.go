@@ -6,12 +6,12 @@ import (
 	"path/filepath"
 )
 
-// Manager handles writing output files
+// Manager handles writing output files.
 type Manager struct {
 	targetDir string // Output directory (./pours)
 }
 
-// NewManager creates a new output manager
+// NewManager creates a new output manager.
 func NewManager(target string) (*Manager, error) {
 	// Create output directory
 	if err := os.MkdirAll(target, 0755); err != nil {
@@ -23,7 +23,7 @@ func NewManager(target string) (*Manager, error) {
 	}, nil
 }
 
-// WriteComponent writes component configuration files
+// WriteComponent writes component configuration files.
 func (m *Manager) WriteComponent(name string, files map[string][]byte) error {
 	// Create component directory
 	componentDir := filepath.Join(m.targetDir, name)

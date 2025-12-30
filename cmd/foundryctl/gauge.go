@@ -12,11 +12,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	errorFilenotFound = errors.New("File not found")
-)
-
-
 // func RunGauge is the main function for the gauge command.
 func runGauge(cmd *cobra.Command, _ []string) error {
 	logger := instrumentation.NewLogger(cfg.Debug).With(slog.String("cmd.name", "gauge"))

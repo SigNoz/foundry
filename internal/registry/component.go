@@ -12,7 +12,7 @@ import (
 
 type ComponentID string
 
-// Component identifiers
+// Component identifiers.
 const (
 	ComponentClickHouse          ComponentID = "clickhouse"
 	ComponentSignoz              ComponentID = "signoz"
@@ -43,7 +43,7 @@ func NewComponentRegistry(config casting.Config, enabledComponents map[string]bo
 	return registry
 }
 
-// registerAll registers all known components
+// registerAll registers all known components.
 func (r *ComponentRegistry) registerAll() {
 	r.register(&ComponentDefinition{
 		ID:       ComponentClickHouse,
@@ -71,14 +71,14 @@ func (r *ComponentRegistry) register(def *ComponentDefinition) {
 	r.components[def.ID] = def
 }
 
-// GetByID retrieves component by ID
+// GetByID retrieves component by ID.
 func (r *ComponentRegistry) GetByID(id ComponentID) (*ComponentDefinition, bool) {
 	def, ok := r.components[id]
 	return def, ok
 }
 
 
-// GenerateFiles generates files for a component by ID
+// GenerateFiles generates files for a component by ID.
 func (r *ComponentRegistry) GenerateFiles(id ComponentID) (map[string][]byte, error) {
 	def, ok := r.GetByID(id)
 	if !ok {
@@ -96,7 +96,7 @@ func (r *ComponentRegistry) isComponentEnabled(id ComponentID) bool {
 	return r.enabledComponents[string(id)]
 }
 
-// GenerateAllEnabled generates files for all enabled components
+// GenerateAllEnabled generates files for all enabled components.
 func (r *ComponentRegistry) GenerateAllEnabled() (map[ComponentID]map[string][]byte, error) {
 	results := make(map[ComponentID]map[string][]byte)
 	

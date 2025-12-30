@@ -19,7 +19,7 @@ var(
 	errorFilenotFound   = errors.New("File not found")
 )
 
-// LoadedConfig holds the cue values, used for generation of configs
+// LoadedConfig holds the cue values, used for generation of configs.
 type LoadedConfig struct {
 	Unified           cue.Value         // User config merged with defaults
 	Platform          string            // Deployment platform (docker, linux, etc.)
@@ -136,7 +136,7 @@ func LoadConfig(filename string) (*LoadedConfig, error) {
 	components := unified.LookupPath(cue.ParsePath("components"))
 	iter, _ := components.Fields()
 	for iter.Next() {
-		name := iter.Label()
+		name := iter.Selector().String()
 		isEnabled, _ := iter.Value().LookupPath(cue.ParsePath("enabled")).Bool()
 		if isEnabled {
 			enabled[name] = true
