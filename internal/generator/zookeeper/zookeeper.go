@@ -15,12 +15,7 @@ func (g *Generator) GenerateComponent(config cue.Value) (map[string][]byte, erro
 	files := make(map[string][]byte)
 
 	zookeeperConfig := config.LookupPath(cue.ParsePath("components.zookeeper.config"))
-	if !zookeeperConfig.Exists() {
-		// Config is optional - generate minimal default
-		files["zoo.cfg"] = []byte("# Minimal zookeeper config\n")
-		return files, nil
-	}
-
+	
 	var configMap map[string]any
 	if err := zookeeperConfig.Decode(&configMap); err != nil {
 		return nil, errors.New("failed to decode zookeeper config: " + err.Error())

@@ -1,4 +1,4 @@
-package loader
+ package loader
 
 import (
 	"fmt"
@@ -75,7 +75,7 @@ func compileDataFile(ctx *cue.Context, filename string, data []byte) (cue.Value,
 
 
 func ValidateConfig(filename string) error {
-	unified, err := unify(filename)
+	unified, err := Unify(filename)
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func ValidateConfig(filename string) error {
 	return nil
 }
 
-func unify(filename string)(cue.Value, error){
+func Unify(filename string)(cue.Value, error){
 	// Read file
 	configFile, err := os.ReadFile(filename)
 	if err != nil {
@@ -118,7 +118,7 @@ func unify(filename string)(cue.Value, error){
 // with defaults applied. This is used by the forge command to generate deployment files.
 func LoadConfig(filename string) (*LoadedConfig, error) {
 
-	unified, err := unify(filename)
+	unified, err := Unify(filename)
 	if err != nil {
 		return &LoadedConfig{}, err
 	}

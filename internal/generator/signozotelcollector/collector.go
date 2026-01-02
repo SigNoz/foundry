@@ -14,11 +14,6 @@ func (g *Generator) GenerateComponent(config cue.Value) (map[string][]byte, erro
 
 	// Navigate to components.signozOtelCollector.config in the CUE value
 	collectorConfig := config.LookupPath(cue.ParsePath("components.signozOtelCollector.config"))
-	if !collectorConfig.Exists() {
-		// Config is optional - generate minimal default
-		files["config.yaml"] = []byte("{}\n")
-		return files, nil
-	}
 
 	// Export CUE value to YAML
 	configYAML, err := yaml.Encode(collectorConfig)

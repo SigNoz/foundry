@@ -30,16 +30,16 @@ _baseComponent: {
 // Components listed here override the generic component definition.
 #ComponentRegistry: {
 	signozOtelCollector: _baseComponent & {
-		config?: signozOtelCollectorConfig.#BaseConfig
+		config: *signozOtelCollectorConfig.#BaseConfig | signozOtelCollectorConfig.#BaseConfig
 	}
 	clickhouse: _baseComponent & {
-		config?: clickhouseConfig.#BaseConfig
+		config: *clickhouseConfig.#BaseConfig | clickhouseConfig.#BaseConfig
 	}
 	signoz: _baseComponent & {
-		config?: signozConfig.#BaseConfig
+		config: *signozConfig.#BaseConfig | signozConfig.#BaseConfig
 	}
 	zookeeper: _baseComponent & {
-		config?: zookeeperConfig.#BaseConfig
+		config: *zookeeperConfig.#BaseConfig | zookeeperConfig.#BaseConfig
 	}
 }
 
@@ -62,7 +62,7 @@ _requirements: {
 	platform:      #Platform
 
 	components: {
-		[ID=string]: (#ComponentRegistry[ID] | *#Component)
+		[ID=string]: (*#ComponentRegistry[ID] | #Component)
 	}
 
 	requirements: _requirements[platform]

@@ -15,14 +15,6 @@ func (g *Generator) GenerateComponent(config cue.Value) (map[string][]byte, erro
 
 	// Navigate to components.clickhouse.config in the CUE value
 	clickhouseConfig := config.LookupPath(cue.ParsePath("components.clickhouse.config"))
-	if !clickhouseConfig.Exists() {
-		// Config is optional - generate minimal default files
-		files["config.yaml"] = []byte("{}\n")
-		files["users.yaml"] = []byte("{}\n")
-		files["custom-function.yaml"] = []byte("{}\n")
-		return files, nil
-	}
-
 	// Decode to map for processing multiple files
 	var componentConfig map[string]any
 	if err := clickhouseConfig.Decode(&componentConfig); err != nil {

@@ -39,7 +39,7 @@ func registerForgeCmd(rootCmd *cobra.Command) {
 			return err
 		}
 
-		// Create component registry with CUE values (no factory, no Go structs)
+		// Create component registry.
 		componentRegistry := registry.NewComponentRegistry(config.Unified, config.EnabledComponents)
 
 		// Generate component configs
