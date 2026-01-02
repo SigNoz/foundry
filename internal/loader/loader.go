@@ -30,13 +30,13 @@ type LoadedConfig struct {
 }
 
 // loadSchema loads the CUE schema from the specified path.
-// TODO: Could be used to load different schemas for different components (clickhouse, keeper, etc)
+// TODO: Could be used to load different schemas for different components (clickhouse, keeper, etc).
 func loadSchema(ctx *cue.Context) (cue.Value, error) {
 	// Build the overlay
 	overlay := map[string]load.Source{}
 
 	// Walk through the embedded schema files and add them to the overlay
-	fs.WalkDir(schema.Content, ".", func(path string, d os.DirEntry, err error) error {
+	err := fs.WalkDir(schema.Content, ".", func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
@@ -46,6 +46,10 @@ func loadSchema(ctx *cue.Context) (cue.Value, error) {
 		overlay["/"+path] = load.FromBytes(data)
 		return nil
 	})
+
+	if err != nil {
+		return cue.Value{}, fmt.Errorf("failed to read embedded schema files: %w", err)
+	}
 
 	// Configure the loader to use the schema
 	cfg := &load.Config{
