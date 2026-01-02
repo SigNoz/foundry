@@ -39,9 +39,8 @@ func registerForgeCmd(rootCmd *cobra.Command) {
 			return err
 		}
 
-		// Create registries directly with CUE values (no factory, no Go structs)
+		// Create component registry with CUE values (no factory, no Go structs)
 		componentRegistry := registry.NewComponentRegistry(config.Unified, config.EnabledComponents)
-		orchestratorRegistry := registry.NewOrchestratorRegistry(config.Unified)
 
 		// Generate component configs
 		componentFiles, err := componentRegistry.GenerateAllEnabled()
@@ -61,20 +60,6 @@ func registerForgeCmd(rootCmd *cobra.Command) {
 			}
 		}
 
-		// Generate orchestration files
-		enabledList := getEnabledComponentList(config.EnabledComponents)
-		orchestrationFiles, err := orchestratorRegistry.Generate(config.Platform, enabledList)
-		if err != nil {
-			logger.ErrorContext(ctx, "failed to generate orchestration", slog.Any("error", err))
-			return err
-		}
-
-		// Write orchestration files
-		if err := outputMgr.WriteOrchestration(orchestrationFiles); err != nil {
-			logger.ErrorContext(ctx, "write orchestration failed", slog.Any("error", err))
-			return err
-		}
-
 		logger.InfoContext(ctx, "✓ Successfully forged configuration", slog.String("output", outputDir), slog.String("platform", config.Platform), slog.Int("components", len(componentFiles)))
 
 		return nil
@@ -83,14 +68,4 @@ func registerForgeCmd(rootCmd *cobra.Command) {
 	
 	forgeCmd.Flags().StringVarP(&outputDir, "output", "o", "./pours", "Output Directory for pours containing the deployment and configuration files")
 	rootCmd.AddCommand(forgeCmd)
-}
-
-func getEnabledComponentList(enabled map[string]bool) []string {
-	var list []string
-	for name, isEnabled := range enabled {
-		if isEnabled {
-			list = append(list, name)
-		}
-	}
-	return list
 }
