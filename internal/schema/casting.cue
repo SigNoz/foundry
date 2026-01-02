@@ -1,10 +1,10 @@
 package casting
 
 import (
-	signozOtelCollectorConfig "github.com/signoz/foundry/internal/schema/molding/signozotelcollector"
-	clickhouseConfig "github.com/signoz/foundry/internal/schema/molding/clickhouse"
-	signozConfig "github.com/signoz/foundry/internal/schema/molding/signoz"
-	zookeeperConfig "github.com/signoz/foundry/internal/schema/molding/zookeeper"
+	signozOtelCollectorConfig "github.com/signoz/foundry/molding/signozotelcollector"
+	clickhouseConfig "github.com/signoz/foundry/molding/clickhouse"
+	signozConfig "github.com/signoz/foundry/molding/signoz"
+	zookeeperConfig "github.com/signoz/foundry/molding/zookeeper"
 
 )
 
