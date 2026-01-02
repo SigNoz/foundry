@@ -1,9 +1,9 @@
 package generator
 
 import (
-	casting "github.com/signoz/foundry/internal/schema"
+	"cuelang.org/go/cue"
 )
 
 type Generator interface {
-	GenerateComponent(config casting.Config) (map[string][]byte, error)
+	GenerateComponent(config cue.Value) (map[string][]byte, error)
 }

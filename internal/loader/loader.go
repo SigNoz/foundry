@@ -131,15 +131,18 @@ func LoadConfig(filename string) (*LoadedConfig, error) {
 	platform, _ := unified.LookupPath(cue.ParsePath("platform")).String()
 	schemaVersion, _ := unified.LookupPath(cue.ParsePath("schemaVersion")).String()
 
-	// Build enabled components map
+	// Build enabled components map by decoding components to a map
 	enabled := make(map[string]bool)
 	components := unified.LookupPath(cue.ParsePath("components"))
-	iter, _ := components.Fields()
-	for iter.Next() {
-		name := iter.Selector().String()
-		isEnabled, _ := iter.Value().LookupPath(cue.ParsePath("enabled")).Bool()
-		if isEnabled {
-			enabled[name] = true
+
+	var componentsMap map[string]map[string]interface{}
+	if err := components.Decode(&componentsMap); err == nil {
+		for name, compData := range componentsMap {
+			if enabledVal, ok := compData["enabled"]; ok {
+				if isEnabled, ok := enabledVal.(bool); ok && isEnabled {
+					enabled[name] = true
+				}
+			}
 		}
 	}
 

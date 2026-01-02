@@ -2,23 +2,28 @@ package signoz
 
 import (
 	"errors"
-	"gopkg.in/yaml.v3"
-	casting "github.com/signoz/foundry/internal/schema"
+
+	"cuelang.org/go/cue"
+	"cuelang.org/go/encoding/yaml"
 )
 
 type Generator struct{}
 
-func (g *Generator) GenerateComponent(config casting.Config) (map[string][]byte, error) {
+func (g *Generator) GenerateComponent(config cue.Value) (map[string][]byte, error) {
 	files := make(map[string][]byte)
 
-	signozComponent, exists := config.Components["signoz"]
-	if !exists {
-		return nil, errors.New("signoz component not found in config")
+	// Navigate to components.signoz.config in the CUE value
+	signozConfig := config.LookupPath(cue.ParsePath("components.signoz.config"))
+	if !signozConfig.Exists() {
+		// Config is optional - generate minimal default
+		files["config.yaml"] = []byte("{}\n")
+		return files, nil
 	}
 
-	configYAML, err := yaml.Marshal(signozComponent["config"])
+	// Export CUE value to YAML
+	configYAML, err := yaml.Encode(signozConfig)
 	if err != nil {
-		return nil, errors.New("failed to marshal config: " + err.Error())
+		return nil, errors.New("failed to encode config: " + err.Error())
 	}
 	files["config.yaml"] = configYAML
 

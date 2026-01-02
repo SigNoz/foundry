@@ -1,34 +1,32 @@
 package clickhouse
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
+
+	"cuelang.org/go/cue"
 	"gopkg.in/yaml.v3"
-	casting "github.com/signoz/foundry/internal/schema"
 )
 
 type Generator struct{}
 
-
-func (g *Generator) GenerateComponent(config casting.Config) (map[string][]byte, error) {
+func (g *Generator) GenerateComponent(config cue.Value) (map[string][]byte, error) {
 	files := make(map[string][]byte)
 
-	clickhouseComponent, exists := config.Components["clickhouse"]
-	if !exists {
-		return nil, errors.New("clickhouse component not found in config")
+	// Navigate to components.clickhouse.config in the CUE value
+	clickhouseConfig := config.LookupPath(cue.ParsePath("components.clickhouse.config"))
+	if !clickhouseConfig.Exists() {
+		// Config is optional - generate minimal default files
+		files["config.yaml"] = []byte("{}\n")
+		files["users.yaml"] = []byte("{}\n")
+		files["custom-function.yaml"] = []byte("{}\n")
+		return files, nil
 	}
 
-	componentConfig, ok := clickhouseComponent["config"].(map[string]any)
-	if !ok {
-		var configBytes []byte
-		configBytes, ok = clickhouseComponent["config"].([]byte)
-		if !ok {
-			return nil, errors.New("invalid component config format")
-		}
-		err := yaml.Unmarshal(configBytes, &componentConfig)
-		if err != nil {
-			return nil, errors.New("failed to unmarshal component config: " + err.Error())
-		}
+	// Decode to map for processing multiple files
+	var componentConfig map[string]any
+	if err := clickhouseConfig.Decode(&componentConfig); err != nil {
+		return nil, errors.New("failed to decode clickhouse config: " + err.Error())
 	}
 
 	// Generate config.yaml (main ClickHouse configuration)

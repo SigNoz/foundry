@@ -2,23 +2,28 @@ package signozotelcollector
 
 import (
 	"errors"
-	"gopkg.in/yaml.v3"
-	casting "github.com/signoz/foundry/internal/schema"
+
+	"cuelang.org/go/cue"
+	"cuelang.org/go/encoding/yaml"
 )
 
 type Generator struct{}
 
-func (g *Generator) GenerateComponent(config casting.Config) (map[string][]byte, error) {
+func (g *Generator) GenerateComponent(config cue.Value) (map[string][]byte, error) {
 	files := make(map[string][]byte)
 
-	collectorComponent, exists := config.Components["signozOtelCollector"]
-	if !exists {
-		return nil, errors.New("signozOtelCollector component not found in config")
+	// Navigate to components.signozOtelCollector.config in the CUE value
+	collectorConfig := config.LookupPath(cue.ParsePath("components.signozOtelCollector.config"))
+	if !collectorConfig.Exists() {
+		// Config is optional - generate minimal default
+		files["config.yaml"] = []byte("{}\n")
+		return files, nil
 	}
 
-	configYAML, err := yaml.Marshal(collectorComponent["config"])
+	// Export CUE value to YAML
+	configYAML, err := yaml.Encode(collectorConfig)
 	if err != nil {
-		return nil, errors.New("failed to marshal config: " + err.Error())
+		return nil, errors.New("failed to encode config: " + err.Error())
 	}
 	files["config.yaml"] = configYAML
 

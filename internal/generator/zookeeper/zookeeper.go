@@ -6,41 +6,37 @@ import (
 	"fmt"
 	"sort"
 
-	casting "github.com/signoz/foundry/internal/schema"
+	"cuelang.org/go/cue"
 )
 
 type Generator struct{}
 
-func (g *Generator) GenerateComponent(config casting.Config) (map[string][]byte, error) {
+func (g *Generator) GenerateComponent(config cue.Value) (map[string][]byte, error) {
 	files := make(map[string][]byte)
 
-	zookeeperComponent, exists := config.Components["zookeeper"]
-	if !exists {
-		return nil, errors.New("zookeeper component not found in config")
+	zookeeperConfig := config.LookupPath(cue.ParsePath("components.zookeeper.config"))
+	if !zookeeperConfig.Exists() {
+		// Config is optional - generate minimal default
+		files["zoo.cfg"] = []byte("# Minimal zookeeper config\n")
+		return files, nil
 	}
 
-	configValue, ok := zookeeperComponent["config"]
-	if !ok {
-		return nil, errors.New("config key not found in zookeeper component")
+	var configMap map[string]any
+	if err := zookeeperConfig.Decode(&configMap); err != nil {
+		return nil, errors.New("failed to decode zookeeper config: " + err.Error())
 	}
 
-	configMap, ok := configValue.(map[string]any)
-	if !ok {
-		return nil, errors.New("zookeeper config is not a valid map structure")
-	}
-
-	// Convert config to zoo.cfg format
+	// Convert config to zoo.cfg format.
 	zooCfgBytes := MapToZooCfg(configMap)
 	files["zoo.cfg"] = zooCfgBytes
 
 	return files, nil
 }
 
-// MapToZooCfg converts to Zookeeper zoo.cfg format
+// MapToZooCfg converts to Zookeeper zoo.cfg format.
 func MapToZooCfg(data map[string]any) []byte {
 	var buf bytes.Buffer
 	
-	// Sort keys for consistent output
 	keys := make([]string, 0, len(data))
 	for k := range data {
 		keys = append(keys, k)
@@ -50,7 +46,7 @@ func MapToZooCfg(data map[string]any) []byte {
 	for _, key := range keys {
 		value := data[key]
 		
-		// Handle servers specially
+		// Handle servers specially.
 		if key == "servers" {
 			writeServers(&buf, value)
 			continue
@@ -67,7 +63,7 @@ func MapToZooCfg(data map[string]any) []byte {
 	return buf.Bytes()
 }
 
-// writeServers handles the servers configuration
+// writeServers handles the servers configuration.
 func writeServers(buf *bytes.Buffer, value any) {
 	servers, ok := value.([]interface{})
 	if !ok {
@@ -85,11 +81,11 @@ func writeServers(buf *bytes.Buffer, value any) {
 		peerPort := serverMap["peerPort"]
 		electionPort := serverMap["electionPort"]
 		
-		buf.WriteString(fmt.Sprintf("server.%v=%v:%v:%v\n", id, host, peerPort, electionPort))
+		fmt.Fprintf(buf, "server.%v=%v:%v:%v\n", id, host, peerPort, electionPort)
 	}
 }
 
-// writeNested handles nested maps with dot notation
+// writeNested handles nested maps with dot notation.
 func writeNested(buf *bytes.Buffer, prefix string, nested map[string]any) {
 	keys := make([]string, 0, len(nested))
 	for k := range nested {
@@ -98,6 +94,6 @@ func writeNested(buf *bytes.Buffer, prefix string, nested map[string]any) {
 	sort.Strings(keys)
 	
 	for _, k := range keys {
-		buf.WriteString(fmt.Sprintf("%s.%s=%v\n", prefix, k, nested[k]))
+		fmt.Fprintf(buf, "%s.%s=%v\n", prefix, k, nested[k])
 	}
 }
