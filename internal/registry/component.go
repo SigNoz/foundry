@@ -9,6 +9,7 @@ import (
 	"github.com/signoz/foundry/internal/generator/signoz"
 	"github.com/signoz/foundry/internal/generator/signozotelcollector"
 	"github.com/signoz/foundry/internal/generator/zookeeper"
+	"github.com/signoz/foundry/internal/generator/postgres"
 )
 
 type ComponentID string
@@ -19,6 +20,7 @@ const (
 	ComponentSignoz              ComponentID = "signoz"
 	ComponentSignozOtelCollector ComponentID = "signozOtelCollector"
 	ComponentZooKeeper           ComponentID = "zookeeper"
+	ComponentPostgres			 ComponentID = "postgres"
 )
 
 type ComponentRegistry struct {
@@ -45,6 +47,7 @@ func (r *ComponentRegistry) registerAll() {
 	r.register(ComponentSignoz, &signoz.Generator{})
 	r.register(ComponentSignozOtelCollector, &signozotelcollector.Generator{})
 	r.register(ComponentZooKeeper, &zookeeper.Generator{})
+	r.register(ComponentPostgres, &postgres.Generator{})
 }
 
 func (r *ComponentRegistry) register(id ComponentID, gen generator.Generator) {
@@ -64,6 +67,7 @@ func (r *ComponentRegistry) GenerateFiles(id ComponentID) (map[string][]byte, er
 	if !ok {
 		return nil, errors.New("unknown component: " + string(id))
 	}
+
 
 	return gen.GenerateComponent(r.config)
 }

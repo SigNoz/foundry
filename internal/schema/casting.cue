@@ -5,6 +5,7 @@ import (
 	clickhouseConfig "github.com/signoz/foundry/molding/clickhouse"
 	signozConfig "github.com/signoz/foundry/molding/signoz"
 	zookeeperConfig "github.com/signoz/foundry/molding/zookeeper"
+	postgresConfig "github.com/signoz/foundry/molding/postgres"
 
 )
 
@@ -40,6 +41,9 @@ _baseComponent: {
 	}
 	zookeeper: _baseComponent & {
 		config: zookeeperConfig.#BaseConfig
+	}
+	postgres: _baseComponent & {
+		config: postgresConfig.#BaseConfig
 	}
 }
 
