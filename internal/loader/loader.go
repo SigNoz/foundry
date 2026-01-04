@@ -31,7 +31,7 @@ type LoadedConfig struct {
 
 // loadSchema loads the CUE schema from the specified path.
 // TODO: Could be used to load different schemas for different components (clickhouse, keeper, etc).
-func loadSchema(ctx *cue.Context) (cue.Value, error) {
+func loadSchema(ctx *cue.Context, filename string) (cue.Value, error) {
 	// Build the overlay
 	overlay := map[string]load.Source{}
 
@@ -59,7 +59,7 @@ func loadSchema(ctx *cue.Context) (cue.Value, error) {
 
 	// NOTE: This could be used to dynamically load all cue files that have X filename
 	// Load the schema files from the overlay
-	insts := load.Instances([]string{"casting.cue"}, cfg)
+	insts := load.Instances([]string{filename}, cfg)
 	for _, inst := range insts {
 		if inst.Err != nil {
 			return cue.Value{}, fmt.Errorf("schema loading error:\n%s", errors.Details(inst.Err, nil))
@@ -125,7 +125,7 @@ func Unify(filename string) (cue.Value, error) {
 
 	ctx := cuecontext.New()
 
-	schema, err := loadSchema(ctx)
+	schema, err := loadSchema(ctx, "casting.cue")
 	if err != nil {
 		return cue.Value{}, fmt.Errorf("schema compilation error:\n%s", errors.Details(err, nil))
 	}
