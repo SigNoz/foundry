@@ -9,7 +9,7 @@ package postgres
 		[string]: _
 	}
 
-	authConfig : {
+	auth: {
 		[string]: _
 	}
 	// Allow user to extend anything

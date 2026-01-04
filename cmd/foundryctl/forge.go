@@ -39,28 +39,26 @@ func registerForgeCmd(rootCmd *cobra.Command) {
 			return err
 		}
 
-		// Create component registry.
-		componentRegistry := registry.NewComponentRegistry(config.Unified, config.EnabledComponents)
-
-		// Generate component configs
-		componentFiles, err := componentRegistry.GenerateAllEnabled()
+		// Generate plaform and component configs
+		files, err := registry.Generate(config.Unified, config.Platform, config.EnabledComponents)
+	
 		if err != nil {
-			logger.ErrorContext(ctx, "failed to generate components", slog.Any("error", err))
+			logger.ErrorContext(ctx, "failed to generate", slog.Any("error", err))
 			return err
 		}
 
 		// Write component configs
-		for componentID, files := range componentFiles {
-			componentName := string(componentID)
+		for id, file := range files {
+			componentName := string(id)
 			logger.DebugContext(ctx, "✓ Component generated", slog.String("component", componentName), slog.Int("files", len(files)))
 
-			if err := outputMgr.WriteComponent(componentName, files); err != nil {
+			if err := outputMgr.WriteComponent(componentName, file); err != nil {
 				logger.ErrorContext(ctx, "write component failed", slog.String("component", componentName), slog.Any("error", err))
 				return err
 			}
 		}
 
-		logger.InfoContext(ctx, "✓ Successfully forged configuration", slog.String("output", outputDir), slog.String("platform", config.Platform), slog.Int("components", len(componentFiles)))
+		logger.InfoContext(ctx, "✓ Successfully forged configuration", slog.String("output", outputDir), slog.String("platform", config.Platform), slog.Int("components", len(files)-1))
 
 		return nil
 	},

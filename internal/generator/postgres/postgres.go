@@ -26,7 +26,7 @@ func (g *Generator) GenerateComponent(config cue.Value) (map[string][]byte, erro
 		value := fields.Value()
 		
 		switch key {
-		case "authConfig":
+		case "auth":
 			authConf, err := common.MapToEnv(value)
 			if err != nil {
 				return nil, errors.New("failed to convert auth config to env: " + err.Error())

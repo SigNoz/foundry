@@ -11,7 +11,7 @@ package postgres
 		...
 	}
 
-	authConfig: {
+	auth: {
 		postgres_password: string & =~"[a-z]+" & =~"[A-Z]+" & =~"[0-9]+" & =~"[!@#$%^&*]+"
 		postgres_db: *"signoz" | string
 		postgres_user: *"signoz" | string
