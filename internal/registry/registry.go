@@ -5,11 +5,11 @@ import (
 	"cuelang.org/go/cue"
 	"github.com/signoz/foundry/internal/generator"
 	"github.com/signoz/foundry/internal/generator/clickhouse"
-	"github.com/signoz/foundry/internal/generator/linux"
 	"github.com/signoz/foundry/internal/generator/postgres"
 	"github.com/signoz/foundry/internal/generator/signoz"
 	"github.com/signoz/foundry/internal/generator/signozotelcollector"
 	"github.com/signoz/foundry/internal/generator/zookeeper"
+	"github.com/signoz/foundry/internal/generator/linux"
 )
 
 // SigNoz Component identifiers.
