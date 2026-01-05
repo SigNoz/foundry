@@ -22,9 +22,9 @@ package signoz
 
 // ClickHouse defaults template
 #ClickHouseDefaults: {
-	_params: #Params
+	params: #Params
 	#Common
-	image: "clickhouse/clickhouse-server:\(_params.CLICKHOUSE_VERSION)"
+	image: "clickhouse/clickhouse-server:\(params.CLICKHOUSE_VERSION)"
 	tty:   true
 	labels: {
 		"signoz.io/scrape": "true"
@@ -48,14 +48,14 @@ package signoz
 			hard: 262144
 		}
 	}
-	env_file: "./pours/clickhouse/.env"
+	//env_file: "../clickhouse/.env"
 }
 
 // Zookeeper defaults template
 #ZookeeperDefaults: {
-	_params: #Params
+	params: #Params
 	#Common
-	image: "signoz/zookeeper:\(_params.ZOOKEEPER_VERSION)"
+	image: "signoz/zookeeper:\(params.ZOOKEEPER_VERSION)"
 	user:  "root"
 	labels: {
 		"signoz.io/scrape": "true"
@@ -83,8 +83,6 @@ package signoz
 #DockerCompose: {
 	params: #Params
 
-	version: "3"
-
 	services: {
 		"init-clickhouse": {
 			#Common
@@ -106,15 +104,15 @@ package signoz
 
 		"zookeeper-1": {
 			#ZookeeperDefaults
-			_params:        params
+			params:         params
 			container_name: "signoz-zookeeper-1"
 			volumes: ["zookeeper-1:/bitnami/zookeeper"]
-			env_file: "./pours/zookeeper/.env"
+			//env_file: "../zookeeper/.env"
 		}
 
 		clickhouse: {
 			#ClickHouseDefaults
-			_params:        params
+			params:         params
 			container_name: "signoz-clickhouse"
 			volumes: [
 				"./pours/clickhouse/config.xml:/etc/clickhouse-server/config.xml",
@@ -131,7 +129,7 @@ package signoz
 			container_name: "signoz"
 			ports: ["8080:8080"]
 			volumes: ["sqlite:/var/lib/signoz/"]
-			env_file: "./pours/signoz/.env"
+			//env_file: "../signoz/.env"
 			healthcheck: {
 				test: ["CMD", "wget", "--spider", "-q", "localhost:8080/api/v1/health"]
 				interval: "30s"
@@ -154,7 +152,7 @@ package signoz
 				"./pours/otel-collector/otel-collector-config.yaml:/etc/otel-collector-config.yaml",
 				"./pours/otel-collector/otel-collector-opamp-config.yaml:/etc/manager-config.yaml",
 			]
-			env_file: "./pours/otel-collector/.env"
+			//env_file: "../otel-collector/.env"
 			ports: ["4317:4317", "4318:4318"]
 			depends_on: {
 				clickhouse: condition:             "service_healthy"

@@ -117,6 +117,7 @@ func Generate(ctx *cue.Context, config cue.Value, plaformName string, enabledCom
 		return nil, errors.New("failed to generate for platform " + plaformName + ": " + err.Error())
 	}
 
+	// Inlude platform files in results
 	results[plaformName] = platformFiles
 
 	components := NewComponentRegistry()
