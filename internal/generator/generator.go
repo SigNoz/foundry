@@ -17,5 +17,5 @@ type ComponentGenerator interface {
 
 // PlatformGenerator generates files for a specific component (e.g., linux).
 type PlatformGenerator interface {
-	Generate(config cue.Value, enabledComponents map[string]bool) (cue.Value, map[string][]byte, error)
+	Generate(ctx *cue.Context, config cue.Value, enabledComponents map[string]bool) (cue.Value, map[string][]byte, error)
 }

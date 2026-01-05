@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"cuelang.org/go/cue"
-	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/errors"
 	"cuelang.org/go/cue/load"
 	"cuelang.org/go/encoding/json"
@@ -29,9 +28,9 @@ type LoadedConfig struct {
 	EnabledComponents map[string]bool // Map of component name -> enabled status
 }
 
-// loadSchema loads the CUE schema from the specified path.
+// LoadSchema loads the CUE schema from the specified path.
 // TODO: Could be used to load different schemas for different components (clickhouse, keeper, etc).
-func loadSchema(ctx *cue.Context, filename string) (cue.Value, error) {
+func LoadSchema(ctx *cue.Context, filename string) (cue.Value, error) {
 	// Build the overlay
 	overlay := map[string]load.Source{}
 
@@ -102,30 +101,29 @@ func compileDataFile(ctx *cue.Context, filename string, data []byte) (cue.Value,
 	return expr, err
 }
 
-// ValidateConfig validates the user configuration file against the schema.
-func ValidateConfig(filename string) error {
-	unified, err := Unify(filename)
-	if err != nil {
-		return err
-	}
+// // ValidateConfig validates the user configuration file against the schema.
+// func ValidateConfig(filename string) error {
+// 	unified, err := Unify(filename)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	if err := unified.Validate(cue.Concrete(true)); err != nil {
-		return fmt.Errorf("validation failed: %s", errors.Details(err, nil))
-	}
-	return nil
-}
+// 	if err := unified.Validate(cue.Concrete(true)); err != nil {
+// 		return fmt.Errorf("validation failed: %s", errors.Details(err, nil))
+// 	}
+// 	return nil
+// }
 
 // Unify loads and merges the user configuration file with the schema defaults.
-func Unify(filename string) (cue.Value, error) {
+func Unify(ctx *cue.Context, filename string) (cue.Value, error) {
 	// Read file
 	configFile, err := os.ReadFile(filename)
 	if err != nil {
 		return cue.Value{}, errorFilenotFound
 	}
 
-	ctx := cuecontext.New()
 
-	schema, err := loadSchema(ctx, "casting.cue")
+	schema, err := LoadSchema(ctx, "casting.cue")
 	if err != nil {
 		return cue.Value{}, fmt.Errorf("schema compilation error:\n%s", errors.Details(err, nil))
 	}
@@ -146,9 +144,9 @@ func Unify(filename string) (cue.Value, error) {
 
 // LoadConfig loads and validates the casting configuration, returning the parsed config
 // with defaults applied. This is used by the forge command to generate deployment files.
-func LoadConfig(filename string) (*LoadedConfig, error) {
+func LoadConfig(cuectx *cue.Context, filename string) (*LoadedConfig, error) {
 
-	unified, err := Unify(filename)
+	unified, err := Unify(cuectx, filename)
 	if err != nil {
 		return &LoadedConfig{}, err
 	}

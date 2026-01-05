@@ -100,7 +100,7 @@ func (r *PlatformRegistry) Get(id generator.PlatformID) (generator.PlatformGener
 // Generate generates files for all enabled components.
 // First calls platform generator to get modified CUE values and plaform deployment files, then calls component generators
 // for components files.
-func Generate(config cue.Value, plaformName string, enabledComponents map[string]bool) (map[string]map[string][]byte, error) {
+func Generate(ctx *cue.Context, config cue.Value, plaformName string, enabledComponents map[string]bool) (map[string]map[string][]byte, error) {
 	results := make(map[string]map[string][]byte)
 
 	platGen, exists := NewPlatformRegistry().Get(generator.PlatformID(plaformName))
@@ -109,7 +109,7 @@ func Generate(config cue.Value, plaformName string, enabledComponents map[string
 	}
 
 	// Call platform generator to generate platform deployment files
-	modifiedConfig, platformFiles, err := platGen.Generate(config, enabledComponents)
+	modifiedConfig, platformFiles, err := platGen.Generate(ctx, config, enabledComponents)
 	if err != nil {
 		return nil, errors.New("failed to generate for platform " + plaformName + ": " + err.Error())
 	}

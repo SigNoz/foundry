@@ -3,6 +3,7 @@ package main
 import (
 	"log/slog"
 
+	"cuelang.org/go/cue/cuecontext"
 	"github.com/signoz/foundry/internal/instrumentation"
 	"github.com/signoz/foundry/internal/loader"
 	"github.com/signoz/foundry/internal/output"
@@ -22,8 +23,9 @@ func registerForgeCmd(rootCmd *cobra.Command) {
 			
 		ctx := cmd.Context()
 		logger := instrumentation.NewLogger(cfg.Debug).With(slog.String("cmd.name", "forge"))
-			
-		config, err := loader.LoadConfig(cfg.File)
+		
+		cuectx := cuecontext.New()
+		config, err := loader.LoadConfig(cuectx, cfg.File)
 		if err != nil {
 			logger.ErrorContext(ctx, "config load failed", slog.String("error", err.Error()))
 			return err
@@ -40,7 +42,7 @@ func registerForgeCmd(rootCmd *cobra.Command) {
 		}
 
 		// Generate plaform and component configs
-		files, err := registry.Generate(config.Unified, config.Platform, config.EnabledComponents)
+		files, err := registry.Generate(cuectx, config.Unified, config.Platform, config.EnabledComponents)
 	
 		if err != nil {
 			logger.ErrorContext(ctx, "failed to generate", slog.Any("error", err))
