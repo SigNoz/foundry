@@ -3,10 +3,31 @@ package linux
 import "strings"
 
 // Linux-specific configuration overrides
-#LinuxOverrides: {
-	_#inputs: {
-		clickhouseHost: string
-		clickhousePort: string | int
+#Overrides: {
+	inputs: {
+		clickhouseHost: string | *"127.0.0.1"
+		clickhousePort: string | int | *"9000"
+		zookeeperHost: string | *"127.0.0.1"
+		zookeeperPort: string | int | *"2181"
+		clickhouse: {
+			host: string | *"127.0.0.1"
+			port: string| int | *"9000"
+		}
+		zookeeper:{
+			host: string | *"127.0.0.1"
+			port: string | int | *9000
+		}
+
+		postgres: {
+			host: string | *"127.0.0.1"
+			port: string | int | *5432
+			auth: {
+				postgres_password: string & =~"[a-z]+" & =~"[A-Z]+" & =~"[0-9]+" & =~"[!@#$%^&*]+"
+				postgres_db: *"signoz" | string
+				postgres_user: *"signoz" | string
+			}
+			
+		}
 	}
 	// ClickHouse configuration for Linux platform
 	out:
@@ -19,20 +40,37 @@ import "strings"
 						cluster: {
 							shard: {
 								replica: {
-									host: _#inputs.clickhouseHost  // Fixed: added underscore
-									port: _#inputs.clickhousePort  // Fixed: added underscore
+									host: inputs.clickhouse.host
+									port: inputs.clickhouse.port
 								}
 							}
 						}
 					}
 					zookeeper: {
 						node: {
-							host: "127.0.0.1"
-							port: "2181"
+							host: inputs.zookeeper.host
+							port: inputs.zookeeper.port
 						}
 					}
 				}
 			}
+		}
+		}
+
+		signoz: {
+			config:{
+				telemetrystore: {
+					clickhouse: {
+						dsn: "tcp://" + inputs.clickhouse.host + ":" + inputs.clickhouse.port
+					}
+				}
+				
+				sqlstore: {
+					provider: "postgres"
+					postgres: {
+						dsn: "postgres://" + inputs.postgres.auth.postgres_user + ":" + inputs.postgres.auth.postgres_password + "@" + inputs.postgres.host + ":" + inputs.postgres.port + "/" + inputs.postgres.auth.postgres_db
+					}
+				}
 		}
 	}
 	}
