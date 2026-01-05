@@ -15,12 +15,16 @@ func (g *Generator) GenerateComponent(config cue.Value) (map[string][]byte, erro
 	// Navigate to components.signozOtelCollector.config in the CUE value
 	collectorConfig := config.LookupPath(cue.ParsePath("components.signozOtelCollector.config"))
 
-	// Export CUE value to YAML
-	configYAML, err := yaml.Encode(collectorConfig)
-	if err != nil {
-		return nil, errors.New("failed to encode config: " + err.Error())
+	if collectorConfig.Exists() {
+		// Export CUE value to YAML
+		configYAML, err := yaml.Encode(collectorConfig)
+		if err != nil {
+			return nil, errors.New("failed to encode config: " + err.Error())
+		}
+		files["config.yaml"] = configYAML
+	} else {
+		return nil, errors.New("signozOtelCollector config not found in the provided CUE value")
 	}
-	files["config.yaml"] = configYAML
 
 	return files, nil
 }

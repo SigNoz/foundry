@@ -2,14 +2,16 @@ package registry
 
 import (
 	"errors"
+
 	"cuelang.org/go/cue"
 	"github.com/signoz/foundry/internal/generator"
 	"github.com/signoz/foundry/internal/generator/clickhouse"
+	"github.com/signoz/foundry/internal/generator/docker"
+	"github.com/signoz/foundry/internal/generator/linux"
 	"github.com/signoz/foundry/internal/generator/postgres"
 	"github.com/signoz/foundry/internal/generator/signoz"
 	"github.com/signoz/foundry/internal/generator/signozotelcollector"
 	"github.com/signoz/foundry/internal/generator/zookeeper"
-	"github.com/signoz/foundry/internal/generator/linux"
 )
 
 // SigNoz Component identifiers.
@@ -23,7 +25,8 @@ const (
 
 // Platform identifiers.
 const (
-	PlatformLinux generator.PlatformID = "linux"
+	PlatformLinux  generator.PlatformID = "linux"
+	PlatformDocker generator.PlatformID = "docker"
 )
 
 // ComponentGeneratorRegistry manages all component generators.
@@ -84,6 +87,7 @@ func NewPlatformRegistry() *PlatformRegistry {
 // registerAll registers all known platform generators.
 func (r *PlatformRegistry) registerAll() {
 	r.register(PlatformLinux, &linux.PlatformGenerator{})
+	r.register(PlatformDocker, &docker.PlatformGenerator{})
 }
 
 func (r *PlatformRegistry) register(id generator.PlatformID, gen generator.PlatformGenerator) {
@@ -95,7 +99,6 @@ func (r *PlatformRegistry) Get(id generator.PlatformID) (generator.PlatformGener
 	gen, ok := r.generators[id]
 	return gen, ok
 }
-
 
 // Generate generates files for all enabled components.
 // First calls platform generator to get modified CUE values and plaform deployment files, then calls component generators
