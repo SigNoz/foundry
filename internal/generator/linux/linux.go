@@ -156,6 +156,14 @@ func (g *PlatformGenerator) Generate(
 				return cue.Value{}, nil, err
 			}
 			files["zookeeper.service"] = content
+		
+
+		case "clickhouse":
+			content, err := g.generateServiceFile(deployment, "#ClickHouseService", "clickhouse")
+			if err != nil {
+				return cue.Value{}, nil, err
+			}
+			files["clickhouse.service"] = content
 		}
 	}
 
