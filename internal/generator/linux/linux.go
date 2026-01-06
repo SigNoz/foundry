@@ -6,7 +6,6 @@ import (
 
 	"github.com/signoz/foundry/internal/common"
 	"github.com/signoz/foundry/internal/loader"
-	"github.com/signoz/foundry/internal/schema"
 )
 
 type PlatformGenerator struct{}
@@ -166,13 +165,6 @@ func (g *PlatformGenerator) Generate(
 			files["clickhouse.service"] = content
 		}
 	}
-
-	// Read install script from embedded files
-	installScriptContent, err := schema.Content.ReadFile("castings/linux/install.sh")
-	if err != nil {
-		return cue.Value{}, nil, errors.New("failed to read install script from embedded files: " + err.Error())
-	}
-	files["install.sh"] = installScriptContent
 
 	return config, files, nil
 }
