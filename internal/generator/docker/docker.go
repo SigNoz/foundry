@@ -26,6 +26,7 @@ func (g *PlatformGenerator) Generate(
 	logger.Debug("Starting Docker platform generation")
 
 	componentVersions := make(map[string]string)
+	replicaConfig := make(map[string]int)
 	for k := range enabledComponents {
 		versionValue, err := getValue(config, fmt.Sprintf("components.%s.version", k))
 		if err != nil {
@@ -35,9 +36,17 @@ func (g *PlatformGenerator) Generate(
 		if err != nil {
 			return cue.Value{}, nil, fmt.Errorf("failed to convert version to string for component %s: %w", k, err)
 		}
+		replicaValue, err := getValue(config, fmt.Sprintf("components.%s.replicas", k))
+		replicaInt, err := replicaValue.Int64()
+		if err != nil {
+			return cue.Value{}, nil, fmt.Errorf("failed to convert replicas to int for component %s: %w", k, err)
+		}
+
 		componentVersions[k] = versionStr
+		replicaConfig[k] = int(replicaInt)
 	}
 	logger.Debug("Component Versions:", slog.Any("versions", componentVersions))
+	logger.Debug("Replica Configuration:", slog.Any("versions", componentVersions))
 
 	// Read the Docker compose schema
 	deployment, err := loader.LoadSchema(ctx, "castings/docker/docker.cue")
@@ -53,6 +62,11 @@ func (g *PlatformGenerator) Generate(
 		"signozOtelCollector": "OTELCOL_VERSION",
 	}
 
+	replicaKeyMap := map[string]int{
+		"zookeeper":  replicaConfig["zookeeper"],
+		"clickhouse": replicaConfig["clickhouse"],
+	}
+
 	// Iterate over the component versions to merge with deployment lookups.
 	for component, version := range componentVersions {
 		key, ok := versionKeyMap[component]
@@ -64,21 +78,24 @@ func (g *PlatformGenerator) Generate(
 		deployment = mergeValues(deployment, fmt.Sprintf("compose.params.%s", key), versionValue)
 	}
 
+	// Iterate over the replica configurations to merge with deployment lookups.
+	for component, replicas := range replicaKeyMap {
+		replicaValue := ctx.Encode(replicas)
+		deployment = mergeValues(deployment, fmt.Sprintf("compose.replicas.%s", component), replicaValue)
+	}
+
 	// Lookup the compose section
 	deployment = deployment.LookupPath(cue.ParsePath("compose"))
 
 	// Return the contents as YAML
 	yamlBytes, err := cueyaml.Encode(deployment)
-	var data map[string]interface{}
+	var data map[string]any
 	if err = stdyaml.Unmarshal(yamlBytes, &data); err != nil {
 		return cue.Value{}, nil, fmt.Errorf("failed to unmarshal YAML: %w", err)
 	}
 	removeParams(data)
 	if yamlBytes, err = stdyaml.Marshal(data); err != nil {
 		return cue.Value{}, nil, fmt.Errorf("failed to marshal YAML: %w", err)
-	}
-	if err != nil {
-		return cue.Value{}, nil, fmt.Errorf("failed to encode deployment as YAML: %w", err)
 	}
 
 	return config, map[string][]byte{"docker-compose.yml": yamlBytes}, nil
@@ -95,11 +112,12 @@ func mergeValues(c cue.Value, path string, value cue.Value) cue.Value {
 	return c.FillPath(cue.ParsePath(path), value)
 }
 
-// Removes the params from the docker compose yaml
-func removeParams(data map[string]interface{}) {
+// Removes keys from the docker compose yaml
+func removeParams(data map[string]any) {
 	delete(data, "params")
+	delete(data, "replicas")
 	for _, v := range data {
-		if m, ok := v.(map[string]interface{}); ok {
+		if m, ok := v.(map[string]any); ok {
 			removeParams(m)
 		}
 	}

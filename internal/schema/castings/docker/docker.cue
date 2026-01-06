@@ -7,8 +7,8 @@ import (
 
 // Input parameters - these can be injected from Go
 #Params: {
-	VERSION:            string | *"v0.101.0"
-	OTELCOL_TAG:        string | *"v0.129.9"
+	SIGNOZ_VERSION:     string | *"v0.101.0"
+	OTELCOL_VERSION:    string | *"v0.129.9"
 	CLICKHOUSE_VERSION: string | *"25.5.6"
 	ZOOKEEPER_VERSION:  string | *"3.7.1"
 }
@@ -65,7 +65,7 @@ import (
 			ZOO_ENABLE_AUTH: true
 			ZOO_SERVER_ID:   "\(#input.index)"
 			ZOO_SERVERS: strings.Join([for i in list.Range(1, #input.total+1, 1) {
-				"server.\(i)=signoz-zookeeper-\(i):2888:3888"
+				"signoz-zookeeper-\(i):2888:3888"
 			}], " ")
 		}
 	}
@@ -113,10 +113,10 @@ import (
 
 		volumes: [
 			"clickhouse-\(#input.index):/var/lib/clickhouse/",
-			"./pours/clickhouse/config.xml:/etc/clickhouse-server/config.xml",
-			"./pours/clickhouse/users.xml:/etc/clickhouse-server/users.xml",
-			"./pours/clickhouse/custom-function.xml:/etc/clickhouse-server/custom-function.xml",
-			"./pours/clickhouse/user_scripts:/var/lib/clickhouse/user_scripts/",
+			"../clickhouse/config.yaml:/etc/clickhouse-server/config.yaml",
+			"../clickhouse/users.yaml:/etc/clickhouse-server/users.yaml",
+			"../clickhouse/custom-function.yaml:/etc/clickhouse-server/custom-function.yaml",
+			"../clickhouse/user_scripts:/var/lib/clickhouse/user_scripts/",
 		]
 		environment: {
 			CLICKHOUSE_REPLICA_ID: "\(#input.index)"
@@ -141,7 +141,7 @@ import (
 			mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile
 			"""#]
 		restart: "on-failure"
-		volumes: ["./pours/clickhouse/user_scripts:/var/lib/clickhouse/user_scripts/"]
+		volumes: ["../clickhouse/user_scripts:/var/lib/clickhouse/user_scripts/"]
 	}
 
 	// SigNoz - singleton service
@@ -150,7 +150,7 @@ import (
 		let _replicas = replicas
 
 		#Common
-		image:          "signoz/signoz:\(_params.VERSION)"
+		image:          "signoz/signoz:v\(_params.SIGNOZ_VERSION)"
 		container_name: "signoz"
 		ports: ["8080:8080"]
 		volumes: ["sqlite:/var/lib/signoz/"]
@@ -176,7 +176,7 @@ import (
 		let _replicas = replicas
 
 		#Common
-		image:          "signoz/signoz-otel-collector:\(_params.OTELCOL_TAG)"
+		image:          "signoz/signoz-otel-collector:v\(_params.OTELCOL_VERSION)"
 		container_name: "signoz-otel-collector"
 		command: [
 			"--config=/etc/otel-collector-config.yaml",
@@ -185,8 +185,8 @@ import (
 			"--feature-gates=-pkg.translator.prometheus.NormalizeName",
 		]
 		volumes: [
-			"./pours/otel-collector/otel-collector-config.yaml:/etc/otel-collector-config.yaml",
-			"./pours/otel-collector/otel-collector-opamp-config.yaml:/etc/manager-config.yaml",
+			"../otel-collector/otel-collector-config.yaml:/etc/otel-collector-config.yaml",
+			"../otel-collector/otel-collector-opamp-config.yaml:/etc/manager-config.yaml",
 		]
 		ports: ["4317:4317", "4318:4318"]
 		depends_on: {
@@ -205,7 +205,7 @@ import (
 		let _params = params
 
 		#Common
-		image:          "signoz/signoz-schema-migrator:\(_params.OTELCOL_TAG)"
+		image:          "signoz/signoz-schema-migrator:v\(_params.OTELCOL_VERSION)"
 		container_name: "schema-migrator-sync"
 		command: ["sync", "--dsn=tcp://clickhouse-1:9000", "--up="]
 		depends_on: {
@@ -220,7 +220,7 @@ import (
 		let _replicas = replicas
 
 		#Common
-		image:          "signoz/signoz-schema-migrator:\(_params.OTELCOL_TAG)"
+		image:          "signoz/signoz-schema-migrator:v\(_params.OTELCOL_VERSION)"
 		container_name: "schema-migrator-async"
 		command: ["async", "--dsn=tcp://clickhouse-1:9000", "--up="]
 		depends_on: {

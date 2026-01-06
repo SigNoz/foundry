@@ -1,5 +1,5 @@
 clean:
-	rm -rf pours && docker rm `docker ps -aq`
+	rm -rf pours
 
 gauge:
 	go run ./cmd/foundryctl gauge -f ./tmp/casting.yaml
@@ -9,3 +9,6 @@ forge:
 
 docker:
 	cd pours/docker && docker-compose up -d
+
+docker-clean:
+	docker stop `docker ps -aq` && docker rm `docker ps -aq`
