@@ -4,7 +4,11 @@ set -e
 set -u
 set -o pipefail
 
-POURS_DIR="${POURS_DIR:-./pours}"
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# User can override with POURS_DIR environment variable
+POURS_DIR="${POURS_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 ZOOKEEPER_VERSION="3.8.5"
 ZOOKEEPER_DIR="/opt/zookeeper"
 ZOOKEEPER_DATA_DIR="/var/lib/zookeeper"
@@ -73,8 +77,6 @@ cp -r "apache-zookeeper-${ZOOKEEPER_VERSION}-bin"/* "${ZOOKEEPER_DIR}"
 require_pours_file "${POURS_DIR}/zookeeper/zoo.cfg"
 mkdir -p "${ZOOKEEPER_DIR}/conf"
 cp "${POURS_DIR}/zookeeper/zoo.cfg" "${ZOOKEEPER_DIR}/conf/zoo.cfg"
-require_pours_file "${POURS_DIR}/zookeeper/zoo.env"
-cp "${POURS_DIR}/zookeeper/zoo.env" "${ZOOKEEPER_DIR}/conf/zoo.env"
 if ! getent passwd zookeeper >/dev/null; then
     useradd --system --home "${ZOOKEEPER_DIR}" --no-create-home --user-group --shell /sbin/nologin zookeeper
 fi
@@ -87,11 +89,44 @@ systemctl enable zookeeper.service
 rm -f /tmp/zookeeper.tar.gz
 rm -rf "/tmp/apache-zookeeper-${ZOOKEEPER_VERSION}-bin"
 
+# Install ClickHouse
+if ! command_exists clickhouse-server; then
+    if command_exists apt-get; then
+        apt-get install -y apt-transport-https ca-certificates curl gnupg
+        curl -fsSL 'https://packages.clickhouse.com/deb/repodata/repomd.xml.key' | gpg --dearmor -o /usr/share/keyrings/clickhouse-keyring.gpg
+        DEB_ARCH=$(dpkg --print-architecture)
+        echo "deb [signed-by=/usr/share/keyrings/clickhouse-keyring.gpg arch=${DEB_ARCH}] https://packages.clickhouse.com/deb stable main" | tee /etc/apt/sources.list.d/clickhouse.list
+        apt-get update
+        apt-get install -y clickhouse-server clickhouse-client
+    elif command_exists yum; then
+        yum install -y yum-utils
+        yum-config-manager --add-repo https://packages.clickhouse.com/rpm/clickhouse.repo
+        yum install -y clickhouse-server clickhouse-client
+    elif command_exists dnf; then
+        dnf install -y dnf-plugins-core
+        dnf config-manager --add-repo https://packages.clickhouse.com/rpm/clickhouse.repo
+        dnf install -y clickhouse-server clickhouse-client
+    else
+        echo "Package manager not found. Please install ClickHouse manually."
+        exit 1
+    fi
+fi
+
 # Configure ClickHouse
 mkdir -p /etc/clickhouse-server/config.d
-require_pours_file "${POURS_DIR}/clickhouse/cluster.xml"
-cp "${POURS_DIR}/clickhouse/cluster.xml" /etc/clickhouse-server/config.d/cluster.xml
-chown clickhouse:clickhouse /etc/clickhouse-server/config.d/cluster.xml
+if ! getent passwd clickhouse >/dev/null; then
+    useradd --system --shell /bin/false clickhouse || true
+fi
+require_pours_file "${POURS_DIR}/clickhouse/config.yaml"
+cp "${POURS_DIR}/clickhouse/config.yaml" /etc/clickhouse-server/config.d/config.yaml
+chown clickhouse:clickhouse /etc/clickhouse-server/config.d/config.yaml
+require_pours_file "${POURS_DIR}/clickhouse/users.yaml"
+cp "${POURS_DIR}/clickhouse/users.yaml" /etc/clickhouse-server/users.yaml
+chown clickhouse:clickhouse /etc/clickhouse-server/users.yaml
+if [ -f "${POURS_DIR}/clickhouse/custom-function.yaml" ]; then
+    cp "${POURS_DIR}/clickhouse/custom-function.yaml" /etc/clickhouse-server/custom-function.yaml
+    chown clickhouse:clickhouse /etc/clickhouse-server/custom-function.yaml
+fi
 systemctl start clickhouse-server.service
 systemctl enable clickhouse-server.service
 
