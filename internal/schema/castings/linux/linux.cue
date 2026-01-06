@@ -283,17 +283,16 @@ import "strings"
 	}
 	
 	service: {
-		Type: "notify"
+		Type: "simple"
 		User: "clickhouse"
 		Group: "clickhouse"
 		Restart: "always"
 		RestartSec: 30
 		TimeoutStopSec: "infinity"
 		TimeoutStartSec: 0
-		RuntimeDirectory: "%p"
-		ExecStart: "/usr/bin/clickhouse-server --config=/etc/clickhouse-server/config.yaml --pid-file=%t/%p/%p.pid"
-		Environment: "CLICKHOUSE_WATCHDOG_NO_FORWARD=1"
-		EnvironmentFile: "-/etc/default/%p"
+		RuntimeDirectory: "clickhouse"
+		RuntimeDirectoryMode: "0755"
+		ExecStart: "/usr/bin/clickhouse-server --config=/etc/clickhouse-server/config.d/config.yaml --pid-file=/run/clickhouse/clickhouse.pid"
 		LimitCORE: "infinity"
 		LimitNOFILE: 500000
 		CapabilityBoundingSet: "CAP_NET_ADMIN CAP_IPC_LOCK CAP_SYS_NICE CAP_NET_BIND_SERVICE"
