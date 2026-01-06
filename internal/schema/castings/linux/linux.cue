@@ -6,16 +6,16 @@ import "strings"
 #Overrides: {
 	inputs: {
 		clickhouseHost: string | *"127.0.0.1"
-		clickhousePort: string | int | *"9000"
+		clickhousePort: int | *9000
 		zookeeperHost: string | *"127.0.0.1"
-		zookeeperPort: string | int | *"2181"
+		zookeeperPort: int | *2181
 		clickhouse: {
 			host: string | *"127.0.0.1"
-			port: string| int | *"9000"
+			port: int | *9000
 		}
 		zookeeper:{
 			host: string | *"127.0.0.1"
-			port: string | int | *9000
+			port: int | *2181
 		}
 
 		postgres: {
@@ -38,19 +38,19 @@ import "strings"
 				clickhouse: {
 					remote_servers: {
 						cluster: {
-							shard: {
-								replica: {
+							shard: [{
+								replica: [{
 									host: inputs.clickhouse.host
 									port: inputs.clickhouse.port
-								}
-							}
+								}]
+							}]
 						}
 					}
 					zookeeper: {
-						node: {
+						node: [{
 							host: inputs.zookeeper.host
 							port: inputs.zookeeper.port
-						}
+						}]
 					}
 				}
 			}
@@ -292,7 +292,7 @@ import "strings"
 		TimeoutStartSec: 0
 		RuntimeDirectory: "clickhouse"
 		RuntimeDirectoryMode: "0755"
-		ExecStart: "/usr/bin/clickhouse-server --config=/etc/clickhouse-server/config.d/config.yaml --pid-file=/run/clickhouse/clickhouse.pid"
+		ExecStart: "/usr/bin/clickhouse-server --config=/etc/clickhouse-server/config.yaml --pid-file=/run/clickhouse/clickhouse.pid"
 		LimitCORE: "infinity"
 		LimitNOFILE: 500000
 		CapabilityBoundingSet: "CAP_NET_ADMIN CAP_IPC_LOCK CAP_SYS_NICE CAP_NET_BIND_SERVICE"

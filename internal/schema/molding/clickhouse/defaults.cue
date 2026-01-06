@@ -1,9 +1,6 @@
 package clickhouse
 
 _server: {
-	clickhouse: {
-		// ClickHouse override semantics
-		'@replace': *"true" | string
 		logger: {
 			level: *"information" | #LoggerLevel
 
@@ -23,7 +20,7 @@ _server: {
 		tcp_port:  *9000 | int
 		user_directories: {
 			users_xml: {
-				path: *"users.xml" | string
+				path: *"users.yaml" | string
 			}
 			local_directory: {
 				path: *"/var/lib/clickhouse/access/" | string
@@ -63,7 +60,6 @@ _server: {
 		// Allow all user/variant extensions
 		...
 	}
-}
 
 // users.xml-style config
 _users: {
