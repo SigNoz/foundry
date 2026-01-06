@@ -119,7 +119,8 @@ import (
 			"../clickhouse/user_scripts:/var/lib/clickhouse/user_scripts/",
 		]
 		environment: {
-			CLICKHOUSE_REPLICA_ID: "\(#input.index)"
+			CLICKHOUSE_REPLICA_ID:      "\(#input.index)"
+			CLICKHOUSE_SKIP_USER_SETUP: 1
 		}
 	}
 
