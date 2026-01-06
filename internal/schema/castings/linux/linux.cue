@@ -72,8 +72,29 @@ import "strings"
 					}
 				}
 		}
+		}
+
+		signozOtelCollector: {
+			config: {
+				exporters:{
+					clickhousetraces:{
+						datasource: "tcp://" + inputs.clickhouse.host + ":" + inputs.clickhouse.port + "/signoz_traces"
+					}
+					signozclickhousemetrics:{
+						dsn: "tcp://" + inputs.clickhouse.host + ":" + inputs.clickhouse.port + "/signoz_metrics"
+					}
+					clickhouselogsexporter:{
+						dsn: "tcp://" + inputs.clickhouse.host + ":" + inputs.clickhouse.port + "/signoz_logs"
+					}
+					signozclickhousemeter:{
+						dsn: "tcp://" + inputs.clickhouse.host + ":" + inputs.clickhouse.port + "/signoz_meter"
+					}
+				}
+			}
 	}
-	}
+	
+	
+}
 }
 
 // SystemdUnit definition
@@ -166,11 +187,11 @@ import "strings"
 		Type: "forking"
 		User: string | *"zookeeper"
 		Group: string | *"zookeeper"
-		WorkingDirectory: string | *"${ZOOKEEPER_INSTALL_DIR}"
-		EnvironmentFile: string | *"${ZOOKEEPER_INSTALL_DIR}/conf/zoo.env"
-		ExecStart: "${ZOOKEEPER_INSTALL_DIR}/bin/zkServer.sh start ${ZOOKEEPER_INSTALL_DIR}/conf/zoo.cfg"
-		ExecStop: "${ZOOKEEPER_INSTALL_DIR}/bin/zkServer.sh stop ${ZOOKEEPER_INSTALL_DIR}/conf/zoo.cfg"
-		ExecReload: "${ZOOKEEPER_INSTALL_DIR}/bin/zkServer.sh restart ${ZOOKEEPER_INSTALL_DIR}/conf/zoo.cfg"
+		WorkingDirectory: string | *"/opt/zookeeper"
+		EnvironmentFile: string | *"/opt/zookeeper/conf/zoo.env"
+		ExecStart: "/opt/zookeeper/bin/zkServer.sh start /opt/zookeeper/conf/zoo.cfg"
+		ExecStop: "/opt/zookeeper/bin/zkServer.sh stop /opt/zookeeper/conf/zoo.cfg"
+		ExecReload: "/opt/zookeeper/bin/zkServer.sh restart /opt/zookeeper/conf/zoo.cfg"
 	}
 	
 	install: {

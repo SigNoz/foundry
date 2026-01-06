@@ -6,6 +6,7 @@ import (
 
 	"github.com/signoz/foundry/internal/common"
 	"github.com/signoz/foundry/internal/loader"
+	"github.com/signoz/foundry/internal/schema"
 )
 
 type PlatformGenerator struct{}
@@ -42,7 +43,7 @@ func applyOverrides(ctx *cue.Context, config cue.Value, overrides cue.Value, inp
 	currentComponents := config.LookupPath(componentsPath)
 	mergedComponents := currentComponents.Unify(overridesValue)
 
-	if mergedComponents.Err() != nil {
+	if err := mergedComponents.Validate(cue.Concrete(true)); err != nil {
 		return cue.Value{}, errors.New("failed to unify current components with override values: " + mergedComponents.Err().Error())
 	}
 
@@ -145,12 +146,9 @@ func (g *PlatformGenerator) Generate(
 			}
 			files["signoz-otel-collector.service"] = content
 
-		case "postgres":
-			content, err := g.generateServiceFile(deployment, "#PostgresService", "postgres")
-			if err != nil {
-				return cue.Value{}, nil, err
-			}
-			files["postgres.service"] = content
+			// Generate opamp config
+			opampConfig := []byte("server_endpoint: ws://127.0.0.1:4320/v1/opamp\n")
+			files["opamp.yaml"] = opampConfig
 
 		case "zookeeper":
 			content, err := g.generateServiceFile(deployment, "#ZookeeperService", "zookeeper")
@@ -160,6 +158,13 @@ func (g *PlatformGenerator) Generate(
 			files["zookeeper.service"] = content
 		}
 	}
+
+	// Read install script from embedded files
+	installScriptContent, err := schema.Content.ReadFile("castings/linux/install.sh")
+	if err != nil {
+		return cue.Value{}, nil, errors.New("failed to read install script from embedded files: " + err.Error())
+	}
+	files["install.sh"] = installScriptContent
 
 	return config, files, nil
 }
