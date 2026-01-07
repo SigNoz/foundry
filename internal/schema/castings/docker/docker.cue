@@ -15,8 +15,9 @@ import (
 
 // Replica configuration for services that can be scaled
 #ReplicaConfig: {
-	zookeeper:  int | *1 // Default 3 replicas for zookeeper cluster
-	clickhouse: int | *1 // Default 1 replica for clickhouse
+	zookeeper:     int | *1 // Default 3 replicas for zookeeper cluster
+	clickhouse:    int | *1 // Default 1 replica for clickhouse
+	otelcollector: int | *1 // Default 1 replica for otel-collector
 }
 
 // Common configuration template
@@ -97,12 +98,17 @@ import (
 				"zookeeper-\(i)": condition: "service_healthy"
 			}
 		}
+		entrypoint: *[
+			"/usr/bin/clickhouse-server",
+			"--config-file=/etc/clickhouse-server/config.yaml",
+		] | [...string]
 		healthcheck: {
 			test: ["CMD", "wget", "--spider", "-q", "0.0.0.0:8123/ping"]
 			interval: "30s"
 			timeout:  "5s"
 			retries:  3
 		}
+		user: "clickhouse:clickhouse"
 		ulimits: {
 			nproc: 65535
 			nofile: {
@@ -110,7 +116,6 @@ import (
 				hard: 262144
 			}
 		}
-
 		volumes: [
 			"clickhouse-\(#input.index):/var/lib/clickhouse/",
 			"../clickhouse/config.yaml:/etc/clickhouse-server/config.yaml",
@@ -172,7 +177,7 @@ import (
 	}
 
 	// OTel Collector - singleton service
-	"otel-collector": {
+	otelcollector: {
 		let _params = params
 		let _replicas = replicas
 
@@ -267,10 +272,19 @@ import (
 			}
 		}
 
+		// Generate otel-collector replicas
+		for i in list.Range(1, replicas.otelcollector+1, 1) {
+			"otelcollector-\(i)": components.otelcollector & {
+				#input: {
+					index: i
+					total: replicas.otelcollector
+				}
+			}
+		}
+
 		// Add singleton services
 		"init-clickhouse":       components["init-clickhouse"]
 		"signoz":                components.signoz
-		"otel-collector":        components["otel-collector"]
 		"schema-migrator-sync":  components["schema-migrator-sync"]
 		"schema-migrator-async": components["schema-migrator-async"]
 	}
