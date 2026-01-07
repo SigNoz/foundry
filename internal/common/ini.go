@@ -109,11 +109,12 @@ func GenerateSigNozEnv(signozConfig cue.Value) ([]byte, error) {
 		"telemetrystore.clickhouse.dsn",
 		"sqlstore.postgres.dsn",
 		"sqlstore.provider",
+		"web.enabled",
 	}
 	return GenerateEnvFromPaths(signozConfig, paths, "SIGNOZ")
 }
 
-// mapToFormat handles INI generation using the ini library.
+// Core function that handles both INI and ENV generation.
 func mapToFormat(data cue.Value, transformer KeyTransformer, formatType string) ([]byte, error) {
 	cfg := ini.Empty()
 

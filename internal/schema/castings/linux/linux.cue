@@ -48,6 +48,11 @@ import (
 	// ClickHouse configuration for Linux platform
 	out:
 	{
+		zookeeper:{
+			config:{
+				"admin.serverPort": 3181
+			}
+		}
 		clickhouse: {
 		config: {
 			serverConfig: {

@@ -1,0 +1,334 @@
+#!/bin/bash
+
+set -e
+set -u
+set -o pipefail
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# User can override with POURS_DIR environment variable
+POURS_DIR="${POURS_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+ZOOKEEPER_VERSION="3.8.5"
+ZOOKEEPER_DIR="/opt/zookeeper"
+ZOOKEEPER_DATA_DIR="/var/lib/zookeeper"
+ZOOKEEPER_LOG_DIR="/var/log/zookeeper"
+SIGNOZ_DIR="/opt/signoz"
+SIGNOZ_DATA_DIR="/var/lib/signoz"
+COLLECTOR_DIR="/opt/signoz-otel-collector"
+COLLECTOR_DATA_DIR="/var/lib/signoz-otel-collector"
+
+# Check if running as root
+check_root() {
+    [ "$EUID" -eq 0 ] || { echo "Please run as root"; exit 1; }
+}
+
+# Check if pours directory exists
+check_pours_dir() {
+    [ -d "$POURS_DIR" ] || { echo "Pours directory not found: $POURS_DIR"; exit 1; }
+}
+
+# Check if required file exists in pours
+require_pours_file() {
+    [ -f "$1" ] || { echo "Required file not found: $1"; exit 1; }
+}
+
+# Detect architecture
+detect_arch() {
+    uname -m | sed 's/x86_64/amd64/g' | sed 's/aarch64/arm64/g'
+}
+
+# Check if command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# Process template file (substitute variables)
+process_template() {
+    sed -e "s|\${ZOOKEEPER_INSTALL_DIR}|${ZOOKEEPER_DIR}|g" \
+        -e "s|\${ZOOKEEPER_DATA_DIR}|${ZOOKEEPER_DATA_DIR}|g" \
+        -e "s|\${ZOOKEEPER_LOG_DIR}|${ZOOKEEPER_LOG_DIR}|g" \
+        "$1" > "$2"
+}
+
+check_root
+check_pours_dir
+
+# Install Java
+if ! command_exists java; then
+    if command_exists apt-get; then
+        apt-get update && apt-get install -y default-jdk
+    elif command_exists yum; then
+        yum install -y java-1.8.0-openjdk java-1.8.0-openjdk-devel
+    elif command_exists dnf; then
+        dnf install -y java-1.8.0-openjdk java-1.8.0-openjdk-devel
+    else
+        echo "Package manager not found. Please install Java manually."
+        exit 1
+    fi
+fi
+
+# Install Zookeeper
+cd /tmp
+curl -L "https://dlcdn.apache.org/zookeeper/zookeeper-${ZOOKEEPER_VERSION}/apache-zookeeper-${ZOOKEEPER_VERSION}-bin.tar.gz" -o zookeeper.tar.gz
+tar -xzf zookeeper.tar.gz
+mkdir -p "${ZOOKEEPER_DIR}" "${ZOOKEEPER_DATA_DIR}" "${ZOOKEEPER_LOG_DIR}"
+cp -r "apache-zookeeper-${ZOOKEEPER_VERSION}-bin"/* "${ZOOKEEPER_DIR}"
+require_pours_file "${POURS_DIR}/zookeeper/zoo.cfg"
+mkdir -p "${ZOOKEEPER_DIR}/conf"
+cp "${POURS_DIR}/zookeeper/zoo.cfg" "${ZOOKEEPER_DIR}/conf/zoo.cfg"
+if ! getent passwd zookeeper >/dev/null; then
+    useradd --system --home "${ZOOKEEPER_DIR}" --no-create-home --user-group --shell /sbin/nologin zookeeper
+fi
+chown -R zookeeper:zookeeper "${ZOOKEEPER_DIR}" "${ZOOKEEPER_DATA_DIR}" "${ZOOKEEPER_LOG_DIR}"
+require_pours_file "${POURS_DIR}/linux/zookeeper.service"
+process_template "${POURS_DIR}/linux/zookeeper.service" /etc/systemd/system/zookeeper.service
+systemctl daemon-reload
+systemctl start zookeeper.service
+systemctl enable zookeeper.service
+rm -f /tmp/zookeeper.tar.gz
+rm -rf "/tmp/apache-zookeeper-${ZOOKEEPER_VERSION}-bin"
+
+# Install ClickHouse
+if ! command_exists clickhouse-server; then
+    if command_exists apt-get; then
+        apt-get install -y apt-transport-https ca-certificates curl gnupg
+        curl -fsSL 'https://packages.clickhouse.com/deb/repodata/repomd.xml.key' | gpg --dearmor -o /usr/share/keyrings/clickhouse-keyring.gpg
+        DEB_ARCH=$(dpkg --print-architecture)
+        echo "deb [signed-by=/usr/share/keyrings/clickhouse-keyring.gpg arch=${DEB_ARCH}] https://packages.clickhouse.com/deb stable main" | tee /etc/apt/sources.list.d/clickhouse.list
+        apt-get update
+        apt-get install -y clickhouse-server clickhouse-client
+    elif command_exists yum; then
+        yum install -y yum-utils
+        yum-config-manager --add-repo https://packages.clickhouse.com/rpm/clickhouse.repo
+        yum install -y clickhouse-server clickhouse-client
+    elif command_exists dnf; then
+        dnf install -y dnf-plugins-core
+        dnf config-manager --add-repo https://packages.clickhouse.com/rpm/clickhouse.repo
+        dnf install -y clickhouse-server clickhouse-client
+    else
+        echo "Package manager not found. Please install ClickHouse manually."
+        exit 1
+    fi
+fi
+
+# Configure ClickHouse
+mkdir -p /etc/clickhouse-server/config.d
+if ! getent passwd clickhouse >/dev/null; then
+    useradd --system --shell /bin/false clickhouse || true
+    chown clickhouse:clickhouse -R  /etc/clickhouse-server/
+fi
+require_pours_file "${POURS_DIR}/clickhouse/config.yaml"
+cp "${POURS_DIR}/clickhouse/config.yaml" /etc/clickhouse-server/config.yaml
+chown clickhouse:clickhouse /etc/clickhouse-server/config.yaml
+require_pours_file "${POURS_DIR}/clickhouse/users.yaml"
+cp "${POURS_DIR}/clickhouse/users.yaml" /etc/clickhouse-server/users.yaml
+chown clickhouse:clickhouse /etc/clickhouse-server/users.yaml
+if [ -f "${POURS_DIR}/clickhouse/custom-function.yaml" ]; then
+    cp "${POURS_DIR}/clickhouse/custom-function.yaml" /etc/clickhouse-server/custom-function.yaml
+    chown clickhouse:clickhouse /etc/clickhouse-server/custom-function.yaml
+fi
+
+# Wait for Zookeeper to be ready
+echo "Waiting for Zookeeper to be ready..."
+MAX_RETRIES=30
+RETRY_COUNT=0
+until curl -s -m 2 http://localhost:8080/commands/ruok | grep error | grep -q null; do
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
+        echo "Zookeeper failed to start after $MAX_RETRIES attempts"
+        exit 1
+    fi
+    echo "Waiting for Zookeeper... (attempt $RETRY_COUNT/$MAX_RETRIES)"
+    sleep 2
+done
+echo "Zookeeper is ready"
+
+echo "Starting Clickhouse Service"
+if require_pours_file "${POURS_DIR}/linux/clickhouse.service"; then
+    cp "${POURS_DIR}/linux/clickhouse.service" /etc/systemd/system/clickhouse.service
+    systemctl start clickhouse.service
+    systemctl enable clickhouse.service
+else
+    systemctl start clickhouser-server.service
+    systemctl enable clickhouse-server.service
+fi
+
+# Run ClickHouse migrations
+ARCH=$(detect_arch)
+cd /tmp
+curl -L "https://github.com/SigNoz/signoz-otel-collector/releases/latest/download/signoz-schema-migrator_linux_${ARCH}.tar.gz" -o signoz-schema-migrator.tar.gz
+tar -xzf signoz-schema-migrator.tar.gz
+MIGRATOR_BIN=$(find /tmp -name "signoz-schema-migrator" -type f | head -1)
+[ -n "$MIGRATOR_BIN" ] || { echo "Could not find signoz-schema-migrator binary"; exit 1; }
+chmod +x "$MIGRATOR_BIN"
+source "${POURS_DIR}/linux/signoz.env"
+
+# Wait for ClickHouse to be ready
+echo "Waiting for ClickHouse to be ready..."
+MAX_RETRIES=30
+RETRY_COUNT=0
+until wget --spider -q 0.0.0.0:8123/ping; do
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
+        echo "ClickHouse failed to start after $MAX_RETRIES attempts"
+        exit 1
+    fi
+    echo "Waiting for ClickHouse... (attempt $RETRY_COUNT/$MAX_RETRIES)"
+    sleep 2
+done
+echo "ClickHouse is ready"
+
+"$MIGRATOR_BIN" sync --dsn="${SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN}" --replication=true --up=
+"$MIGRATOR_BIN" async --dsn="${SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN}" --replication=true --up=
+rm -f /tmp/signoz-schema-migrator.tar.gz
+rm -rf /tmp/signoz-schema-migrator_linux_*
+
+# Install PostgreSQL
+if ! command_exists psql; then
+    if command_exists apt-get; then
+        apt-get update && apt-get install -y postgresql postgresql-contrib
+    elif command_exists dnf || command_exists yum; then
+        # Determine RHEL-compatible version for pgdg repo
+        # Amazon Linux 2023 is RHEL 9 compatible
+        if grep -qi 'amazon linux' /etc/os-release 2>/dev/null; then
+            RHEL_VERSION="9"
+        else
+            RHEL_VERSION=$(grep -oP 'VERSION_ID="\K[0-9]+' /etc/os-release || echo "9")
+        fi
+        # Get architecture (pgdg uses x86_64/aarch64, not amd64/arm64)
+        PG_ARCH=$(uname -m)
+        # Install pgdg repository
+        dnf install -y "https://download.postgresql.org/pub/repos/yum/reporpms/EL-${RHEL_VERSION}-${PG_ARCH}/pgdg-redhat-repo-latest.noarch.rpm" || true
+        dnf -qy module disable postgresql 2>/dev/null || true
+        dnf install -y postgresql16-server postgresql16
+        /usr/pgsql-16/bin/postgresql-16-setup initdb || true
+    else
+        echo "Package manager not found. Please install PostgreSQL manually."
+        exit 1
+    fi
+fi
+
+# Determine PostgreSQL data directory and version
+if [ -d /var/lib/postgresql ]; then
+    # Debian/Ubuntu style
+    PGDATA="/var/lib/postgresql"
+    PG_VERSION=$(ls -1 /var/lib/postgresql 2>/dev/null | head -1 || echo "main")
+    PGDATA="${PGDATA}/${PG_VERSION}/main"
+elif [ -d /var/lib/pgsql/16/data ]; then
+    # RHEL with pgdg postgresql16
+    PGDATA="/var/lib/pgsql/16/data"
+elif [ -d /var/lib/pgsql/data ]; then
+    # Amazon Linux 2023 / standard RHEL
+    PGDATA="/var/lib/pgsql/data"
+elif [ -d /var/lib/pgsql ]; then
+    PGDATA="/var/lib/pgsql/data"
+else
+    PGDATA="/var/lib/postgresql/data"
+fi
+
+# Initialize database if not already initialized
+if [ ! -d "$PGDATA" ] || [ -z "$(ls -A "$PGDATA" 2>/dev/null)" ]; then
+    if command_exists apt-get; then
+        sudo -u postgres /usr/lib/postgresql/*/bin/initdb -D "$PGDATA" || true
+    else
+        sudo -u postgres /usr/bin/initdb -D "$PGDATA" || true
+    fi
+fi
+
+# Copy PostgreSQL configuration files
+mkdir -p /etc/postgresql
+require_pours_file "${POURS_DIR}/postgres/auth.env"
+cp "${POURS_DIR}/postgres/auth.env" /etc/postgresql/postgresql.env
+
+# Source auth.env to get credentials
+. /etc/postgresql/postgresql.env
+
+# Copy server config
+if [ -f "${POURS_DIR}/postgres/serverConfig.conf" ]; then
+    require_pours_file "${POURS_DIR}/postgres/serverConfig.conf"
+    if [ -f "$PGDATA/postgresql.conf" ]; then
+        cat "${POURS_DIR}/postgres/serverConfig.conf" >> "$PGDATA/postgresql.conf"
+    fi
+fi
+
+# Copy HBA config
+if [ -f "${POURS_DIR}/postgres/hbaConfig.conf" ] && [ -n "$(cat "${POURS_DIR}/postgres/hbaConfig.conf")" ]; then
+    require_pours_file "${POURS_DIR}/postgres/hbaConfig.conf"
+    cp "${POURS_DIR}/postgres/hbaConfig.conf" "$PGDATA/pg_hba.conf"
+fi
+
+# Set PGDATA in environment file
+echo "PGDATA=$PGDATA" >> /etc/postgresql/postgresql.env
+
+# Start PostgreSQL to create database and user
+if command_exists systemctl; then
+    systemctl start postgresql || service postgresql start || true
+    sleep 2
+fi
+
+# Create database and user if they don't exist
+sudo -u postgres psql -c "SELECT 1 FROM pg_roles WHERE rolname='${POSTGRES_USER:-signoz}'" | grep -q 1 || \
+    sudo -u postgres psql -c "CREATE USER ${POSTGRES_USER:-signoz} WITH PASSWORD '${POSTGRES_PASSWORD:-Signoz@123}';" || true
+
+sudo -u postgres psql -c "SELECT 1 FROM pg_database WHERE datname='${POSTGRES_DB:-signoz}'" | grep -q 1 || \
+    sudo -u postgres psql -c "CREATE DATABASE ${POSTGRES_DB:-signoz} OWNER ${POSTGRES_USER:-signoz};" || true
+
+# Grant privileges
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ${POSTGRES_DB:-signoz} TO ${POSTGRES_USER:-signoz};" || true
+
+# Copy PostgreSQL service file if it exists
+if [ -f "${POURS_DIR}/linux/postgres.service" ]; then
+    require_pours_file "${POURS_DIR}/linux/postgres.service"
+    cp "${POURS_DIR}/linux/postgres.service" /etc/systemd/system/postgresql.service
+    systemctl daemon-reload
+fi
+
+# Enable and start PostgreSQL service
+if command_exists systemctl; then
+    systemctl enable postgresql.service || systemctl enable postgresql || true
+    systemctl restart postgresql.service || systemctl restart postgresql || true
+fi
+
+# Install SigNoz
+ARCH=$(detect_arch)
+cd /tmp
+curl -L "https://github.com/SigNoz/signoz/releases/latest/download/signoz_linux_${ARCH}.tar.gz" -o signoz.tar.gz
+tar -xzf signoz.tar.gz
+mkdir -p "${SIGNOZ_DIR}" "${SIGNOZ_DATA_DIR}" "${SIGNOZ_DIR}/conf"
+cp -r "signoz_linux_${ARCH}"/* "${SIGNOZ_DIR}"
+require_pours_file "${POURS_DIR}/linux/signoz.env"
+cp "${POURS_DIR}/linux/signoz.env" "${SIGNOZ_DIR}/conf/systemd.env"
+if ! getent passwd signoz >/dev/null; then
+    useradd --system --home "${SIGNOZ_DIR}" --no-create-home --user-group --shell /sbin/nologin signoz
+    chown signoz:signoz -R "${SIGNOZ_DIR}"
+    chown signoz:signoz -R "${SIGNOZ_DIR}/web/"
+fi
+
+require_pours_file "${POURS_DIR}/linux/signoz.service"
+cp "${POURS_DIR}/linux/signoz.service" /etc/systemd/system/signoz.service
+systemctl daemon-reload
+systemctl start signoz.service
+systemctl enable signoz.service
+rm -f /tmp/signoz.tar.gz``
+rm -rf "/tmp/signoz_linux_${ARCH}"
+
+# Install SigNoz Otel Collector
+ARCH=$(detect_arch)
+cd /tmp
+curl -L "https://github.com/SigNoz/signoz-otel-collector/releases/latest/download/signoz-otel-collector_linux_${ARCH}.tar.gz" -o signoz-otel-collector.tar.gz
+tar -xzf signoz-otel-collector.tar.gz
+mkdir -p "${COLLECTOR_DATA_DIR}" "${COLLECTOR_DIR}" "${COLLECTOR_DIR}/conf"
+cp -r "signoz-otel-collector_linux_${ARCH}"/* "${COLLECTOR_DIR}"
+chown -R signoz:signoz "${COLLECTOR_DATA_DIR}" "${COLLECTOR_DIR}"
+require_pours_file "${POURS_DIR}/signozOtelCollector/config.yaml"
+cp "${POURS_DIR}/signozOtelCollector/config.yaml" "${COLLECTOR_DIR}/conf/config.yaml"
+require_pours_file "${POURS_DIR}/linux/opamp.yaml"
+cp "${POURS_DIR}/linux/opamp.yaml" "${COLLECTOR_DIR}/conf/opamp.yaml"
+require_pours_file "${POURS_DIR}/linux/signoz-otel-collector.service"
+cp "${POURS_DIR}/linux/signoz-otel-collector.service" /etc/systemd/system/signoz-otel-collector.service
+systemctl daemon-reload
+systemctl start signoz-otel-collector.service
+systemctl enable signoz-otel-collector.service
+rm -f /tmp/signoz-otel-collector.tar.gz
+rm -rf "/tmp/signoz-otel-collector_linux_${ARCH}"
