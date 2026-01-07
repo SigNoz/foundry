@@ -1,8 +1,11 @@
+package casting
+
 import (
-	signozOtelCollectorConfig "github.com/signoz/foundry/internal/schema/molding/signozotelcollector"
-	clickhouseConfig "github.com/signoz/foundry/internal/schema/molding/clickhouse"
-	signozConfig "github.com/signoz/foundry/internal/schema/molding/signoz"
-	zookeeperConfig "github.com/signoz/foundry/internal/schema/molding/zookeeper"
+	signozOtelCollectorConfig "github.com/signoz/foundry/molding/signozotelcollector"
+	clickhouseConfig "github.com/signoz/foundry/molding/clickhouse"
+	signozConfig "github.com/signoz/foundry/molding/signoz"
+	zookeeperConfig "github.com/signoz/foundry/molding/zookeeper"
+	postgresConfig "github.com/signoz/foundry/molding/postgres"
 
 )
 
@@ -28,16 +31,19 @@ _baseComponent: {
 // Components listed here override the generic component definition.
 #ComponentRegistry: {
 	signozOtelCollector: _baseComponent & {
-		config?: signozOtelCollectorConfig.#BaseConfig
+		config: signozOtelCollectorConfig.#BaseConfig
 	}
 	clickhouse: _baseComponent & {
-		config?: clickhouseConfig.#BaseConfig
+		config: clickhouseConfig.#BaseConfig
 	}
 	signoz: _baseComponent & {
-		config?: signozConfig.#BaseConfig
+		config: signozConfig.#BaseConfig
 	}
 	zookeeper: _baseComponent & {
-		config?: zookeeperConfig.#BaseConfig
+		config: zookeeperConfig.#BaseConfig
+	}
+	postgres: _baseComponent & {
+		config: postgresConfig.#BaseConfig
 	}
 }
 
@@ -60,7 +66,7 @@ _requirements: {
 	platform:      #Platform
 
 	components: {
-		[ID=string]: (#ComponentRegistry[ID] | *#Component)
+		[ID=string]: #ComponentRegistry[ID]
 	}
 
 	requirements: _requirements[platform]

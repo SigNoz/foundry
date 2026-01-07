@@ -3,7 +3,7 @@ package main
 import (
 	"log/slog"
 
-	"github.com/SigNoz/foundry/internal/instrumentation"
+	"github.com/signoz/foundry/internal/instrumentation"
 	"github.com/spf13/cobra"
 )
 
