@@ -37,6 +37,9 @@ func (g *PlatformGenerator) Generate(
 			return cue.Value{}, nil, fmt.Errorf("failed to convert version to string for component %s: %w", k, err)
 		}
 		replicaValue, err := getValue(config, fmt.Sprintf("components.%s.replicas", k))
+		if err != nil {
+			return cue.Value{}, nil, fmt.Errorf("failed to get replicas for component %s: %w", k, err)
+		}
 		replicaInt, err := replicaValue.Int64()
 		if err != nil {
 			return cue.Value{}, nil, fmt.Errorf("failed to convert replicas to int for component %s: %w", k, err)
@@ -88,8 +91,8 @@ func (g *PlatformGenerator) Generate(
 	deployment = deployment.LookupPath(cue.ParsePath("compose"))
 
 	// Return the contents as YAML
-	yamlBytes, err := cueyaml.Encode(deployment)
 	var data map[string]any
+	yamlBytes, _ := cueyaml.Encode(deployment)
 	if err = stdyaml.Unmarshal(yamlBytes, &data); err != nil {
 		return cue.Value{}, nil, fmt.Errorf("failed to unmarshal YAML: %w", err)
 	}
@@ -103,7 +106,11 @@ func (g *PlatformGenerator) Generate(
 
 // getValue retrieves a value from the CUE configuration based on the provided path.
 func getValue(c cue.Value, path string) (cue.Value, error) {
-	return c.LookupPath(cue.ParsePath(path)), nil
+	value := c.LookupPath(cue.ParsePath(path))
+	if value.Err() != nil {
+		return cue.Value{}, fmt.Errorf("failed to lookup path %s: %w", path, value.Err())
+	}
+	return value, nil
 }
 
 // NOTE: To be used for other configurations
@@ -112,7 +119,7 @@ func mergeValues(c cue.Value, path string, value cue.Value) cue.Value {
 	return c.FillPath(cue.ParsePath(path), value)
 }
 
-// Removes keys from the docker compose yaml
+// Removes keys from the docker compose yaml.
 func removeParams(data map[string]any) {
 	delete(data, "params")
 	delete(data, "replicas")

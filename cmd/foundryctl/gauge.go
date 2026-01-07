@@ -33,7 +33,8 @@ func runGauge(cmd *cobra.Command, _ []string) error {
 	for _, v := range requirements {
 		err := checkToolExists(v)
 		if err != nil {
-			logger.WarnContext(ctx, "Tool not found", slog.String("tool.name", v))
+			logger.ErrorContext(ctx, "Tool not found", slog.String("tool.name", v))
+			logger.Error(fmt.Sprintf("Unable to proceed, please install %v and try again.", v))
 		} else {
 			logger.InfoContext(ctx, "Tool is available", slog.String("tool.name", v))
 		}
