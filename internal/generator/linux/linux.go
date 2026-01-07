@@ -6,7 +6,6 @@ import (
 
 	"github.com/signoz/foundry/internal/common"
 	"github.com/signoz/foundry/internal/loader"
-	"github.com/signoz/foundry/internal/schema"
 )
 
 type PlatformGenerator struct{}
@@ -114,8 +113,8 @@ func (g *PlatformGenerator) Generate(
 	postgresAuth := extractComponentAuth(config, "components.postgres")
 	inputsValue := map[string]interface{}{
 		"clickhouse": map[string]interface{}{
-			"host": "127.0.0.1",
-			"port": "9000",
+			"host":     "127.0.0.1",
+			"port":     "9000",
 			"replicas": clickhouseReplicas,
 		},
 		"postgres": map[string]interface{}{
@@ -124,12 +123,11 @@ func (g *PlatformGenerator) Generate(
 			"auth": postgresAuth,
 		},
 		"zookeeper": map[string]interface{}{
-			"host": "127.0.0.1",
-			"port": "2181",
+			"host":     "127.0.0.1",
+			"port":     "2181",
 			"replicas": zookeeperReplicas,
 		},
 	}
-		
 
 	config, err = applyOverrides(ctx, config, linuxOverrides, inputsValue)
 	if err != nil {
@@ -175,7 +173,6 @@ func (g *PlatformGenerator) Generate(
 				return cue.Value{}, nil, err
 			}
 			files["zookeeper.service"] = content
-		
 
 		case "clickhouse":
 			content, err := g.generateServiceFile(deployment, "#ClickHouseService", "clickhouse")
@@ -186,9 +183,71 @@ func (g *PlatformGenerator) Generate(
 		}
 	}
 
-	files["install.sh"], err = schema.Content.ReadFile("castings/linux/install.sh")
-	if err != nil{
+	install, err := loader.LoadSchema(ctx, "castings/linux/install.cue")
+	if err != nil {
+		return cue.Value{}, nil, errors.New("failed to load linux deployment schema from 'castings/linux/linux.cue': " + err.Error())
+	}
+
+	files["install.sh"], err = generateInstallScript(config, install)
+	if err != nil {
 		return cue.Value{}, nil, err
 	}
 	return config, files, nil
+}
+
+// generateInstallScript generates the install.sh script from CUE configuration
+func generateInstallScript(config cue.Value, installScript cue.Value) ([]byte, error) {
+	// Get the InstallScript definition from the loaded schema
+	installScriptDef := installScript.LookupPath(cue.ParsePath("#InstallScript"))
+	if installScriptDef.Err() != nil {
+		return nil, errors.New("failed to lookup #InstallScript definition: " + installScriptDef.Err().Error())
+	}
+
+	componentsValue := config.LookupPath(cue.ParsePath("components"))
+	if componentsValue.Err() != nil {
+		return nil, errors.New("failed to lookup components in config: " + componentsValue.Err().Error())
+	}
+
+	iter, _ := componentsValue.Fields()
+	versions := make(map[string]interface{})
+	for iter.Next() {
+		componentName := iter.Label()
+		version, err := versionLookup(componentName, config)
+		if err == nil {
+			versions[componentName] = version
+		}
+	}
+
+	installConfig := map[string]interface{}{
+		"versions": versions,
+	}
+
+	// Fill the InstallScript with the config
+	filledScript := installScriptDef.FillPath(cue.ParsePath("config"), installConfig)
+	if filledScript.Err() != nil {
+		return nil, errors.New("failed to fill install script config: " + filledScript.Err().Error())
+	}
+
+	// Extract the output
+	output := filledScript.LookupPath(cue.ParsePath("output"))
+	if output.Err() != nil {
+		return nil, errors.New("failed to lookup install script output: " + output.Err().Error())
+	}
+
+	scriptContent, err := output.String()
+	if err != nil {
+		return nil, errors.New("failed to convert install script to string: " + err.Error())
+	}
+
+	return []byte(scriptContent), nil
+}
+
+func versionLookup(component string, config cue.Value) (string, error) {
+	versionPath := cue.ParsePath("components." + component + ".version")
+	version := config.LookupPath(versionPath)
+	if version.Err() != nil {
+		return "", version.Err()
+	}
+
+	return version.String()
 }
