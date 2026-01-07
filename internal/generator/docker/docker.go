@@ -2,7 +2,6 @@
 package docker
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 
@@ -49,12 +48,12 @@ func (g *PlatformGenerator) Generate(
 		replicaConfig[k] = int(replicaInt)
 	}
 	logger.Debug("Component Versions:", slog.Any("versions", componentVersions))
-	logger.Debug("Replica Configuration:", slog.Any("versions", componentVersions))
+	logger.Debug("Replica Configuration:", slog.Any("replicas", replicaConfig))
 
 	// Read the Docker compose schema
 	deployment, err := loader.LoadSchema(ctx, "castings/docker/docker.cue")
 	if err != nil {
-		return cue.Value{}, nil, errors.New("schema compilation error: " + err.Error())
+		return cue.Value{}, nil, fmt.Errorf("schema compilation error: %w", err)
 	}
 
 	// Generate a map of versions for enabled components
@@ -92,7 +91,10 @@ func (g *PlatformGenerator) Generate(
 
 	// Return the contents as YAML
 	var data map[string]any
-	yamlBytes, _ := cueyaml.Encode(deployment)
+	yamlBytes, err := cueyaml.Encode(deployment)
+	if err != nil {
+		return cue.Value{}, nil, fmt.Errorf("failed to encode deployment to YAML: %w", err)
+	}
 	if err = stdyaml.Unmarshal(yamlBytes, &data); err != nil {
 		return cue.Value{}, nil, fmt.Errorf("failed to unmarshal YAML: %w", err)
 	}
@@ -113,7 +115,6 @@ func getValue(c cue.Value, path string) (cue.Value, error) {
 	return value, nil
 }
 
-// NOTE: To be used for other configurations
 // mergeValues merges a value into the CUE configuration at the specified path.
 func mergeValues(c cue.Value, path string, value cue.Value) cue.Value {
 	return c.FillPath(cue.ParsePath(path), value)
