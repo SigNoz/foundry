@@ -22,7 +22,7 @@ func (g *PlatformGenerator) Generate(
 	config cue.Value,
 	enabledComponents map[string]bool,
 ) (cue.Value, map[string][]byte, error) {
-	logger := instrumentation.NewLogger(false).With("platform.generator", "docker")
+	logger := instrumentation.NewLogger(false).With(slog.String("platform.generator", "docker"))
 	logger.Debug("Starting Docker platform generation")
 
 	componentVersions := make(map[string]string)
