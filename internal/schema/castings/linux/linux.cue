@@ -84,6 +84,8 @@ import (
 
 		signoz: {
 			config:{
+				web:
+					enabled: false
 				telemetrystore: {
 					clickhouse: {
 						dsn: "tcp://" + inputs.clickhouse.host + ":" + _portToString.clickhouse
