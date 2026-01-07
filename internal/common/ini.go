@@ -36,7 +36,26 @@ func MapToINI(data cue.Value) ([]byte, error) {
 }
 
 func MapToEnv(data cue.Value) ([]byte, error) {
-	return mapToFormat(data, UpperTransformer, "env")
+	fields, err := data.Fields()
+	if err != nil {
+		return nil, errors.New("failed to get fields from CUE value: " + err.Error())
+	}
+
+	var buf strings.Builder
+	for fields.Next() {
+		key := fields.Selector().String()
+		value := fields.Value()
+
+		strValue, err := valueToString(value)
+		if err != nil {
+			return nil, errors.New("failed to convert value to string for key '" + key + "': " + err.Error())
+		}
+
+		transformedKey := UpperTransformer(key)
+		buf.WriteString(fmt.Sprintf("%s=%s\n", transformedKey, strValue))
+	}
+
+	return []byte(buf.String()), nil
 }
 
 // PathToEnvKey converts a config path to an environment variable key.
@@ -94,7 +113,7 @@ func GenerateSigNozEnv(signozConfig cue.Value) ([]byte, error) {
 	return GenerateEnvFromPaths(signozConfig, paths, "SIGNOZ")
 }
 
-// Core function that handles both INI and ENV generation.
+// mapToFormat handles INI generation using the ini library.
 func mapToFormat(data cue.Value, transformer KeyTransformer, formatType string) ([]byte, error) {
 	cfg := ini.Empty()
 

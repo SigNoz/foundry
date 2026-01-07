@@ -6,6 +6,7 @@ import (
 
 	"github.com/signoz/foundry/internal/common"
 	"github.com/signoz/foundry/internal/loader"
+	"github.com/signoz/foundry/internal/schema"
 )
 
 type PlatformGenerator struct{}
@@ -90,30 +91,49 @@ func (g *PlatformGenerator) Generate(
 
 	// Apply Linux-specific configuration overrides using CUE
 	linuxOverrides := deployment.LookupPath(cue.ParsePath("#Overrides"))
-	if linuxOverrides.Err() == nil {
-		// Prepare inputs for the override template
-		postgresAuth := extractComponentAuth(config, "components.postgres")
-		inputsValue := map[string]interface{}{
-			"clickhouse": map[string]interface{}{
-				"host": "127.0.0.1",
-				"port": "9000",
-			},
-			"postgres": map[string]interface{}{
-				"host": "127.0.0.1",
-				"port": "5432",
-				"auth": postgresAuth,
-			},
-			"zookeeper": map[string]interface{}{
-				"host": "127.0.0.1",
-				"port": "2181",
-			},
-		}
+	if linuxOverrides.Err() != nil {
+		return cue.Value{}, nil, linuxOverrides.Err()
 
-		var err error
-		config, err = applyOverrides(ctx, config, linuxOverrides, inputsValue)
-		if err != nil {
-			return cue.Value{}, nil, errors.New("failed to apply linux platform overrides to configuration: " + err.Error())
+	}
+	// Prepare inputs for the override template
+	var clickhouseReplicas int
+	replicasPath := cue.ParsePath("components.clickhouse.replicas")
+	if replicasValue := config.LookupPath(replicasPath); replicasValue.Err() == nil {
+		if r, err := replicasValue.Int64(); err == nil {
+			clickhouseReplicas = int(r)
 		}
+	}
+	// Prepare inputs for the override template
+	var zookeeperReplicas int
+	replicasPath = cue.ParsePath("components.zookeeper.replicas")
+	if replicasValue := config.LookupPath(replicasPath); replicasValue.Err() == nil {
+		if r, err := replicasValue.Int64(); err == nil {
+			zookeeperReplicas = int(r)
+		}
+	}
+	postgresAuth := extractComponentAuth(config, "components.postgres")
+	inputsValue := map[string]interface{}{
+		"clickhouse": map[string]interface{}{
+			"host": "127.0.0.1",
+			"port": "9000",
+			"replicas": clickhouseReplicas,
+		},
+		"postgres": map[string]interface{}{
+			"host": "127.0.0.1",
+			"port": "5432",
+			"auth": postgresAuth,
+		},
+		"zookeeper": map[string]interface{}{
+			"host": "127.0.0.1",
+			"port": "2181",
+			"replicas": zookeeperReplicas,
+		},
+	}
+		
+
+	config, err = applyOverrides(ctx, config, linuxOverrides, inputsValue)
+	if err != nil {
+		return cue.Value{}, nil, errors.New("failed to apply linux platform overrides to configuration: " + err.Error())
 	}
 
 	// Generate systemd service files for enabled components
@@ -166,5 +186,9 @@ func (g *PlatformGenerator) Generate(
 		}
 	}
 
+	files["install.sh"], err = schema.Content.ReadFile("castings/linux/install.sh")
+	if err != nil{
+		return cue.Value{}, nil, err
+	}
 	return config, files, nil
 }

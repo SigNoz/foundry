@@ -1,58 +1,78 @@
 package linux
 
-import "strings"
+import (
+	"strings"
+	"list"
+	"strconv"
+)
 
 // Linux-specific configuration overrides
 #Overrides: {
 	inputs: {
-		clickhouseHost: string | *"127.0.0.1"
-		clickhousePort: int | *9000
-		zookeeperHost: string | *"127.0.0.1"
-		zookeeperPort: int | *2181
 		clickhouse: {
-			host: string | *"127.0.0.1"
-			port: int | *9000
+			host:     string | *"127.0.0.1"
+			port:     int | string | *9000
+			replicas: int | *1
 		}
-		zookeeper:{
+		zookeeper: {
 			host: string | *"127.0.0.1"
-			port: int | *2181
+			port: int | string | *2181
+			replicas: int | *1
 		}
 
 		postgres: {
 			host: string | *"127.0.0.1"
-			port: string | int | *5432
+			port: int | string | *5432
 			auth: {
 				postgres_password: string & =~"[a-z]+" & =~"[A-Z]+" & =~"[0-9]+" & =~"[!@#$%^&*]+"
-				postgres_db: *"signoz" | string
-				postgres_user: *"signoz" | string
+				postgres_db:       *"signoz" | string
+				postgres_user:     *"signoz" | string
 			}
-			
 		}
 	}
+
+	// Helper to normalize port to int (handles both int and string input)
+	_portToInt: {
+		clickhouse: (inputs.clickhouse.port & int) | strconv.Atoi(inputs.clickhouse.port & string)
+		postgres:   (inputs.postgres.port & int) | strconv.Atoi(inputs.postgres.port & string)
+		zookeeper:  (inputs.zookeeper.port & int) | strconv.Atoi(inputs.zookeeper.port & string)
+	}
+
+	// Helper to convert port to string
+	_portToString: {
+		clickhouse: "\(inputs.clickhouse.port)"
+		postgres:   "\(inputs.postgres.port)"
+		zookeeper:  "\(inputs.zookeeper.port)"
+	}
+	
 	// ClickHouse configuration for Linux platform
 	out:
 	{
 		clickhouse: {
 		config: {
 			serverConfig: {
-				clickhouse: {
 					remote_servers: {
 						cluster: {
-							shard: [{
-								replica: [{
-									host: inputs.clickhouse.host
-									port: inputs.clickhouse.port
-								}]
-							}]
+							shard: [
+								 {
+									replica: [
+										for i, _ in list.Range(0, inputs.clickhouse.replicas, 1)
+										{
+										host: inputs.clickhouse.host
+										port: _portToInt.clickhouse + i // 9000, 9001, 9002, ...
+									}]
+								},
+							]
 						}
 					}
 					zookeeper: {
-						node: [{
+						node: [
+							for i, _ in list.Range(0, inputs.zookeeper.replicas, 1){
 							host: inputs.zookeeper.host
-							port: inputs.zookeeper.port
+							port: _portToInt.zookeeper + i
 						}]
 					}
-				}
+				
 			}
 		}
 		}
@@ -61,14 +81,14 @@ import "strings"
 			config:{
 				telemetrystore: {
 					clickhouse: {
-						dsn: "tcp://" + inputs.clickhouse.host + ":" + inputs.clickhouse.port
+						dsn: "tcp://" + inputs.clickhouse.host + ":" + _portToString.clickhouse
 					}
 				}
 				
 				sqlstore: {
 					provider: "postgres"
 					postgres: {
-						dsn: "postgres://" + inputs.postgres.auth.postgres_user + ":" + inputs.postgres.auth.postgres_password + "@" + inputs.postgres.host + ":" + inputs.postgres.port + "/" + inputs.postgres.auth.postgres_db
+						dsn: "postgres://" + inputs.postgres.auth.postgres_user + ":" + inputs.postgres.auth.postgres_password + "@" + inputs.postgres.host + ":" + _portToString.postgres + "/" + inputs.postgres.auth.postgres_db
 					}
 				}
 		}
@@ -78,16 +98,16 @@ import "strings"
 			config: {
 				exporters:{
 					clickhousetraces:{
-						datasource: "tcp://" + inputs.clickhouse.host + ":" + inputs.clickhouse.port + "/signoz_traces"
+						datasource: "tcp://" + inputs.clickhouse.host + ":" + _portToString.clickhouse + "/signoz_traces"
 					}
 					signozclickhousemetrics:{
-						dsn: "tcp://" + inputs.clickhouse.host + ":" + inputs.clickhouse.port + "/signoz_metrics"
+						dsn: "tcp://" + inputs.clickhouse.host + ":" + _portToString.clickhouse + "/signoz_metrics"
 					}
 					clickhouselogsexporter:{
-						dsn: "tcp://" + inputs.clickhouse.host + ":" + inputs.clickhouse.port + "/signoz_logs"
+						dsn: "tcp://" + inputs.clickhouse.host + ":" + _portToString.clickhouse + "/signoz_logs"
 					}
 					signozclickhousemeter:{
-						dsn: "tcp://" + inputs.clickhouse.host + ":" + inputs.clickhouse.port + "/signoz_meter"
+						dsn: "tcp://" + inputs.clickhouse.host + ":" + _portToString.clickhouse + "/signoz_meter"
 					}
 				}
 			}
@@ -103,6 +123,8 @@ import "strings"
 	unit: {
 		Description:   string & !="" | *"Service"
 		After?: 		string
+		Requires?:     string
+		Wants?:        string
 		Documentation?:string
 		[string]:      string  // Allow additional fields
 		
@@ -121,15 +143,29 @@ import "strings"
 		ExecStop?:   string
 		ExecReload?: string
 		KillMode?: string
+		KillSignal?: string
+		
 		// Restart behavior with defaults
 		Restart:    string & =~"^(no|on-success|on-failure|on-abnormal|on-watchdog|on-abort|always)$" | *"on-failure"
-		TimeoutSec: *30 | int & >=0
+		RestartSec?: int & >=0
+		TimeoutSec?: int & >=0
+		TimeoutStopSec?: string | int
+		TimeoutStartSec?: int & >=0
+		
+		// Runtime directories
+		RuntimeDirectory?: string
+		RuntimeDirectoryMode?: string
 		
 		// Resource limits
 		LimitNOFILE?:  int
 		LimitNPROC?:   int
+		LimitCORE?:    string | int
 		MemoryLimit?:  string
 		CPUQuota?:     string
+		
+		// Capabilities
+		CapabilityBoundingSet?: string
+		AmbientCapabilities?: string
 		
 		[string]: string | int  // Allow additional fields
 	}

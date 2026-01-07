@@ -1,6 +1,7 @@
 package clickhouse
 
 _server: {
+		'@replace': *"1" | string
 		logger: {
 			level: *"information" | #LoggerLevel
 
@@ -18,6 +19,7 @@ _server: {
 
 		http_port: *8123 | int
 		tcp_port:  *9000 | int
+		interserver_http_port: *9009 | int
 		user_directories: {
 			users_xml: {
 				path: *"users.yaml" | string
@@ -31,26 +33,27 @@ _server: {
 		}
 		remote_servers: {
 			cluster: {
-				shard: {
-					replica: {
+				shard: [...{
+					replica: [...{
 						host: *"${CLICKHOUSE_HOST}" | string
 						port: *"${CLICKHOUSE_PORT}" | string | int
-					}
-				}
+					}]
+					
+				}]
 			}
 		}
 		zookeeper: {
-			node: {
+			node: [...{
 				host: *"${ZOOKEEPER_HOST}" | string
 				port: *"${ZOOKEEPER_PORT}" | string | int
-			}
+			}]
 		}
 		macros: {
 			shard:   *"01" | string
 			replica: *"01" | string
 		}
 		dictionaries_config:                      *"*_dictionary.xml" | string
-		user_defined_executable_functions_config: *"*function.xml" | string
+		user_defined_executable_functions_config: *"*function.yaml" | string
 		user_scripts_path:                        *"/var/lib/clickhouse/user_scripts/" | string
 
 		distributed_ddl: {
@@ -63,13 +66,11 @@ _server: {
 
 // users.xml-style config
 _users: {
-	clickhouse: {
 		profiles: {
 			// Default profile
 			default: {
 				max_memory_usage:      *10000000000 | int
 				load_balancing:        *"random" | #LoadBalancing
-				user_compressed_cache: *0 | int
 				log_queries:           *1 | int
 			}
 		}
@@ -103,7 +104,6 @@ _users: {
 				}
 			}
 		}
-	}
 	// Allow all user/variant extensions
 	...
 }
@@ -111,7 +111,6 @@ _users: {
 // custom-function.xml style config
 _customFunction: {
 	functions: {
-		function: {
 			type:        "executable"
 			name:        "histogramQuantile"
 			return_type: "Float64"
@@ -131,7 +130,6 @@ _customFunction: {
 			]
 			format:  "CSV"
 			command: "./histogramQunatile"
-		}
 	}
 }
 
