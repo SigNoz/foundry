@@ -21,7 +21,7 @@ func (g *PlatformGenerator) Generate(
 	config cue.Value,
 	enabledComponents map[string]bool,
 ) (cue.Value, map[string][]byte, error) {
-	logger := instrumentation.NewLogger(true).With(slog.String("platform.generator", "docker"))
+	logger := instrumentation.NewLogger(false).With(slog.String("platform.generator", "docker"))
 	logger.Debug("Starting Docker platform generation")
 
 	componentVersions := make(map[string]string)
@@ -65,9 +65,9 @@ func (g *PlatformGenerator) Generate(
 	}
 
 	replicaKeyMap := map[string]int{
-		"zookeeper":      replicaConfig["zookeeper"],
-		"clickhouse":     replicaConfig["clickhouse"],
-		"otel-collector": replicaConfig["otelcollector"],
+		"zookeeper":     replicaConfig["zookeeper"],
+		"clickhouse":    replicaConfig["clickhouse"],
+		"otelcollector": replicaConfig["signozOtelCollector"],
 	}
 
 	// Iterate over the component versions to merge with deployment lookups.

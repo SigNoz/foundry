@@ -1,5 +1,5 @@
 clean:
-	rm -rf pours
+	cd pours/docker && docker compose down --remove-orphans --volumes && cd ../.. && rm -rf pours
 
 gauge:
 	go run ./cmd/foundryctl gauge -f ./tmp/casting.yaml
@@ -10,5 +10,9 @@ forge:
 docker:
 	cd pours/docker && docker-compose up -d
 
-docker-clean:
-	docker stop `docker ps -aq` && docker rm `docker ps -aq`
+test:
+	echo "Cleaning"
+	make clean
+	echo "Testing..."
+	make forge
+	make docker
