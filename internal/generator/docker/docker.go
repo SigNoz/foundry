@@ -84,15 +84,27 @@ func (g *PlatformGenerator) Generate(
 	// Iterate over the replica configurations to merge with deployment lookups.
 	for component, replicas := range replicaKeyMap {
 		replicaValue := ctx.Encode(replicas)
-		// Include the cluster information for cluster components
-		clickhouseHosts := generateClusterInfo("clickhouse", replicas)
-		zookeeperHosts := generateClusterInfo("zookeeper", replicas)
-		config = mergeValues(config, "components.clickhouse.clusterHosts", ctx.Encode(clickhouseHosts))
-		config = mergeValues(config, "components.zookeeper.clusterHosts", ctx.Encode(zookeeperHosts))
 		deployment = mergeValues(deployment, fmt.Sprintf("compose.replicas.%s", component), replicaValue)
 	}
 
-	fmt.Println("after merge:", config)
+	// Generate and merge cluster information for ClickHouse
+	if replicaKeyMap["clickhouse"] > 0 {
+		clickhouseReplicas := generateClusterNodes("clickhouse", replicaKeyMap["clickhouse"])
+		zookeeperNodes := generateClusterNodes("zookeeper", replicaKeyMap["zookeeper"])
+
+		// Merge ClickHouse replicas
+		shardConfig := []map[string]any{
+			{"replica": clickhouseReplicas},
+		}
+		config = mergeValues(config, "components.clickhouse.config.serverConfig.remote_servers.cluster.shard",
+			ctx.Encode(shardConfig))
+
+		// Merge Zookeeper nodes for ClickHouse
+		config = mergeValues(config, "components.clickhouse.config.serverConfig.zookeeper.node",
+			ctx.Encode(zookeeperNodes))
+
+		logger.Debug("Merged ClickHouse cluster configuration", slog.Int("replicas", replicaKeyMap["clickhouse"]))
+	}
 
 	// Lookup the compose section
 	deployment = deployment.LookupPath(cue.ParsePath("compose"))
@@ -115,6 +127,7 @@ func (g *PlatformGenerator) Generate(
 }
 
 // getValue retrieves a value from the CUE configuration based on the provided path.
+// returns the retrieved CUE value or an error if the lookup fails.
 func getValue(c cue.Value, path string) (cue.Value, error) {
 	value := c.LookupPath(cue.ParsePath(path))
 	if value.Err() != nil {
@@ -124,11 +137,14 @@ func getValue(c cue.Value, path string) (cue.Value, error) {
 }
 
 // mergeValues merges a value into the CUE configuration at the specified path.
+// Returns the updated CUE value.
 func mergeValues(c cue.Value, path string, value cue.Value) cue.Value {
 	return c.FillPath(cue.ParsePath(path), value)
 }
 
+// This is a recursive function that traverses the entire map.
 // Removes keys from the docker compose yaml.
+// Specifically removes "params" and "replicas" keys.
 func removeParams(data map[string]any) {
 	delete(data, "params")
 	delete(data, "replicas")
@@ -139,17 +155,31 @@ func removeParams(data map[string]any) {
 	}
 }
 
-type clusterMember struct {
-	host string
-	port int
-}
+// generateClusterNodes generates cluster node configuration for the specified component type.
+// Supports: "clickhouse", "zookeeper" (for ClickHouse config), and "zookeeper-server" (for Zookeeper config).
+// Returns a slice of maps with host/port pairs or full server configuration with id, host, peerPort, electionPort.
+func generateClusterNodes(componentType string, replicas int) []map[string]any {
+	var nodeList []map[string]any
 
+	switch componentType {
+	case "clickhouse":
+		// ClickHouse replica configuration (for remote_servers)
+		for replica := 1; replica <= replicas; replica++ {
+			nodeList = append(nodeList, map[string]any{
+				"host": fmt.Sprintf("clickhouse-%d", replica),
+				"port": 9000,
+			})
+		}
 
-func generateClusterInfo(replicas int) []string {
-		for replica :=1; replica <= replicas; replica++ {
-			member := clusterMember{
-				host: fmt.Sprintf("zookeeper-%d", replica),
-				port: 2888,
-			}
-			return ["host"+ ":" + member.host, "\n", "+" ,"port" + ":" + member.port]
+	case "zookeeper":
+		// Zookeeper node configuration for ClickHouse (for zookeeper.node)
+		for replica := 1; replica <= replicas; replica++ {
+			nodeList = append(nodeList, map[string]any{
+				"host": fmt.Sprintf("zookeeper-%d", replica),
+				"port": 2181,
+			})
+		}
+	}
+
+	return nodeList
 }
