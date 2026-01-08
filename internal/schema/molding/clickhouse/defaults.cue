@@ -1,7 +1,26 @@
 package clickhouse
 
+_keeperConfig:{
+	tcp_port: *9181 | int
+	server_id: *1 | int
+	log_storage_path: *"/var/lib/clickhouse/coordination/log" | string
+	snapshot_storage_path: *"/var/lib/clickhouse/coordination/snapshots" | string
+	coordination_settings: {
+		operation_timeout_ms: *10000 | int
+		session_timeout_ms: *30000 | int
+		raft_logs_level: *"warning" | string
+	}
+
+	raft_configuration: {
+		server:[...{
+			id: *1 | string
+			hostname: string
+			port: *"${KEEPER_PORT}" | int | string
+		}]
+	}
+}
+
 _server: {
-		'@replace': *"1" | string
 		logger: {
 			level: *"information" | #LoggerLevel
 
@@ -59,7 +78,6 @@ _server: {
 		distributed_ddl: {
 			path: *"/clickhouse/task_queue/ddl" | string
 		}
-
 		// Allow all user/variant extensions
 		...
 	}
@@ -134,9 +152,8 @@ _customFunction: {
 }
 
 #BaseConfig: #ConfigSpec & {
+	keeper: config: _keeperConfig
 	serverConfig:         _server
 	usersConfig:          _users
 	customFunctionConfig: _customFunction
 }
-
-#BaseConfig

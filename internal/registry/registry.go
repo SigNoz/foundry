@@ -8,7 +8,6 @@ import (
 	"github.com/signoz/foundry/internal/generator/postgres"
 	"github.com/signoz/foundry/internal/generator/signoz"
 	"github.com/signoz/foundry/internal/generator/signozotelcollector"
-	"github.com/signoz/foundry/internal/generator/zookeeper"
 	"github.com/signoz/foundry/internal/generator/linux"
 )
 
@@ -17,7 +16,6 @@ const (
 	ComponentClickHouse          generator.ComponentID = "clickhouse"
 	ComponentSignoz              generator.ComponentID = "signoz"
 	ComponentSignozOtelCollector generator.ComponentID = "signozOtelCollector"
-	ComponentZooKeeper           generator.ComponentID = "zookeeper"
 	ComponentPostgres            generator.ComponentID = "postgres"
 )
 
@@ -51,7 +49,6 @@ func (r *ComponentRegistry) registerAll() {
 	r.register(ComponentClickHouse, &clickhouse.Generator{})
 	r.register(ComponentSignoz, &signoz.Generator{})
 	r.register(ComponentSignozOtelCollector, &signozotelcollector.Generator{})
-	r.register(ComponentZooKeeper, &zookeeper.Generator{})
 	r.register(ComponentPostgres, &postgres.Generator{})
 }
 

@@ -10,6 +10,19 @@ package clickhouse
 	"first_or_random"
 
 #ConfigSpec: {
+	// Whether to use standalone ClickHouse Keeper
+	// If true: keeper runs as separate instance, zookeeper config is added to clickhouse-server
+	// If false: keeper runs embedded in clickhouse-server, no zookeeper config
+	keeper?: {
+		enabled: *false | bool
+		if enabled == true{
+			replicas: int
+			version?: string
+			config?: {
+				[string]: _
+			}
+		}
+	}
 	// File: config.yaml (main ClickHouse configuration)
 	serverConfig?: {
 		[string]: _
@@ -37,4 +50,8 @@ package clickhouse
 			[string]: _
 		}
 	}
+}
+
+#KeeperConfigSpec: {
+	[string]: _
 }
