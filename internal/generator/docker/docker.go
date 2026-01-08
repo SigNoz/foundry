@@ -84,8 +84,15 @@ func (g *PlatformGenerator) Generate(
 	// Iterate over the replica configurations to merge with deployment lookups.
 	for component, replicas := range replicaKeyMap {
 		replicaValue := ctx.Encode(replicas)
+		// Include the cluster information for cluster components
+		clickhouseHosts := generateClusterInfo("clickhouse", replicas)
+		zookeeperHosts := generateClusterInfo("zookeeper", replicas)
+		config = mergeValues(config, "components.clickhouse.clusterHosts", ctx.Encode(clickhouseHosts))
+		config = mergeValues(config, "components.zookeeper.clusterHosts", ctx.Encode(zookeeperHosts))
 		deployment = mergeValues(deployment, fmt.Sprintf("compose.replicas.%s", component), replicaValue)
 	}
+
+	fmt.Println("after merge:", config)
 
 	// Lookup the compose section
 	deployment = deployment.LookupPath(cue.ParsePath("compose"))
@@ -130,4 +137,19 @@ func removeParams(data map[string]any) {
 			removeParams(m)
 		}
 	}
+}
+
+type clusterMember struct {
+	host string
+	port int
+}
+
+
+func generateClusterInfo(replicas int) []string {
+		for replica :=1; replica <= replicas; replica++ {
+			member := clusterMember{
+				host: fmt.Sprintf("zookeeper-%d", replica),
+				port: 2888,
+			}
+			return ["host"+ ":" + member.host, "\n", "+" ,"port" + ":" + member.port]
 }

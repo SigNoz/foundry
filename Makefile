@@ -11,8 +11,5 @@ docker:
 	cd pours/docker && docker-compose up -d
 
 test:
-	echo "Cleaning"
-	make clean
-	echo "Testing..."
 	make forge
 	make docker

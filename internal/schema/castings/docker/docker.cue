@@ -174,6 +174,17 @@ import (
 			timeout:  "5s"
 			retries:  3
 		}
+		environment: {
+			SIGNOZ_ALERTMANAGER_PROVIDER:         "signoz"
+			SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: "tcp://clickhouse-1:9000"
+			SIGNOZ_SQLSTORE_SQLITE_PATH:          "/var/lib/signoz/signoz.db"
+			DASHBOARDS_PATH:                      "/root/config/dashboards"
+			STORAGE:                              "clickhouse"
+			GODEBUG:                              "netdns:go"
+			TELEMETRY_ENABLED:                    true
+			DEPLOYMENT_TYPE:                      "docker-swarm"
+			DOT_METRICS_ENABLED:                  true
+		}
 	}
 
 	// OTel Collector - singleton service
@@ -191,8 +202,8 @@ import (
 			"--feature-gates=-pkg.translator.prometheus.NormalizeName",
 		]
 		volumes: [
-			"../otel-collector/otel-collector-config.yaml:/etc/otel-collector-config.yaml",
-			"../otel-collector/otel-collector-opamp-config.yaml:/etc/manager-config.yaml",
+			"../signozOtelCollectorConfig/config.yaml:/etc/otel-collector-config.yaml",
+			"../signozOtelCollectorConfig/config.yaml:/etc/manager-config.yaml",
 		]
 		ports: ["4317:4317", "4318:4318"]
 		depends_on: {
