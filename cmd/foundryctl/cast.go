@@ -70,7 +70,7 @@ func registerCastCmd(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(castCmd)
 }
 
-// runCommand executes the commands specified in castOptions as a subprocess
+// runCommand executes the commands specified in castOptions as a subprocess.
 func runCommand(ctx context.Context, logger *slog.Logger, cast castOptions) error {
 	logger.InfoContext(ctx, "Executing commands for platform", slog.String("platform", cast.Platform))
 
@@ -97,7 +97,7 @@ func runCommand(ctx context.Context, logger *slog.Logger, cast castOptions) erro
 	return nil
 }
 
-// validateInstallation ensures that the system is up and running depending on the platform
+// validateInstallation ensures that the system is up and running depending on the platform.
 func validateInstallation(ctx context.Context, logger *slog.Logger, platform string) error {
 	logger.InfoContext(ctx, "Validating installation for platform", slog.String("platform", platform))
 
