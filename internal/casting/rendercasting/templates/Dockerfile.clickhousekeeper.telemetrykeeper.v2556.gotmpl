@@ -1,0 +1,19 @@
+FROM clickhouse/clickhouse-keeper:{{ $.Spec.TelemetryKeeper.Spec.Version }}
+
+# Copy all keeper config files
+COPY configs/ /etc/clickhouse-keeper/
+
+RUN echo '#!/bin/bash' > /entrypoint.sh && \
+    echo '# Extract replica index from service name (format: name-telemetrykeeper-kind-N)' >> /entrypoint.sh && \
+    echo 'REPLICA_INDEX=$(echo $RENDER_SERVICE_NAME | grep -oE "[0-9]+$" || echo "0")' >> /entrypoint.sh && \
+    echo 'CONFIG_FILE="/etc/clickhouse-keeper/keeper-${REPLICA_INDEX}.yaml"' >> /entrypoint.sh && \
+    echo '' >> /entrypoint.sh && \
+    echo '# Fallback to keeper-0.yaml if specific config not found' >> /entrypoint.sh && \
+    echo 'if [ ! -f "$CONFIG_FILE" ]; then' >> /entrypoint.sh && \
+    echo '  CONFIG_FILE="/etc/clickhouse-keeper/keeper-0.yaml"' >> /entrypoint.sh && \
+    echo 'fi' >> /entrypoint.sh && \
+    echo '' >> /entrypoint.sh && \
+    echo 'exec /usr/bin/clickhouse-keeper --config-file="$CONFIG_FILE" "$@"' >> /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

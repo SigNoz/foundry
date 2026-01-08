@@ -49,6 +49,14 @@ func NewINIMaterial(contents []byte, path string) (Material, error) {
 	}, nil
 }
 
+func NewTextMaterial(contents []byte, path string) Material {
+	return Material{
+		contents: contents,
+		path:     path,
+		format:   FormatText,
+	}
+}
+
 func (m Material) Contents() []byte {
 	return m.contents
 }
@@ -68,6 +76,9 @@ func (m Material) FmtContents() []byte {
 			return nil
 		}
 		return fmtContents
+	case FormatText:
+		// For text format, contents are stored as raw bytes (not JSON)
+		return m.contents
 	default:
 		return m.contents
 	}
