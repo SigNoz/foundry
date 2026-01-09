@@ -1,8 +1,8 @@
 package instrumentation
 
 import (
+	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"log/slog"
 	"strconv"
@@ -178,7 +178,7 @@ func (handler *PrettyHandler) appendAttr(buf *Buffer, attr slog.Attr, key bool, 
 			if spaces < 0 {
 				spaces = 0
 			}
-			_, _ = buf.WriteString(fmt.Sprintf("%*s", spaces, ""))
+			_, _ = buf.Write(bytes.Repeat([]byte(" "), spaces))
 		}
 	}
 
