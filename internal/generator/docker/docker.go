@@ -88,19 +88,40 @@ func (g *PlatformGenerator) Generate(
 	// Generate and merge cluster information for ClickHouse
 	if replicaKeyMap["clickhouse"] > 0 {
 		clickhouseReplicas := generateClusterNodes("clickhouse", replicaKeyMap["clickhouse"])
+		clickhousekeeperReplicas := generateClusterNodes("clickhouse-keeper", replicaKeyMap["clickhouse"])
+		zooKeeperReplicas := generateClusterNodes("zookeeper", replicaKeyMap["clickhouse"])
 
 		// Merge ClickHouse replicas
 		shardConfig := []map[string]any{
 			{"replica": clickhouseReplicas},
 		}
-		config = mergeValues(config, "components.clickhouse.config.serverConfig.remote_servers.cluster.shard",
-			ctx.Encode(shardConfig))
+
+		// Merge ClickHouse Keeper replicas
+		keeperConfig := map[string]any{
+			"server": clickhousekeeperReplicas,
+		}
+
+		zookeeperConfig := map[string]any{
+			"node": zooKeeperReplicas,
+		}
+
+		// Clickhouse Cluster
+		config = mergeValues(config, "components.clickhouse.config.serverConfig.remote_servers.cluster.shard", ctx.Encode(shardConfig))
+		// Zookeeper Nodes
+		config = mergeValues(config, "components.clickhouse.config.serverConfig.zookeeper", ctx.Encode(zookeeperConfig))
+		// Kepeer Nodes
+		config = mergeValues(config, "components.clickhouse.config.serverConfig.keeper_server.raft_configuration", ctx.Encode(keeperConfig))
 
 		logger.Debug("Merged ClickHouse cluster configuration", slog.Int("replicas", replicaKeyMap["clickhouse"]))
 	}
 
 	// Lookup the compose section
 	deployment = deployment.LookupPath(cue.ParsePath("compose"))
+
+	// Check if deployment is empty
+	if deployment.Err() != nil {
+		return cue.Value{}, nil, fmt.Errorf("failed to lookup compose in deployment: %w", deployment.Err())
+	}
 
 	// Return the contents as YAML
 	var data map[string]any
@@ -163,6 +184,26 @@ func generateClusterNodes(componentType string, replicas int) []map[string]any {
 				"port": 9000,
 			})
 		}
+
+	case "clickhouse-keeper":
+		// ClickHouse Keeper cluster configuration
+		for replica := 1; replica <= replicas; replica++ {
+			nodeList = append(nodeList, map[string]any{
+				"id":       replica,
+				"hostname": fmt.Sprintf("clickhouse-%d", replica),
+				"port":     9234,
+			})
+		}
+
+	case "zookeeper":
+		// ClickHouse replica configuration (for remote_servers)
+		for replica := 1; replica <= replicas; replica++ {
+			nodeList = append(nodeList, map[string]any{
+				"host": fmt.Sprintf("clickhouse-%d", replica),
+				"port": 9181,
+			})
+		}
+
 	}
 
 	return nodeList

@@ -1,7 +1,6 @@
 package signoz
 
 import (
-	"strings"
 	"list"
 )
 
@@ -43,7 +42,6 @@ import (
 		}
 
 		let _params = params
-		let _replicas = replicas
 
 		#Common
 		image:          "clickhouse/clickhouse-server:\(_params.CLICKHOUSE_VERSION)"
@@ -78,7 +76,6 @@ import (
 		volumes: [
 			"clickhouse-\(#input.index):/var/lib/clickhouse/",
 			"../clickhouse/config.yaml:/etc/clickhouse-server/config.yaml",
-			"../clickhouse/users.yaml:/etc/clickhouse-server/users.yaml",
 			"../clickhouse/custom-function.yaml:/etc/clickhouse-server/custom-function.yaml",
 			"../clickhouse/user_scripts:/var/lib/clickhouse/user_scripts/",
 		]

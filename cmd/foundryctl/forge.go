@@ -69,4 +69,3 @@ func registerForgeCmd(rootCmd *cobra.Command) {
 	forgeCmd.Flags().StringVarP(&outputDir, "output", "o", "./pours", "Output Directory for pours containing the deployment and configuration files")
 	rootCmd.AddCommand(forgeCmd)
 }
-

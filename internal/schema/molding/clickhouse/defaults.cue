@@ -1,21 +1,21 @@
 package clickhouse
 
-_keeperConfig:{
-	tcp_port: *9181 | int
-	server_id: *1 | int
-	log_storage_path: *"/var/lib/clickhouse/coordination/log" | string
+_keeperConfig: {
+	tcp_port:              *9181 | int
+	server_id:             *1 | int
+	log_storage_path:      *"/var/lib/clickhouse/coordination/log" | string
 	snapshot_storage_path: *"/var/lib/clickhouse/coordination/snapshots" | string
 	coordination_settings: {
 		operation_timeout_ms: *10000 | int
-		session_timeout_ms: *30000 | int
-		raft_logs_level: *"warning" | string
+		session_timeout_ms:   *30000 | int
+		raft_logs_level:      *"warning" | string
 	}
 
 	raft_configuration: {
-		server:[...{
-			id: *1 | string
+		server: [...{
+			id:       *1 | int
 			hostname: string
-			port: *"${KEEPER_PORT}" | int | string
+			port:     *"${KEEPER_PORT}" | int
 		}]
 	}
 }
@@ -35,6 +35,25 @@ _server: {
 	}
 	display_name: *"cluster" | string
 	listen_host:  *"0.0.0.0" | string
+	keeper_server: {
+		tcp_port:              *9181 | int
+		server_id:             *1 | int
+		log_storage_path:      *"/var/lib/clickhouse/coordination/log" | string
+		snapshot_storage_path: *"/var/lib/clickhouse/coordination/snapshots" | string
+		coordination_settings: {
+			operation_timeout_ms: *10000 | int
+			session_timeout_ms:   *30000 | int
+			raft_logs_level:      *"warning" | string
+		}
+
+		raft_configuration: {
+			server: [...{
+				id:       *1 | int
+				hostname: string
+				port:     *"${KEEPER_PORT}" | int
+			}]
+		}
+	}
 
 	http_port:             *8123 | int
 	tcp_port:              *9000 | int
@@ -147,8 +166,7 @@ _customFunction: {
 }
 
 #BaseConfig: #ConfigSpec & {
+	keeper: config: _keeperConfig
 	serverConfig:         _server & _users
 	customFunctionConfig: _customFunction
 }
-
-#BaseConfig
