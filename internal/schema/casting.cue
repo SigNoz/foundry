@@ -4,9 +4,7 @@ import (
 	signozOtelCollectorConfig "github.com/signoz/foundry/molding/signozotelcollector"
 	clickhouseConfig "github.com/signoz/foundry/molding/clickhouse"
 	signozConfig "github.com/signoz/foundry/molding/signoz"
-	zookeeperConfig "github.com/signoz/foundry/molding/zookeeper"
 	postgresConfig "github.com/signoz/foundry/molding/postgres"
-
 )
 
 // Matches versions like v1, v2, v3
@@ -38,9 +36,6 @@ _baseComponent: {
 	}
 	signoz: _baseComponent & {
 		config: signozConfig.#BaseConfig
-	}
-	zookeeper: _baseComponent & {
-		config: zookeeperConfig.#BaseConfig
 	}
 	postgres: _baseComponent & {
 		config: postgresConfig.#BaseConfig

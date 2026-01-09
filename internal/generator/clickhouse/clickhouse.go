@@ -22,6 +22,15 @@ func (g *Generator) GenerateComponent(config cue.Value) (map[string][]byte, erro
 	}
 
 	// Generate config.yaml (main ClickHouse configuration)
+	if keeperConfig, exists := componentConfig["keeper"]; exists {
+		configYAML, err := yaml.Marshal(keeperConfig)
+		if err != nil {
+			return nil, errors.New("failed to marshal keeperConfig: " + err.Error())
+		}
+		files["keeper.yaml"] = configYAML
+	}
+
+	// Generate config.yaml (main ClickHouse configuration)
 	if serverConfig, exists := componentConfig["serverConfig"]; exists {
 		configYAML, err := yaml.Marshal(serverConfig)
 		if err != nil {
