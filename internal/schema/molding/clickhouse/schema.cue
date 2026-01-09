@@ -28,11 +28,6 @@ package clickhouse
 		[string]: _
 	}
 
-	// File: users.yaml (users, profiles, quotas)
-	usersConfig?: {
-		[string]: _
-	}
-
 	customFunctionConfig?: {
 		[string]: _
 	}
