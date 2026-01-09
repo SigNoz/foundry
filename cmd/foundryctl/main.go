@@ -1,17 +1,18 @@
 package main
 
 import (
-	"log/slog"
 	"os"
 
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/instrumentation"
 	"github.com/spf13/cobra"
 )
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:          "foundryctl",
-		SilenceUsage: true,
+		Use:           "foundryctl",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		CompletionOptions: cobra.CompletionOptions{
 			DisableDefaultCmd: true,
 		},
@@ -29,7 +30,7 @@ func main() {
 	registerCastCmd(rootCmd)
 
 	if err := rootCmd.Execute(); err != nil {
-		logger.ErrorContext(rootCmd.Context(), "failed to execute command", slog.Any("error", err))
+		logger.ErrorContext(rootCmd.Context(), "failed to execute command", foundryerrors.LogAttr(err))
 		os.Exit(1)
 	}
 }

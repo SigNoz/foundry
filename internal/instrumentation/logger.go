@@ -14,7 +14,7 @@ func NewLogger(debug bool) *slog.Logger {
 }
 
 func newLoggerWithLevel(level slog.Level) *slog.Logger {
-	return slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+	return slog.New(newPrettyHandler(os.Stdout, &Options{
 		AddSource: true,
 		Level:     level,
 	}))

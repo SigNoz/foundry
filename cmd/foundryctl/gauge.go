@@ -8,6 +8,7 @@ import (
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/errors"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/instrumentation"
 	"github.com/signoz/foundry/internal/loader"
 	"github.com/spf13/cobra"
@@ -21,7 +22,7 @@ func runGauge(cmd *cobra.Command, _ []string) error {
 	logger.DebugContext(ctx, "Starting Gauge command, using:", slog.String("cfg.file", cfg.File))
 	config, err := loader.LoadConfig(cuectx, cfg.File)
 	if err != nil {
-		logger.ErrorContext(ctx, "failed to validate config", slog.String("cfg.file", cfg.File), slog.String("error", err.Error()))
+		logger.ErrorContext(ctx, "failed to validate config", slog.String("cfg.file", cfg.File), foundryerrors.LogAttr(err))
 		return err
 	}
 	requirements, err := getRequirements(config.Unified, logger)
