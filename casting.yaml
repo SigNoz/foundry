@@ -1,0 +1,15 @@
+apiVersion: v1alpha1
+metadata:
+  name: signoz
+spec:
+  deployment:
+    mode: docker
+    platform: linux
+    os: linux
+  telemetrystore:
+    kind: clickhouse
+    spec:
+      cluster:
+        replicas: 3
+        shards: 3
+      version: 25.5.6

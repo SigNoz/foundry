@@ -12,9 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"cuelang.org/go/cue/cuecontext"
-	"github.com/signoz/foundry/internal/instrumentation"
-	"github.com/signoz/foundry/internal/loader"
 	"github.com/spf13/cobra"
 )
 
@@ -30,40 +27,40 @@ func registerCastCmd(rootCmd *cobra.Command) {
 		Use:   "cast",
 		Short: "Cast to the target environment.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			logger := instrumentation.NewLogger(cfg.Debug).With(slog.String("cmd.name", "cast"))
-			ctx := cmd.Context()
+			// logger := instrumentation.NewLogger(cfg.Debug).With(slog.String("cmd.name", "cast"))
+			// ctx := cmd.Context()
 
-			logger.DebugContext(ctx, "starting command", slog.String("cfg.file", cfg.File))
-			cuectx := cuecontext.New()
-			config, err := loader.LoadConfig(cuectx, cfg.File)
-			if err != nil {
-				logger.ErrorContext(ctx, "config load failed", slog.String("error", err.Error()))
-				return err
-			}
-			platform := config.Platform
-			logger.DebugContext(ctx, "Configuration loaded", slog.String("Platform detected:", platform))
-			switch platform {
-			case "docker":
-				logger.InfoContext(ctx, "Docker platform selected", slog.String("Action", "Running docker compose"))
-				// Run Docker compose as a subprocess
-				dockerCast := castOptions{
-					Platform: "docker",
-					Execute:  commands{"cd ./pours/docker", "docker compose up -d"},
-				}
-				if err := runCommand(ctx, logger, dockerCast); err != nil {
-					return err
-				}
-				if err := validateInstallation(ctx, logger, platform); err != nil {
-					return err
-				}
+			// logger.DebugContext(ctx, "starting command", slog.String("cfg.file", cfg.File))
+			// cuectx := cuecontext.New()
+			// config, err := loader.LoadConfig(cuectx, cfg.File)
+			// if err != nil {
+			// 	logger.ErrorContext(ctx, "config load failed", slog.String("error", err.Error()))
+			// 	return err
+			// }
+			// platform := config.Platform
+			// logger.DebugContext(ctx, "Configuration loaded", slog.String("Platform detected:", platform))
+			// switch platform {
+			// case "docker":
+			// 	logger.InfoContext(ctx, "Docker platform selected", slog.String("Action", "Running docker compose"))
+			// 	// Run Docker compose as a subprocess
+			// 	dockerCast := castOptions{
+			// 		Platform: "docker",
+			// 		Execute:  commands{"cd ./pours/docker", "docker compose up -d"},
+			// 	}
+			// 	if err := runCommand(ctx, logger, dockerCast); err != nil {
+			// 		return err
+			// 	}
+			// 	if err := validateInstallation(ctx, logger, platform); err != nil {
+			// 		return err
+			// 	}
 
-			case "linux":
-				logger.InfoContext(ctx, "Linux platform selected", slog.String("Action", "Generating Linux deployment files"))
-				// TBD
-				if err := validateInstallation(ctx, logger, platform); err != nil {
-					return err
-				}
-			}
+			// case "linux":
+			// 	logger.InfoContext(ctx, "Linux platform selected", slog.String("Action", "Generating Linux deployment files"))
+			// 	// TBD
+			// 	if err := validateInstallation(ctx, logger, platform); err != nil {
+			// 		return err
+			// 	}
+			// }
 			return nil
 		},
 	}

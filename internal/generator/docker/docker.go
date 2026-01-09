@@ -8,7 +8,6 @@ import (
 	"cuelang.org/go/cue"
 	cueyaml "cuelang.org/go/encoding/yaml"
 	"github.com/signoz/foundry/internal/instrumentation"
-	"github.com/signoz/foundry/internal/loader"
 	stdyaml "gopkg.in/yaml.v3"
 )
 
@@ -51,10 +50,11 @@ func (g *PlatformGenerator) Generate(
 	logger.Debug("Replica Configuration:", slog.Any("replicas", replicaConfig))
 
 	// Read the Docker compose schema
-	deployment, err := loader.LoadSchema(ctx, "castings/docker/docker.cue")
-	if err != nil {
-		return cue.Value{}, nil, fmt.Errorf("schema compilation error: %w", err)
-	}
+	// deployment, err := loader.LoadSchema(ctx, "castings/docker/docker.cue")
+	// if err != nil {
+	// 	return cue.Value{}, nil, fmt.Errorf("schema compilation error: %w", err)
+	// }
+	var deployment cue.Value
 
 	// Generate a map of versions for enabled components
 	versionKeyMap := map[string]string{

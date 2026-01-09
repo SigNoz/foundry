@@ -3,7 +3,6 @@ package v1alpha1
 import (
 	"errors"
 
-	"github.com/signoz/foundry/api/v1alpha1/yamls"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -55,25 +54,4 @@ type TelemetryStore struct {
 
 	// Specification for the telemetry store.
 	Spec MoldingSpec `json:"spec,omitempty" yaml:"spec,omitempty"`
-}
-
-func NewTelemetryStoreKindClickhouse() TelemetryStore {
-	return TelemetryStore{
-		Kind: TelemetryStoreKindClickhouse,
-		Spec: MoldingSpec{
-			Cluster: TypeCluster{
-				Replicas: 1,
-				Shards:   1,
-			},
-			Version: "25.5.6",
-			Env:     map[string]string{},
-			Config: TypeConfig{
-				Data: map[string]string{
-					"config.yaml":    yamls.ConfigClickhousev2556YAML,
-					"functions.yaml": yamls.FunctionsClickhousev2556YAML,
-					"keeper.yaml":    yamls.KeeperClickhousev2556YAML,
-				},
-			},
-		},
-	}
 }

@@ -1,0 +1,19 @@
+services:
+  {{ range $shardIdx := .Spec.TelemetryStore.Spec.Cluster.Shards }}
+  {{ range $replicaIdx := $.Spec.TelemetryStore.Spec.Cluster.Replicas }}
+  {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}:
+    container_name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}
+    image: fs
+    ports:
+      - "{{ $shardIdx }}:{{ $replicaIdx }}"
+    environment:
+      - CLICKHOUSE_REPLICA_ID={{ $replicaIdx }}
+      - CLICKHOUSE_SKIP_USER_SETUP=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8123"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+  {{ end }}
+  {{ end }}
