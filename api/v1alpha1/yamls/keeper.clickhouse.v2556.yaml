@@ -1,0 +1,13 @@
+config:
+    coordination_settings:
+        operation_timeout_ms: 10000
+        raft_logs_level: warning
+        session_timeout_ms: 30000
+    log_storage_path: /var/lib/clickhouse/coordination/log
+    raft_configuration:
+        server: []
+    server_id: 1
+    snapshot_storage_path: /var/lib/clickhouse/coordination/snapshots
+    tcp_port: 9181
+enabled: true
+replicas: 1

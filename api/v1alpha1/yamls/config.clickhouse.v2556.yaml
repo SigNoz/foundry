@@ -1,0 +1,70 @@
+dictionaries_config: '*_dictionary.xml'
+display_name: cluster
+distributed_ddl:
+    path: /clickhouse/task_queue/ddl
+http_port: 8123
+interserver_http_port: 9009
+keeper_server:
+    coordination_settings:
+        operation_timeout_ms: 10000
+        raft_logs_level: warning
+        session_timeout_ms: 30000
+    log_storage_path: /var/lib/clickhouse/coordination/log
+    raft_configuration:
+        server:
+            - hostname: clickhouse-1
+              id: 1
+              port: 9234
+    server_id: 1
+    snapshot_storage_path: /var/lib/clickhouse/coordination/snapshots
+    tcp_port: 9181
+listen_host: 0.0.0.0
+logger:
+    count: 10
+    errorlog: /var/log/clickhouse-server/clickhouse-server.err.log
+    formatting:
+        type: console
+    level: information
+    log: /var/log/clickhouse-server/clickhouse-server.log
+    size: 1000M
+macros:
+    replica: "01"
+    shard: "01"
+profiles:
+    default:
+        load_balancing: random
+        log_queries: 1
+        max_memory_usage: 10000000000
+quotas:
+    default:
+        interval:
+            duration: 3600
+            errors: 0
+            execution_time: 0
+            queries: 0
+            read_rows: 0
+            result_rows: 0
+remote_servers:
+    cluster:
+        shard:
+            - replica:
+                - host: clickhouse-1
+                  port: 9000
+tcp_port: 9000
+user_defined_executable_functions_config: '*function.yaml'
+user_scripts_path: /var/lib/clickhouse/user_scripts/
+users:
+    default:
+        access_management: 1
+        named_collection_control: 1
+        networks:
+            ip: ::/0
+        password: ""
+        profile: default
+        quota: default
+        show_named_collectin: 1
+        show_named_collection_secrets: 1
+zookeeper:
+    node:
+        - host: clickhouse-1
+          port: 9181

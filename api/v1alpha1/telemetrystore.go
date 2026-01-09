@@ -1,0 +1,79 @@
+package v1alpha1
+
+import (
+	"errors"
+
+	"github.com/signoz/foundry/api/v1alpha1/yamls"
+	"go.yaml.in/yaml/v3"
+)
+
+var _ yaml.Marshaler = (*TelemetryStoreKind)(nil)
+var _ yaml.Unmarshaler = (*TelemetryStoreKind)(nil)
+
+var (
+	TelemetryStoreKindClickhouse TelemetryStoreKind = TelemetryStoreKind{s: "clickhouse"}
+)
+
+type TelemetryStoreKind struct {
+	s string
+}
+
+func TelemetryStoreKinds() []TelemetryStoreKind {
+	return []TelemetryStoreKind{TelemetryStoreKindClickhouse}
+}
+
+func (kind TelemetryStoreKind) String() string {
+	return kind.s
+}
+
+func (kind *TelemetryStoreKind) UnmarshalText(text []byte) error {
+	for _, availableKind := range TelemetryStoreKinds() {
+		if availableKind.String() == string(text) {
+			*kind = availableKind
+			return nil
+		}
+	}
+
+	return errors.New("invalid telemetry store kind: " + string(text))
+}
+
+func (kind TelemetryStoreKind) MarshalText() ([]byte, error) {
+	return []byte(kind.String()), nil
+}
+
+func (kind *TelemetryStoreKind) UnmarshalYAML(node *yaml.Node) error {
+	return kind.UnmarshalText([]byte(node.Value))
+}
+
+func (kind TelemetryStoreKind) MarshalYAML() (interface{}, error) {
+	return kind.String(), nil
+}
+
+type TelemetryStore struct {
+	// Kind of the telemetry store to use.
+	Kind TelemetryStoreKind `json:"kind,omitempty" yaml:"kind,omitempty"`
+
+	// Specification for the telemetry store.
+	Spec MoldingSpec `json:"spec,omitempty" yaml:"spec,omitempty"`
+}
+
+func NewTelemetryStoreKindClickhouse() TelemetryStore {
+	return TelemetryStore{
+		Kind: TelemetryStoreKindClickhouse,
+		Spec: MoldingSpec{
+			Cluster: TypeCluster{
+				Replicas: 1,
+				Shards:   1,
+			},
+			Version: "25.5.6",
+			Env:     map[string]string{},
+			Config: TypeConfig{
+				Data: map[string]string{
+					"config.yaml":    yamls.ConfigClickhousev2556YAML,
+					"functions.yaml": yamls.FunctionsClickhousev2556YAML,
+					"keeper.yaml":    yamls.KeeperClickhousev2556YAML,
+				},
+			},
+		},
+	}
+}
