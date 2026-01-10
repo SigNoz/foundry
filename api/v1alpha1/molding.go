@@ -61,3 +61,40 @@ type MoldingSpec struct {
 	// Configuration for the molding
 	Config TypeConfig `json:"config,omitempty" yaml:"config,omitempty"`
 }
+
+type MoldingStatus struct {
+	// Status of the molding
+	Addresses []string `json:"addresses,omitempty" yaml:"addresses,omitempty"`
+
+	// Environment variables for the molding
+	Env map[string]string `json:"env,omitempty" yaml:"env,omitempty"`
+
+	// Configuration for the molding
+	Config TypeConfig `json:"config,omitempty" yaml:"config,omitempty"`
+}
+
+func MergeStatusIntoSpec(spec MoldingSpec, status MoldingStatus) MoldingSpec {
+	mergedEnv := make(map[string]string)
+	for k, v := range spec.Env {
+		mergedEnv[k] = v
+	}
+
+	for k, v := range status.Env {
+		mergedEnv[k] = v
+	}
+
+	mergedConfig := make(map[string]string)
+	for k, v := range spec.Config.Data {
+		mergedConfig[k] = v
+	}
+	for k, v := range status.Config.Data {
+		mergedConfig[k] = v
+	}
+
+	return MoldingSpec{
+		Cluster: spec.Cluster,
+		Version: spec.Version,
+		Env:     mergedEnv,
+		Config:  TypeConfig{Data: mergedConfig},
+	}
+}

@@ -10,5 +10,5 @@ import (
 var templates embed.FS
 
 var (
-	ComposeYAMLTemplate *template.Template = template.MustNewFromFS(templates, "templates/compose.yaml.gotmpl")
+	composeYAMLTemplate *template.Template = template.MustNewFromFS(templates, "templates/compose.yaml.gotmpl")
 )

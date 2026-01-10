@@ -12,10 +12,11 @@ import (
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/loader"
 	"github.com/signoz/foundry/internal/loader/yamlloader"
+	"github.com/signoz/foundry/internal/molding"
+	"github.com/signoz/foundry/internal/molding/signozmolding"
 	"github.com/signoz/foundry/internal/tooler"
 	"github.com/signoz/foundry/internal/tooler/dockercomposetooler"
 	"github.com/signoz/foundry/internal/tooler/dockertooler"
-	"github.com/signoz/foundry/internal/writer"
 )
 
 type Foundry struct {
@@ -30,6 +31,9 @@ type Foundry struct {
 
 	// Toolers for the different deployment modes.
 	Toolers map[string][]tooler.Tooler
+
+	// Moldings for the different molding kinds.
+	Moldings map[v1alpha1.MoldingKind]molding.Molding
 }
 
 func New(logger *slog.Logger) (*Foundry, error) {
@@ -43,6 +47,13 @@ func New(logger *slog.Logger) (*Foundry, error) {
 		},
 		Toolers: map[string][]tooler.Tooler{
 			"docker": {dockertooler.New(), dockercomposetooler.New()},
+		},
+		Moldings: map[v1alpha1.MoldingKind]molding.Molding{
+			v1alpha1.MoldingKindTelemetryStore:  signozmolding.New(logger),
+			v1alpha1.MoldingKindTelemetryKeeper: signozmolding.New(logger),
+			v1alpha1.MoldingKindMetaStore:       signozmolding.New(logger),
+			v1alpha1.MoldingKindSignoz:          signozmolding.New(logger),
+			v1alpha1.MoldingKindIngester:        signozmolding.New(logger),
 		},
 	}, nil
 }
@@ -86,35 +97,6 @@ func (foundry *Foundry) Gauge(ctx context.Context, config v1alpha1.Casting) erro
 
 	if len(unavailableTools) > 0 {
 		return fmt.Errorf("tools are not available, please install them and try again: %s", strings.Join(unavailableTools, ", "))
-	}
-
-	return nil
-}
-
-func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, writerOpts *writer.Options) error {
-	casting, err := foundry.CastingByDeploymentMode(config.Spec.Deployment.Mode)
-	if err != nil {
-		return err
-	}
-
-	materials, err := casting.Forge(ctx, config)
-	if err != nil {
-		return err
-	}
-
-	if len(materials) == 0 {
-		foundry.Logger.WarnContext(ctx, "casting did not generate any materials for writing")
-		return nil
-	}
-
-	writer, err := writer.New(foundry.Logger, writerOpts)
-	if err != nil {
-		return err
-	}
-
-	err = writer.WriteMany(ctx, materials...)
-	if err != nil {
-		return err
 	}
 
 	return nil

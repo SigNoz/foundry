@@ -8,9 +8,9 @@ import (
 )
 
 func TestNotEmptyAndValid(t *testing.T) {
-	assert.NotEmpty(t, ComposeYAMLTemplate)
+	assert.NotEmpty(t, composeYAMLTemplate)
 	buf := bytes.NewBuffer(nil)
-	err := ComposeYAMLTemplate.Execute(buf, nil)
+	err := composeYAMLTemplate.Execute(buf, nil)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, buf.String())
 }

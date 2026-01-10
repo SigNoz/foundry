@@ -29,3 +29,22 @@ type CastingSpec struct {
 	// The configuration for the ingester molding.
 	Ingester Ingester `json:"ingester,omitempty" yaml:"ingester,omitempty"`
 }
+
+func (c Casting) MergeStatusIntoSpec() Casting {
+	return Casting{
+		TypeVersion: c.TypeVersion,
+		Metadata:    c.Metadata,
+		Spec:        c.Spec.MergeStatusIntoSpec(),
+	}
+}
+
+func (s CastingSpec) MergeStatusIntoSpec() CastingSpec {
+	return CastingSpec{
+		Deployment:      s.Deployment,
+		Signoz:          s.Signoz.MergeStatusIntoSpec(),
+		TelemetryStore:  s.TelemetryStore.MergeStatusIntoSpec(),
+		TelemetryKeeper: s.TelemetryKeeper.MergeStatusIntoSpec(),
+		MetaStore:       s.MetaStore.MergeStatusIntoSpec(),
+		Ingester:        s.Ingester.MergeStatusIntoSpec(),
+	}
+}

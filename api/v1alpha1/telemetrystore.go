@@ -54,4 +54,14 @@ type TelemetryStore struct {
 
 	// Specification for the telemetry store.
 	Spec MoldingSpec `json:"spec,omitempty" yaml:"spec,omitempty"`
+
+	Status MoldingStatus `json:"status,omitempty" yaml:"status,omitempty"`
+}
+
+func (t TelemetryStore) MergeStatusIntoSpec() TelemetryStore {
+	return TelemetryStore{
+		Kind:   t.Kind,
+		Spec:   MergeStatusIntoSpec(t.Spec, t.Status),
+		Status: t.Status,
+	}
 }

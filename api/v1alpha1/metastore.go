@@ -53,4 +53,14 @@ type MetaStore struct {
 
 	// Specification for the meta store.
 	Spec MoldingSpec `json:"spec,omitempty" yaml:"spec,omitempty"`
+
+	Status MoldingStatus `json:"status,omitempty" yaml:"status,omitempty"`
+}
+
+func (m MetaStore) MergeStatusIntoSpec() MetaStore {
+	return MetaStore{
+		Kind:   m.Kind,
+		Spec:   MergeStatusIntoSpec(m.Spec, m.Status),
+		Status: m.Status,
+	}
 }
