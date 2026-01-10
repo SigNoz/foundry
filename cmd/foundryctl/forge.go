@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
+	"os"
 
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/foundry"
 	"github.com/signoz/foundry/internal/instrumentation"
-	"github.com/signoz/foundry/internal/loader/yamlloader"
+	"github.com/signoz/foundry/internal/writer"
 	"github.com/spf13/cobra"
 )
 
@@ -23,7 +23,7 @@ func registerForgeCmd(rootCmd *cobra.Command) {
 			ctx := cmd.Context()
 			logger := instrumentation.NewLogger(cfg.Debug)
 
-			return runForge(ctx, logger, cfg.File)
+			return runForge(ctx, logger, cfg.File, outputDir)
 		},
 	}
 
@@ -31,24 +31,25 @@ func registerForgeCmd(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(forgeCmd)
 }
 
-func runForge(ctx context.Context, logger *slog.Logger, path string) error {
-	yamlLoader := yamlloader.New()
-
-	config, err := yamlLoader.LoadV1Alpha1(ctx, path)
+func runForge(ctx context.Context, logger *slog.Logger, path string, outputDir string) error {
+	foundry, err := foundry.New(logger)
 	if err != nil {
-		logger.ErrorContext(ctx, "failed to load casting", foundryerrors.LogAttr(err))
+		logger.ErrorContext(ctx, "failed to create foundry, please report this issues to developers at https://github.com/signoz/foundry/issues", foundryerrors.LogAttr(err))
 		return err
 	}
 
-	castings := foundry.NewCastings(logger)
-	casting, ok := castings[config.Spec.Deployment.Mode]
-	if !ok {
-		return fmt.Errorf("deployment mode '%s' is not supported", config.Spec.Deployment.Mode)
+	casting, err := foundry.Loader.LoadV1Alpha1(ctx, path)
+	if err != nil {
+		logger.ErrorContext(ctx, err.Error())
+		return err
 	}
 
-	_, err = casting.Forge(ctx, config)
+	err = foundry.Forge(ctx, casting, &writer.Options{
+		Output:          &os.File{},
+		TargetDirectory: outputDir,
+	})
 	if err != nil {
-		logger.ErrorContext(ctx, "failed to forge casting", foundryerrors.LogAttr(err))
+		logger.ErrorContext(ctx, err.Error())
 		return err
 	}
 

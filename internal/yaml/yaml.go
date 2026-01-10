@@ -1,4 +1,4 @@
-package moldings
+package yaml
 
 import (
 	"embed"
@@ -15,7 +15,7 @@ func MustFile(fs embed.FS, name string) string {
 	return string(data)
 }
 
-func MustYAMLMarshal(v any) string {
+func MustMarshal(v any) string {
 	yaml, err := goyaml.Marshal(v)
 	if err != nil {
 		panic(err)

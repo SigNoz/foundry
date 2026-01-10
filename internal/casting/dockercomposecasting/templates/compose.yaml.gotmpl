@@ -1,19 +1,44 @@
 services:
-  {{ range $shardIdx := .Spec.TelemetryStore.Spec.Cluster.Shards }}
-  {{ range $replicaIdx := $.Spec.TelemetryStore.Spec.Cluster.Replicas }}
+  {{- range $shardIdx := .Spec.TelemetryStore.Spec.Cluster.Shards }}
+  {{- range $replicaIdx := $.Spec.TelemetryStore.Spec.Cluster.Replicas }}
   {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}:
     container_name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}
-    image: fs
-    ports:
-      - "{{ $shardIdx }}:{{ $replicaIdx }}"
+    depends_on:
+      {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts:
+        condition: service_completed_successfully
+    image: docker.io/clickhouse/clickhouse-server:{{ $.Spec.TelemetryStore.Spec.Version }}
+    entrypoint:
+    - "/usr/bin/clickhouse-server"
+    - "--config-file=/etc/clickhouse-server/config.xml"
     environment:
-      - CLICKHOUSE_REPLICA_ID={{ $replicaIdx }}
       - CLICKHOUSE_SKIP_USER_SETUP=1
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8123"]
+      test:
+      - "CMD"
+      - "curl"
+      - "-f"
+      - "http://localhost:8123"
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-  {{ end }}
-  {{ end }}
+  {{- end }}
+  {{- end }}
+  {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts:
+    container_name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts
+    image: docker.io/clickhouse/clickhouse-server:{{ $.Spec.TelemetryStore.Spec.Version }}
+    command:
+    - bash
+    - -c
+    - |-
+      version="v0.0.1"
+      node_os=$$(uname -s | tr '[:upper:]' '[:lower:]')
+      node_arch=$$(uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/)
+      echo "Fetching histogram-binary for $${node_os}/$${node_arch}"
+      cd /tmp
+      wget -O histogram-quantile.tar.gz "https://github.com/SigNoz/signoz/releases/download/histogram-quantile%2F$${version}/histogram-quantile_$${node_os}_$${node_arch}.tar.gz"
+      tar -xvzf histogram-quantile.tar.gz
+      mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile
+networks:
+  {{ $.Metadata.Name }}-network:
+    name: {{ $.Metadata.Name }}-network

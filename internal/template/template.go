@@ -5,6 +5,8 @@ import (
 	"io"
 	"path/filepath"
 	"text/template"
+
+	"github.com/Masterminds/sprig/v3"
 )
 
 type Template struct {
@@ -12,9 +14,9 @@ type Template struct {
 	tmpl *template.Template
 }
 
-func New(fs embed.FS, path string) (*Template, error) {
+func NewFromFS(fs embed.FS, path string) (*Template, error) {
 	name := filepath.Base(path)
-	tmpl, err := template.New(name).ParseFS(fs, path)
+	tmpl, err := template.New(name).Funcs(sprig.FuncMap()).ParseFS(fs, path)
 	if err != nil {
 		return nil, err
 	}
@@ -22,8 +24,26 @@ func New(fs embed.FS, path string) (*Template, error) {
 	return &Template{name: name, tmpl: tmpl}, nil
 }
 
-func MustNew(fs embed.FS, path string) *Template {
-	tmpl, err := New(fs, path)
+func MustNewFromFS(fs embed.FS, path string) *Template {
+	tmpl, err := NewFromFS(fs, path)
+	if err != nil {
+		panic(err)
+	}
+
+	return tmpl
+}
+
+func New(name string, contents []byte) (*Template, error) {
+	tmpl, err := template.New(name).Funcs(sprig.FuncMap()).Parse(string(contents))
+	if err != nil {
+		return nil, err
+	}
+
+	return &Template{name: name, tmpl: tmpl}, nil
+}
+
+func MustNew(name string, contents []byte) *Template {
+	tmpl, err := New(name, contents)
 	if err != nil {
 		panic(err)
 	}
@@ -38,12 +58,4 @@ func (t *Template) Execute(w io.Writer, data any) error {
 	}
 
 	return newtmpl.ExecuteTemplate(w, t.name, data)
-}
-
-func funcMap() template.FuncMap {
-	return template.FuncMap{
-		"multiply": func(a, b int) int {
-			return a * b
-		},
-	}
 }

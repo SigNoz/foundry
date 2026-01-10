@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/signoz/foundry/internal/template"
+	"github.com/signoz/foundry/internal/writer"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/casting"
@@ -26,8 +27,8 @@ func New(logger *slog.Logger) *dockerComposeCasting {
 	}
 }
 
-func (casting *dockerComposeCasting) Forge(ctx context.Context, config v1alpha1.Casting) (map[string][]byte, error) {
-	casting.logger.DebugContext(ctx, "starting to forge docker casting", slog.String("casting.metadata.name", config.Metadata.Name))
+func (casting *dockerComposeCasting) Forge(ctx context.Context, config v1alpha1.Casting) ([]writer.Material, error) {
+	casting.logger.InfoContext(ctx, "forging docker compose files for stack", slog.String("casting.metadata.name", config.Metadata.Name))
 
 	buf := bytes.NewBuffer(nil)
 	err := ComposeYAMLTemplate.Execute(buf, config)
@@ -38,4 +39,10 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config v1alpha1.
 	fmt.Println(buf.String())
 
 	return nil, nil
+}
+
+func (casting *dockerComposeCasting) Cast(ctx context.Context, config v1alpha1.Casting) error {
+	casting.logger.InfoContext(ctx, "casting docker compose files for stack", slog.String("casting.metadata.name", config.Metadata.Name))
+
+	return nil
 }
