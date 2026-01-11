@@ -1,4 +1,4 @@
-package template
+package types
 
 import (
 	"embed"
@@ -14,7 +14,7 @@ type Template struct {
 	tmpl *template.Template
 }
 
-func NewFromFS(fs embed.FS, path string) (*Template, error) {
+func NewTemplateFromFS(fs embed.FS, path string) (*Template, error) {
 	name := filepath.Base(path)
 	tmpl, err := template.New(name).Funcs(sprig.FuncMap()).ParseFS(fs, path)
 	if err != nil {
@@ -24,8 +24,8 @@ func NewFromFS(fs embed.FS, path string) (*Template, error) {
 	return &Template{name: name, tmpl: tmpl}, nil
 }
 
-func MustNewFromFS(fs embed.FS, path string) *Template {
-	tmpl, err := NewFromFS(fs, path)
+func MustNewTemplateFromFS(fs embed.FS, path string) *Template {
+	tmpl, err := NewTemplateFromFS(fs, path)
 	if err != nil {
 		panic(err)
 	}
@@ -33,7 +33,7 @@ func MustNewFromFS(fs embed.FS, path string) *Template {
 	return tmpl
 }
 
-func New(name string, contents []byte) (*Template, error) {
+func NewTemplate(name string, contents []byte) (*Template, error) {
 	tmpl, err := template.New(name).Funcs(sprig.FuncMap()).Parse(string(contents))
 	if err != nil {
 		return nil, err
@@ -42,8 +42,8 @@ func New(name string, contents []byte) (*Template, error) {
 	return &Template{name: name, tmpl: tmpl}, nil
 }
 
-func MustNew(name string, contents []byte) *Template {
-	tmpl, err := New(name, contents)
+func MustNewTemplate(name string, contents []byte) *Template {
+	tmpl, err := NewTemplate(name, contents)
 	if err != nil {
 		panic(err)
 	}

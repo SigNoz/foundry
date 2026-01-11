@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	"github.com/signoz/foundry/internal/molding"
-	"github.com/signoz/foundry/internal/template"
 	"github.com/signoz/foundry/internal/types"
 
 	"github.com/signoz/foundry/api/v1alpha1"
@@ -18,14 +17,14 @@ var _ casting.Casting = (*dockerComposeCasting)(nil)
 
 type dockerComposeCasting struct {
 	logger   *slog.Logger
-	moldings map[v1alpha1.MoldingKind]*template.Template
-	castings []*template.Template
+	moldings map[v1alpha1.MoldingKind]*types.Template
+	castings []*types.Template
 }
 
 func New(logger *slog.Logger) *dockerComposeCasting {
 	return &dockerComposeCasting{
 		logger: logger,
-		castings: []*template.Template{
+		castings: []*types.Template{
 			composeYAMLTemplate,
 		},
 	}
