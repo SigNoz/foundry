@@ -72,6 +72,9 @@ type MoldingStatus struct {
 	// Status of the molding
 	Addresses []string `json:"addresses,omitempty" yaml:"addresses,omitempty"`
 
+	// Extra information about the molding
+	Extras map[string]string `json:"extras,omitempty" yaml:"extras,omitempty"`
+
 	// Environment variables for the molding
 	Env map[string]string `json:"env,omitempty" yaml:"env,omitempty"`
 
