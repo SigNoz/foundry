@@ -1,4 +1,4 @@
-package telemetrystore
+package telemetrystoremolding
 
 import (
 	"testing"
