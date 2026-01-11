@@ -20,7 +20,6 @@ var _ casting.Casting = (*dockerComposeCasting)(nil)
 
 type dockerComposeCasting struct {
 	logger   *slog.Logger
-	moldings map[v1alpha1.MoldingKind]*types.Template
 	castings []*types.Template
 }
 
