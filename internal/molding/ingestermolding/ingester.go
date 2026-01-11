@@ -3,12 +3,12 @@ package ingestermolding
 import (
 	"embed"
 
-	"github.com/signoz/foundry/internal/yaml"
+	"github.com/signoz/foundry/internal/types"
 )
 
 //go:embed *.yaml
 var yamls embed.FS
 
 var (
-	ConfigV0129xYAML string = yaml.MustMarshal(yaml.MustFile(yamls, "config.v0129x.yaml"))
+	ConfigV0129xYAML string = types.MustMarshalYAML(types.MustNewFileFromFS(yamls, "config.v0129x.yaml"))
 )
