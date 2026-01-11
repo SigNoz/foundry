@@ -43,7 +43,12 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config v1alpha1.
 		return nil, fmt.Errorf("failed to execute compose yaml template: %w", err)
 	}
 
-	return nil, nil
+	composeMaterial, err := types.NewYAMLMaterial(buf.Bytes(), "compose.yaml")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create compose yaml material: %w", err)
+	}
+
+	return []types.Material{composeMaterial}, nil
 }
 
 func (casting *dockerComposeCasting) Cast(ctx context.Context, config v1alpha1.Casting) error {
