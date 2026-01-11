@@ -29,7 +29,7 @@ func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, writ
 
 	foundry.Logger.InfoContext(ctx, "enriching configuration with casting specific information", slog.String("casting.metadata.name", config.Metadata.Name))
 	for _, moldingKind := range molding.MoldingsInOrder() {
-		err = moldingEnricher.Enrich(ctx, moldingKind, &config)
+		err = moldingEnricher.EnrichStatus(ctx, moldingKind, &config)
 		if err != nil {
 			return fmt.Errorf("failed to enrich configuration with casting specific information: %w", err)
 		}

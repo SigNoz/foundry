@@ -13,8 +13,6 @@ import (
 )
 
 func registerForgeCmd(rootCmd *cobra.Command) {
-	var outputDir string
-
 	forgeCmd := &cobra.Command{
 		Use:   "forge",
 		Short: "Forge Configuration and Deployment Files",
@@ -23,15 +21,14 @@ func registerForgeCmd(rootCmd *cobra.Command) {
 			ctx := cmd.Context()
 			logger := instrumentation.NewLogger(cfg.Debug)
 
-			return runForge(ctx, logger, cfg.File, outputDir)
+			return runForge(ctx, logger, cfg.File, out.Path)
 		},
 	}
 
-	forgeCmd.Flags().StringVarP(&outputDir, "output", "o", "./pours", "Output Directory for pours containing the deployment and configuration files")
 	rootCmd.AddCommand(forgeCmd)
 }
 
-func runForge(ctx context.Context, logger *slog.Logger, path string, outputDir string) error {
+func runForge(ctx context.Context, logger *slog.Logger, path string, outputPath string) error {
 	foundry, err := foundry.New(logger)
 	if err != nil {
 		logger.ErrorContext(ctx, "failed to create foundry, please report this issues to developers at https://github.com/signoz/foundry/issues", foundryerrors.LogAttr(err))
@@ -46,7 +43,7 @@ func runForge(ctx context.Context, logger *slog.Logger, path string, outputDir s
 
 	err = foundry.Forge(ctx, casting, &writer.Options{
 		Output:          &os.File{},
-		TargetDirectory: outputDir,
+		TargetDirectory: outputPath,
 	})
 	if err != nil {
 		logger.ErrorContext(ctx, err.Error())

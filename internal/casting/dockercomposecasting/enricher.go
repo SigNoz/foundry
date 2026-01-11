@@ -25,7 +25,7 @@ func newDockerComposeMoldingEnricher(config *v1alpha1.Casting) (*dockerComposeMo
 	return &dockerComposeMoldingEnricher{material: material}, nil
 }
 
-func (enricher *dockerComposeMoldingEnricher) Enrich(ctx context.Context, kind v1alpha1.MoldingKind, config *v1alpha1.Casting) error {
+func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *v1alpha1.Casting) error {
 	switch kind {
 	case v1alpha1.MoldingKindTelemetryStore:
 		// Get telemetrystore container names

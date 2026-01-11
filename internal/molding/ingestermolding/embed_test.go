@@ -7,5 +7,5 @@ import (
 )
 
 func TestIngester(t *testing.T) {
-	assert.NotEmpty(t, ConfigV0129xYAML)
+	assert.NotEmpty(t, ConfigV0129xTemplate)
 }

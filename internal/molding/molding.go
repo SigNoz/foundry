@@ -8,7 +8,7 @@ import (
 
 type MoldingEnricher interface {
 	// Enrich the molding status with the casting configuration.
-	Enrich(ctx context.Context, kind v1alpha1.MoldingKind, config *v1alpha1.Casting) error
+	EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *v1alpha1.Casting) error
 }
 
 type Molding interface {

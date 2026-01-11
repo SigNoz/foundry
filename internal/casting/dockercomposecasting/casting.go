@@ -5,6 +5,9 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
+	"os/exec"
+	"time"
 
 	"github.com/signoz/foundry/internal/molding"
 	"github.com/signoz/foundry/internal/types"
@@ -45,7 +48,31 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config v1alpha1.
 }
 
 func (casting *dockerComposeCasting) Cast(ctx context.Context, config v1alpha1.Casting) error {
+	casting.logger.InfoContext(ctx, "Executing commands for platform")
+
+	// Create a context with 5-minute timeout
+	runctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	// Join commands with && to run in sequence
+	//command := strings.Join(cast.Execute, " && ")
+	command := ""
+
+	casting.logger.DebugContext(runctx, "Running command", slog.String("command", command))
+
+	cmd := exec.CommandContext(runctx, "sh", "-c", command)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	err := cmd.Run()
+	if err != nil {
+		casting.logger.ErrorContext(runctx, "Command execution failed", slog.String("error", err.Error()))
+		return err
+	}
+
+	casting.logger.InfoContext(runctx, "Command executed successfully")
 	return nil
+
 }
 
 func getComposeMaterial(config *v1alpha1.Casting, path string) (types.Material, error) {
