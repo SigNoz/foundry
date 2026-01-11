@@ -25,18 +25,6 @@ func (molding *telemetrystore) Kind() v1alpha1.MoldingKind {
 }
 
 func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *v1alpha1.Casting) error {
-	if !config.Spec.TelemetryStore.Spec.Enabled {
-		return nil
-	}
-
-	telemetrystoreSpec := DefaultSpec()
-	if err := v1alpha1.Merge(telemetrystoreSpec, config.Spec.TelemetryStore.Spec); err != nil {
-		return err
-	}
-
-	// Set the merged telemetry store spec
-	config.Spec.TelemetryStore.Spec = telemetrystoreSpec
-
 	// Add keeper addresses
 
 	return nil

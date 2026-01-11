@@ -3,11 +3,12 @@ package v1alpha1
 import (
 	"errors"
 
+	"github.com/signoz/foundry/internal/types"
 	"go.yaml.in/yaml/v3"
 )
 
 var (
-	TelemetryKeeperKindClickhouse TelemetryKeeperKind = TelemetryKeeperKind{s: "clickhousekeeper"}
+	TelemetryKeeperKindClickhouseKeeper TelemetryKeeperKind = TelemetryKeeperKind{s: "clickhousekeeper"}
 )
 
 type TelemetryKeeperKind struct {
@@ -19,7 +20,7 @@ func (kind TelemetryKeeperKind) String() string {
 }
 
 func TelemetryKeeperKinds() []TelemetryKeeperKind {
-	return []TelemetryKeeperKind{TelemetryKeeperKindClickhouse}
+	return []TelemetryKeeperKind{TelemetryKeeperKindClickhouseKeeper}
 }
 
 func (kind *TelemetryKeeperKind) UnmarshalText(text []byte) error {
@@ -52,4 +53,18 @@ type TelemetryKeeper struct {
 	Spec MoldingSpec `json:"spec,omitempty" yaml:"spec,omitempty"`
 
 	Status MoldingStatus `json:"status,omitempty" yaml:"status,omitempty"`
+}
+
+func DefaultTelemetryKeeper() TelemetryKeeper {
+	return TelemetryKeeper{
+		Kind: TelemetryKeeperKindClickhouseKeeper,
+		Spec: MoldingSpec{
+			Enabled: true,
+			Cluster: TypeCluster{
+				Replicas: types.NewIntPtr(1),
+			},
+			Version: "25.5.6",
+			Image:   "clickhouse/clickhouse-keeper:25.5.6",
+		},
+	}
 }

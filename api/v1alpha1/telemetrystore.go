@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	"errors"
 
+	"github.com/signoz/foundry/internal/types"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -56,4 +57,19 @@ type TelemetryStore struct {
 	Spec MoldingSpec `json:"spec,omitempty" yaml:"spec,omitempty"`
 
 	Status MoldingStatus `json:"status,omitempty" yaml:"status,omitempty"`
+}
+
+func DefaultTelemetryStore() TelemetryStore {
+	return TelemetryStore{
+		Kind: TelemetryStoreKindClickhouse,
+		Spec: MoldingSpec{
+			Enabled: true,
+			Cluster: TypeCluster{
+				Replicas: types.NewIntPtr(0),
+				Shards:   types.NewIntPtr(1),
+			},
+			Version: "25.5.6",
+			Image:   "clickhouse/clickhouse-server:25.5.6",
+		},
+	}
 }

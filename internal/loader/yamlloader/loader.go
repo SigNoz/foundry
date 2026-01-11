@@ -32,5 +32,11 @@ func (loader *yamlLoader) LoadV1Alpha1(ctx context.Context, path string) (v1alph
 		return v1alpha1.Casting{}, fmt.Errorf("failed to unmarshal yaml: %w", err)
 	}
 
+	defaultCasting := v1alpha1.DefaultCasting()
+
+	if err := v1alpha1.Merge(&casting, &defaultCasting); err != nil {
+		return v1alpha1.Casting{}, fmt.Errorf("failed to merge default casting: %w", err)
+	}
+
 	return casting, nil
 }

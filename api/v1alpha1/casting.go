@@ -53,3 +53,21 @@ func MergeCastingSpecAndStatus(base *Casting) error {
 
 	return nil
 }
+
+func DefaultCasting() Casting {
+	return Casting{
+		TypeVersion: TypeVersion{
+			APIVersion: "v1alpha1",
+		},
+		Metadata: TypeMetadata{
+			Name: "signoz",
+		},
+		Spec: CastingSpec{
+			Signoz:          DefaultSigNoz(),
+			TelemetryStore:  DefaultTelemetryStore(),
+			TelemetryKeeper: DefaultTelemetryKeeper(),
+			MetaStore:       DefaultMetaStore(),
+			Ingester:        DefaultIngester(),
+		},
+	}
+}

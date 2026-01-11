@@ -43,6 +43,22 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 
 		config.Spec.TelemetryStore.Status.Addresses = telemetrystoreContainerNames
 
+	case v1alpha1.MoldingKindSignoz:
+		// Get signoz container names
+		containerNames, err := enricher.material.GetStringSlice("services.*.container_name")
+		if err != nil {
+			return fmt.Errorf("failed to get signoz container names: %w", err)
+		}
+
+		var signozContainerNames []string
+		for _, containerName := range containerNames {
+			if strings.Contains(containerName, "signoz") {
+				signozContainerNames = append(signozContainerNames, types.NewAddress("tcp", containerName, 9000))
+			}
+		}
+
+		config.Spec.Signoz.Status.Addresses = signozContainerNames
+
 	case v1alpha1.MoldingKindTelemetryKeeper:
 		// Get telemetrykeeper container names
 		containerNames, err := enricher.material.GetStringSlice("services.*.container_name")
@@ -75,22 +91,6 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 
 		config.Spec.MetaStore.Status.Addresses = metastoreContainerNames
 
-	case v1alpha1.MoldingKindSignoz:
-		// Get signoz container names
-		containerNames, err := enricher.material.GetStringSlice("services.*.container_name")
-		if err != nil {
-			return fmt.Errorf("failed to get signoz container names: %w", err)
-		}
-
-		var signozContainerNames []string
-		for _, containerName := range containerNames {
-			if strings.Contains(containerName, "signoz") {
-				signozContainerNames = append(signozContainerNames, types.NewAddress("tcp", containerName, 9000))
-			}
-		}
-
-		config.Spec.Signoz.Status.Addresses = signozContainerNames
-
 	case v1alpha1.MoldingKindIngester:
 		// Get ingester container names
 		containerNames, err := enricher.material.GetStringSlice("services.*.container_name")
@@ -107,5 +107,6 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 
 		config.Spec.Ingester.Status.Addresses = ingesterContainerNames
 	}
+
 	return nil
 }

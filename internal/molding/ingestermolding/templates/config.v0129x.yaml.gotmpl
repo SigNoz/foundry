@@ -54,25 +54,25 @@ processors:
       - name: service.version
 exporters:
   clickhousetraces:
-    datasource: ${env:SIGNOZOTELCOLLECTOR_TELEMETRYSTORE_DSN}/signoz_traces
+    datasource: {{ .TelemetryStoreTracesAddress }}
     low_cardinal_exception_grouping: ${env:LOW_CARDINAL_EXCEPTION_GROUPING}
     use_new_schema: true
     timeout: 45s
     sending_queue:
       enabled: false
   signozclickhousemetrics:
-    dsn: ${env:SIGNOZOTELCOLLECTOR_TELEMETRYSTORE_DSN}/signoz_metrics
+    dsn: {{ .TelemetryStoreMetricsAddress }}
     timeout: 45s
     sending_queue:
       enabled: false
   clickhouselogsexporter:
-    dsn: ${env:SIGNOZOTELCOLLECTOR_TELEMETRYSTORE_DSN}/signoz_logs
+    dsn: {{ .TelemetryStoreLogsAddress }}
     use_new_schema: true
     timeout: 45s
     sending_queue:
       enabled: false
   signozclickhousemeter:
-    dsn: ${env:SIGNOZOTELCOLLECTOR_TELEMETRYSTORE_DSN}/signoz_meter
+    dsn: {{ .TelemetryStoreMeterAddress }}
     timeout: 45s
     sending_queue:
       enabled: false

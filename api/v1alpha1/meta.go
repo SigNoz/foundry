@@ -76,8 +76,6 @@ func Merge(base, overrides any) error {
 		return err
 	}
 
-	fmt.Println("merged", string(merged))
-
 	if !valueOfBase.CanSet() {
 		return fmt.Errorf("unable to set unmarshalled value into base object")
 	}

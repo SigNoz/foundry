@@ -25,6 +25,7 @@ func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, writ
 	foundry.Logger.InfoContext(ctx, "getting the molding enricher", slog.String("casting.metadata.name", config.Metadata.Name))
 	moldingEnricher, err := casting.Enricher(ctx, &config)
 	if err != nil {
+		foundry.Logger.ErrorContext(ctx, "failed to get molding enricher", slog.String("casting.metadata.name", config.Metadata.Name), foundryerrors.LogAttr(err))
 		return fmt.Errorf("failed to get molding enricher: %w", err)
 	}
 

@@ -13,7 +13,10 @@ import (
 	"github.com/signoz/foundry/internal/loader"
 	"github.com/signoz/foundry/internal/loader/yamlloader"
 	"github.com/signoz/foundry/internal/molding"
+	"github.com/signoz/foundry/internal/molding/ingestermolding"
+	"github.com/signoz/foundry/internal/molding/metastoremolding"
 	"github.com/signoz/foundry/internal/molding/signozmolding"
+	"github.com/signoz/foundry/internal/molding/telemetrykeepermolding"
 	"github.com/signoz/foundry/internal/molding/telemetrystoremolding"
 	"github.com/signoz/foundry/internal/tooler"
 	"github.com/signoz/foundry/internal/tooler/dockercomposetooler"
@@ -51,10 +54,10 @@ func New(logger *slog.Logger) (*Foundry, error) {
 		},
 		Moldings: map[v1alpha1.MoldingKind]molding.Molding{
 			v1alpha1.MoldingKindTelemetryStore:  telemetrystoremolding.New(logger),
-			v1alpha1.MoldingKindTelemetryKeeper: signozmolding.New(logger),
-			v1alpha1.MoldingKindMetaStore:       signozmolding.New(logger),
+			v1alpha1.MoldingKindTelemetryKeeper: telemetrykeepermolding.New(logger),
+			v1alpha1.MoldingKindMetaStore:       metastoremolding.New(logger),
 			v1alpha1.MoldingKindSignoz:          signozmolding.New(logger),
-			v1alpha1.MoldingKindIngester:        signozmolding.New(logger),
+			v1alpha1.MoldingKindIngester:        ingestermolding.New(logger),
 		},
 	}, nil
 }
