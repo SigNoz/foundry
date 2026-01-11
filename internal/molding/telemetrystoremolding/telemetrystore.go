@@ -1,94 +1,43 @@
 package telemetrystoremolding
 
 import (
-	"embed"
+	"context"
+	"log/slog"
 
-	"github.com/signoz/foundry/internal/types"
+	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/internal/molding"
 )
 
-//go:embed *.yaml
-var yamls embed.FS
+var _ molding.Molding = (*telemetrystore)(nil)
 
-var (
-	ConfigClickhousev2556YAML    string = types.MustMarshalYAML(types.MustNewFileFromFS(yamls, "config.clickhouse.v2556.yaml"))
-	FunctionsClickhousev2556YAML string = types.MustMarshalYAML(types.MustNewFileFromFS(yamls, "functions.clickhouse.v2556.yaml"))
-	KeeperClickhousev2556YAML    string = types.MustMarshalYAML(types.MustNewFileFromFS(yamls, "keeper.clickhouse.v2556.yaml"))
-)
+type telemetrystore struct {
+	logger *slog.Logger
+}
 
-// type Generator struct{}
+func New(logger *slog.Logger) *telemetrystore {
+	return &telemetrystore{
+		logger: logger,
+	}
+}
 
-// func (g *Generator) GenerateComponent(config cue.Value) (map[string][]byte, error) {
-// 	files := make(map[string][]byte)
+func (molding *telemetrystore) Kind() v1alpha1.MoldingKind {
+	return v1alpha1.MoldingKindTelemetryStore
+}
 
-// 	// Navigate to components.clickhouse.config in the CUE value
-// 	clickhouseConfig := config.LookupPath(cue.ParsePath("components.clickhouse.config"))
-// 	// Decode to map for processing multiple files
-// 	var componentConfig map[string]any
-// 	if err := clickhouseConfig.Decode(&componentConfig); err != nil {
-// 		return nil, errors.New("failed to decode clickhouse config: " + err.Error())
-// 	}
+func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *v1alpha1.Casting) error {
+	if !config.Spec.TelemetryStore.Spec.Enabled {
+		return nil
+	}
 
-// 	// Generate config.yaml (main ClickHouse configuration)
-// 	if keeperConfig, exists := componentConfig["keeper"]; exists {
-// 		configYAML, err := yaml.Marshal(keeperConfig)
-// 		if err != nil {
-// 			return nil, errors.New("failed to marshal keeperConfig: " + err.Error())
-// 		}
-// 		files["keeper.yaml"] = configYAML
-// 	}
+	telemetrystoreSpec := DefaultSpec()
+	if err := v1alpha1.Merge(telemetrystoreSpec, config.Spec.TelemetryStore.Spec); err != nil {
+		return err
+	}
 
-// 	// Generate config.yaml (main ClickHouse configuration)
-// 	if serverConfig, exists := componentConfig["serverConfig"]; exists {
-// 		configYAML, err := yaml.Marshal(serverConfig)
-// 		if err != nil {
-// 			return nil, errors.New("failed to marshal serverConfig: " + err.Error())
-// 		}
-// 		files["config.yaml"] = configYAML
-// 	}
+	// Set the merged telemetry store spec
+	config.Spec.TelemetryStore.Spec = telemetrystoreSpec
 
-// 	// Generate users.yaml (users, profiles, quotas)
-// 	if usersConfig, exists := componentConfig["usersConfig"]; exists {
-// 		usersYAML, err := yaml.Marshal(usersConfig)
-// 		if err != nil {
-// 			return nil, errors.New("failed to marshal usersConfig: " + err.Error())
-// 		}
-// 		files["users.yaml"] = usersYAML
-// 	}
+	// Add keeper addresses
 
-// 	// Generate custom-function.yaml
-// 	if customFnConfig, exists := componentConfig["customFunctionConfig"]; exists {
-// 		customFnYAML, err := yaml.Marshal(customFnConfig)
-// 		if err != nil {
-// 			return nil, errors.New("failed to marshal customFunctionConfig: " + err.Error())
-// 		}
-// 		files["custom-function.yaml"] = customFnYAML
-// 	}
-
-// 	// Generate additional config files in config.d/
-// 	if configD, exists := componentConfig["config_d"]; exists {
-// 		if configFiles, ok := configD.(map[string]any); ok {
-// 			for filename, content := range configFiles {
-// 				fileYAML, err := yaml.Marshal(content)
-// 				if err != nil {
-// 					return nil, errors.New("failed to marshal config_d/" + filename + ": " + err.Error())
-// 				}
-// 				files[fmt.Sprintf("config.d/%s.yaml", filename)] = fileYAML
-// 			}
-// 		}
-// 	}
-
-// 	// Generate additional user files in users.d/
-// 	if usersD, exists := componentConfig["users_d"]; exists {
-// 		if userFiles, ok := usersD.(map[string]any); ok {
-// 			for filename, content := range userFiles {
-// 				fileYAML, err := yaml.Marshal(content)
-// 				if err != nil {
-// 					return nil, errors.New("failed to marshal users_d/" + filename + ": " + err.Error())
-// 				}
-// 				files[fmt.Sprintf("users.d/%s.yaml", filename)] = fileYAML
-// 			}
-// 		}
-// 	}
-
-// 	return files, nil
-// }
+	return nil
+}

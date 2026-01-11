@@ -49,7 +49,7 @@ func New(logger *slog.Logger, options *Options) (*Writer, error) {
 func (w *Writer) Write(ctx context.Context, material types.Material) error {
 	if _, ok := w.options.Output.(*os.File); ok {
 		path := filepath.Join(w.options.TargetDirectory, material.Path())
-		if err := os.WriteFile(path, material.Contents(), 0644); err != nil {
+		if err := os.WriteFile(path, material.FmtContents(), 0644); err != nil {
 			w.logger.ErrorContext(ctx, "failed to write material", slog.String("path", path), foundryerrors.LogAttr(err))
 			return err
 		}
@@ -58,7 +58,7 @@ func (w *Writer) Write(ctx context.Context, material types.Material) error {
 		return nil
 	}
 
-	_, err := w.options.Output.Write(material.Contents())
+	_, err := w.options.Output.Write(material.FmtContents())
 	if err != nil {
 		w.logger.ErrorContext(ctx, "failed to write material", foundryerrors.LogAttr(err))
 		return err

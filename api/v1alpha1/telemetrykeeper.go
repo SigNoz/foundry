@@ -53,11 +53,3 @@ type TelemetryKeeper struct {
 
 	Status MoldingStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
-
-func (t TelemetryKeeper) MergeStatusIntoSpec() TelemetryKeeper {
-	return TelemetryKeeper{
-		Kind:   t.Kind,
-		Spec:   MergeStatusIntoSpec(t.Spec, t.Status),
-		Status: t.Status,
-	}
-}

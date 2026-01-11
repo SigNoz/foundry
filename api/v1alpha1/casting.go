@@ -30,21 +30,26 @@ type CastingSpec struct {
 	Ingester Ingester `json:"ingester,omitempty" yaml:"ingester,omitempty"`
 }
 
-func (c Casting) MergeStatusIntoSpec() Casting {
-	return Casting{
-		TypeVersion: c.TypeVersion,
-		Metadata:    c.Metadata,
-		Spec:        c.Spec.MergeStatusIntoSpec(),
+func MergeCastingSpecAndStatus(base *Casting) error {
+	if err := base.Spec.Signoz.Spec.MergeStatus(base.Spec.Signoz.Status); err != nil {
+		return err
 	}
-}
 
-func (s CastingSpec) MergeStatusIntoSpec() CastingSpec {
-	return CastingSpec{
-		Deployment:      s.Deployment,
-		Signoz:          s.Signoz.MergeStatusIntoSpec(),
-		TelemetryStore:  s.TelemetryStore.MergeStatusIntoSpec(),
-		TelemetryKeeper: s.TelemetryKeeper.MergeStatusIntoSpec(),
-		MetaStore:       s.MetaStore.MergeStatusIntoSpec(),
-		Ingester:        s.Ingester.MergeStatusIntoSpec(),
+	if err := base.Spec.TelemetryStore.Spec.MergeStatus(base.Spec.TelemetryStore.Status); err != nil {
+		return err
 	}
+
+	if err := base.Spec.TelemetryKeeper.Spec.MergeStatus(base.Spec.TelemetryKeeper.Status); err != nil {
+		return err
+	}
+
+	if err := base.Spec.MetaStore.Spec.MergeStatus(base.Spec.MetaStore.Status); err != nil {
+		return err
+	}
+
+	if err := base.Spec.Ingester.Spec.MergeStatus(base.Spec.Ingester.Status); err != nil {
+		return err
+	}
+
+	return nil
 }

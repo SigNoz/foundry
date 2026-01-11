@@ -5,10 +5,3 @@ type Ingester struct {
 
 	Status MoldingStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
-
-func (i Ingester) MergeStatusIntoSpec() Ingester {
-	return Ingester{
-		Spec:   MergeStatusIntoSpec(i.Spec, i.Status),
-		Status: i.Status,
-	}
-}

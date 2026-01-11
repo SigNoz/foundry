@@ -49,11 +49,17 @@ func (kind MoldingKind) MarshalYAML() (interface{}, error) {
 }
 
 type MoldingSpec struct {
+	// Whether the molding is enabled
+	Enabled bool `json:"enabled,omitempty" yaml:"enabled,omitempty"`
+
 	// Cluster configuration for the molding
 	Cluster TypeCluster `json:"cluster,omitempty" yaml:"cluster,omitempty"`
 
 	// The version of the molding to use
 	Version string `json:"version,omitempty" yaml:"version,omitempty"`
+
+	// Image of the molding
+	Image string `json:"image,omitempty" yaml:"image,omitempty"`
 
 	// Environment variables for the molding
 	Env map[string]string `json:"env,omitempty" yaml:"env,omitempty"`
@@ -73,28 +79,22 @@ type MoldingStatus struct {
 	Config TypeConfig `json:"config,omitempty" yaml:"config,omitempty"`
 }
 
-func MergeStatusIntoSpec(spec MoldingSpec, status MoldingStatus) MoldingSpec {
-	mergedEnv := make(map[string]string)
-	for k, v := range spec.Env {
-		mergedEnv[k] = v
+func (spec *MoldingSpec) MergeStatus(status MoldingStatus) error {
+	if spec.Env == nil {
+		spec.Env = make(map[string]string)
 	}
 
-	for k, v := range status.Env {
-		mergedEnv[k] = v
+	if status.Env == nil {
+		status.Env = make(map[string]string)
 	}
 
-	mergedConfig := make(map[string]string)
-	for k, v := range spec.Config.Data {
-		mergedConfig[k] = v
-	}
-	for k, v := range status.Config.Data {
-		mergedConfig[k] = v
+	for key, value := range status.Env {
+		spec.Env[key] = value
 	}
 
-	return MoldingSpec{
-		Cluster: spec.Cluster,
-		Version: spec.Version,
-		Env:     mergedEnv,
-		Config:  TypeConfig{Data: mergedConfig},
+	if err := Merge(&spec.Config, status.Config); err != nil {
+		return err
 	}
+
+	return nil
 }

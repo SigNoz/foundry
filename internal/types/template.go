@@ -10,22 +10,23 @@ import (
 )
 
 type Template struct {
-	name string
-	tmpl *template.Template
+	name   string
+	format Format
+	tmpl   *template.Template
 }
 
-func NewTemplateFromFS(fs embed.FS, path string) (*Template, error) {
+func NewTemplateFromFS(fs embed.FS, path string, format Format) (*Template, error) {
 	name := filepath.Base(path)
 	tmpl, err := template.New(name).Funcs(sprig.FuncMap()).ParseFS(fs, path)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Template{name: name, tmpl: tmpl}, nil
+	return &Template{name: name, tmpl: tmpl, format: format}, nil
 }
 
-func MustNewTemplateFromFS(fs embed.FS, path string) *Template {
-	tmpl, err := NewTemplateFromFS(fs, path)
+func MustNewTemplateFromFS(fs embed.FS, path string, format Format) *Template {
+	tmpl, err := NewTemplateFromFS(fs, path, format)
 	if err != nil {
 		panic(err)
 	}

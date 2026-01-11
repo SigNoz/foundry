@@ -37,7 +37,6 @@ func runForge(ctx context.Context, logger *slog.Logger, path string, outputPath 
 
 	casting, err := foundry.Loader.LoadV1Alpha1(ctx, path)
 	if err != nil {
-		logger.ErrorContext(ctx, err.Error())
 		return err
 	}
 
@@ -46,7 +45,6 @@ func runForge(ctx context.Context, logger *slog.Logger, path string, outputPath 
 		TargetDirectory: outputPath,
 	})
 	if err != nil {
-		logger.ErrorContext(ctx, err.Error())
 		return err
 	}
 

@@ -12,9 +12,10 @@ import (
 type Material struct {
 	contents []byte
 	path     string
+	format   Format
 }
 
-func NewMaterial(contents any, path string) (Material, error) {
+func NewMaterial(contents any, path string, format Format) (Material, error) {
 	contentsBytes, err := json.Marshal(contents)
 	if err != nil {
 		return Material{}, fmt.Errorf("failed to marshal contents: %w", err)
@@ -32,11 +33,26 @@ func NewYAMLMaterial(contents []byte, path string) (Material, error) {
 	return Material{
 		contents: jsonContents,
 		path:     path,
+		format:   FormatYAML,
 	}, nil
 }
 
 func (m Material) Contents() []byte {
 	return m.contents
+}
+
+func (m Material) FmtContents() []byte {
+	switch m.format {
+	case FormatYAML:
+		fmtContents, err := kyaml.JSONToYAML(m.contents)
+		if err != nil {
+			return nil
+		}
+
+		return fmtContents
+	default:
+		return m.contents
+	}
 }
 
 func (m Material) Path() string {

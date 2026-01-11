@@ -11,6 +11,7 @@ var _ yaml.Unmarshaler = (*MetaStoreKind)(nil)
 
 var (
 	MetaStoreKindPostgres MetaStoreKind = MetaStoreKind{s: "postgres"}
+	MetaStoreKindSQLite   MetaStoreKind = MetaStoreKind{s: "sqlite"}
 )
 
 type MetaStoreKind struct {
@@ -22,7 +23,7 @@ func (kind MetaStoreKind) String() string {
 }
 
 func MetaStoreKinds() []MetaStoreKind {
-	return []MetaStoreKind{MetaStoreKindPostgres}
+	return []MetaStoreKind{MetaStoreKindPostgres, MetaStoreKindSQLite}
 }
 
 func (kind *MetaStoreKind) UnmarshalText(text []byte) error {
@@ -54,13 +55,6 @@ type MetaStore struct {
 	// Specification for the meta store.
 	Spec MoldingSpec `json:"spec,omitempty" yaml:"spec,omitempty"`
 
+	// Status of the meta store.
 	Status MoldingStatus `json:"status,omitempty" yaml:"status,omitempty"`
-}
-
-func (m MetaStore) MergeStatusIntoSpec() MetaStore {
-	return MetaStore{
-		Kind:   m.Kind,
-		Spec:   MergeStatusIntoSpec(m.Spec, m.Status),
-		Status: m.Status,
-	}
 }

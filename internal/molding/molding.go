@@ -21,10 +21,10 @@ type Molding interface {
 
 func MoldingsInOrder() []v1alpha1.MoldingKind {
 	return []v1alpha1.MoldingKind{
-		v1alpha1.MoldingKindTelemetryKeeper,
+		//v1alpha1.MoldingKindTelemetryKeeper,
 		v1alpha1.MoldingKindTelemetryStore,
-		v1alpha1.MoldingKindMetaStore,
+		//v1alpha1.MoldingKindMetaStore,
 		v1alpha1.MoldingKindSignoz,
-		v1alpha1.MoldingKindIngester,
+		//v1alpha1.MoldingKindIngester,
 	}
 }

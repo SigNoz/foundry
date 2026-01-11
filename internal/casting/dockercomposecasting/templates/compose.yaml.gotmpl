@@ -1,6 +1,6 @@
 services:
   {{- range $shardIdx := .Spec.TelemetryStore.Spec.Cluster.Shards }}
-  {{- range $replicaIdx := $.Spec.TelemetryStore.Spec.Cluster.Replicas }}
+  {{- range $replicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
   {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}:
     container_name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}
     depends_on:

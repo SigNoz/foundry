@@ -10,5 +10,5 @@ import (
 var templates embed.FS
 
 var (
-	ConfigV0129xTemplate *types.Template = types.MustNewTemplateFromFS(templates, "templates/config.v0129x.yaml.gotmpl")
+	ConfigV0129xTemplate *types.Template = types.MustNewTemplateFromFS(templates, "templates/config.v0129x.yaml.gotmpl", types.FormatYAML)
 )

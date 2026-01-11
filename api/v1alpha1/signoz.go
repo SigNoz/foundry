@@ -5,10 +5,3 @@ type SigNoz struct {
 
 	Status MoldingStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
-
-func (s SigNoz) MergeStatusIntoSpec() SigNoz {
-	return SigNoz{
-		Spec:   MergeStatusIntoSpec(s.Spec, s.Status),
-		Status: s.Status,
-	}
-}

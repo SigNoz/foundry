@@ -14,6 +14,7 @@ import (
 	"github.com/signoz/foundry/internal/loader/yamlloader"
 	"github.com/signoz/foundry/internal/molding"
 	"github.com/signoz/foundry/internal/molding/signozmolding"
+	"github.com/signoz/foundry/internal/molding/telemetrystoremolding"
 	"github.com/signoz/foundry/internal/tooler"
 	"github.com/signoz/foundry/internal/tooler/dockercomposetooler"
 	"github.com/signoz/foundry/internal/tooler/dockertooler"
@@ -49,7 +50,7 @@ func New(logger *slog.Logger) (*Foundry, error) {
 			"docker": {dockertooler.New(), dockercomposetooler.New()},
 		},
 		Moldings: map[v1alpha1.MoldingKind]molding.Molding{
-			v1alpha1.MoldingKindTelemetryStore:  signozmolding.New(logger),
+			v1alpha1.MoldingKindTelemetryStore:  telemetrystoremolding.New(logger),
 			v1alpha1.MoldingKindTelemetryKeeper: signozmolding.New(logger),
 			v1alpha1.MoldingKindMetaStore:       signozmolding.New(logger),
 			v1alpha1.MoldingKindSignoz:          signozmolding.New(logger),
