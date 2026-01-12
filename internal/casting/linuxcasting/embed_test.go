@@ -10,6 +10,7 @@ import (
 func TestNotEmptyAndValid(t *testing.T) {
 	assert.NotEmpty(t, telemetryStoreServiceTemplate)
 	assert.NotEmpty(t, telemetryKeeperServiceTemplate)
+	assert.NotEmpty(t, metaStoreServiceTemplate)
 	assert.NotEmpty(t, signozServiceTemplate)
 	assert.NotEmpty(t, ingesterServiceTemplate)
 	buf := bytes.NewBuffer(nil)

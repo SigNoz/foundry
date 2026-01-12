@@ -29,6 +29,7 @@ func New(logger *slog.Logger) *linuxCasting {
 		castings: []*types.Template{
 			telemetryKeeperServiceTemplate,
 			telemetryStoreServiceTemplate,
+			metaStoreServiceTemplate,
 			signozServiceTemplate,
 			ingesterServiceTemplate,
 		},
