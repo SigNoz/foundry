@@ -12,5 +12,6 @@ var templates embed.FS
 var (
 	signozServiceTemplate *types.Template = types.MustNewTemplateFromFS(templates, "templates/signoz.service.gotmpl", types.FormatINI)
 	ingesterServiceTemplate *types.Template = types.MustNewTemplateFromFS(templates, "templates/ingester.service.gotmpl", types.FormatINI)
-
+	telemetryStoreServiceTemplate *types.Template = types.MustNewTemplateFromFS(templates, "templates/telemetrystore.clickhouse.v2556.service.gotmpl", types.FormatINI)
+	telemetryKeeperServiceTemplate *types.Template = types.MustNewTemplateFromFS(templates, "templates/telemetrykeeper.keeper.v2556.service.gotmpl", types.FormatINI)
 )
