@@ -1,0 +1,17 @@
+[Unit]
+Description=SigNoz
+Documentation=https://signoz.io/docs
+After={{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0
+
+[Service]
+User=signoz
+Group=signoz
+Type=simple
+KillMode=mixed
+Restart=on-failure
+WorkingDirectory=/opt/signoz
+EnvironmentFile=/opt/signoz/conf/systemd.env
+ExecStart=/opt/signoz/bin/signoz server
+
+[Install]
+WantedBy=multi-user.target
