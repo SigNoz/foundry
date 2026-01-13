@@ -51,7 +51,7 @@ func (kind MetaStoreKind) MarshalYAML() (interface{}, error) {
 
 type MetaStore struct {
 	// Kind of the meta store to use.
-	Kind MetaStoreKind `json:"kind,omitempty" yaml:"kind,omitempty"`
+	Kind *MetaStoreKind `json:"kind,omitempty" yaml:"kind,omitempty"`
 
 	// Specification for the meta store.
 	Spec MoldingSpec `json:"spec,omitempty" yaml:"spec,omitempty"`
@@ -62,7 +62,7 @@ type MetaStore struct {
 
 func DefaultMetaStore() MetaStore {
 	return MetaStore{
-		Kind: MetaStoreKindPostgres,
+		Kind: &MetaStoreKindPostgres,
 		Spec: MoldingSpec{
 			Enabled: true,
 			Cluster: TypeCluster{

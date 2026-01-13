@@ -33,10 +33,10 @@ func (loader *yamlLoader) LoadV1Alpha1(ctx context.Context, path string) (v1alph
 	}
 
 	defaultCasting := v1alpha1.DefaultCasting()
-
-	if err := v1alpha1.Merge(&casting, &defaultCasting); err != nil {
+	// merge overrides into defaults (base)
+	if err := v1alpha1.Merge(&defaultCasting, &casting); err != nil {
 		return v1alpha1.Casting{}, fmt.Errorf("failed to merge default casting: %w", err)
 	}
 
-	return casting, nil
+	return defaultCasting, nil
 }

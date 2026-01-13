@@ -47,7 +47,7 @@ func (kind TelemetryKeeperKind) MarshalYAML() (interface{}, error) {
 
 type TelemetryKeeper struct {
 	// Kind of the telemetry keeper to use.
-	Kind TelemetryKeeperKind `json:"kind,omitempty" yaml:"kind,omitempty"`
+	Kind *TelemetryKeeperKind `json:"kind,omitempty" yaml:"kind,omitempty"`
 
 	// Specification for the telemetry keeper.
 	Spec MoldingSpec `json:"spec,omitempty" yaml:"spec,omitempty"`
@@ -57,7 +57,7 @@ type TelemetryKeeper struct {
 
 func DefaultTelemetryKeeper() TelemetryKeeper {
 	return TelemetryKeeper{
-		Kind: TelemetryKeeperKindClickhouseKeeper,
+		Kind: &TelemetryKeeperKindClickhouseKeeper,
 		Spec: MoldingSpec{
 			Enabled: true,
 			Cluster: TypeCluster{

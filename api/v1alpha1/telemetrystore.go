@@ -51,7 +51,7 @@ func (kind TelemetryStoreKind) MarshalYAML() (interface{}, error) {
 
 type TelemetryStore struct {
 	// Kind of the telemetry store to use.
-	Kind TelemetryStoreKind `json:"kind,omitempty" yaml:"kind,omitempty"`
+	Kind *TelemetryStoreKind `json:"kind,omitempty" yaml:"kind,omitempty"`
 
 	// Specification for the telemetry store.
 	Spec MoldingSpec `json:"spec,omitempty" yaml:"spec,omitempty"`
@@ -61,7 +61,7 @@ type TelemetryStore struct {
 
 func DefaultTelemetryStore() TelemetryStore {
 	return TelemetryStore{
-		Kind: TelemetryStoreKindClickhouse,
+		Kind: &TelemetryStoreKindClickhouse,
 		Spec: MoldingSpec{
 			Enabled: true,
 			Cluster: TypeCluster{

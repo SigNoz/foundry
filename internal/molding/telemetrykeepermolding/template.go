@@ -7,7 +7,7 @@ import (
 
 func Default() *v1alpha1.TelemetryKeeper {
 	return &v1alpha1.TelemetryKeeper{
-		Kind: v1alpha1.TelemetryKeeperKindClickhouseKeeper,
+		Kind: &v1alpha1.TelemetryKeeperKindClickhouseKeeper,
 		Spec: v1alpha1.MoldingSpec{
 			Enabled: true,
 			Cluster: v1alpha1.TypeCluster{
