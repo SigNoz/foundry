@@ -18,6 +18,7 @@ func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, writ
 	// Get the casting for the deployment mode
 	casting, err := foundry.CastingByDeploymentMode(config.Spec.Deployment.Mode)
 	if err != nil {
+		foundry.Logger.InfoContext(ctx, "Casting Not Found:", slog.String("casting.spec.deployment.mode", config.Spec.Deployment.Mode))
 		return err
 	}
 
