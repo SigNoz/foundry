@@ -1,11 +1,15 @@
 package v1alpha1
 
 import (
+	"encoding/json"
 	"errors"
 
 	"github.com/signoz/foundry/internal/types"
 	"go.yaml.in/yaml/v3"
 )
+
+var _ json.Marshaler = (*TelemetryKeeperKind)(nil)
+var _ json.Unmarshaler = (*TelemetryKeeperKind)(nil)
 
 var (
 	TelemetryKeeperKindClickhouseKeeper TelemetryKeeperKind = TelemetryKeeperKind{s: "clickhousekeeper"}
@@ -23,12 +27,30 @@ func TelemetryKeeperKinds() []TelemetryKeeperKind {
 	return []TelemetryKeeperKind{TelemetryKeeperKindClickhouseKeeper}
 }
 
+func (kind TelemetryKeeperKind) MarshalJSON()([]byte, error){
+	return json.Marshal(kind.String())
+}
+
+func (kind *TelemetryKeeperKind) UnmarshalJSON(text []byte)(error){
+	var str string
+	if err := json.Unmarshal(text, &str); err != nil {
+		return err
+	}
+
+	return kind.UnmarshalText([]byte(str))
+}
+
+
 func (kind *TelemetryKeeperKind) UnmarshalText(text []byte) error {
 	for _, availableKind := range TelemetryKeeperKinds() {
 		if availableKind.String() == string(text) {
 			*kind = availableKind
 			return nil
 		}
+	}
+	if text == nil{
+		*kind = TelemetryKeeperKind{s: ""}
+		return nil
 	}
 	return errors.New("invalid telemetry keeper kind: " + string(text))
 }
@@ -47,7 +69,7 @@ func (kind TelemetryKeeperKind) MarshalYAML() (interface{}, error) {
 
 type TelemetryKeeper struct {
 	// Kind of the telemetry keeper to use.
-	Kind *TelemetryKeeperKind `json:"kind,omitempty" yaml:"kind,omitempty"`
+	Kind TelemetryKeeperKind `json:"kind,omitzero" yaml:"kind,omitempty"`
 
 	// Specification for the telemetry keeper.
 	Spec MoldingSpec `json:"spec,omitempty" yaml:"spec,omitempty"`
@@ -57,7 +79,7 @@ type TelemetryKeeper struct {
 
 func DefaultTelemetryKeeper() TelemetryKeeper {
 	return TelemetryKeeper{
-		Kind: &TelemetryKeeperKindClickhouseKeeper,
+		Kind: TelemetryKeeperKindClickhouseKeeper,
 		Spec: MoldingSpec{
 			Enabled: true,
 			Cluster: TypeCluster{

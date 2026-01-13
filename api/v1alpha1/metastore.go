@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	"encoding/json"
 	"errors"
 
 	"github.com/signoz/foundry/internal/types"
@@ -9,6 +10,9 @@ import (
 
 var _ yaml.Marshaler = (*MetaStoreKind)(nil)
 var _ yaml.Unmarshaler = (*MetaStoreKind)(nil)
+
+var _ json.Marshaler = (*MetaStoreKind)(nil)
+var _ json.Unmarshaler = (*MetaStoreKind)(nil)
 
 var (
 	MetaStoreKindPostgres MetaStoreKind = MetaStoreKind{s: "postgres"}
@@ -27,12 +31,29 @@ func MetaStoreKinds() []MetaStoreKind {
 	return []MetaStoreKind{MetaStoreKindPostgres, MetaStoreKindSQLite}
 }
 
+func (kind MetaStoreKind) MarshalJSON()([]byte, error){
+	return json.Marshal(kind.String())
+}
+
+func (kind *MetaStoreKind) UnmarshalJSON(text []byte)(error){
+	var str string
+	if err := json.Unmarshal(text, &str); err != nil {
+		return err
+	}
+
+	return kind.UnmarshalText([]byte(str))
+}
+
 func (kind *MetaStoreKind) UnmarshalText(text []byte) error {
 	for _, availableKind := range MetaStoreKinds() {
 		if availableKind.String() == string(text) {
 			*kind = availableKind
 			return nil
 		}
+	}
+	if text == nil{
+		*kind = MetaStoreKind{s: ""}
+		return nil
 	}
 	return errors.New("invalid meta store kind: " + string(text))
 }
@@ -51,7 +72,7 @@ func (kind MetaStoreKind) MarshalYAML() (interface{}, error) {
 
 type MetaStore struct {
 	// Kind of the meta store to use.
-	Kind *MetaStoreKind `json:"kind,omitempty" yaml:"kind,omitempty"`
+	Kind MetaStoreKind `json:"kind,omitzero" yaml:"kind,omitempty"`
 
 	// Specification for the meta store.
 	Spec MoldingSpec `json:"spec,omitempty" yaml:"spec,omitempty"`
@@ -62,7 +83,7 @@ type MetaStore struct {
 
 func DefaultMetaStore() MetaStore {
 	return MetaStore{
-		Kind: &MetaStoreKindPostgres,
+		Kind: MetaStoreKindPostgres,
 		Spec: MoldingSpec{
 			Enabled: true,
 			Cluster: TypeCluster{
