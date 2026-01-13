@@ -32,13 +32,21 @@ quotas:
             result_rows: 0
 remote_servers:
     cluster:
-{{- range $shard := .TelemetryStoreClickHouseCluster.Shards }}
+{{- range $s := until .ShardCount }}
         - shard:
-        {{- range $rep := $shard.Replicas }}
+    {{- range $r := until $.ReplicaCount }}
+        {{- $idx := add (mul $s $.ReplicaCount) $r }}
+        {{- $addr := index $.StoreAddresses $idx }}
             - replica:
-                host: {{ $rep.Host }}
-                port: {{ $rep.Port }}
-        {{- end }}
+                host: {{ $addr.Host }}
+                port: {{ $addr.Port }}
+    {{- end }}
+{{- end }}
+zookeeper:
+{{- range $i, $addr := .KeeperAddresses }}
+    - node:
+        host: {{ $addr.Host }}
+        port: {{ $addr.Port }}
 {{- end }}
 tcp_port: 9000
 user_defined_executable_functions_config: '*function.yaml'

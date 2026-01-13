@@ -53,22 +53,12 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *v1alpha
 }
 
 func (molding *telemetrystore) getData(config *v1alpha1.Casting) (Data, error) {
-	addresses := config.Spec.TelemetryStore.Status.Addresses
-	if len(addresses) == 0 {
+	storeAddresses := config.Spec.TelemetryStore.Status.Addresses
+	if len(storeAddresses) == 0 {
 		return Data{}, fmt.Errorf("telemetry store addresses not set in status")
 	}
 
-	clusterConfig, err := molding.getTelemetryStoreCluster(config.Spec.TelemetryStore.Spec.Cluster, addresses)
-	if err != nil {
-		return Data{}, fmt.Errorf("failed to build cluster config: %w", err)
-	}
-
-	return Data{
-		TelemetryStoreClickHouseCluster: clusterConfig,
-	}, nil
-}
-
-func (molding *telemetrystore) getTelemetryStoreCluster(cluster v1alpha1.TypeCluster, addresses []string) (ClusterConfig, error) {
+	cluster := config.Spec.TelemetryStore.Spec.Cluster
 	shardCount := defaultShardCount
 	replicaCount := defaultReplicaCount
 
@@ -80,33 +70,32 @@ func (molding *telemetrystore) getTelemetryStoreCluster(cluster v1alpha1.TypeClu
 	}
 
 	expectedNodes := shardCount * replicaCount
-	if len(addresses) < expectedNodes {
-		return ClusterConfig{}, fmt.Errorf(
+	if len(storeAddresses) < expectedNodes {
+		return Data{}, fmt.Errorf(
 			"insufficient addresses: have %d, need %d (shards=%d × replicas=%d)",
-			len(addresses), expectedNodes, shardCount, replicaCount,
+			len(storeAddresses), expectedNodes, shardCount, replicaCount,
 		)
 	}
 
-	parsedAddrs, err := types.ParseAddresses(addresses[:expectedNodes])
+	parsedStoreAddrs, err := types.ParseAddresses(storeAddresses[:expectedNodes])
 	if err != nil {
-		return ClusterConfig{}, fmt.Errorf("failed to parse addresses: %w", err)
+		return Data{}, fmt.Errorf("failed to parse addresses: %w", err)
 	}
 
-	shards := make([]ShardConfig, 0, shardCount)
-	addrIdx := 0
-
-	for s := 0; s < shardCount; s++ {
-		replicas := make([]ReplicaConfig, 0, replicaCount)
-		for r := 0; r < replicaCount; r++ {
-			addr := parsedAddrs[addrIdx]
-			replicas = append(replicas, ReplicaConfig{
-				Host: addr.Host,
-				Port: addr.Port,
-			})
-			addrIdx++
-		}
-		shards = append(shards, ShardConfig{Replicas: replicas})
+	keeperAddresses := config.Spec.TelemetryKeeper.Status.Addresses
+	if len(keeperAddresses) == 0 {
+		return Data{}, fmt.Errorf("telemetry keeper addresses not set in status")
 	}
 
-	return ClusterConfig{Shards: shards}, nil
+	parsedKeeperAddrs, err := types.ParseAddresses(keeperAddresses)
+	if err != nil {
+		return Data{}, fmt.Errorf("failed to parse addresses: %w", err)
+	}
+
+	return Data{
+		StoreAddresses:    parsedStoreAddrs,
+		KeeperAddresses: parsedKeeperAddrs,
+		ShardCount:   shardCount,
+		ReplicaCount: replicaCount,
+	}, nil
 }

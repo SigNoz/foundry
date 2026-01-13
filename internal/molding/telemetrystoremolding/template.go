@@ -14,19 +14,10 @@ var (
 	FunctionsClickhousev2556YAML *types.Template = types.MustNewTemplateFromFS(templates, "templates/functions.clickhouse.v2556.yaml.gotmpl", types.FormatYAML)
 )
 
+// Data is the template data for rendering ClickHouse telemetry store configs.
 type Data struct {
-	TelemetryStoreClickHouseCluster ClusterConfig
-}
-
-type ClusterConfig struct {
-    Shards []ShardConfig `json:"shard" yaml:"shard"`
-}
-
-type ShardConfig struct {
-    Replicas []ReplicaConfig `json:"replica" yaml:"replica"`
-}
-
-type ReplicaConfig struct {
-    Host string `json:"host" yaml:"host"`
-    Port string    `json:"port" yaml:"port"`
+	StoreAddresses    []types.ParsedAddress
+	KeeperAddresses    []types.ParsedAddress
+	ShardCount   int
+	ReplicaCount int
 }

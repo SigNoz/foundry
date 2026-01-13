@@ -39,14 +39,15 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *v1alph
 		return err
 	}
 
-	configs := make(map[string]string, len(data.TelemetryKeeperClickhouseCluster.Servers))
-	for _, server := range data.TelemetryKeeperClickhouseCluster.Servers {
+	// Generate per-server configs (each keeper node needs its own server_id)
+	configs := make(map[string]string, data.ServerCount)
+	for i := 0; i < data.ServerCount; i++ {
 		configBuf := bytes.NewBuffer(nil)
-		data.ServerID = server.ID
+		data.ServerID = i + 1
 		if err := KeeperClickhousev2556YAML.Execute(configBuf, data); err != nil {
-			return fmt.Errorf("failed to execute keeper template for server %d: %w", server.ID, err)
+			return fmt.Errorf("failed to execute keeper template for server %d: %w", data.ServerID, err)
 		}
-		configs[fmt.Sprintf("keeper-%d.yaml", server.ID)] = configBuf.String()
+		configs[fmt.Sprintf("keeper-%d.yaml", data.ServerID)] = configBuf.String()
 	}
 
 	config.Spec.TelemetryKeeper.Spec.Config.Data = configs
@@ -59,24 +60,14 @@ func (molding *telemetrykeeper) getData(config *v1alpha1.Casting) (Data, error) 
 		return Data{}, fmt.Errorf("keeper addresses not set in status")
 	}
 
-	raftConfig, err := molding.getTelemetryKeeperCluster(config.Spec.TelemetryKeeper.Spec.Cluster, addresses)
-	if err != nil {
-		return Data{}, fmt.Errorf("failed to build raft config: %w", err)
-	}
-
-	return Data{
-		TelemetryKeeperClickhouseCluster: raftConfig,
-	}, nil
-}
-
-func (molding *telemetrykeeper) getTelemetryKeeperCluster(cluster v1alpha1.TypeCluster, addresses []string) (RaftConfig, error) {
+	cluster := config.Spec.TelemetryKeeper.Spec.Cluster
 	serverCount := defaultServerCount
 	if cluster.Replicas != nil {
 		serverCount = *cluster.Replicas
 	}
 
 	if len(addresses) < serverCount {
-		return RaftConfig{}, fmt.Errorf(
+		return Data{}, fmt.Errorf(
 			"insufficient addresses: have %d, need %d servers",
 			len(addresses), serverCount,
 		)
@@ -84,17 +75,11 @@ func (molding *telemetrykeeper) getTelemetryKeeperCluster(cluster v1alpha1.TypeC
 
 	parsedAddrs, err := types.ParseAddresses(addresses[:serverCount])
 	if err != nil {
-		return RaftConfig{}, fmt.Errorf("failed to parse addresses: %w", err)
+		return Data{}, fmt.Errorf("failed to parse addresses: %w", err)
 	}
 
-	servers := make([]Server, 0, serverCount)
-	for i, addr := range parsedAddrs {
-		servers = append(servers, Server{
-			ID:   i + 1,
-			Host: addr.Host,
-			Port: addr.Port,
-		})
-	}
-
-	return RaftConfig{Servers: servers}, nil
+	return Data{
+		Addresses:   parsedAddrs,
+		ServerCount: serverCount,
+	}, nil
 }

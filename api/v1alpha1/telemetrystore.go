@@ -65,7 +65,7 @@ func DefaultTelemetryStore() TelemetryStore {
 		Spec: MoldingSpec{
 			Enabled: true,
 			Cluster: TypeCluster{
-				Replicas: types.NewIntPtr(0),
+				Replicas: types.NewIntPtr(1),
 				Shards:   types.NewIntPtr(1),
 			},
 			Version: "25.5.6",
