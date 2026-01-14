@@ -18,8 +18,9 @@ var (
 	MetaStoreKindPostgres MetaStoreKind = MetaStoreKind{s: "postgres"}
 	MetaStoreKindSQLite   MetaStoreKind = MetaStoreKind{s: "sqlite"}
 )
+
 var (
-	// MetaStoreDSNAddresses is the key for database connection addresses
+	// MetaStoreDSNAddresses is the key for database connection addresses.
 	MetaStoreDSNAddresses string = "dsn"
 )
 

@@ -6,7 +6,7 @@ keeper_server:
     log_storage_path: /var/lib/clickhouse/coordination/log
     raft_configuration:
     {{- range $i := until .ServerCount }}
-        {{- $addr := index $.Addresses $i }}
+        {{- $addr := index $.RaftAddresses $i }}
         - server:
             hostname: {{ $addr.Host }}
             port: {{ $addr.Port }}
@@ -14,5 +14,4 @@ keeper_server:
     {{- end }}
     server_id: {{ .ServerID }}
     snapshot_storage_path: /var/lib/clickhouse/coordination/snapshots
-    tcp_port: {{ .TcpPort | default 9181 }}
-
+    tcp_port: {{ (index .ClientAddresses .ServerID).Port }}

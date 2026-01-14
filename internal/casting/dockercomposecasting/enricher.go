@@ -75,16 +75,21 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		var telemetrykeeperContainerNames []string
 		for _, containerName := range containerNames {
 			if strings.Contains(containerName, "telemetrykeeper") {
-				telemetrykeeperContainerNames = append(telemetrykeeperContainerNames, types.FormatAddress("tcp", containerName, 9000))
+				telemetrykeeperContainerNames = append(telemetrykeeperContainerNames, types.FormatAddress("tcp", containerName, 9181))
 			}
 		}
 
 		if config.Spec.TelemetryKeeper.Status.Addresses == nil {
 			config.Spec.TelemetryKeeper.Status.Addresses = make(map[string][]string)
 		}
-		// Set both raft (for keeper internal config) and client (for telemetrystore to connect)
-		config.Spec.TelemetryKeeper.Status.Addresses[v1alpha1.TelemetryKeeperRaftAddresses] = telemetrykeeperContainerNames
+
 		config.Spec.TelemetryKeeper.Status.Addresses[v1alpha1.TelemetryKeeperClientAddresses] = telemetrykeeperContainerNames
+
+		var telemetryRaftaddress []string
+		for _, containerName := range containerNames {
+			telemetryRaftaddress = append(telemetryRaftaddress, types.FormatAddress("tcp", containerName, 9234))
+		}
+		config.Spec.TelemetryKeeper.Status.Addresses[v1alpha1.TelemetryKeeperRaftAddresses] = telemetryRaftaddress
 
 	case v1alpha1.MoldingKindMetaStore:
 		// Get metastore container names

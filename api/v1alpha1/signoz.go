@@ -3,7 +3,7 @@ package v1alpha1
 import "github.com/signoz/foundry/internal/types"
 
 var (
-	// SignozAPIAddresses is the key for API endpoint addresses (management, OpAMP)
+	// SignozAPIAddresses is the key for API endpoint addresses.
 	SignozAPIAddresses string = "api"
 )
 

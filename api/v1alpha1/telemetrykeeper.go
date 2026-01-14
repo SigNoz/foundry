@@ -14,10 +14,11 @@ var _ json.Unmarshaler = (*TelemetryKeeperKind)(nil)
 var (
 	TelemetryKeeperKindClickhouseKeeper TelemetryKeeperKind = TelemetryKeeperKind{s: "clickhousekeeper"}
 )
+
 var (
-	// TelemetryKeeperRaftAddresses is the key for inter-keeper consensus coordination
+	// TelemetryKeeperRaftAddresses is the key for inter-keeper consensus coordination.
 	TelemetryKeeperRaftAddresses string = "raft"
-	// TelemetryKeeperClientAddresses is the key for client connections
+	// TelemetryKeeperClientAddresses is the key for client connections.
 	TelemetryKeeperClientAddresses string = "client"
 )
 

@@ -12,10 +12,6 @@ import (
 	"github.com/signoz/foundry/internal/types"
 )
 
-const (
-	defaultServerCount = 1
-)
-
 var _ molding.Molding = (*telemetrykeeper)(nil)
 
 type telemetrykeeper struct {
@@ -56,31 +52,41 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *v1alph
 }
 
 func (molding *telemetrykeeper) getData(config *v1alpha1.Casting) (Data, error) {
-	addresses := config.Spec.TelemetryKeeper.Status.Addresses[v1alpha1.TelemetryKeeperRaftAddresses]
-	if len(addresses) == 0 {
-		return Data{}, fmt.Errorf("keeper addresses not set in status")
-	}
+	// Get server count from cluster spec
+	serverCount := max(*config.Spec.TelemetryKeeper.Spec.Cluster.Replicas, 1)
 
-	cluster := config.Spec.TelemetryKeeper.Spec.Cluster
-	serverCount := defaultServerCount
-	if cluster.Replicas != nil {
-		serverCount = *cluster.Replicas
-	}
+	// Extract addresses from status
+	raftAddresses := config.Spec.TelemetryKeeper.Status.Addresses[v1alpha1.TelemetryKeeperRaftAddresses]
+	clientAddresses := config.Spec.TelemetryKeeper.Status.Addresses[v1alpha1.TelemetryKeeperClientAddresses]
 
-	if len(addresses) < serverCount {
+	// Validate sufficient addresses for server count
+	if len(raftAddresses) < serverCount {
 		return Data{}, fmt.Errorf(
-			"insufficient addresses: have %d, need %d servers",
-			len(addresses), serverCount,
+			"insufficient raft addresses: have %d, need %d servers",
+			len(raftAddresses), serverCount,
+		)
+	}
+	if len(clientAddresses) < serverCount {
+		return Data{}, fmt.Errorf(
+			"insufficient client addresses: have %d, need %d servers",
+			len(clientAddresses), serverCount,
 		)
 	}
 
-	newAddrs, err := types.NewAddresses(addresses[:serverCount])
+	// Parse and validate addresses
+	newRaftAddrs, err := types.NewAddresses(raftAddresses[:serverCount])
 	if err != nil {
-		return Data{}, fmt.Errorf("failed to parse addresses: %w", err)
+		return Data{}, fmt.Errorf("failed to parse raft addresses: %w", err)
+	}
+
+	newClientAddrs, err := types.NewAddresses(clientAddresses[:serverCount])
+	if err != nil {
+		return Data{}, fmt.Errorf("failed to parse client addresses: %w", err)
 	}
 
 	return Data{
-		Addresses:   newAddrs,
-		ServerCount: serverCount,
+		RaftAddresses:   newRaftAddrs,
+		ClientAddresses: newClientAddrs,
+		ServerCount:     serverCount,
 	}, nil
 }
