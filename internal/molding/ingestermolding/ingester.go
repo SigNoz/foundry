@@ -59,29 +59,30 @@ func (molding *ingester) getData(config *v1alpha1.Casting) (Data, error) {
 		return Data{}, fmt.Errorf("signoz address is not set")
 	}
 
-	signozAddress := config.Spec.Signoz.Status.Addresses[0]
+	signozAddress := config.Spec.Signoz.Status.Addresses[v1alpha1.SignozAPIAddresses][0]
 
 	if len(config.Spec.TelemetryStore.Status.Addresses) == 0 {
 		return Data{}, fmt.Errorf("telemetry store address is not set")
 	}
 
+	telemetryStoreAddresses := config.Spec.TelemetryStore.Status.Addresses[v1alpha1.TelemetryStoreClusterAddresses]
 	var telemetryStoreTracesAddresses []string
-	for _, address := range config.Spec.TelemetryStore.Status.Addresses {
+	for _, address := range telemetryStoreAddresses {
 		telemetryStoreTracesAddresses = append(telemetryStoreTracesAddresses, address+"/signoz_traces")
 	}
 
 	var telemetryStoreMetricsAddresses []string
-	for _, address := range config.Spec.TelemetryStore.Status.Addresses {
+	for _, address := range telemetryStoreAddresses {
 		telemetryStoreMetricsAddresses = append(telemetryStoreMetricsAddresses, address+"/signoz_metrics")
 	}
 
 	var telemetryStoreLogsAddresses []string
-	for _, address := range config.Spec.TelemetryStore.Status.Addresses {
+	for _, address := range telemetryStoreAddresses {
 		telemetryStoreLogsAddresses = append(telemetryStoreLogsAddresses, address+"/signoz_logs")
 	}
 
 	var telemetryStoreMeterAddresses []string
-	for _, address := range config.Spec.TelemetryStore.Status.Addresses {
+	for _, address := range telemetryStoreAddresses {
 		telemetryStoreMeterAddresses = append(telemetryStoreMeterAddresses, address+"/signoz_meter")
 	}
 

@@ -44,6 +44,7 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *v1alph
 	for i := 0; i < data.ServerCount; i++ {
 		configBuf := bytes.NewBuffer(nil)
 		data.ServerID = i
+		// data.TcpPort = tcpPorts[i]
 		if err := KeeperClickhousev2556YAML.Execute(configBuf, data); err != nil {
 			return fmt.Errorf("failed to execute keeper template for server %d: %w", data.ServerID, err)
 		}
@@ -55,7 +56,7 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *v1alph
 }
 
 func (molding *telemetrykeeper) getData(config *v1alpha1.Casting) (Data, error) {
-	addresses := config.Spec.TelemetryKeeper.Status.Addresses
+	addresses := config.Spec.TelemetryKeeper.Status.Addresses[v1alpha1.TelemetryKeeperRaftAddresses]
 	if len(addresses) == 0 {
 		return Data{}, fmt.Errorf("keeper addresses not set in status")
 	}

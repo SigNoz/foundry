@@ -41,7 +41,10 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 			}
 		}
 
-		config.Spec.TelemetryStore.Status.Addresses = telemetrystoreContainerNames
+		if config.Spec.TelemetryStore.Status.Addresses == nil {
+			config.Spec.TelemetryStore.Status.Addresses = make(map[string][]string)
+		}
+		config.Spec.TelemetryStore.Status.Addresses[v1alpha1.TelemetryStoreClusterAddresses] = telemetrystoreContainerNames
 
 	case v1alpha1.MoldingKindSignoz:
 		// Get signoz container names
@@ -57,7 +60,10 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 			}
 		}
 
-		config.Spec.Signoz.Status.Addresses = signozContainerNames
+		if config.Spec.Signoz.Status.Addresses == nil {
+			config.Spec.Signoz.Status.Addresses = make(map[string][]string)
+		}
+		config.Spec.Signoz.Status.Addresses[v1alpha1.SignozAPIAddresses] = signozContainerNames
 
 	case v1alpha1.MoldingKindTelemetryKeeper:
 		// Get telemetrykeeper container names
@@ -73,7 +79,12 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 			}
 		}
 
-		config.Spec.TelemetryKeeper.Status.Addresses = telemetrykeeperContainerNames
+		if config.Spec.TelemetryKeeper.Status.Addresses == nil {
+			config.Spec.TelemetryKeeper.Status.Addresses = make(map[string][]string)
+		}
+		// Set both raft (for keeper internal config) and client (for telemetrystore to connect)
+		config.Spec.TelemetryKeeper.Status.Addresses[v1alpha1.TelemetryKeeperRaftAddresses] = telemetrykeeperContainerNames
+		config.Spec.TelemetryKeeper.Status.Addresses[v1alpha1.TelemetryKeeperClientAddresses] = telemetrykeeperContainerNames
 
 	case v1alpha1.MoldingKindMetaStore:
 		// Get metastore container names
@@ -89,7 +100,10 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 			}
 		}
 
-		config.Spec.MetaStore.Status.Addresses = metastoreContainerNames
+		if config.Spec.MetaStore.Status.Addresses == nil {
+			config.Spec.MetaStore.Status.Addresses = make(map[string][]string)
+		}
+		config.Spec.MetaStore.Status.Addresses[v1alpha1.MetaStoreDSNAddresses] = metastoreContainerNames
 
 	case v1alpha1.MoldingKindIngester:
 		// Get ingester container names
@@ -105,7 +119,10 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 			}
 		}
 
-		config.Spec.Ingester.Status.Addresses = ingesterContainerNames
+		if config.Spec.Ingester.Status.Addresses == nil {
+			config.Spec.Ingester.Status.Addresses = make(map[string][]string)
+		}
+		config.Spec.Ingester.Status.Addresses[v1alpha1.IngesterReceiverAddresses] = ingesterContainerNames
 	}
 
 	return nil

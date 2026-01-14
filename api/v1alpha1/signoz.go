@@ -2,6 +2,11 @@ package v1alpha1
 
 import "github.com/signoz/foundry/internal/types"
 
+var (
+	// SignozAPIAddresses is the key for API endpoint addresses (management, OpAMP)
+	SignozAPIAddresses string = "api"
+)
+
 type SigNoz struct {
 	Spec MoldingSpec `json:"spec,omitempty" yaml:"spec,omitempty"`
 

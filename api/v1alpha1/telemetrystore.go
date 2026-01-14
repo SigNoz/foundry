@@ -18,6 +18,12 @@ var (
 	TelemetryStoreKindClickhouse TelemetryStoreKind = TelemetryStoreKind{s: "clickhouse"}
 )
 
+// Address keys for TelemetryStore.Status.Addresses map
+var (
+	// TelemetryStoreClusterAddresses is the key for cluster node addresses
+	TelemetryStoreClusterAddresses string = "cluster"
+)
+
 type TelemetryStoreKind struct {
 	s string
 }

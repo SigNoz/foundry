@@ -18,4 +18,5 @@ type Data struct {
 	Addresses   []types.Address
 	ServerCount int
 	ServerID    int // Current server ID for per-node config generation
+	TcpPort     int
 }

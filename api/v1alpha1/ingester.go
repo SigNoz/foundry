@@ -2,6 +2,11 @@ package v1alpha1
 
 import "github.com/signoz/foundry/internal/types"
 
+var (
+	// IngesterReceiverAddresses is the key for telemetry receiver endpoint addresses
+	IngesterReceiverAddresses string = "receiver"
+)
+
 type Ingester struct {
 	Spec MoldingSpec `json:"spec,omitempty" yaml:"spec,omitempty"`
 

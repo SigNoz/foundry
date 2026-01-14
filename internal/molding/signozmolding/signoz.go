@@ -41,7 +41,7 @@ func (molding *signoz) MoldV1Alpha1(ctx context.Context, config *v1alpha1.Castin
 		molding.logger.WarnContext(ctx, "SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN is going to be overridden", slog.String("value", val))
 	}
 
-	config.Spec.Signoz.Status.Env["SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN"] = strings.Join(config.Spec.TelemetryStore.Status.Addresses, ",")
+	config.Spec.Signoz.Status.Env["SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN"] = strings.Join(config.Spec.TelemetryStore.Status.Addresses[v1alpha1.TelemetryStoreClusterAddresses], ",")
 
 	// Add metastore addresses
 	config.Spec.Signoz.Status.Env["SIGNOZ_SQLSTORE_PROVIDER"] = config.Spec.MetaStore.Kind.String()
@@ -50,7 +50,7 @@ func (molding *signoz) MoldV1Alpha1(ctx context.Context, config *v1alpha1.Castin
 		molding.logger.WarnContext(ctx, "SIGNOZ_SQLSTORE_POSTGRES_DSN is going to be overridden", slog.String("value", val))
 	}
 
-	config.Spec.Signoz.Status.Env["SIGNOZ_SQLSTORE_POSTGRES_DSN"] = strings.Join(config.Spec.MetaStore.Status.Addresses, ",")
+	config.Spec.Signoz.Status.Env["SIGNOZ_SQLSTORE_POSTGRES_DSN"] = strings.Join(config.Spec.MetaStore.Status.Addresses[v1alpha1.MetaStoreDSNAddresses], ",")
 
 	return nil
 }
