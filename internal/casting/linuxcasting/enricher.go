@@ -29,21 +29,18 @@ func (enricher *linuxMoldingEnricher) EnrichStatus(ctx context.Context, kind v1a
 	case v1alpha1.MoldingKindTelemetryStore:
 		// ClickHouse native port: 9000, HTTP port: 8123
 		// For clustered setup, generate addresses for each shard/replica
-		var addresses []string
-		replicas := 1
-		shards := 1
-		if config.Spec.TelemetryStore.Spec.Cluster.Replicas != nil {
-			replicas = *config.Spec.TelemetryStore.Spec.Cluster.Replicas
-		}
-		if config.Spec.TelemetryStore.Spec.Cluster.Shards != nil {
-			shards = *config.Spec.TelemetryStore.Spec.Cluster.Shards
-		}
 
+		var addresses []string
+
+		cluster := config.Spec.TelemetryStore.Spec.Cluster
+		replicas := max(*cluster.Replicas, 1)
+		shards := max(*cluster.Shards, 1)
+	
 		for shard := 0; shard < shards; shard++ {
 			for replica := 0; replica < replicas; replica++ {
 				// Port offset for each instance (e.g., 9000, 9001, 9002...)
 				port := 9000 + (shard * replicas) + replica
-				addresses = append(addresses, types.NewAddress("tcp", "localhost", port))
+				addresses = append(addresses, types.FormatAddress("tcp", "localhost", port))
 			}
 		}
 		config.Spec.TelemetryStore.Status.Addresses = addresses
@@ -58,25 +55,25 @@ func (enricher *linuxMoldingEnricher) EnrichStatus(ctx context.Context, kind v1a
 
 		for replica := 0; replica < replicas; replica++ {
 			port := 9181 + replica
-			addresses = append(addresses, types.NewAddress("tcp", "localhost", port))
+			addresses = append(addresses, types.FormatAddress("tcp", "localhost", port))
 		}
 		config.Spec.TelemetryKeeper.Status.Addresses = addresses
 
 	case v1alpha1.MoldingKindMetaStore:
 		// PostgreSQL port: 5432
 		config.Spec.MetaStore.Status.Addresses = []string{
-			types.NewAddress("tcp", "localhost", 5432),
+			types.FormatAddress("tcp", "localhost", 5432),
 		}
 
 	case v1alpha1.MoldingKindSignoz:
 		config.Spec.Signoz.Status.Addresses = []string{
-			types.NewAddress("tcp", "localhost", 8080),
+			types.FormatAddress("tcp", "localhost", 8080),
 		}
 
 	case v1alpha1.MoldingKindIngester:
 		// OTel Collector gRPC: 4317, HTTP: 4318
 		config.Spec.Ingester.Status.Addresses = []string{
-			types.NewAddress("tcp", "localhost", 4317),
+			types.FormatAddress("tcp", "localhost", 4317),
 		}
 	}
 	return nil

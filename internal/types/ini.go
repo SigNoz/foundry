@@ -9,8 +9,8 @@ import (
 )
 
 // INI/Env bytes -> JSON bytes
-func INIToJSON(input []byte) ([]byte, error) {
-	cfg, err := ini.Load(input)
+func INIToJSON(contents []byte) ([]byte, error) {
+	cfg, err := ini.Load(contents)
 	if err != nil {
 		return nil, err
 	}
@@ -29,13 +29,13 @@ func INIToJSON(input []byte) ([]byte, error) {
 		data[section.Name()] = hash
 	}
 
-	return json.MarshalIndent(data, "", "  ")
+	return json.Marshal(data)
 }
 
 // JSON bytes -> INI/Env bytes
-func JSONToINI(jsonInput []byte) ([]byte, error) {
+func JSONToINI(contents []byte) ([]byte, error) {
 	var data map[string]any
-	if err := json.Unmarshal(jsonInput, &data); err != nil {
+	if err := json.Unmarshal(contents, &data); err != nil {
 		return nil, err
 	}
 
