@@ -37,7 +37,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		var telemetrystoreContainerNames []string
 		for _, containerName := range containerNames {
 			if strings.Contains(containerName, "telemetrystore") && !strings.Contains(containerName, "user-scripts") {
-				telemetrystoreContainerNames = append(telemetrystoreContainerNames, types.NewAddress("tcp", containerName, 9000))
+				telemetrystoreContainerNames = append(telemetrystoreContainerNames, types.FormatAddress("tcp", containerName, 9000))
 			}
 		}
 
@@ -53,7 +53,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		var signozContainerNames []string
 		for _, containerName := range containerNames {
 			if strings.Contains(containerName, "signoz") {
-				signozContainerNames = append(signozContainerNames, types.NewAddress("tcp", containerName, 9000))
+				signozContainerNames = append(signozContainerNames, types.FormatAddress("tcp", containerName, 9000))
 			}
 		}
 
@@ -69,7 +69,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		var telemetrykeeperContainerNames []string
 		for _, containerName := range containerNames {
 			if strings.Contains(containerName, "telemetrykeeper") {
-				telemetrykeeperContainerNames = append(telemetrykeeperContainerNames, types.NewAddress("tcp", containerName, 9000))
+				telemetrykeeperContainerNames = append(telemetrykeeperContainerNames, types.FormatAddress("tcp", containerName, 9000))
 			}
 		}
 
@@ -85,7 +85,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		var metastoreContainerNames []string
 		for _, containerName := range containerNames {
 			if strings.Contains(containerName, "metastore") {
-				metastoreContainerNames = append(metastoreContainerNames, types.NewAddress("tcp", containerName, 9000))
+				metastoreContainerNames = append(metastoreContainerNames, types.FormatAddress("tcp", containerName, 9000))
 			}
 		}
 
@@ -101,7 +101,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		var ingesterContainerNames []string
 		for _, containerName := range containerNames {
 			if strings.Contains(containerName, "ingester") {
-				ingesterContainerNames = append(ingesterContainerNames, types.NewAddress("tcp", containerName, 9000))
+				ingesterContainerNames = append(ingesterContainerNames, types.FormatAddress("tcp", containerName, 9000))
 			}
 		}
 

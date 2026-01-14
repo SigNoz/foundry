@@ -27,11 +27,11 @@ func TelemetryKeeperKinds() []TelemetryKeeperKind {
 	return []TelemetryKeeperKind{TelemetryKeeperKindClickhouseKeeper}
 }
 
-func (kind TelemetryKeeperKind) MarshalJSON()([]byte, error){
+func (kind TelemetryKeeperKind) MarshalJSON() ([]byte, error) {
 	return json.Marshal(kind.String())
 }
 
-func (kind *TelemetryKeeperKind) UnmarshalJSON(text []byte)(error){
+func (kind *TelemetryKeeperKind) UnmarshalJSON(text []byte) error {
 	var str string
 	if err := json.Unmarshal(text, &str); err != nil {
 		return err
@@ -40,7 +40,6 @@ func (kind *TelemetryKeeperKind) UnmarshalJSON(text []byte)(error){
 	return kind.UnmarshalText([]byte(str))
 }
 
-
 func (kind *TelemetryKeeperKind) UnmarshalText(text []byte) error {
 	for _, availableKind := range TelemetryKeeperKinds() {
 		if availableKind.String() == string(text) {
@@ -48,7 +47,7 @@ func (kind *TelemetryKeeperKind) UnmarshalText(text []byte) error {
 			return nil
 		}
 	}
-	if text == nil{
+	if text == nil {
 		*kind = TelemetryKeeperKind{s: ""}
 		return nil
 	}

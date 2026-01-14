@@ -16,8 +16,8 @@ var (
 
 // Data is the template data for rendering ClickHouse telemetry store configs.
 type Data struct {
-	StoreAddresses    []types.ParsedAddress
-	KeeperAddresses    []types.ParsedAddress
-	ShardCount   int
-	ReplicaCount int
+	StoreAddresses  []types.Address
+	KeeperAddresses []types.Address
+	ShardCount      int
+	ReplicaCount    int
 }

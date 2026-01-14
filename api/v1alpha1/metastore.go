@@ -31,11 +31,11 @@ func MetaStoreKinds() []MetaStoreKind {
 	return []MetaStoreKind{MetaStoreKindPostgres, MetaStoreKindSQLite}
 }
 
-func (kind MetaStoreKind) MarshalJSON()([]byte, error){
+func (kind MetaStoreKind) MarshalJSON() ([]byte, error) {
 	return json.Marshal(kind.String())
 }
 
-func (kind *MetaStoreKind) UnmarshalJSON(text []byte)(error){
+func (kind *MetaStoreKind) UnmarshalJSON(text []byte) error {
 	var str string
 	if err := json.Unmarshal(text, &str); err != nil {
 		return err
@@ -51,7 +51,7 @@ func (kind *MetaStoreKind) UnmarshalText(text []byte) error {
 			return nil
 		}
 	}
-	if text == nil{
+	if text == nil {
 		*kind = MetaStoreKind{s: ""}
 		return nil
 	}

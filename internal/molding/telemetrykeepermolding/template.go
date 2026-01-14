@@ -15,7 +15,7 @@ var (
 
 // Data is the template data for rendering ClickHouse Keeper configs.
 type Data struct {
-	Addresses   []types.ParsedAddress
+	Addresses   []types.Address
 	ServerCount int
 	ServerID    int // Current server ID for per-node config generation
 }

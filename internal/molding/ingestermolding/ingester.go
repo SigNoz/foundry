@@ -47,8 +47,8 @@ func (molding *ingester) MoldV1Alpha1(ctx context.Context, config *v1alpha1.Cast
 	}
 
 	config.Spec.Ingester.Spec.Config.Data = map[string]string{
-		"config.yaml": configBuf.String(),
-		"opamp.yaml":  opampBuf.String(),
+		"ingester.yaml": configBuf.String(),
+		"opamp.yaml":    opampBuf.String(),
 	}
 
 	return nil

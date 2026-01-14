@@ -10,7 +10,7 @@ keeper_server:
         - server:
             hostname: {{ $addr.Host }}
             port: {{ $addr.Port }}
-            id: {{ add $i 1 }}
+            id: {{ $i }}
     {{- end }}
     server_id: {{ .ServerID }}
     snapshot_storage_path: /var/lib/clickhouse/coordination/snapshots

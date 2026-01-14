@@ -46,7 +46,7 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *v1alpha
 	}
 
 	config.Spec.TelemetryStore.Spec.Config.Data = map[string]string{
-		"config.yaml": configBuf.String(),
+		"telemetrystore.yaml": configBuf.String(),
 	}
 
 	return nil
@@ -77,7 +77,7 @@ func (molding *telemetrystore) getData(config *v1alpha1.Casting) (Data, error) {
 		)
 	}
 
-	parsedStoreAddrs, err := types.ParseAddresses(storeAddresses[:expectedNodes])
+	newStoreAddrs, err := types.NewAddresses(storeAddresses[:expectedNodes])
 	if err != nil {
 		return Data{}, fmt.Errorf("failed to parse addresses: %w", err)
 	}
@@ -87,15 +87,15 @@ func (molding *telemetrystore) getData(config *v1alpha1.Casting) (Data, error) {
 		return Data{}, fmt.Errorf("telemetry keeper addresses not set in status")
 	}
 
-	parsedKeeperAddrs, err := types.ParseAddresses(keeperAddresses)
+	newKeeperAddrs, err := types.NewAddresses(keeperAddresses)
 	if err != nil {
 		return Data{}, fmt.Errorf("failed to parse addresses: %w", err)
 	}
 
 	return Data{
-		StoreAddresses:    parsedStoreAddrs,
-		KeeperAddresses: parsedKeeperAddrs,
-		ShardCount:   shardCount,
-		ReplicaCount: replicaCount,
+		StoreAddresses:  newStoreAddrs,
+		KeeperAddresses: newKeeperAddrs,
+		ShardCount:      shardCount,
+		ReplicaCount:    replicaCount,
 	}, nil
 }

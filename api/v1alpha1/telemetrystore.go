@@ -30,11 +30,11 @@ func (kind TelemetryStoreKind) String() string {
 	return kind.s
 }
 
-func (kind TelemetryStoreKind) MarshalJSON()([]byte, error){
+func (kind TelemetryStoreKind) MarshalJSON() ([]byte, error) {
 	return json.Marshal(kind.String())
 }
 
-func (kind *TelemetryStoreKind) UnmarshalJSON(text []byte)(error){
+func (kind *TelemetryStoreKind) UnmarshalJSON(text []byte) error {
 	var str string
 	if err := json.Unmarshal(text, &str); err != nil {
 		return err
@@ -50,7 +50,7 @@ func (kind *TelemetryStoreKind) UnmarshalText(text []byte) error {
 			return nil
 		}
 	}
-	if text == nil{
+	if text == nil {
 		*kind = TelemetryStoreKind{s: ""}
 		return nil
 	}
@@ -85,7 +85,7 @@ func DefaultTelemetryStore() TelemetryStore {
 		Spec: MoldingSpec{
 			Enabled: true,
 			Cluster: TypeCluster{
-				Replicas: types.NewIntPtr(1),
+				Replicas: types.NewIntPtr(0),
 				Shards:   types.NewIntPtr(1),
 			},
 			Version: "25.5.6",

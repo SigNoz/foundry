@@ -73,13 +73,13 @@ func (molding *telemetrykeeper) getData(config *v1alpha1.Casting) (Data, error) 
 		)
 	}
 
-	parsedAddrs, err := types.ParseAddresses(addresses[:serverCount])
+	newAddrs, err := types.NewAddresses(addresses[:serverCount])
 	if err != nil {
 		return Data{}, fmt.Errorf("failed to parse addresses: %w", err)
 	}
 
 	return Data{
-		Addresses:   parsedAddrs,
+		Addresses:   newAddrs,
 		ServerCount: serverCount,
 	}, nil
 }
