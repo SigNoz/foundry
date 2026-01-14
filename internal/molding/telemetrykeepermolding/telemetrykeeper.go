@@ -43,7 +43,7 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *v1alph
 	configs := make(map[string]string, data.ServerCount)
 	for i := 0; i < data.ServerCount; i++ {
 		configBuf := bytes.NewBuffer(nil)
-		data.ServerID = i + 1
+		data.ServerID = i
 		if err := KeeperClickhousev2556YAML.Execute(configBuf, data); err != nil {
 			return fmt.Errorf("failed to execute keeper template for server %d: %w", data.ServerID, err)
 		}
