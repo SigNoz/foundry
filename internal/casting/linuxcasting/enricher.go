@@ -43,7 +43,10 @@ func (enricher *linuxMoldingEnricher) EnrichStatus(ctx context.Context, kind v1a
 				addresses = append(addresses, types.FormatAddress("tcp", "localhost", port))
 			}
 		}
-		config.Spec.TelemetryStore.Status.Addresses = addresses
+		if config.Spec.TelemetryStore.Status.Addresses == nil {
+			config.Spec.TelemetryStore.Status.Addresses = make(map[string][]string)
+		}
+		config.Spec.TelemetryStore.Status.Addresses[v1alpha1.TelemetryStoreClusterAddresses] = addresses
 
 	case v1alpha1.MoldingKindTelemetryKeeper:
 		// ClickHouse Keeper coordination port: 9181
@@ -57,22 +60,35 @@ func (enricher *linuxMoldingEnricher) EnrichStatus(ctx context.Context, kind v1a
 			port := 9181 + replica
 			addresses = append(addresses, types.FormatAddress("tcp", "localhost", port))
 		}
-		config.Spec.TelemetryKeeper.Status.Addresses = addresses
+		if config.Spec.TelemetryKeeper.Status.Addresses == nil {
+			config.Spec.TelemetryKeeper.Status.Addresses = make(map[string][]string)
+		}
+		config.Spec.TelemetryKeeper.Status.Addresses[v1alpha1.TelemetryKeeperRaftAddresses] = addresses
+		config.Spec.TelemetryKeeper.Status.Addresses[v1alpha1.TelemetryKeeperClientAddresses] = addresses
 
 	case v1alpha1.MoldingKindMetaStore:
 		// PostgreSQL port: 5432
-		config.Spec.MetaStore.Status.Addresses = []string{
+		if config.Spec.MetaStore.Status.Addresses == nil {
+			config.Spec.MetaStore.Status.Addresses = make(map[string][]string)
+		}
+		config.Spec.MetaStore.Status.Addresses[v1alpha1.MetaStoreDSNAddresses] = []string{
 			types.FormatAddress("tcp", "localhost", 5432),
 		}
 
 	case v1alpha1.MoldingKindSignoz:
-		config.Spec.Signoz.Status.Addresses = []string{
+		if config.Spec.Signoz.Status.Addresses == nil {
+			config.Spec.Signoz.Status.Addresses = make(map[string][]string)
+		}
+		config.Spec.Signoz.Status.Addresses[v1alpha1.SignozAPIAddresses] = []string{
 			types.FormatAddress("tcp", "localhost", 8080),
 		}
 
 	case v1alpha1.MoldingKindIngester:
 		// OTel Collector gRPC: 4317, HTTP: 4318
-		config.Spec.Ingester.Status.Addresses = []string{
+		if config.Spec.Ingester.Status.Addresses == nil {
+			config.Spec.Ingester.Status.Addresses = make(map[string][]string)
+		}
+		config.Spec.Ingester.Status.Addresses[v1alpha1.IngesterReceiverAddresses] = []string{
 			types.FormatAddress("tcp", "localhost", 4317),
 		}
 	}
