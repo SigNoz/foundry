@@ -12,11 +12,6 @@ import (
 	"github.com/signoz/foundry/internal/types"
 )
 
-const (
-	defaultShardCount   = 1
-	defaultReplicaCount = 1
-)
-
 var _ molding.Molding = (*telemetrystore)(nil)
 
 type telemetrystore struct {
@@ -59,15 +54,9 @@ func (molding *telemetrystore) getData(config *v1alpha1.Casting) (Data, error) {
 	}
 
 	cluster := config.Spec.TelemetryStore.Spec.Cluster
-	shardCount := defaultShardCount
-	replicaCount := defaultReplicaCount
 
-	if cluster.Shards != nil {
-		shardCount = *cluster.Shards
-	}
-	if cluster.Replicas != nil {
-		replicaCount = *cluster.Replicas
-	}
+	shardCount := max(*cluster.Shards, 1)
+	replicaCount := max(*cluster.Replicas, 1)
 
 	expectedNodes := shardCount * replicaCount
 	if len(storeAddresses) < expectedNodes {
