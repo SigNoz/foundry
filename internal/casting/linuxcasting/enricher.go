@@ -43,6 +43,15 @@ func (enricher *linuxMoldingEnricher) EnrichStatus(ctx context.Context, kind v1a
 		if cluster.Shards != nil {
 			shards = max(*cluster.Shards, 1)
 		}
+		// Set CreatePerInstance flag when multiple instances on same machine
+		if config.Spec.TelemetryStore.Status.Extras == nil {
+			config.Spec.TelemetryStore.Status.Extras = make(map[string]string)
+		}
+		expectedNodes := shards * replicas
+		if expectedNodes > 1 {
+			// Set CreatePerInstance key to signal template to create per-instance resources
+			config.Spec.TelemetryStore.Status.Extras[v1alpha1.CreatePerInstanceKey] = "true"
+		}
 
 		for shard := 0; shard < shards; shard++ {
 			for replica := 0; replica < replicas; replica++ {
@@ -67,8 +76,14 @@ func (enricher *linuxMoldingEnricher) EnrichStatus(ctx context.Context, kind v1a
 			replicas = max(*cluster.Replicas, 1)
 		}
 
+		if config.Spec.TelemetryKeeper.Status.Extras == nil {
+			config.Spec.TelemetryKeeper.Status.Extras = make(map[string]string)
+		}
+		// Set CreatePerInstance flag when multiple instances on same machine
+		if replicas > 1 {
+			config.Spec.TelemetryKeeper.Status.Extras[v1alpha1.CreatePerInstanceKey] = "true"
+		}
 		for replica := 0; replica < replicas; replica++ {
-
 			clientAddresses = append(clientAddresses, types.FormatAddress("tcp", "localhost", baseTelemetryKeeperClientPort+replica))
 			raftAddresses = append(raftAddresses, types.FormatAddress("tcp", "localhost", baseTelemetryKeeperRaftPort+replica))
 		}
@@ -79,7 +94,6 @@ func (enricher *linuxMoldingEnricher) EnrichStatus(ctx context.Context, kind v1a
 
 		config.Spec.TelemetryKeeper.Status.Addresses[v1alpha1.TelemetryKeeperRaftAddresses] = raftAddresses
 		config.Spec.TelemetryKeeper.Status.Addresses[v1alpha1.TelemetryKeeperClientAddresses] = clientAddresses
-
 	case v1alpha1.MoldingKindMetaStore:
 		// PostgreSQL port: 5432
 		if config.Spec.MetaStore.Status.Addresses == nil {
