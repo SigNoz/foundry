@@ -32,11 +32,17 @@ type TypeConfig struct {
 }
 
 type TypeDeployment struct {
-	// Mode in which the platform will run. Can be "binary", "docker", "kubernetes", etc.
+	// Platform: Provider where an installation runs on using various cloud vendors
+	// Example values: aws|gcp|azure|digitalocean|railway
+	Platform string `json:"platform,omitempty" yaml:"platform,omitempty"`
+
+	// Mode: Type of installation method that we support, currently identifies the engine or technology behind a deployment
+	// Example values: binary|docker|kubernetes|helm|nomad|windows|systemctl
 	Mode string `json:"mode,omitempty" yaml:"mode,omitempty"`
 
-	// Platform on which the platform will run. Can be "aws", "gcp", "azure", etc.
-	Platform string `json:"platform,omitempty" yaml:"platform,omitempty"`
+	// Flavor: Defines the flavor of mode for the deployment, allows the user the pattern to deploy on
+	// Example values: compose|swarm|helmfile|helm|kustomize|binary|rpm|deb|chocolatey
+	Flavor string `json:"flavor,omitempty" yaml:"flavor,omitempty"`
 }
 
 func Merge(base, overrides any) error {
