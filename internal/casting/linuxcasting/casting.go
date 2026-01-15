@@ -9,11 +9,10 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/signoz/foundry/internal/molding"
-	"github.com/signoz/foundry/internal/types"
-
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/casting"
+	"github.com/signoz/foundry/internal/molding"
+	"github.com/signoz/foundry/internal/types"
 )
 
 var _ casting.Casting = (*linuxCasting)(nil)
@@ -23,18 +22,11 @@ type linuxCasting struct {
 	castings []*types.Template
 }
 
-type serviceMaterials struct {
-	signoz          types.Material
-	ingester        types.Material
-	telemetryStore  types.Material
-	telemetryKeeper types.Material
-	metaStore       types.Material
-}
-
-// serviceDefinition pairs a template with its output path
-type serviceDefinition struct {
-	template *types.Template
-	path string
+// serviceConfig holds the configuration for generating service materials.
+type serviceConfig struct {
+	enabled     bool
+	serviceName string
+	configFiles map[string]string
 }
 
 func New(logger *slog.Logger) *linuxCasting {
@@ -55,29 +47,14 @@ func (casting *linuxCasting) Enricher(ctx context.Context, config *v1alpha1.Cast
 }
 
 func (casting *linuxCasting) Forge(ctx context.Context, config v1alpha1.Casting) ([]types.Material, error) {
-	// Get generated service template materials (only enabled ones)
-	materials, err := getServiceMaterials(&config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create template materials: %w", err)
-	}
+	var materials []types.Material
 
-	// Collect config data from all components
-	componentConfigs := []*v1alpha1.TypeConfig{
-		&config.Spec.Signoz.Spec.Config,
-		&config.Spec.Ingester.Spec.Config,
-		&config.Spec.TelemetryStore.Spec.Config,
-		&config.Spec.TelemetryKeeper.Spec.Config,
-		&config.Spec.MetaStore.Spec.Config,
-	}
-
-	for _, cfg := range componentConfigs {
-		for name, content := range cfg.Data {
-			m, err := types.NewYAMLMaterial([]byte(content), name)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create material for %s: %w", name, err)
-			}
-			materials = append(materials, m)
+	for _, tmpl := range casting.castings {
+		m, err := casting.forgeCasting(tmpl, &config)
+		if err != nil {
+			return nil, err
 		}
+		materials = append(materials, m...)
 	}
 
 	return materials, nil
@@ -108,37 +85,6 @@ func (casting *linuxCasting) Cast(ctx context.Context, config v1alpha1.Casting) 
 	return nil
 }
 
-func getServiceMaterials(config *v1alpha1.Casting) ([]types.Material, error) {
-	materials := []types.Material{}
-
-	// Define all services with their enabled status
-	services := []struct {
-		enabled  bool
-		template *types.Template
-		path string
-	}{
-		{config.Spec.Signoz.Spec.Enabled, signozServiceTemplate, "signoz.service"},
-		{config.Spec.Ingester.Spec.Enabled, ingesterServiceTemplate, "ingester.service"},
-		{config.Spec.TelemetryStore.Spec.Enabled, telemetryStoreServiceTemplate, "telemetrystore.service"},
-		{config.Spec.TelemetryKeeper.Spec.Enabled, telemetryKeeperServiceTemplate, "telemetrykeeper.service"},
-		{config.Spec.MetaStore.Spec.Enabled, metaStoreServiceTemplate, "metastore.service"},
-	}
-
-	for _, svc := range services {
-		if !svc.enabled {
-			continue
-		}
-
-		material, err := executeServiceTemplate(*svc.template, config, svc.path)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get %s material: %w", svc.path, err)
-		}
-		materials = append(materials, material)
-	}
-
-	return materials, nil
-}
-
 func executeServiceTemplate(template types.Template, config *v1alpha1.Casting, path string) (types.Material, error) {
 	buf := bytes.NewBuffer(nil)
 	err := template.Execute(buf, config)
@@ -147,4 +93,141 @@ func executeServiceTemplate(template types.Template, config *v1alpha1.Casting, p
 	}
 
 	return types.NewSystemdMaterial(buf.Bytes(), path)
+}
+
+// getReplicaCount returns the replica count with a default of 1.
+func getReplicaCount(replicas *int) int {
+	if replicas != nil {
+		return max(*replicas, 1)
+	}
+	return 1
+}
+
+// createConfigMaterials creates YAML materials from config data map.
+func createConfigMaterials(configData map[string]string) ([]types.Material, error) {
+	var materials []types.Material
+	for filename, content := range configData {
+		m, err := types.NewYAMLMaterial([]byte(content), filename)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create config material for %s: %w", filename, err)
+		}
+		materials = append(materials, m)
+	}
+	return materials, nil
+}
+
+// createServiceMaterials is a helper that generates service and config materials.
+func createServiceMaterials(tmpl types.Template, config *v1alpha1.Casting, svcCfg serviceConfig) ([]types.Material, error) {
+	if !svcCfg.enabled {
+		return nil, nil
+	}
+
+	// Create service material
+	material, err := executeServiceTemplate(tmpl, config, svcCfg.serviceName+".service")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get service material for %s: %w", svcCfg.serviceName, err)
+	}
+
+	// Create config materials
+	configMaterials, err := createConfigMaterials(svcCfg.configFiles)
+	if err != nil {
+		return nil, err
+	}
+
+	return append([]types.Material{material}, configMaterials...), nil
+}
+
+func (casting *linuxCasting) forgeCasting(tmpl *types.Template, config *v1alpha1.Casting) ([]types.Material, error) {
+	switch tmpl {
+	case signozServiceTemplate:
+		serviceName := fmt.Sprintf("%s-signoz", config.Metadata.Name)
+		return createServiceMaterials(*tmpl, config, serviceConfig{
+			enabled:     config.Spec.Signoz.Spec.Enabled,
+			serviceName: serviceName,
+			configFiles: config.Spec.Signoz.Spec.Config.Data,
+		})
+
+	case ingesterServiceTemplate:
+		serviceName := fmt.Sprintf("%s-ingester", config.Metadata.Name)
+		return createServiceMaterials(*tmpl, config, serviceConfig{
+			enabled:     config.Spec.Ingester.Spec.Enabled,
+			serviceName: serviceName,
+			configFiles: config.Spec.Ingester.Spec.Config.Data,
+		})
+
+	case telemetryStoreServiceTemplate:
+		return casting.forgeTelemetryStore(tmpl, config)
+
+	case telemetryKeeperServiceTemplate:
+		return casting.forgeTelemetryKeeper(tmpl, config)
+
+	case metaStoreServiceTemplate:
+		serviceName := fmt.Sprintf("%s-metastore-%s-0-0", config.Metadata.Name, config.Spec.MetaStore.Kind.String())
+		return createServiceMaterials(*tmpl, config, serviceConfig{
+			enabled:     config.Spec.MetaStore.Spec.Enabled,
+			serviceName: serviceName,
+			configFiles: config.Spec.MetaStore.Spec.Config.Data,
+		})
+	}
+
+	return nil, nil
+}
+
+func (casting *linuxCasting) forgeTelemetryStore(tmpl *types.Template, config *v1alpha1.Casting) ([]types.Material, error) {
+	if !config.Spec.TelemetryStore.Spec.Enabled {
+		return nil, nil
+	}
+
+	spec := &config.Spec.TelemetryStore.Spec
+	storeKind := config.Spec.TelemetryStore.Kind.String()
+	replicas := getReplicaCount(spec.Cluster.Replicas) + 1
+	shards := getReplicaCount(spec.Cluster.Shards)
+
+	// Create config materials
+	materials, err := createConfigMaterials(spec.Config.Data)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create service materials for each shard/replica
+	for shard := 0; shard < shards; shard++ {
+		for replica := 0; replica < replicas; replica++ {
+			serviceName := fmt.Sprintf("%s-telemetrystore-%s-%d-%d", config.Metadata.Name, storeKind, shard, replica)
+			material, err := executeServiceTemplate(*tmpl, config, serviceName+".service")
+			if err != nil {
+				return nil, fmt.Errorf("failed to get service material for %s: %w", serviceName, err)
+			}
+			materials = append(materials, material)
+		}
+	}
+
+	return materials, nil
+}
+
+func (casting *linuxCasting) forgeTelemetryKeeper(tmpl *types.Template, config *v1alpha1.Casting) ([]types.Material, error) {
+	if !config.Spec.TelemetryKeeper.Spec.Enabled {
+		return nil, nil
+	}
+
+	spec := &config.Spec.TelemetryKeeper.Spec
+	keeperKind := config.Spec.TelemetryKeeper.Kind.String()
+	replicas := getReplicaCount(spec.Cluster.Replicas)
+
+	// Create config materials
+	materials, err := createConfigMaterials(spec.Config.Data)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create service materials for each replica
+	for replica := 0; replica < replicas; replica++ {
+		serviceName := fmt.Sprintf("%s-telemetrykeeper-%s-%d", config.Metadata.Name, keeperKind, replica)
+		material, err := executeServiceTemplate(*tmpl, config, serviceName+".service")
+		if err != nil {
+			return nil, fmt.Errorf("failed to get service material for %s: %w", serviceName, err)
+		}
+		materials = append(materials, material)
+	}
+
+	return materials, nil
 }

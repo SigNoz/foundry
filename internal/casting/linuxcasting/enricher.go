@@ -10,17 +10,19 @@ import (
 
 var _ molding.MoldingEnricher = (*linuxMoldingEnricher)(nil)
 
+var (
+	baseTelemetryKeeperClientPort int = 9181
+	baseTelemetryKeeperRaftPort   int = 9234
+	baseTelemetryStoreClusterPort int = 9000
+)
+
 type linuxMoldingEnricher struct {
 	materials []types.Material
 }
 
 func newLinuxMoldingEnricher(config *v1alpha1.Casting) (*linuxMoldingEnricher, error) {
-	materials, err := getServiceMaterials(config)
-	if err != nil {
-		return nil, err
-	}
 
-	return &linuxMoldingEnricher{materials: materials}, nil
+	return &linuxMoldingEnricher{materials: []types.Material{}}, nil
 }
 
 func (enricher *linuxMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *v1alpha1.Casting) error {
@@ -29,17 +31,23 @@ func (enricher *linuxMoldingEnricher) EnrichStatus(ctx context.Context, kind v1a
 	case v1alpha1.MoldingKindTelemetryStore:
 		// ClickHouse native port: 9000, HTTP port: 8123
 		// For clustered setup, generate addresses for each shard/replica
-
 		var addresses []string
+		replicas := 1
+		shards := 1
 
 		cluster := config.Spec.TelemetryStore.Spec.Cluster
-		replicas := max(*cluster.Replicas, 1)
-		shards := max(*cluster.Shards, 1)
-	
+
+		if cluster.Replicas != nil {
+			replicas = max(*cluster.Replicas+1, 1)
+		}
+		if cluster.Shards != nil {
+			shards = max(*cluster.Shards, 1)
+		}
+
 		for shard := 0; shard < shards; shard++ {
 			for replica := 0; replica < replicas; replica++ {
 				// Port offset for each instance (e.g., 9000, 9001, 9002...)
-				port := 9000 + (shard * replicas) + replica
+				port := baseTelemetryStoreClusterPort + (shard * replicas) + replica
 				addresses = append(addresses, types.FormatAddress("tcp", "localhost", port))
 			}
 		}
@@ -50,21 +58,27 @@ func (enricher *linuxMoldingEnricher) EnrichStatus(ctx context.Context, kind v1a
 
 	case v1alpha1.MoldingKindTelemetryKeeper:
 		// ClickHouse Keeper coordination port: 9181
-		var addresses []string
+		var clientAddresses []string
+		var raftAddresses []string
+
 		replicas := 1
-		if config.Spec.TelemetryKeeper.Spec.Cluster.Replicas != nil {
-			replicas = *config.Spec.TelemetryKeeper.Spec.Cluster.Replicas
+		cluster := config.Spec.TelemetryKeeper.Spec.Cluster
+		if cluster.Replicas != nil {
+			replicas = max(*cluster.Replicas, 1)
 		}
 
 		for replica := 0; replica < replicas; replica++ {
-			port := 9181 + replica
-			addresses = append(addresses, types.FormatAddress("tcp", "localhost", port))
+
+			clientAddresses = append(clientAddresses, types.FormatAddress("tcp", "localhost", baseTelemetryKeeperClientPort+replica))
+			raftAddresses = append(raftAddresses, types.FormatAddress("tcp", "localhost", baseTelemetryKeeperRaftPort+replica))
 		}
+
 		if config.Spec.TelemetryKeeper.Status.Addresses == nil {
 			config.Spec.TelemetryKeeper.Status.Addresses = make(map[string][]string)
 		}
-		config.Spec.TelemetryKeeper.Status.Addresses[v1alpha1.TelemetryKeeperRaftAddresses] = addresses
-		config.Spec.TelemetryKeeper.Status.Addresses[v1alpha1.TelemetryKeeperClientAddresses] = addresses
+
+		config.Spec.TelemetryKeeper.Status.Addresses[v1alpha1.TelemetryKeeperRaftAddresses] = raftAddresses
+		config.Spec.TelemetryKeeper.Status.Addresses[v1alpha1.TelemetryKeeperClientAddresses] = clientAddresses
 
 	case v1alpha1.MoldingKindMetaStore:
 		// PostgreSQL port: 5432

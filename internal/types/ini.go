@@ -23,8 +23,8 @@ func INIToJSON(contents []byte) ([]byte, error) {
 			continue
 		}
 
-		// If it's the default section and it's the only thing there, 
-		// we can choose to keep it flat or nested. 
+		// If it's the default section and it's the only thing there,
+		// we can choose to keep it flat or nested.
 		// For consistency with Systemd, we'll keep the section names.
 		data[section.Name()] = hash
 	}
@@ -41,10 +41,10 @@ func JSONToINI(contents []byte) ([]byte, error) {
 
 	cfg := ini.Empty()
 
-	ini.PrettyFormat =false
-	
+	ini.PrettyFormat = false
+
 	for key, value := range data {
-		// Check if the value is a nested map (a Section) 
+		// Check if the value is a nested map (a Section)
 		// or a simple value (a flat key for DEFAULT)
 		if sectionMap, ok := value.(map[string]any); ok {
 			// It's a Section (e.g., "Service": {...})
