@@ -12,6 +12,8 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/molding"
+	"github.com/signoz/foundry/internal/molding/ingestermolding"
+	"github.com/signoz/foundry/internal/molding/telemetrystoremolding"
 	"github.com/signoz/foundry/internal/types"
 )
 
@@ -96,11 +98,8 @@ func executeServiceTemplate(template types.Template, config *v1alpha1.Casting, p
 }
 
 // getReplicaCount returns the replica count with a default of 1.
-func getReplicaCount(replicas *int) int {
-	if replicas != nil {
-		return max(*replicas, 1)
-	}
-	return 1
+func getReplicaCount(replicas int) int {
+	return max(replicas, 1)
 }
 
 // createConfigMaterials creates YAML materials from config data map.
@@ -148,6 +147,12 @@ func (casting *linuxCasting) forgeCasting(tmpl *types.Template, config *v1alpha1
 		})
 
 	case ingesterServiceTemplate:
+		if config.Spec.Ingester.Status.Extras == nil {
+			config.Spec.Ingester.Status.Extras = make(map[string]string)
+		}
+		metaDataName := config.Metadata.Name
+		config.Spec.Ingester.Status.Extras["cfgPath"] = fmt.Sprintf(ingestermolding.IngesterConfigFileFormat, v1alpha1.MoldingKindIngester.String(), metaDataName, ingestermolding.ConfigV0129xTemplate.String())
+		config.Spec.Ingester.Status.Extras["cfgOpampPath"] = fmt.Sprintf(ingestermolding.IngesterOpampFileFormat, v1alpha1.MoldingKindIngester.String(), metaDataName, ingestermolding.OpampV0129xTemplate)
 		serviceName := fmt.Sprintf("%s-ingester", config.Metadata.Name)
 		return createServiceMaterials(*tmpl, config, serviceConfig{
 			enabled:     config.Spec.Ingester.Spec.Enabled,
@@ -180,19 +185,22 @@ func (casting *linuxCasting) forgeTelemetryStore(tmpl *types.Template, config *v
 
 	spec := &config.Spec.TelemetryStore.Spec
 	storeKind := config.Spec.TelemetryStore.Kind.String()
-	replicas := getReplicaCount(spec.Cluster.Replicas) + 1
-	shards := getReplicaCount(spec.Cluster.Shards)
-
+	replicas := getReplicaCount(*spec.Cluster.Replicas + 1)
+	shards := getReplicaCount(*spec.Cluster.Shards)
+	metaDataName := config.Metadata.Name
 	// Create config materials
 	materials, err := createConfigMaterials(spec.Config.Data)
 	if err != nil {
 		return nil, err
 	}
-
+	if config.Spec.TelemetryStore.Status.Extras == nil {
+		config.Spec.TelemetryStore.Status.Extras = make(map[string]string)
+	}
 	// Create service materials for each shard/replica
 	for shard := 0; shard < shards; shard++ {
 		for replica := 0; replica < replicas; replica++ {
-			serviceName := fmt.Sprintf("%s-telemetrystore-%s-%d-%d", config.Metadata.Name, storeKind, shard, replica)
+			config.Spec.TelemetryStore.Status.Extras["cfgPath"] = fmt.Sprintf(telemetrystoremolding.TelemetryStorePerInstanceFileFormat, metaDataName, v1alpha1.MoldingKindTelemetryStore.String(), storeKind, shard, replica, telemetrystoremolding.ConfigClickhousev2556YAML.String())
+			serviceName := fmt.Sprintf("%s-telemetrystore-%s-%d-%d", metaDataName, storeKind, shard, replica)
 			material, err := executeServiceTemplate(*tmpl, config, serviceName+".service")
 			if err != nil {
 				return nil, fmt.Errorf("failed to get service material for %s: %w", serviceName, err)
@@ -211,7 +219,7 @@ func (casting *linuxCasting) forgeTelemetryKeeper(tmpl *types.Template, config *
 
 	spec := &config.Spec.TelemetryKeeper.Spec
 	keeperKind := config.Spec.TelemetryKeeper.Kind.String()
-	replicas := getReplicaCount(spec.Cluster.Replicas)
+	replicas := getReplicaCount(*spec.Cluster.Replicas)
 
 	// Create config materials
 	materials, err := createConfigMaterials(spec.Config.Data)
@@ -219,8 +227,13 @@ func (casting *linuxCasting) forgeTelemetryKeeper(tmpl *types.Template, config *
 		return nil, err
 	}
 
+	if config.Spec.TelemetryKeeper.Status.Extras == nil {
+		config.Spec.TelemetryKeeper.Status.Extras = make(map[string]string)
+	}
+	metaDataName := config.Metadata.Name
 	// Create service materials for each replica
 	for replica := 0; replica < replicas; replica++ {
+		config.Spec.TelemetryKeeper.Status.Extras["cfgPath"] = fmt.Sprintf("%s-telemetrykeeper-%s-%d.yaml", metaDataName, keeperKind, replica)
 		serviceName := fmt.Sprintf("%s-telemetrykeeper-%s-%d", config.Metadata.Name, keeperKind, replica)
 		material, err := executeServiceTemplate(*tmpl, config, serviceName+".service")
 		if err != nil {
