@@ -37,7 +37,7 @@ func NewYAMLMaterial(contents []byte, path string) (Material, error) {
 	}, nil
 }
 
-func NewSystemdMaterial(contents []byte, path string) (Material, error) {
+func NewINIMaterial(contents []byte, path string) (Material, error) {
 	jsonContents, err := INIToJSON(contents)
 	if err != nil {
 		return Material{}, fmt.Errorf("invalid ini: %w", err)

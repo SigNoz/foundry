@@ -3,6 +3,7 @@ package linuxcasting
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -95,7 +96,7 @@ func executeServiceTemplate(template types.Template, config *v1alpha1.Casting, p
 		return types.Material{}, fmt.Errorf("failed to execute template: %w", err)
 	}
 
-	return types.NewSystemdMaterial(buf.Bytes(), path)
+	return types.NewINIMaterial(buf.Bytes(), path)
 }
 
 // getReplicaCount returns the replica count with a default of 1.
@@ -121,31 +122,18 @@ func createServiceMaterials(tmpl types.Template, config *v1alpha1.Casting, svcCf
 	if !svcCfg.enabled {
 		return nil, nil
 	}
-
 	// Create service material
 	material, err := executeServiceTemplate(tmpl, config, svcCfg.serviceName+".service")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get service material for %s: %w", svcCfg.serviceName, err)
 	}
-
-	// Create config materials
-	configMaterials, err := createConfigMaterials(svcCfg.configFiles)
-	if err != nil {
-		return nil, err
-	}
-
-	return append([]types.Material{material}, configMaterials...), nil
+	return []types.Material{material}, nil
 }
 
 func (casting *linuxCasting) forgeCasting(tmpl *types.Template, config *v1alpha1.Casting) ([]types.Material, error) {
 	switch tmpl {
 	case signozServiceTemplate:
-		serviceName := fmt.Sprintf("%s-signoz", config.Metadata.Name)
-		return createServiceMaterials(*tmpl, config, serviceConfig{
-			enabled:     config.Spec.Signoz.Spec.Enabled,
-			serviceName: serviceName,
-			configFiles: config.Spec.Signoz.Spec.Config.Data,
-		})
+		return casting.forgeSignoz(tmpl, config)
 
 	case ingesterServiceTemplate:
 		if config.Spec.Ingester.Status.Extras == nil {
@@ -189,11 +177,13 @@ func (casting *linuxCasting) forgeTelemetryStore(tmpl *types.Template, config *v
 	replicas := getReplicaCount(*spec.Cluster.Replicas + 1)
 	shards := getReplicaCount(*spec.Cluster.Shards)
 	metaDataName := config.Metadata.Name
+
 	// Create config materials
 	materials, err := createConfigMaterials(spec.Config.Data)
 	if err != nil {
 		return nil, err
 	}
+
 	if config.Spec.TelemetryStore.Status.Extras == nil {
 		config.Spec.TelemetryStore.Status.Extras = make(map[string]string)
 	}
@@ -244,4 +234,52 @@ func (casting *linuxCasting) forgeTelemetryKeeper(tmpl *types.Template, config *
 	}
 
 	return materials, nil
+}
+
+func (castig *linuxCasting) forgeSignoz(tmpl *types.Template, config *v1alpha1.Casting) ([]types.Material, error) {
+
+	var materials []types.Material
+
+	if !config.Spec.Signoz.Spec.Enabled {
+		return nil, nil
+	}
+	if config.Spec.Signoz.Status.Env == nil {
+		return nil, fmt.Errorf("failed to forge material for signoz, no Envs are enriched")
+	}
+
+	envs := config.Spec.Signoz.Status.Env
+	metaDataName := config.Metadata.Name
+
+	jsonBytes, err := json.Marshal(envs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal env vars to JSON: %w", err)
+	}
+
+	iniBytes, err := types.JSONToINI(jsonBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert env vars to INI format: %w", err)
+	}
+
+	// Create Env Material out of Status.Envs
+	envFileName := fmt.Sprintf("%s-signoz.env", config.Metadata.Name)
+	material, err := types.NewINIMaterial(iniBytes, envFileName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create INI material for signoz env: %w", err)
+	}
+	materials = append(materials, material)
+
+	if config.Spec.Signoz.Status.Extras == nil {
+		config.Spec.Signoz.Status.Extras = make(map[string]string)
+	}
+	config.Spec.Signoz.Status.Extras["cfgPath"] = envFileName
+
+	serviceName := fmt.Sprintf("%s-signoz.service", metaDataName)
+	material, err = executeServiceTemplate(*tmpl, config, serviceName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get service material for %s: %w", serviceName, err)
+	}
+	materials = append(materials, material)
+
+	return materials, nil
+
 }

@@ -14,7 +14,7 @@ func INIToJSON(contents []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	ini.DefaultHeader = false
 	data := make(map[string]any)
 
 	for _, section := range cfg.Sections() {
@@ -42,7 +42,8 @@ func JSONToINI(contents []byte) ([]byte, error) {
 	cfg := ini.Empty()
 
 	ini.PrettyFormat = false
-
+	ini.DefaultHeader = false
+	
 	for key, value := range data {
 		// Check if the value is a nested map (a Section)
 		// or a simple value (a flat key for DEFAULT)
