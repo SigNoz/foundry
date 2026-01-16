@@ -40,8 +40,13 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *v1alpha
 		return fmt.Errorf("failed to execute config template: %w", err)
 	}
 
-	config.Spec.TelemetryStore.Spec.Config.Data = map[string]string{
+	functionBuf := bytes.NewBuffer(nil)
+	if err := FunctionsClickhousev2556YAML.Execute(functionBuf, data); err != nil {
+		return fmt.Errorf("failed to execute config template: %w", err)
+	}
+	config.Spec.TelemetryStore.Status.Config.Data = map[string]string{
 		"telemetrystore.yaml": configBuf.String(),
+		"functions.yaml":      functionBuf.String(),
 	}
 
 	return nil

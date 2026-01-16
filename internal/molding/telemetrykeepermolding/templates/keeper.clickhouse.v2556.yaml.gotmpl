@@ -5,13 +5,13 @@ keeper_server:
         session_timeout_ms: 30000
     log_storage_path: /var/lib/clickhouse/coordination/log
     raft_configuration:
-    {{- range $i := until .ServerCount }}
-        {{- $addr := index $.RaftAddresses $i }}
-        - server:
-            hostname: {{ $addr.Host }}
-            port: {{ $addr.Port }}
-            id: {{ $i }}
-    {{- end }}
+      server:
+      {{- range $i := until .ServerCount }}
+          {{- $addr := index $.RaftAddresses $i }}
+            - hostname: {{ $addr.Host }}
+              port: {{ $addr.Port }}
+              id: {{ $i }}
+      {{- end }}
     server_id: {{ .ServerID }}
     snapshot_storage_path: /var/lib/clickhouse/coordination/snapshots
     tcp_port: {{ (index .ClientAddresses .ServerID).Port }}
