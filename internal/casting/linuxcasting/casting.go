@@ -13,6 +13,7 @@ import (
 	"github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/molding"
 	"github.com/signoz/foundry/internal/molding/ingestermolding"
+	"github.com/signoz/foundry/internal/molding/telemetrykeepermolding"
 	"github.com/signoz/foundry/internal/molding/telemetrystoremolding"
 	"github.com/signoz/foundry/internal/types"
 )
@@ -151,8 +152,8 @@ func (casting *linuxCasting) forgeCasting(tmpl *types.Template, config *v1alpha1
 			config.Spec.Ingester.Status.Extras = make(map[string]string)
 		}
 		metaDataName := config.Metadata.Name
-		config.Spec.Ingester.Status.Extras["cfgPath"] = fmt.Sprintf(ingestermolding.IngesterConfigFileFormat, v1alpha1.MoldingKindIngester.String(), metaDataName, ingestermolding.ConfigV0129xTemplate.String())
-		config.Spec.Ingester.Status.Extras["cfgOpampPath"] = fmt.Sprintf(ingestermolding.IngesterOpampFileFormat, v1alpha1.MoldingKindIngester.String(), metaDataName, ingestermolding.OpampV0129xTemplate)
+		config.Spec.Ingester.Status.Extras["cfgPath"] = ingestermolding.IngesterConfigFileName(metaDataName, "", 0)
+		config.Spec.Ingester.Status.Extras["cfgOpampPath"] = ingestermolding.IngesterOpampFileName(metaDataName, "", 0)
 		serviceName := fmt.Sprintf("%s-ingester", config.Metadata.Name)
 		return createServiceMaterials(*tmpl, config, serviceConfig{
 			enabled:     config.Spec.Ingester.Spec.Enabled,
@@ -199,7 +200,7 @@ func (casting *linuxCasting) forgeTelemetryStore(tmpl *types.Template, config *v
 	// Create service materials for each shard/replica
 	for shard := 0; shard < shards; shard++ {
 		for replica := 0; replica < replicas; replica++ {
-			config.Spec.TelemetryStore.Status.Extras["cfgPath"] = fmt.Sprintf(telemetrystoremolding.TelemetryStorePerInstanceFileFormat, metaDataName, v1alpha1.MoldingKindTelemetryStore.String(), storeKind, shard, replica, telemetrystoremolding.ConfigClickhousev2556YAML.String())
+			config.Spec.TelemetryStore.Status.Extras["cfgPath"] = telemetrystoremolding.StoreInstanceConfigFileName(metaDataName, storeKind, shard, replica)
 			serviceName := fmt.Sprintf("%s-telemetrystore-%s-%d-%d", metaDataName, storeKind, shard, replica)
 			material, err := executeServiceTemplate(*tmpl, config, serviceName+".service")
 			if err != nil {
@@ -233,7 +234,7 @@ func (casting *linuxCasting) forgeTelemetryKeeper(tmpl *types.Template, config *
 	metaDataName := config.Metadata.Name
 	// Create service materials for each replica
 	for replica := 0; replica < replicas; replica++ {
-		config.Spec.TelemetryKeeper.Status.Extras["cfgPath"] = fmt.Sprintf("%s-telemetrykeeper-%s-%d.yaml", metaDataName, keeperKind, replica)
+		config.Spec.TelemetryKeeper.Status.Extras["cfgPath"] = telemetrykeepermolding.KeeperConfigFileName(metaDataName, keeperKind, replica)
 		serviceName := fmt.Sprintf("%s-telemetrykeeper-%s-%d", config.Metadata.Name, keeperKind, replica)
 		material, err := executeServiceTemplate(*tmpl, config, serviceName+".service")
 		if err != nil {
