@@ -46,7 +46,7 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *v1alpha
 	}
 	config.Spec.TelemetryStore.Status.Config.Data = map[string]string{
 		"telemetrystore.yaml": configBuf.String(),
-		"functions.yaml": functionBuf.String(),
+		"functions.yaml":      functionBuf.String(),
 	}
 
 	return nil

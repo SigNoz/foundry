@@ -50,6 +50,6 @@ func (molding *metastore) MoldV1Alpha1(ctx context.Context, config *v1alpha1.Cas
 
 		config.Spec.MetaStore.Status.Env["POSTGRES_PASSWORD"] = "signoz"
 	}
-	
+
 	return nil
 }

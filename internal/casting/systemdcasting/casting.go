@@ -110,8 +110,8 @@ func (l *linuxCasting) forgeIngester(tmpl *types.Template, cfg *v1alpha1.Casting
 	if spec.Status.Extras == nil {
 		spec.Status.Extras = make(map[string]string)
 	}
-	if spec.Status.Config.Data == nil{
-		return []types.Material{}, fmt.Errorf("No data has been molded for the Molding %s", v1alpha1.MoldingKindIngester)
+	if spec.Status.Config.Data == nil {
+		return []types.Material{}, fmt.Errorf("no config has been molded for the molding %s", v1alpha1.MoldingKindIngester)
 	}
 	mats, err := l.configMaterials(spec.Status.Config.Data)
 	if err != nil {
@@ -151,8 +151,8 @@ func (l *linuxCasting) forgeTelemetryStore(tmpl *types.Template, cfg *v1alpha1.C
 	kind, name := spec.Kind.String(), cfg.Metadata.Name
 	reps, shards := max(1, *spec.Spec.Cluster.Replicas+1), max(1, *spec.Spec.Cluster.Shards)
 
-	if spec.Status.Config.Data == nil{
-		return []types.Material{}, fmt.Errorf("No data has been molded for the Molding %s", v1alpha1.MoldingKindTelemetryStore)
+	if spec.Status.Config.Data == nil {
+		return []types.Material{}, fmt.Errorf("no config has been molded for the molding %s", v1alpha1.MoldingKindTelemetryStore)
 	}
 	mats, err := l.configMaterials(spec.Status.Config.Data)
 	if err != nil {
@@ -184,8 +184,8 @@ func (l *linuxCasting) forgeTelemetryKeeper(tmpl *types.Template, cfg *v1alpha1.
 
 	kind, name := spec.Kind.String(), cfg.Metadata.Name
 	reps := max(1, *spec.Spec.Cluster.Replicas)
-	if spec.Status.Config.Data == nil{
-		return []types.Material{}, fmt.Errorf("No data has been molded for the Molding %s", v1alpha1.MoldingKindTelemetryKeeper)
+	if spec.Status.Config.Data == nil {
+		return []types.Material{}, fmt.Errorf("no config has been molded for the molding %s", v1alpha1.MoldingKindTelemetryKeeper)
 	}
 	mats, err := l.configMaterials(spec.Status.Config.Data)
 	if err != nil {
