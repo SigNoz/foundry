@@ -8,6 +8,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.18.0
 	go.yaml.in/yaml/v3 v3.0.4
+	gopkg.in/ini.v1 v1.67.1
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/apimachinery v0.35.0
 	sigs.k8s.io/yaml v1.6.0

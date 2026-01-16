@@ -34,7 +34,6 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *v1alph
 		molding.logger.ErrorContext(ctx, "failed to get data", foundryerrors.LogAttr(err))
 		return err
 	}
-
 	// Generate per-server configs (each keeper node needs its own server_id)
 	configs := make(map[string]string, data.ServerCount)
 	for i := 0; i < data.ServerCount; i++ {
@@ -44,16 +43,18 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *v1alph
 		if err := KeeperClickhousev2556YAML.Execute(configBuf, data); err != nil {
 			return fmt.Errorf("failed to execute keeper template for server %d: %w", data.ServerID, err)
 		}
-		configs[fmt.Sprintf("keeper-%d.yaml", data.ServerID)] = configBuf.String()
+		configs[fmt.Sprintf("keeper-%d.yaml", i)] = configBuf.String()
 	}
 
-	config.Spec.TelemetryKeeper.Spec.Config.Data = configs
+	config.Spec.TelemetryKeeper.Status.Config.Data = configs
 	return nil
 }
 
 func (molding *telemetrykeeper) getData(config *v1alpha1.Casting) (Data, error) {
 	// Get server count from cluster spec
+	var data Data
 	serverCount := max(*config.Spec.TelemetryKeeper.Spec.Cluster.Replicas, 1)
+	data.ServerCount = serverCount
 
 	// Extract addresses from status
 	raftAddresses := config.Spec.TelemetryKeeper.Status.Addresses[v1alpha1.TelemetryKeeperRaftAddresses]
@@ -78,15 +79,13 @@ func (molding *telemetrykeeper) getData(config *v1alpha1.Casting) (Data, error) 
 	if err != nil {
 		return Data{}, fmt.Errorf("failed to parse raft addresses: %w", err)
 	}
+	data.RaftAddresses = newRaftAddrs
 
 	newClientAddrs, err := types.NewAddresses(clientAddresses[:serverCount])
 	if err != nil {
 		return Data{}, fmt.Errorf("failed to parse client addresses: %w", err)
 	}
+	data.ClientAddresses = newClientAddrs
 
-	return Data{
-		RaftAddresses:   newRaftAddrs,
-		ClientAddresses: newClientAddrs,
-		ServerCount:     serverCount,
-	}, nil
+	return data, nil
 }
