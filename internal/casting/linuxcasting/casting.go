@@ -156,12 +156,7 @@ func (casting *linuxCasting) forgeCasting(tmpl *types.Template, config *v1alpha1
 		return casting.forgeTelemetryKeeper(tmpl, config)
 
 	case metaStoreServiceTemplate:
-		serviceName := fmt.Sprintf("%s-metastore-%s-0-0", config.Metadata.Name, config.Spec.MetaStore.Kind.String())
-		return createServiceMaterials(*tmpl, config, serviceConfig{
-			enabled:     config.Spec.MetaStore.Spec.Enabled,
-			serviceName: serviceName,
-			configFiles: config.Spec.MetaStore.Spec.Config.Data,
-		})
+		return casting.forgeMetaStore(tmpl, config)
 	}
 
 	return nil, nil
@@ -271,7 +266,7 @@ func (castig *linuxCasting) forgeSignoz(tmpl *types.Template, config *v1alpha1.C
 	if config.Spec.Signoz.Status.Extras == nil {
 		config.Spec.Signoz.Status.Extras = make(map[string]string)
 	}
-	config.Spec.Signoz.Status.Extras["cfgPath"] = envFileName
+	config.Spec.Signoz.Status.Extras["envPath"] = envFileName
 
 	serviceName := fmt.Sprintf("%s-signoz.service", metaDataName)
 	material, err = executeServiceTemplate(*tmpl, config, serviceName)
@@ -281,5 +276,50 @@ func (castig *linuxCasting) forgeSignoz(tmpl *types.Template, config *v1alpha1.C
 	materials = append(materials, material)
 
 	return materials, nil
+}
 
+func (casting *linuxCasting) forgeMetaStore(tmpl *types.Template, config *v1alpha1.Casting) ([]types.Material, error) {
+	var materials []types.Material
+
+	if !config.Spec.MetaStore.Spec.Enabled {
+		return nil, nil
+	}
+	if config.Spec.MetaStore.Status.Env == nil {
+		return nil, fmt.Errorf("failed to forge material for metastore, no Envs are enriched")
+	}
+
+	envs := config.Spec.MetaStore.Status.Env
+	metaDataName := config.Metadata.Name
+
+	jsonBytes, err := json.Marshal(envs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal env vars to JSON: %w", err)
+	}
+
+	iniBytes, err := types.JSONToINI(jsonBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert env vars to INI format: %w", err)
+	}
+
+	// Create Env Material out of Status.Envs
+	envFileName := fmt.Sprintf("%s-metastore-%s.env", metaDataName, config.Spec.MetaStore.Kind.String())
+	material, err := types.NewINIMaterial(iniBytes, envFileName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create INI material for metastore env: %w", err)
+	}
+	materials = append(materials, material)
+
+	if config.Spec.MetaStore.Status.Extras == nil {
+		config.Spec.MetaStore.Status.Extras = make(map[string]string)
+	}
+	config.Spec.MetaStore.Status.Extras["envPath"] = envFileName
+
+	serviceName := fmt.Sprintf("%s-metastore-%s-0-0", metaDataName, config.Spec.MetaStore.Kind.String())
+	material, err = executeServiceTemplate(*tmpl, config, serviceName+".service")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get service material for %s: %w", serviceName, err)
+	}
+	materials = append(materials, material)
+
+	return materials, nil
 }

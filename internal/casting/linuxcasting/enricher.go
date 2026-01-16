@@ -2,6 +2,7 @@ package linuxcasting
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/molding"
@@ -99,9 +100,14 @@ func (enricher *linuxMoldingEnricher) EnrichStatus(ctx context.Context, kind v1a
 		if config.Spec.MetaStore.Status.Addresses == nil {
 			config.Spec.MetaStore.Status.Addresses = make(map[string][]string)
 		}
-		config.Spec.MetaStore.Status.Addresses[v1alpha1.MetaStoreDSNAddresses] = []string{
-			types.FormatAddress("tcp", "localhost", 5432),
-		}
+
+		password := config.Spec.MetaStore.Status.Env["POSTGRES_PASSWORD"]
+		user := config.Spec.MetaStore.Status.Env["POSTGRES_USER"]
+		db := config.Spec.MetaStore.Status.Env["POSTGRES_DB"]
+
+		// Format PostgreSQL DSN: postgres://user:password@host:port/dbname?sslmode=disable
+		dsn := fmt.Sprintf("postgres://%s:%s@localhost:5432/%s?sslmode=disable", user, password, db)
+		config.Spec.MetaStore.Status.Addresses[v1alpha1.MetaStoreDSNAddresses] = []string{dsn}
 
 	case v1alpha1.MoldingKindSignoz:
 		if config.Spec.Signoz.Status.Addresses == nil {
