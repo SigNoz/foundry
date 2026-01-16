@@ -49,6 +49,13 @@ func New(logger *slog.Logger, options *Options) (*Writer, error) {
 func (w *Writer) Write(ctx context.Context, material types.Material) error {
 	if _, ok := w.options.Output.(*os.File); ok {
 		path := filepath.Join(w.options.TargetDirectory, material.Path())
+
+		// Create parent directories if they don't exist
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			w.logger.ErrorContext(ctx, "failed to create directory", slog.String("path", filepath.Dir(path)), foundryerrors.LogAttr(err))
+			return err
+		}
+
 		if err := os.WriteFile(path, material.FmtContents(), 0644); err != nil {
 			w.logger.ErrorContext(ctx, "failed to write material", slog.String("path", path), foundryerrors.LogAttr(err))
 			return err

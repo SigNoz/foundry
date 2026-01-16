@@ -39,12 +39,11 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *v1alph
 	configs := make(map[string]string, data.ServerCount)
 	for i := 0; i < data.ServerCount; i++ {
 		configBuf := bytes.NewBuffer(nil)
-		data.ServerID = i
-		// data.TcpPort = tcpPorts[i]
+		data.ServerID = i // 0-indexed, used for array indexing in template
 		if err := KeeperClickhousev2556YAML.Execute(configBuf, data); err != nil {
-			return fmt.Errorf("failed to execute keeper template for server %d: %w", data.ServerID, err)
+			return fmt.Errorf("failed to execute keeper template for server %d: %w", data.ServerID+1, err)
 		}
-		configs[fmt.Sprintf("keeper-%d.yaml", data.ServerID)] = configBuf.String()
+		configs[fmt.Sprintf("keeper-%d.yaml", i+1)] = configBuf.String()
 	}
 
 	config.Spec.TelemetryKeeper.Spec.Config.Data = configs
@@ -53,7 +52,7 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *v1alph
 
 func (molding *telemetrykeeper) getData(config *v1alpha1.Casting) (Data, error) {
 	// Get server count from cluster spec
-	serverCount := max(*config.Spec.TelemetryKeeper.Spec.Cluster.Replicas, 1)
+	serverCount := max(*config.Spec.TelemetryKeeper.Spec.Cluster.Replicas, 2)
 
 	// Extract addresses from status
 	raftAddresses := config.Spec.TelemetryKeeper.Status.Addresses[v1alpha1.TelemetryKeeperRaftAddresses]

@@ -1,3 +1,7 @@
+path: /var/lib/clickhouse/
+tmp_path: /var/lib/clickhouse/tmp/
+user_files_path: /var/lib/clickhouse/user_files/
+format_schema_path: /var/lib/clickhouse/format_schemas/
 dictionaries_config: '*_dictionary.xml'
 display_name: cluster
 distributed_ddl:
@@ -6,12 +10,11 @@ http_port: 8123
 interserver_http_port: 9009
 listen_host: 0.0.0.0
 logger:
+    console: 1
     count: 10
-    errorlog: /var/log/clickhouse-server/clickhouse-server.err.log
     formatting:
         type: console
     level: information
-    log: /var/log/clickhouse-server/clickhouse-server.log
     size: 1000M
 macros:
     replica: "01"
@@ -30,23 +33,26 @@ quotas:
             queries: 0
             read_rows: 0
             result_rows: 0
+user_directories:
+  users_xml:
+    path: users.xml
 remote_servers:
-    cluster:
+  cluster:
+    shard:
 {{- range $s := until .ShardCount }}
-        - shard:
-    {{- range $r := until $.ReplicaCount }}
-        {{- $idx := add (mul $s $.ReplicaCount) $r }}
-        {{- $addr := index $.StoreAddresses $idx }}
-            - replica:
-                host: {{ $addr.Host }}
-                port: {{ $addr.Port }}
-    {{- end }}
+      - replica:
+  {{- range $r := until $.ReplicaCount }}
+    {{- $idx := add (mul $s $.ReplicaCount) $r }}
+    {{- $addr := index $.StoreAddresses $idx }}
+          host: {{ $addr.Host }}
+          port: {{ $addr.Port }}
+  {{- end }}
 {{- end }}
 zookeeper:
+  node:
 {{- range $i, $addr := .KeeperAddresses }}
-    - node:
-        host: {{ $addr.Host }}
-        port: {{ $addr.Port }}
+    - host: {{ $addr.Host }}
+      port: {{ $addr.Port }}
 {{- end }}
 tcp_port: 9000
 user_defined_executable_functions_config: '*function.yaml'
@@ -60,5 +66,5 @@ users:
         password: ""
         profile: default
         quota: default
-        show_named_collectin: 1
+        show_named_collection: 1
         show_named_collection_secrets: 1

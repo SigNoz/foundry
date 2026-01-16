@@ -66,8 +66,8 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		config.Spec.Signoz.Status.Addresses[v1alpha1.SignozAPIAddresses] = signozContainerNames
 
 	case v1alpha1.MoldingKindTelemetryKeeper:
-		// Get telemetrykeeper container names
-		containerNames, err := enricher.material.GetStringSlice("services.*.container_name")
+		// Get telemetrykeeper container names (using service keys since they match container_name)
+		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
 			return fmt.Errorf("failed to get telemetrykeeper container names: %w", err)
 		}
@@ -87,7 +87,9 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 
 		var telemetryRaftaddress []string
 		for _, containerName := range containerNames {
-			telemetryRaftaddress = append(telemetryRaftaddress, types.FormatAddress("tcp", containerName, 9234))
+			if strings.Contains(containerName, "telemetrykeeper") {
+				telemetryRaftaddress = append(telemetryRaftaddress, types.FormatAddress("tcp", containerName, 9234))
+			}
 		}
 		config.Spec.TelemetryKeeper.Status.Addresses[v1alpha1.TelemetryKeeperRaftAddresses] = telemetryRaftaddress
 

@@ -48,7 +48,54 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config v1alpha1.
 		return nil, fmt.Errorf("failed to create compose yaml material: %w", err)
 	}
 
-	return []types.Material{composeMaterial}, nil
+	materials := []types.Material{composeMaterial}
+
+	// Add telemetrykeeper config files
+	for filename, content := range config.Spec.TelemetryKeeper.Spec.Config.Data {
+		material, err := types.NewYAMLMaterial([]byte(content), fmt.Sprintf("configs/telemetrykeeper/%s", filename))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create telemetrykeeper config material: %w", err)
+		}
+		materials = append(materials, material)
+	}
+
+	// Add telemetrystore config files
+	for filename, content := range config.Spec.TelemetryStore.Spec.Config.Data {
+		material, err := types.NewYAMLMaterial([]byte(content), fmt.Sprintf("configs/telemetrystore/%s", filename))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create telemetrystore config material: %w", err)
+		}
+		materials = append(materials, material)
+	}
+
+	// Add metastore config files
+	for filename, content := range config.Spec.MetaStore.Spec.Config.Data {
+		material, err := types.NewYAMLMaterial([]byte(content), fmt.Sprintf("configs/metastore/%s", filename))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create metastore config material: %w", err)
+		}
+		materials = append(materials, material)
+	}
+
+	// Add signoz config files
+	for filename, content := range config.Spec.Signoz.Spec.Config.Data {
+		material, err := types.NewYAMLMaterial([]byte(content), fmt.Sprintf("configs/signoz/%s", filename))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create signoz config material: %w", err)
+		}
+		materials = append(materials, material)
+	}
+
+	// Add ingester config files
+	for filename, content := range config.Spec.Ingester.Spec.Config.Data {
+		material, err := types.NewYAMLMaterial([]byte(content), fmt.Sprintf("configs/ingester/%s", filename))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create ingester config material: %w", err)
+		}
+		materials = append(materials, material)
+	}
+
+	return materials, nil
 }
 
 func (casting *dockerComposeCasting) Cast(ctx context.Context, config v1alpha1.Casting) error {
