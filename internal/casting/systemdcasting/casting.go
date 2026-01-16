@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	svcSuffix      = ".service"
+	svcSuffix = ".service"
 )
 
 var _ casting.Casting = (*linuxCasting)(nil)
@@ -44,7 +44,7 @@ func New(logger *slog.Logger) *linuxCasting {
 }
 
 func (l *linuxCasting) Enricher(ctx context.Context, cfg *v1alpha1.Casting) (molding.MoldingEnricher, error) {
-	return newLinuxMoldingEnricher(cfg)
+	return newLinuxMoldingEnricher(cfg), nil
 }
 
 func (l *linuxCasting) Forge(ctx context.Context, cfg v1alpha1.Casting) ([]types.Material, error) {
@@ -196,7 +196,6 @@ func (l *linuxCasting) forgeTelemetryKeeper(tmpl *types.Template, cfg *v1alpha1.
 	}
 	return mats, nil
 }
-
 
 func (l *linuxCasting) forgeEnvService(tmpl *types.Template, cfg *v1alpha1.Casting, status *v1alpha1.MoldingStatus, prefix string) ([]types.Material, error) {
 	if status.Env == nil {

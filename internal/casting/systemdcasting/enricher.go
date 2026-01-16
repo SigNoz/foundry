@@ -21,9 +21,8 @@ type linuxMoldingEnricher struct {
 	materials []types.Material
 }
 
-func newLinuxMoldingEnricher(config *v1alpha1.Casting) (*linuxMoldingEnricher, error) {
-
-	return &linuxMoldingEnricher{materials: []types.Material{}}, nil
+func newLinuxMoldingEnricher(_ *v1alpha1.Casting) *linuxMoldingEnricher {
+	return &linuxMoldingEnricher{materials: []types.Material{}}
 }
 
 func (enricher *linuxMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *v1alpha1.Casting) error {

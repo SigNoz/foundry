@@ -8,7 +8,7 @@ import (
 	"gopkg.in/ini.v1"
 )
 
-// INI/Env bytes -> JSON bytes
+// INI/Env bytes -> JSON bytes.
 func INIToJSON(contents []byte) ([]byte, error) {
 	cfg, err := ini.Load(contents)
 	if err != nil {
@@ -32,7 +32,7 @@ func INIToJSON(contents []byte) ([]byte, error) {
 	return json.Marshal(data)
 }
 
-// JSON bytes -> INI/Env bytes
+// JSON bytes -> INI/Env bytes.
 func JSONToINI(contents []byte) ([]byte, error) {
 	var data map[string]any
 	if err := json.Unmarshal(contents, &data); err != nil {
@@ -43,7 +43,7 @@ func JSONToINI(contents []byte) ([]byte, error) {
 
 	ini.PrettyFormat = false
 	ini.DefaultHeader = false
-	
+
 	for key, value := range data {
 		// Check if the value is a nested map (a Section)
 		// or a simple value (a flat key for DEFAULT)
@@ -51,17 +51,23 @@ func JSONToINI(contents []byte) ([]byte, error) {
 			// It's a Section (e.g., "Service": {...})
 			sec, _ := cfg.NewSection(key)
 			for k, v := range sectionMap {
-				sec.NewKey(k, fmt.Sprint(v))
+				if _, err := sec.NewKey(k, fmt.Sprint(v)); err != nil {
+					return nil, err
+				}
 			}
 		} else if sectionMapStr, ok := value.(map[string]string); ok {
 			// Handle case where it might be map[string]string
 			sec, _ := cfg.NewSection(key)
 			for k, v := range sectionMapStr {
-				sec.NewKey(k, v)
+				if _, err := sec.NewKey(k, v); err != nil {
+					return nil, err
+				}
 			}
 		} else {
 			// It's a flat key (e.g., "PORT": "8080"), put in DEFAULT section
-			cfg.Section("").NewKey(key, fmt.Sprint(value))
+			if _, err := cfg.Section("").NewKey(key, fmt.Sprint(value)); err != nil {
+				return nil, err
+			}
 		}
 	}
 

@@ -64,7 +64,7 @@ func (m Material) FmtContents() []byte {
 		return fmtContents
 	case FormatINI:
 		fmtContents, err := JSONToINI(m.contents)
-		if err != nil{
+		if err != nil {
 			return nil
 		}
 		return fmtContents
