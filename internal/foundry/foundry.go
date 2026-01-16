@@ -7,7 +7,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/casting/dockercomposecasting"
-	"github.com/signoz/foundry/internal/casting/linuxcasting"
+	"github.com/signoz/foundry/internal/casting/systemdcasting"
 	"github.com/signoz/foundry/internal/loader"
 	"github.com/signoz/foundry/internal/loader/yamlloader"
 	"github.com/signoz/foundry/internal/molding"
@@ -45,8 +45,8 @@ func New(logger *slog.Logger) (*Foundry, error) {
 		Loader: yamlLoader,
 		Logger: logger,
 		Castings: map[string]casting.Casting{
-			"docker": dockercomposecasting.New(logger),
-			"linux": linuxcasting.New(logger),
+			"compose": dockercomposecasting.New(logger),
+			"systemd": systemdcasting.New(logger),
 		},
 		Toolers: map[string][]tooler.Tooler{
 			"docker": {dockertooler.New(), dockercomposetooler.New()},
