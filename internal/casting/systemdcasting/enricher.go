@@ -1,4 +1,4 @@
-package linuxcasting
+package systemdcasting
 
 import (
 	"context"
