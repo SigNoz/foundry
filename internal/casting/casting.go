@@ -16,5 +16,5 @@ type Casting interface {
 	Forge(ctx context.Context, config v1alpha1.Casting) ([]types.Material, error)
 
 	// Runs the forged files.
-	Cast(ctx context.Context, config v1alpha1.Casting) error
+	Cast(ctx context.Context, config v1alpha1.Casting, outputPath string) error
 }

@@ -7,6 +7,8 @@ var (
 	cfg config
 	// Stores output configuration.
 	out output
+	// Stores pours configuration.
+	pours pour
 )
 
 type config struct {
@@ -23,6 +25,15 @@ type output struct {
 	Path string
 }
 
+type pour struct {
+	Path string
+}
+
 func (o *output) RegisterFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVarP(&o.Path, "output", "o", "./pours", "Output Directory for pours containing the deployment and configuration files")
+}
+
+func (p *pour) RegisterFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().StringVarP(&p.Path, "pours", "p", "", "Input Directory for already existing pours containing the deployment and configuration files")
+
 }

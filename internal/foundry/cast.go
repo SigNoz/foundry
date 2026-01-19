@@ -16,7 +16,7 @@ func (foundry *Foundry) Cast(ctx context.Context, config v1alpha1.Casting, outpu
 		return err
 	}
 
-	err = casting.Cast(ctx, config)
+	err = casting.Cast(ctx, config, outputPath)
 	if err != nil {
 		foundry.Logger.ErrorContext(ctx, err.Error())
 		return err

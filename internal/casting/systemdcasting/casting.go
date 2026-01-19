@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/signoz/foundry/api/v1alpha1"
@@ -56,29 +58,201 @@ func (l *linuxCasting) Forge(ctx context.Context, cfg v1alpha1.Casting) ([]types
 	return materials, nil
 }
 
-func (casting *linuxCasting) Cast(ctx context.Context, config v1alpha1.Casting) error {
-	casting.logger.InfoContext(ctx, "Executing commands for platform")
+func (casting *linuxCasting) Cast(ctx context.Context, config v1alpha1.Casting, outputPath string) error {
+	casting.logger.InfoContext(ctx, "Installing systemd services", slog.String("outputPath", outputPath))
 
 	// Create a context with 5-minute timeout
 	runctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	command := ""
-
-	casting.logger.DebugContext(runctx, "Running command", slog.String("command", command))
-
-	cmd := exec.CommandContext(runctx, "sh", "-c", command)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	err := cmd.Run()
+	// Read all files from output directory
+	files, err := os.ReadDir(outputPath)
 	if err != nil {
-		casting.logger.ErrorContext(runctx, "Command execution failed", slog.String("error", err.Error()))
-		return err
+		return fmt.Errorf("failed to read output directory %s: %w", outputPath, err)
 	}
 
-	casting.logger.InfoContext(runctx, "Command executed successfully")
+	var serviceFiles []string
+	var configFiles []string
+	var envFiles []string
+
+	// Categorize files by type
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+		name := file.Name()
+		if filepath.Ext(name) == ".service" {
+			serviceFiles = append(serviceFiles, name)
+		} else if filepath.Ext(name) == ".yaml" || filepath.Ext(name) == ".yml" {
+			configFiles = append(configFiles, name)
+		} else if filepath.Ext(name) == ".env" {
+			envFiles = append(envFiles, name)
+		}
+	}
+
+	// Copy service files to /etc/systemd/system/
+	systemdDir := "/etc/systemd/system"
+	if err := os.MkdirAll(systemdDir, 0755); err != nil {
+		return fmt.Errorf("failed to create systemd directory: %w", err)
+	}
+
+	for _, serviceFile := range serviceFiles {
+		srcPath := filepath.Join(outputPath, serviceFile)
+		dstPath := filepath.Join(systemdDir, serviceFile)
+		if err := casting.copyFile(runctx, srcPath, dstPath); err != nil {
+			return fmt.Errorf("failed to copy service file %s: %w", serviceFile, err)
+		}
+		casting.logger.InfoContext(runctx, "Copied service file", slog.String("file", serviceFile), slog.String("destination", dstPath))
+	}
+
+	// Copy config files to their target directories
+	configFileMap := casting.buildConfigFileMap(&config)
+
+	for _, configFile := range configFiles {
+		srcPath := filepath.Join(outputPath, configFile)
+		var dstPath string
+
+		// Check if we have a mapping for this file from the config
+		if targetPath, ok := configFileMap[configFile]; ok {
+			dstPath = targetPath
+		} else {
+			// Fallback: Determine target directory based on config file name patterns
+			baseName := filepath.Base(configFile)
+			if strings.Contains(baseName, "clickhouse") && !strings.Contains(baseName, "keeper") {
+				// ClickHouse config files
+				targetDir := "/etc/clickhouse-server"
+				if err := os.MkdirAll(targetDir, 0755); err != nil {
+					return fmt.Errorf("failed to create clickhouse-server directory: %w", err)
+				}
+				dstPath = filepath.Join(targetDir, baseName)
+			} else if strings.Contains(baseName, "keeper") {
+				// ClickHouse Keeper config files
+				targetDir := "/etc/clickhouse-keeper"
+				if err := os.MkdirAll(targetDir, 0755); err != nil {
+					return fmt.Errorf("failed to create clickhouse-keeper directory: %w", err)
+				}
+				dstPath = filepath.Join(targetDir, baseName)
+			} else if strings.Contains(baseName, "ingester") || strings.Contains(baseName, "opamp") || strings.Contains(baseName, "v0129x") {
+				// Ingester config files
+				targetDir := "/opt/ingester"
+				if err := os.MkdirAll(targetDir, 0755); err != nil {
+					return fmt.Errorf("failed to create ingester directory: %w", err)
+				}
+				dstPath = filepath.Join(targetDir, baseName)
+			} else {
+				// Unknown config file, skip it
+				casting.logger.WarnContext(runctx, "Unknown config file type, skipping", slog.String("file", configFile))
+				continue
+			}
+		}
+
+		// Ensure target directory exists
+		if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
+			return fmt.Errorf("failed to create target directory for %s: %w", configFile, err)
+		}
+
+		if err := casting.copyFile(runctx, srcPath, dstPath); err != nil {
+			return fmt.Errorf("failed to copy config file %s: %w", configFile, err)
+		}
+		casting.logger.InfoContext(runctx, "Copied config file", slog.String("file", configFile), slog.String("destination", dstPath))
+	}
+
+	// Copy env files to /opt/signoz/conf/
+	envDir := "/opt/signoz/conf"
+	if len(envFiles) > 0 {
+		if err := os.MkdirAll(envDir, 0755); err != nil {
+			return fmt.Errorf("failed to create signoz conf directory: %w", err)
+		}
+		for _, envFile := range envFiles {
+			srcPath := filepath.Join(outputPath, envFile)
+			dstPath := filepath.Join(envDir, envFile)
+			if err := casting.copyFile(runctx, srcPath, dstPath); err != nil {
+				return fmt.Errorf("failed to copy env file %s: %w", envFile, err)
+			}
+			casting.logger.InfoContext(runctx, "Copied env file", slog.String("file", envFile), slog.String("destination", dstPath))
+		}
+	}
+
+	// Reload systemd daemon
+	casting.logger.InfoContext(runctx, "Reloading systemd daemon")
+	if err := casting.execCommand(runctx, "systemctl", "daemon-reload"); err != nil {
+		return fmt.Errorf("failed to reload systemd daemon: %w", err)
+	}
+
+	// Enable and start services
+	for _, serviceFile := range serviceFiles {
+		serviceName := filepath.Base(serviceFile)
+		casting.logger.InfoContext(runctx, "Enabling service", slog.String("service", serviceName))
+		if err := casting.execCommand(runctx, "systemctl", "enable", serviceName); err != nil {
+			casting.logger.WarnContext(runctx, "Failed to enable service", slog.String("service", serviceName), slog.String("error", err.Error()))
+			// Continue even if enable fails
+		}
+
+		casting.logger.InfoContext(runctx, "Starting service", slog.String("service", serviceName))
+		if err := casting.execCommand(runctx, "systemctl", "start", serviceName); err != nil {
+			casting.logger.WarnContext(runctx, "Failed to start service", slog.String("service", serviceName), slog.String("error", err.Error()))
+			// Continue even if start fails
+		}
+	}
+
+	casting.logger.InfoContext(runctx, "Successfully installed systemd services")
 	return nil
+}
+
+// copyFile copies a file from src to dst.
+func (casting *linuxCasting) copyFile(ctx context.Context, src, dst string) error {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(dst, data, 0644)
+}
+
+// execCommand executes a command and returns an error if it fails.
+func (casting *linuxCasting) execCommand(ctx context.Context, name string, args ...string) error {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// buildConfigFileMap builds a map of config file names to their target paths
+// based on the config's Extras metadata.
+func (casting *linuxCasting) buildConfigFileMap(config *v1alpha1.Casting) map[string]string {
+	fileMap := make(map[string]string)
+
+	// Check TelemetryStore configs
+	if config.Spec.TelemetryStore.Spec.Enabled && config.Spec.TelemetryStore.Status.Extras != nil {
+		if cfgPath, ok := config.Spec.TelemetryStore.Status.Extras["cfgPath"]; ok {
+			// Extract filename from path (e.g., "config.clickhouse.v2556.yaml")
+			fileName := filepath.Base(cfgPath)
+			// Target: /etc/clickhouse-server/{filename}
+			fileMap[fileName] = filepath.Join("/etc/clickhouse-server", fileName)
+		}
+	}
+
+	// Check TelemetryKeeper configs
+	if config.Spec.TelemetryKeeper.Spec.Enabled && config.Spec.TelemetryKeeper.Status.Extras != nil {
+		if cfgPath, ok := config.Spec.TelemetryKeeper.Status.Extras["cfgPath"]; ok {
+			fileName := filepath.Base(cfgPath)
+			// Target: /etc/clickhouse-keeper/{filename}
+			fileMap[fileName] = filepath.Join("/etc/clickhouse-keeper", fileName)
+		}
+	}
+
+	// Check Ingester configs
+	if config.Spec.Ingester.Spec.Enabled && config.Spec.Ingester.Status.Extras != nil {
+		if cfgPath, ok := config.Spec.Ingester.Status.Extras["cfgPath"]; ok {
+			fileName := filepath.Base(cfgPath)
+			fileMap[fileName] = filepath.Join("/opt/ingester", fileName)
+		}
+		if cfgOpampPath, ok := config.Spec.Ingester.Status.Extras["cfgOpampPath"]; ok {
+			fileName := filepath.Base(cfgOpampPath)
+			fileMap[fileName] = filepath.Join("/opt/ingester", fileName)
+		}
+	}
+
+	return fileMap
 }
 
 func (l *linuxCasting) forgeCasting(tmpl *types.Template, cfg *v1alpha1.Casting) ([]types.Material, error) {
