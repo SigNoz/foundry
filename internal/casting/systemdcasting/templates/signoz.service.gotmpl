@@ -10,7 +10,9 @@ Type=simple
 KillMode=mixed
 Restart=on-failure
 WorkingDirectory=/opt/signoz
+{{ if and $.Spec.Signoz.Status.Extras (index $.Spec.Signoz.Status.Extras "envPath") }}
 EnvironmentFile=/opt/signoz/conf/{{ index $.Spec.Signoz.Status.Extras "envPath" }}
+{{ end }}
 ExecStart=/opt/signoz/bin/signoz server
 
 [Install]

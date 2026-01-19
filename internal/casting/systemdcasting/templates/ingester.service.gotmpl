@@ -10,7 +10,9 @@ Type=simple
 KillMode=mixed
 Restart=on-failure
 WorkingDirectory=/opt/ingester
+{{ if and $.Spec.Ingester.Status.Extras (index $.Spec.Ingester.Status.Extras "cfgPath") (index $.Spec.Ingester.Status.Extras "cfgOpampPath") }}
 ExecStart=/opt/ingester/bin/ingester --config=/opt/ingester/{{ index $.Spec.Ingester.Status.Extras "cfgPath" }} --manager-config=/opt/ingester/{{ index $.Spec.Ingester.Status.Extras "cfgOpampPath" }}
+{{ end }}
 
 [Install]
 WantedBy=multi-user.target

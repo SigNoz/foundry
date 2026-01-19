@@ -7,7 +7,9 @@ Wants=network-online.target
 [Service]
 Type=notify
 User=postgres
+{{ if and $.Spec.MetaStore.Status.Extras (index $.Spec.MetaStore.Status.Extras "envPath") }}
 EnvironmentFile=/opt/signoz/conf/{{ index $.Spec.MetaStore.Status.Extras "envPath" }}
+{{ end }}
 ExecStart=/usr/local/pgsql/bin/postgres -D /usr/local/pgsql/data
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
