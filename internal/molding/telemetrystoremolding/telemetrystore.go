@@ -45,8 +45,8 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *v1alpha
 		return fmt.Errorf("failed to execute config template: %w", err)
 	}
 	config.Spec.TelemetryStore.Status.Config.Data = map[string]string{
-		"telemetrystore.yaml": configBuf.String(),
-		"functions.yaml":      functionBuf.String(),
+		"config.yaml":    configBuf.String(),
+		"functions.yaml": functionBuf.String(),
 	}
 
 	return nil
