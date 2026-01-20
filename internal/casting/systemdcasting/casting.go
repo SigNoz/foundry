@@ -46,7 +46,7 @@ func (casting *linuxCasting) Forge(ctx context.Context, config v1alpha1.Casting)
 	return []types.Material{}, nil
 }
 
-func (casting *linuxCasting) Cast(ctx context.Context, config v1alpha1.Casting) error {
+func (casting *linuxCasting) Cast(ctx context.Context, config v1alpha1.Casting, outputPath string) error {
 	casting.logger.InfoContext(ctx, "Executing commands for platform")
 
 	// Create a context with 5-minute timeout
