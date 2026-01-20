@@ -37,6 +37,18 @@ func NewYAMLMaterial(contents []byte, path string) (Material, error) {
 	}, nil
 }
 
+func NewINIMaterial(contents []byte, path string) (Material, error) {
+	jsonContents, err := INIToJSON(contents)
+	if err != nil {
+		return Material{}, fmt.Errorf("invalid ini: %w", err)
+	}
+	return Material{
+		contents: jsonContents,
+		path:     path,
+		format:   FormatINI,
+	}, nil
+}
+
 func (m Material) Contents() []byte {
 	return m.contents
 }
@@ -49,6 +61,12 @@ func (m Material) FmtContents() []byte {
 			return nil
 		}
 
+		return fmtContents
+	case FormatINI:
+		fmtContents, err := JSONToINI(m.contents)
+		if err != nil {
+			return nil
+		}
 		return fmtContents
 	default:
 		return m.contents
