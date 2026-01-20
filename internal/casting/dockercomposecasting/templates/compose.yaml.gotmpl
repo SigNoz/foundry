@@ -1,4 +1,31 @@
 services:
+  {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}:
+    container_name: {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx  }}
+    image: docker.io/clickhouse/clickhouse-keeper:{{ $.Spec.TelemetryKeeper.Spec.Version }}
+    networks:
+      - {{ $.Metadata.Name }}-network
+    volumes:
+      - {{ $.Metadata.Name }}-telemetrykeeper-{{ $replicaIdx }}-data:/var/lib/clickhouse-keeper
+      - ./configs/telemetrykeeper/keeper-{{ $replicaIdx }}.yaml:/etc/clickhouse-keeper/keeper.yaml:ro
+    entrypoint:
+      - /usr/bin/clickhouse-keeper
+      - --config-file=/etc/clickhouse-keeper/keeper.yaml
+    healthcheck:
+      test:
+      - "CMD"
+      - "clickhouse-keeper-client"
+      - "-h"
+      - "localhost"
+      - "-p"
+      - "9181"
+      - "-q"
+      - "ls"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+  {{- end }}
   {{- range $shardIdx := .Spec.TelemetryStore.Spec.Cluster.Shards }}
   {{- range $replicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
   {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}:
@@ -6,18 +33,27 @@ services:
     depends_on:
       {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts:
         condition: service_completed_successfully
+      {{- range $keeperIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
+      {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $keeperIdx }}:
+        condition: service_healthy
+      {{- end }}
     image: docker.io/clickhouse/clickhouse-server:{{ $.Spec.TelemetryStore.Spec.Version }}
-    entrypoint:
-    - "/usr/bin/clickhouse-server"
-    - "--config-file=/etc/clickhouse-server/config.xml"
+    networks:
+      - {{ $.Metadata.Name }}-network
     environment:
       - CLICKHOUSE_SKIP_USER_SETUP=1
+      - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.yaml
+    volumes:
+      - {{ $.Metadata.Name }}-telemetrystore-{{ $shardIdx }}-{{ $replicaIdx }}-data:/var/lib/clickhouse
+      - {{ $.Metadata.Name }}-telemetrystore-user-scripts:/var/lib/clickhouse/user_scripts:ro
+      - ./configs/telemetrystore/config.yaml:/etc/clickhouse-server/config.yaml:ro
     healthcheck:
       test:
-      - "CMD"
-      - "curl"
-      - "-f"
-      - "http://localhost:8123"
+       - "CMD"
+       - "wget"
+       - "--spider"
+       - "-q"
+       - "http://localhost:8123/ping"
       interval: 30s
       timeout: 10s
       retries: 3
@@ -27,6 +63,10 @@ services:
   {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts:
     container_name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts
     image: docker.io/clickhouse/clickhouse-server:{{ $.Spec.TelemetryStore.Spec.Version }}
+    networks:
+      - {{ $.Metadata.Name }}-network
+    volumes:
+      - {{ $.Metadata.Name }}-telemetrystore-user-scripts:/var/lib/clickhouse/user_scripts
     command:
     - bash
     - -c
@@ -39,6 +79,115 @@ services:
       wget -O histogram-quantile.tar.gz "https://github.com/SigNoz/signoz/releases/download/histogram-quantile%2F$${version}/histogram-quantile_$${node_os}_$${node_arch}.tar.gz"
       tar -xvzf histogram-quantile.tar.gz
       mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile
+  {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}:
+    container_name: {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}
+    image: docker.io/{{ $.Spec.MetaStore.Kind }}:{{ $.Spec.MetaStore.Spec.Version }}
+    networks:
+      - {{ $.Metadata.Name }}-network
+    environment:
+      - POSTGRES_USER=signoz
+      - POSTGRES_PASSWORD=signoz
+      - POSTGRES_DB=signoz
+    volumes:
+      - {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+      - "CMD-SHELL"
+      - "pg_isready -U signoz -d signoz"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+  {{- end }}
+  {{- range $replicaIdx := until (int $.Spec.Ingester.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-ingester-{{ $replicaIdx }}:
+    container_name: {{ $.Metadata.Name }}-ingester-{{ $replicaIdx }}
+    image: docker.io/signoz/signoz-otel-collector:v{{ $.Spec.Ingester.Spec.Version }}
+    networks:
+      - {{ $.Metadata.Name }}-network
+    command:
+      - "--config=/etc/otel-collector-config.yaml"
+    volumes:
+      - {{ $.Metadata.Name }}-ingester-{{ $replicaIdx }}-data:/var/lib/signoz
+      - ./configs/ingester/ingester.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    healthcheck:
+      test:
+      - "CMD"
+      - "wget"
+      - "--spider"
+      - "-q"
+      - "http://localhost:13133/health"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+  {{- end }}
+  {{- range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}:
+    container_name: {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}
+    image: docker.io/signoz/signoz:v{{ $.Spec.Signoz.Spec.Version }}
+    networks:
+      - {{ $.Metadata.Name }}-network
+    depends_on:
+      {{- range $metaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
+      {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $metaIdx }}:
+        condition: service_healthy
+      {{- end }}
+      {{- range $shardIdx := $.Spec.TelemetryStore.Spec.Cluster.Shards }}
+      {{- range $storeReplicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
+      {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $storeReplicaIdx }}:
+        condition: service_healthy
+      {{- end }}
+      {{- end }}
+    environment:
+      - SIGNOZ_ALERTMANAGER_PROVIDER=signoz
+      - SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN=tcp://{{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0:9000
+      - SIGNOZ_SQLSTORE_SQLITE_PATH=/var/lib/signoz/signoz.db
+      - DASHBOARDS_PATH=/root/config/dashboards
+      - STORAGE=clickhouse
+      - GODEBUG=netdns=go
+      - TELEMETRY_ENABLED=true
+      - DEPLOYMENT_TYPE=docker-standalone-amd
+      - DOT_METRICS_ENABLED=true
+    volumes:
+      - {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}-data:/var/lib/signoz
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test:
+      - "CMD"
+      - "wget"
+      - "--spider"
+      - "-q"
+      - "http://localhost:3301/api/v1/health"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+  {{- end }}
 networks:
   {{ $.Metadata.Name }}-network:
     name: {{ $.Metadata.Name }}-network
+volumes:
+  {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-telemetrykeeper-{{ $replicaIdx  }}-data:
+  {{- end }}
+  {{- range $shardIdx := $.Spec.TelemetryStore.Spec.Cluster.Shards }}
+  {{- range $replicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
+  {{ $.Metadata.Name }}-telemetrystore-{{ $shardIdx }}-{{ $replicaIdx }}-data:
+  {{- end }}
+  {{- end }}
+  {{ $.Metadata.Name }}-telemetrystore-user-scripts:
+  {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data:
+  {{- end }}
+  {{- range $replicaIdx := until (int $.Spec.Ingester.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-ingester-{{ $replicaIdx }}-data:
+  {{- end }}
+  {{- range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}-data:
+  {{- end }}
