@@ -1,13 +1,13 @@
 services:
   {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
-  {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ add $replicaIdx 1 }}:
-    container_name: {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ add $replicaIdx 1 }}
+  {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}:
+    container_name: {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx  }}
     image: docker.io/clickhouse/clickhouse-keeper:{{ $.Spec.TelemetryKeeper.Spec.Version }}
     networks:
       - {{ $.Metadata.Name }}-network
     volumes:
-      - {{ $.Metadata.Name }}-telemetrykeeper-{{ add $replicaIdx 1 }}-data:/var/lib/clickhouse-keeper
-      - ./configs/telemetrykeeper/keeper-{{ add $replicaIdx 1 }}.yaml:/etc/clickhouse-keeper/keeper.yaml:ro
+      - {{ $.Metadata.Name }}-telemetrykeeper-{{ $replicaIdx }}-data:/var/lib/clickhouse-keeper
+      - ./configs/telemetrykeeper/keeper-{{ $replicaIdx }}.yaml:/etc/clickhouse-keeper/keeper.yaml:ro
     entrypoint:
       - /usr/bin/clickhouse-keeper
       - --config-file=/etc/clickhouse-keeper/keeper.yaml
@@ -34,7 +34,7 @@ services:
       {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts:
         condition: service_completed_successfully
       {{- range $keeperIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
-      {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ add $keeperIdx 1 }}:
+      {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $keeperIdx }}:
         condition: service_healthy
       {{- end }}
     image: docker.io/clickhouse/clickhouse-server:{{ $.Spec.TelemetryStore.Spec.Version }}
@@ -174,7 +174,7 @@ networks:
     name: {{ $.Metadata.Name }}-network
 volumes:
   {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
-  {{ $.Metadata.Name }}-telemetrykeeper-{{ add $replicaIdx 1 }}-data:
+  {{ $.Metadata.Name }}-telemetrykeeper-{{ $replicaIdx  }}-data:
   {{- end }}
   {{- range $shardIdx := $.Spec.TelemetryStore.Spec.Cluster.Shards }}
   {{- range $replicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
