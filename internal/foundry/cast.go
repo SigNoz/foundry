@@ -2,9 +2,7 @@ package foundry
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
-	"os"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 )
