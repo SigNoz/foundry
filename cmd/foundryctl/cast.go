@@ -33,7 +33,7 @@ func registerCastCmd(rootCmd *cobra.Command) {
 func runCast(ctx context.Context, logger *slog.Logger, configPath string, poursPath string) error {
 	foundry, err := foundry.New(logger)
 	if err != nil {
-		logger.ErrorContext(ctx, "failed to create foundry", foundryerrors.LogAttr(err))
+		logger.ErrorContext(ctx, "failed to create foundry, please report this issues to developers at https://github.com/signoz/foundry/issues", foundryerrors.LogAttr(err))
 		return err
 	}
 

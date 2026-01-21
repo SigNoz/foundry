@@ -24,5 +24,5 @@ type pour struct {
 }
 
 func (p *pour) RegisterFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().StringVarP(&p.Path, "pours", "p", "./pours", "Input Directory for already existing pours containing the deployment and configuration files")
+	cmd.PersistentFlags().StringVarP(&p.Path, "pours", "p", "./pours", "Directory for pours containing the deployment and configuration files")
 }
