@@ -1,7 +1,9 @@
 package systemdcasting
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -17,15 +19,15 @@ import (
 
 const svcSuffix = ".service"
 
-var _ casting.Casting = (*linuxCasting)(nil)
+var _ casting.Casting = (*systemdCasting)(nil)
 
-type linuxCasting struct {
+type systemdCasting struct {
 	logger   *slog.Logger
 	castings []*types.Template
 }
 
-func New(logger *slog.Logger) *linuxCasting {
-	return &linuxCasting{
+func New(logger *slog.Logger) *systemdCasting {
+	return &systemdCasting{
 		logger: logger,
 		castings: []*types.Template{
 			telemetryKeeperServiceTemplate,
@@ -37,11 +39,11 @@ func New(logger *slog.Logger) *linuxCasting {
 	}
 }
 
-func (c *linuxCasting) Enricher(ctx context.Context, config *v1alpha1.Casting) (molding.MoldingEnricher, error) {
+func (c *systemdCasting) Enricher(ctx context.Context, config *v1alpha1.Casting) (molding.MoldingEnricher, error) {
 	return newLinuxMoldingEnricher(config), nil
 }
 
-func (c *linuxCasting) Forge(ctx context.Context, cfg v1alpha1.Casting, poursPath string) ([]types.Material, error) {
+func (c *systemdCasting) Forge(ctx context.Context, cfg v1alpha1.Casting, poursPath string) ([]types.Material, error) {
 	var materials []types.Material
 	for _, tmpl := range c.castings {
 		m, err := c.forgeCasting(tmpl, &cfg, poursPath)
@@ -53,7 +55,7 @@ func (c *linuxCasting) Forge(ctx context.Context, cfg v1alpha1.Casting, poursPat
 	return materials, nil
 }
 
-func (c *linuxCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPath string) error {
+func (c *systemdCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPath string) error {
 	c.logger.InfoContext(ctx, "Starting systemd service installation", slog.String("pours_path", poursPath))
 
 	runctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
@@ -79,7 +81,7 @@ func (c *linuxCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursP
 	return nil
 }
 
-func (c *linuxCasting) forgeCasting(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
+func (c *systemdCasting) forgeCasting(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
 	switch tmpl {
 	case signozServiceTemplate:
 		return c.forgeSignoz(tmpl, cfg, poursPath)
@@ -98,7 +100,7 @@ func (c *linuxCasting) forgeCasting(tmpl *types.Template, cfg *v1alpha1.Casting,
 
 // --- Forge Handlers ---
 
-func (c *linuxCasting) forgeIngester(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
+func (c *systemdCasting) forgeIngester(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
 	spec := &cfg.Spec.Ingester
 	if !spec.Spec.Enabled {
 		return nil, nil
@@ -131,7 +133,7 @@ func (c *linuxCasting) forgeIngester(tmpl *types.Template, cfg *v1alpha1.Casting
 	return append(mats, svcMat), nil
 }
 
-func (c *linuxCasting) forgeSignoz(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
+func (c *systemdCasting) forgeSignoz(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
 	spec := &cfg.Spec.Signoz
 	if !spec.Spec.Enabled {
 		return nil, nil
@@ -164,7 +166,7 @@ func (c *linuxCasting) forgeSignoz(tmpl *types.Template, cfg *v1alpha1.Casting, 
 	return []types.Material{envMat, svcMat}, nil
 }
 
-func (c *linuxCasting) forgeMetaStore(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
+func (c *systemdCasting) forgeMetaStore(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
 	spec := &cfg.Spec.MetaStore
 	if !spec.Spec.Enabled {
 		return nil, nil
@@ -193,7 +195,7 @@ func (c *linuxCasting) forgeMetaStore(tmpl *types.Template, cfg *v1alpha1.Castin
 	return []types.Material{envMat, svcMat}, nil
 }
 
-func (c *linuxCasting) forgeTelemetryStore(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
+func (c *systemdCasting) forgeTelemetryStore(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
 	spec := &cfg.Spec.TelemetryStore
 	if !spec.Spec.Enabled {
 		return nil, nil
@@ -234,7 +236,7 @@ func (c *linuxCasting) forgeTelemetryStore(tmpl *types.Template, cfg *v1alpha1.C
 	return mats, nil
 }
 
-func (c *linuxCasting) forgeTelemetryKeeper(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
+func (c *systemdCasting) forgeTelemetryKeeper(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
 	spec := &cfg.Spec.TelemetryKeeper
 	if !spec.Spec.Enabled {
 		return nil, nil
@@ -268,6 +270,40 @@ func (c *linuxCasting) forgeTelemetryKeeper(tmpl *types.Template, cfg *v1alpha1.
 			return nil, err
 		}
 		mats = append(mats, svcMat)
+	}
+	return mats, nil
+}
+
+// --- Material Helpers ---
+
+func (c *systemdCasting) renderTemplate(tmpl *types.Template, cfg *v1alpha1.Casting, path string) (types.Material, error) {
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, cfg); err != nil {
+		return types.Material{}, fmt.Errorf("execute template %s: %w", path, err)
+	}
+	return types.NewINIMaterial(buf.Bytes(), path)
+}
+
+func (c *systemdCasting) envMaterial(envs map[string]string, prefix string) (types.Material, error) {
+	if envs == nil {
+		return types.Material{}, fmt.Errorf("envs not enriched for %s", prefix)
+	}
+	jb, _ := json.Marshal(envs)
+	ib, err := types.JSONToINI(jb)
+	if err != nil {
+		return types.Material{}, fmt.Errorf("failed to convert env to INI: %w", err)
+	}
+	return types.NewINIMaterial(ib, fmt.Sprintf("%s/%s.env", prefix, prefix))
+}
+
+func (c *systemdCasting) configMaterials(data map[string]string, path string) ([]types.Material, error) {
+	mats := make([]types.Material, 0, len(data))
+	for file, content := range data {
+		m, err := types.NewYAMLMaterial([]byte(content), filepath.Join(path, file))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create config material %s: %w", file, err)
+		}
+		mats = append(mats, m)
 	}
 	return mats, nil
 }
