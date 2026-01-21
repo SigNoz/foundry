@@ -32,7 +32,7 @@ func runGauge(ctx context.Context, logger *slog.Logger, path string) error {
 		return err
 	}
 
-	casting, err := foundry.Loader.LoadV1Alpha1(ctx, path)
+	casting, err := foundry.Config.GetV1Alpha1(ctx, path)
 	if err != nil {
 		logger.ErrorContext(ctx, err.Error())
 		return err

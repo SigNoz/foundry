@@ -8,6 +8,9 @@ type Casting struct {
 
 	// Specification for the casting.
 	Spec CastingSpec `json:"spec,omitempty" yaml:"spec,omitempty"`
+
+	// Status of the casting.
+	Status CastingStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
 type CastingSpec struct {
@@ -28,6 +31,11 @@ type CastingSpec struct {
 
 	// The configuration for the ingester molding.
 	Ingester Ingester `json:"ingester,omitempty" yaml:"ingester,omitempty"`
+}
+
+type CastingStatus struct {
+	// Checksum of the casting file.
+	Checksum string `json:"checksum,omitempty" yaml:"checksum,omitempty"`
 }
 
 func MergeCastingSpecAndStatus(base *Casting) error {

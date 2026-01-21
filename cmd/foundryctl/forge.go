@@ -36,18 +36,17 @@ func runForge(ctx context.Context, logger *slog.Logger, path string, poursPath s
 		return err
 	}
 
-	casting, err := foundry.Loader.LoadV1Alpha1(ctx, path)
+	config, err := foundry.Config.GetV1Alpha1(ctx, path)
 	if err != nil {
 		return err
 	}
-	p, err := filepath.Abs(poursPath)
+
+	poursAbsPath, err := filepath.Abs(poursPath)
 	if err != nil {
 		return err
 	}
-	err = foundry.Forge(ctx, casting, &writer.Options{
-		Output:          &os.File{},
-		TargetDirectory: p,
-	})
+
+	err = foundry.Forge(ctx, config, path, &writer.Options{Output: &os.File{}, TargetDirectory: poursAbsPath})
 	if err != nil {
 		return err
 	}

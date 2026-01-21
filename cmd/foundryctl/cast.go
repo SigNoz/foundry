@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 	"path/filepath"
 
 	foundryerrors "github.com/signoz/foundry/internal/errors"
@@ -22,14 +21,14 @@ func registerCastCmd(rootCmd *cobra.Command) {
 			ctx := cmd.Context()
 			logger := instrumentation.NewLogger(cfg.Debug)
 
-			return runCast(ctx, logger, pours.Path)
+			return runCast(ctx, logger, pours.Path, cfg.File)
 		},
 	}
 
 	rootCmd.AddCommand(castCmd)
 }
 
-func runCast(ctx context.Context, logger *slog.Logger, poursPath string) error {
+func runCast(ctx context.Context, logger *slog.Logger, poursPath string, configPath string) error {
 	foundry, err := foundry.New(logger)
 	if err != nil {
 		logger.ErrorContext(ctx, "failed to create foundry, please report this issues to developers at https://github.com/signoz/foundry/issues", foundryerrors.LogAttr(err))
@@ -42,17 +41,11 @@ func runCast(ctx context.Context, logger *slog.Logger, poursPath string) error {
 		return fmt.Errorf("failed to resolve pours path: %w", err)
 	}
 
-	castingLock := filepath.Join(poursPath, "casting.yaml.lock")
-	if _, err := os.Stat(castingLock); err != nil {
-		return fmt.Errorf("casting.yaml.lock does not exist at given pours path: %s. Please run forge before cast", poursPath)
-	}
-
-	// Load casting from the generated lock file
-	casting, err := foundry.Loader.LoadV1Alpha1(ctx, castingLock)
+	lock, err := foundry.Config.GetV1Alpha1Lock(ctx, configPath)
 	if err != nil {
 		logger.ErrorContext(ctx, "failed to load generated casting.yaml.lock", foundryerrors.LogAttr(err))
 		return err
 	}
 
-	return foundry.Cast(ctx, casting, poursPath)
+	return foundry.Cast(ctx, lock, poursPath)
 }

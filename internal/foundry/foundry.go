@@ -8,8 +8,8 @@ import (
 	"github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/casting/dockercomposecasting"
 	"github.com/signoz/foundry/internal/casting/systemdcasting"
-	"github.com/signoz/foundry/internal/loader"
-	"github.com/signoz/foundry/internal/loader/yamlloader"
+	"github.com/signoz/foundry/internal/config"
+	"github.com/signoz/foundry/internal/config/yamlconfig"
 	"github.com/signoz/foundry/internal/molding"
 	"github.com/signoz/foundry/internal/molding/ingestermolding"
 	"github.com/signoz/foundry/internal/molding/metastoremolding"
@@ -26,8 +26,8 @@ import (
 )
 
 type Foundry struct {
-	// Loader for loading the casting configuration.
-	Loader loader.Loader
+	// Config for loading the casting configuration.
+	Config config.Config
 
 	// Logger for logging.
 	Logger *slog.Logger
@@ -43,10 +43,10 @@ type Foundry struct {
 }
 
 func New(logger *slog.Logger) (*Foundry, error) {
-	yamlLoader := yamlloader.New()
+	yamlConfig := yamlconfig.New()
 
 	return &Foundry{
-		Loader: yamlLoader,
+		Config: yamlConfig,
 		Logger: logger,
 		Castings: map[string]casting.Casting{
 			"docker":  dockercomposecasting.New(logger),
