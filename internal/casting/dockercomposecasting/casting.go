@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -138,43 +137,7 @@ func (casting *dockerComposeCasting) Cast(ctx context.Context, config v1alpha1.C
 
 	casting.logger.InfoContext(runctx, "Command executed successfully")
 
-	// Wait for SigNoz to be ready
-	casting.logger.InfoContext(ctx, "Waiting for SigNoz to be ready...")
-
-	healthCtx, healthCancel := context.WithTimeout(ctx, 2*time.Minute)
-	defer healthCancel()
-
-	if err := casting.waitForHealthy(healthCtx, "http://localhost:8080/api/v1/version"); err != nil {
-		casting.logger.WarnContext(ctx, "SigNoz health check timed out, but containers are running. SigNoz may need more time to start.", slog.String("error", err.Error()))
-		return nil
-	}
-
-	casting.logger.InfoContext(ctx, "SigNoz is ready to use")
 	return nil
-}
-
-// waitForHealthy polls the health endpoint until it returns 200 or the context times out.
-func (casting *dockerComposeCasting) waitForHealthy(ctx context.Context, url string) error {
-	client := &http.Client{Timeout: 5 * time.Second}
-
-	for {
-		if err := ctx.Err(); err != nil {
-			return fmt.Errorf("health check timed out: %w", err)
-		}
-
-		resp, err := client.Get(url)
-		if err == nil {
-			resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				return nil
-			}
-			casting.logger.DebugContext(ctx, "Health check returned non-200", slog.Int("status", resp.StatusCode))
-		} else {
-			casting.logger.DebugContext(ctx, "Health check attempt failed", slog.String("error", err.Error()))
-		}
-
-		time.Sleep(3 * time.Second)
-	}
 }
 
 func getComposeMaterial(config *v1alpha1.Casting, path string) (types.Material, error) {
