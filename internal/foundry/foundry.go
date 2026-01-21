@@ -17,8 +17,12 @@ import (
 	"github.com/signoz/foundry/internal/molding/telemetrykeepermolding"
 	"github.com/signoz/foundry/internal/molding/telemetrystoremolding"
 	"github.com/signoz/foundry/internal/tooler"
+	"github.com/signoz/foundry/internal/tooler/clickhousekeepertooler"
+	"github.com/signoz/foundry/internal/tooler/clickhousetooler"
 	"github.com/signoz/foundry/internal/tooler/dockercomposetooler"
 	"github.com/signoz/foundry/internal/tooler/dockertooler"
+	"github.com/signoz/foundry/internal/tooler/postgrestooler"
+	"github.com/signoz/foundry/internal/tooler/systemdtooler"
 )
 
 type Foundry struct {
@@ -50,6 +54,12 @@ func New(logger *slog.Logger) (*Foundry, error) {
 		},
 		Toolers: map[string][]tooler.Tooler{
 			"docker": {dockertooler.New(), dockercomposetooler.New()},
+			"systemd": {
+				systemdtooler.New(),
+				clickhousekeepertooler.New(),
+				clickhousetooler.New(),
+				postgrestooler.New(),
+			},
 		},
 		Moldings: map[v1alpha1.MoldingKind]molding.Molding{
 			v1alpha1.MoldingKindTelemetryStore:  telemetrystoremolding.New(logger),

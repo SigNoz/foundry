@@ -10,8 +10,10 @@ Type=simple
 KillMode=mixed
 Restart=on-failure
 WorkingDirectory=/opt/signoz
-EnvironmentFile=/opt/signoz/conf/systemd.env
 ExecStart=/opt/signoz/bin/signoz server
-
+Environment=SIGNOZ_WEB_DIRECTORY=/opt/signoz/web
+{{ if and $.Spec.Signoz.Status.Extras (index $.Spec.Signoz.Status.Extras "envPath") }}
+EnvironmentFile={{ index $.Spec.Signoz.Status.Extras "envPath" }}
+{{ end }}
 [Install]
 WantedBy=multi-user.target

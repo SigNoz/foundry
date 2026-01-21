@@ -1,8 +1,8 @@
 [Unit]
 Description=ClickHouse Server (v25.5.6)
 Requires=network-online.target
-After=time-sync.target network-online.target
-Wants=time-sync.target
+After=time-sync.target network-online.target{{ if $.Spec.TelemetryKeeper.Spec.Enabled }} {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-0.service{{ end }}
+Wants=time-sync.target{{ if $.Spec.TelemetryKeeper.Spec.Enabled }} {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-0.service{{ end }}
 
 
 [Service]
@@ -12,7 +12,9 @@ Group=clickhouse
 Restart=always
 RestartSec=30
 RuntimeDirectory=clickhouse
-ExecStart=/usr/bin/clickhouse-server --config=/etc/clickhouse-server/config.yaml --pid-file=/run/clickhouse/clickhouse.pid
+{{ if and $.Spec.TelemetryStore.Status.Extras (index $.Spec.TelemetryStore.Status.Extras "cfgPath") }}
+ExecStart=/usr/bin/clickhouse-server --config={{ index $.Spec.TelemetryStore.Status.Extras "cfgPath" }} --pid-file=/run/clickhouse/clickhouse.pid
+{{ end }}
 LimitCORE=infinity
 LimitNOFILE=500000
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_IPC_LOCK CAP_SYS_NICE CAP_NET_BIND_SERVICE

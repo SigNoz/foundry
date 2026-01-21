@@ -11,7 +11,9 @@ Group=clickhouse
 Restart=always
 RestartSec=30
 RuntimeDirectory=clickhouse-keeper
-ExecStart=/usr/bin/clickhouse-keeper --config=/etc/clickhouse-keeper/config.yaml --pid-file=/run/clickhouse-keeper/clickhouse-keeper.pid
+{{ if and $.Spec.TelemetryKeeper.Status.Extras (index $.Spec.TelemetryKeeper.Status.Extras "cfgPath") }}
+ExecStart=/usr/bin/clickhouse-keeper --config={{ index $.Spec.TelemetryKeeper.Status.Extras "cfgPath" }} --pid-file=/run/clickhouse-keeper/clickhouse-keeper.pid
+{{ end }}
 LimitCORE=infinity
 LimitNOFILE=500000
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_IPC_LOCK CAP_SYS_NICE CAP_NET_BIND_SERVICE
