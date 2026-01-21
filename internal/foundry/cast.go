@@ -7,7 +7,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 )
 
-func (foundry *Foundry) Cast(ctx context.Context, config v1alpha1.Casting, outputPath string) error {
+func (foundry *Foundry) Cast(ctx context.Context, config v1alpha1.Casting, poursPath string) error {
 	foundry.Logger.InfoContext(ctx, "starting casting pipeline", slog.String("casting.metadata.name", config.Metadata.Name))
 
 	// Get the casting for the deployment mode
@@ -16,7 +16,7 @@ func (foundry *Foundry) Cast(ctx context.Context, config v1alpha1.Casting, outpu
 		return err
 	}
 
-	err = casting.Cast(ctx, config)
+	err = casting.Cast(ctx, config, poursPath)
 	if err != nil {
 		foundry.Logger.ErrorContext(ctx, err.Error())
 		return err

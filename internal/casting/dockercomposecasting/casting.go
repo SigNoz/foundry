@@ -36,7 +36,7 @@ func (casting *dockerComposeCasting) Enricher(ctx context.Context, config *v1alp
 	return newDockerComposeMoldingEnricher(config)
 }
 
-func (casting *dockerComposeCasting) Forge(ctx context.Context, config v1alpha1.Casting) ([]types.Material, error) {
+func (casting *dockerComposeCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPath string) ([]types.Material, error) {
 	buf := bytes.NewBuffer(nil)
 	err := composeYAMLTemplate.Execute(buf, config)
 	if err != nil {
@@ -98,7 +98,7 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config v1alpha1.
 	return materials, nil
 }
 
-func (casting *dockerComposeCasting) Cast(ctx context.Context, config v1alpha1.Casting) error {
+func (casting *dockerComposeCasting) Cast(ctx context.Context, config v1alpha1.Casting, outputPath string) error {
 	casting.logger.InfoContext(ctx, "Executing commands for platform")
 
 	// Create a context with 5-minute timeout

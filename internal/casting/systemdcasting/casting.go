@@ -40,13 +40,13 @@ func (casting *linuxCasting) Enricher(ctx context.Context, config *v1alpha1.Cast
 	return newLinuxMoldingEnricher(config)
 }
 
-func (casting *linuxCasting) Forge(ctx context.Context, config v1alpha1.Casting) ([]types.Material, error) {
+func (casting *linuxCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPath string) ([]types.Material, error) {
 	// execute service templates
 
 	return []types.Material{}, nil
 }
 
-func (casting *linuxCasting) Cast(ctx context.Context, config v1alpha1.Casting) error {
+func (casting *linuxCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPath string) error {
 	casting.logger.InfoContext(ctx, "Executing commands for platform")
 
 	// Create a context with 5-minute timeout

@@ -13,8 +13,8 @@ type Casting interface {
 	Enricher(ctx context.Context, config *v1alpha1.Casting) (molding.MoldingEnricher, error)
 
 	// Generates all the files needed for casting.
-	Forge(ctx context.Context, config v1alpha1.Casting) ([]types.Material, error)
+	Forge(ctx context.Context, config v1alpha1.Casting, poursPath string) ([]types.Material, error)
 
 	// Runs the forged files.
-	Cast(ctx context.Context, config v1alpha1.Casting) error
+	Cast(ctx context.Context, config v1alpha1.Casting, poursPath string) error
 }

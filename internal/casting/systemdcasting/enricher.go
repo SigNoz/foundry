@@ -27,7 +27,7 @@ func newLinuxMoldingEnricher(config *v1alpha1.Casting) (*linuxMoldingEnricher, e
 }
 
 func (enricher *linuxMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *v1alpha1.Casting) error {
-	
+
 	// Enrich Status
 	return nil
 }

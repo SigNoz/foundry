@@ -45,7 +45,7 @@ func New(logger *slog.Logger) (*Foundry, error) {
 		Loader: yamlLoader,
 		Logger: logger,
 		Castings: map[string]casting.Casting{
-			"docker": dockercomposecasting.New(logger),
+			"docker":  dockercomposecasting.New(logger),
 			"systemd": systemdcasting.New(logger),
 		},
 		Toolers: map[string][]tooler.Tooler{

@@ -57,7 +57,7 @@ func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, writ
 
 	// Forging the configuration
 	foundry.Logger.InfoContext(ctx, "forging configuration with the merged spec and generating materials", slog.String("casting.metadata.name", config.Metadata.Name))
-	materials, err := casting.Forge(ctx, config)
+	materials, err := casting.Forge(ctx, config, writerOpts.TargetDirectory)
 	if err != nil {
 		return err
 	}
