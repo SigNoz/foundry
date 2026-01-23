@@ -15,27 +15,27 @@ type Casting struct {
 
 type CastingSpec struct {
 	// Mode platform in which the platform will run.
-	Deployment TypeDeployment `json:"deployment,omitempty" yaml:"deployment,omitempty"`
+	Deployment TypeDeployment `json:"deployment" yaml:"deployment"`
 
 	// The configuration for the signoz molding.
-	Signoz SigNoz `json:"signoz,omitempty" yaml:"signoz,omitempty"`
+	Signoz SigNoz `json:"signoz" yaml:"signoz"`
 
 	// The configuration for the telemetry store molding.
-	TelemetryStore TelemetryStore `json:"telemetrystore,omitempty" yaml:"telemetrystore,omitempty"`
+	TelemetryStore TelemetryStore `json:"telemetrystore" yaml:"telemetrystore"`
 
 	// The configuration for the telemetry keeper molding.
-	TelemetryKeeper TelemetryKeeper `json:"telemetrykeeper,omitempty" yaml:"telemetrykeeper,omitempty"`
+	TelemetryKeeper TelemetryKeeper `json:"telemetrykeeper" yaml:"telemetrykeeper"`
 
 	// The configuration for the meta store molding.
-	MetaStore MetaStore `json:"metastore,omitempty" yaml:"metastore,omitempty"`
+	MetaStore MetaStore `json:"metastore" yaml:"metastore"`
 
 	// The configuration for the ingester molding.
-	Ingester Ingester `json:"ingester,omitempty" yaml:"ingester,omitempty"`
+	Ingester Ingester `json:"ingester" yaml:"ingester"`
 }
 
 type CastingStatus struct {
 	// Checksum of the casting file.
-	Checksum string `json:"checksum,omitempty" yaml:"checksum,omitempty"`
+	Checksum string `json:"checksum" yaml:"checksum"`
 }
 
 func MergeCastingSpecAndStatus(base *Casting) error {

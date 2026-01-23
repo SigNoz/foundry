@@ -284,7 +284,7 @@ func (c *systemdCasting) forgeTelemetryKeeper(tmpl *types.Template, cfg *v1alpha
 	spec.Status.Extras["cfgPath"] = filepath.Join("/etc/clickhouse-keeper/", filepath.Base(mats[0].Path()))
 
 	// Create service materials for each replica
-	for r := 0; r < reps; r++ {
+	for r := range reps {
 		svcName := fmt.Sprintf("%s-telemetrykeeper-%s-%d%s", cfg.Metadata.Name, kind, r, svcSuffix)
 		svcMat, err := c.renderTemplate(tmpl, cfg, svcName)
 		if err != nil {
