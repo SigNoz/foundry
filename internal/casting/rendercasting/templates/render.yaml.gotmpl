@@ -22,11 +22,16 @@ services:
     plan: standard
     runtime: docker
     dockerfilePath: telemetrystore/Dockerfile
-    dockerContext: clickhouse
+    dockerContext: telemetrystore
     disk:
       name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}-data
       mountPath: /var/lib/clickhouse
       sizeGB: 20
+    envVars:
+      - key: CLICKHOUSE_SKIP_USER_SETUP
+        value: "1"
+      - key: CLICKHOUSE_CONFIG
+        value: /etc/clickhouse-server/config.yaml
   {{ end }}
   {{ end }}
   {{ end }}
