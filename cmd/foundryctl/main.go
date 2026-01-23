@@ -17,8 +17,8 @@ func main() {
 	}
 
 	// Register configuration.
-	cfg.RegisterFlags(rootCmd)
-	pours.RegisterFlags(rootCmd)
+	commonCfg.RegisterFlags(rootCmd)
+	poursCfg.RegisterFlags(rootCmd)
 
 	// Register commands.
 	registerGaugeCmd(rootCmd)

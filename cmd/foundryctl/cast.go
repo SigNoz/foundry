@@ -19,13 +19,28 @@ func registerCastCmd(rootCmd *cobra.Command) {
 		Short: "Cast to the target environment.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			logger := instrumentation.NewLogger(cfg.Debug)
+			logger := instrumentation.NewLogger(commonCfg.Debug)
 
-			return runCast(ctx, logger, pours.Path, cfg.File)
+			if !castCfg.NoGauge {
+				err := runGauge(ctx, logger, commonCfg.File)
+				if err != nil {
+					return err
+				}
+			}
+
+			if !castCfg.NoForge {
+				err := runForge(ctx, logger, commonCfg.File, poursCfg.Path)
+				if err != nil {
+					return err
+				}
+			}
+
+			return runCast(ctx, logger, poursCfg.Path, commonCfg.File)
 		},
 	}
 
 	rootCmd.AddCommand(castCmd)
+	castCfg.RegisterFlags(castCmd)
 }
 
 func runCast(ctx context.Context, logger *slog.Logger, poursPath string, configPath string) error {

@@ -20,9 +20,9 @@ func registerForgeCmd(rootCmd *cobra.Command) {
 		Long:  "Generate deployment configuration files from casting.yaml",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			logger := instrumentation.NewLogger(cfg.Debug)
+			logger := instrumentation.NewLogger(commonCfg.Debug)
 
-			return runForge(ctx, logger, cfg.File, pours.Path)
+			return runForge(ctx, logger, commonCfg.File, poursCfg.Path)
 		},
 	}
 

@@ -16,9 +16,9 @@ func registerGaugeCmd(rootCmd *cobra.Command) {
 		Short: "Gauge whether required tools are available.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			logger := instrumentation.NewLogger(cfg.Debug)
+			logger := instrumentation.NewLogger(commonCfg.Debug)
 
-			return runGauge(ctx, logger, cfg.File)
+			return runGauge(ctx, logger, commonCfg.File)
 		},
 	}
 
