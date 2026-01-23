@@ -48,7 +48,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 
 	case v1alpha1.MoldingKindSignoz:
 		// Get signoz container names
-		containerNames, err := enricher.material.GetStringSlice("services.*.container_name")
+		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
 			return fmt.Errorf("failed to get signoz container names: %w", err)
 		}
@@ -95,7 +95,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 
 	case v1alpha1.MoldingKindMetaStore:
 		// Get metastore container names
-		containerNames, err := enricher.material.GetStringSlice("services.*.container_name")
+		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
 			return fmt.Errorf("failed to get metastore container names: %w", err)
 		}
@@ -114,7 +114,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 
 	case v1alpha1.MoldingKindIngester:
 		// Get ingester container names
-		containerNames, err := enricher.material.GetStringSlice("services.*.container_name")
+		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
 			return fmt.Errorf("failed to get ingester container names: %w", err)
 		}
