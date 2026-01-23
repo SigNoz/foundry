@@ -45,7 +45,7 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 	}
 	materials = append(materials, blueprintMaterial)
 
-	// Generate Dockerfile.keeper for telemetrykeeper services
+	// Generate Dockerfile for telemetrykeeper services
 	if config.Spec.TelemetryKeeper.Spec.Enabled {
 		dockerfileBuf := bytes.NewBuffer(nil)
 		err := telemetryKeeperDockerfileTemplate.Execute(dockerfileBuf, config)
@@ -65,7 +65,7 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 		}
 	}
 
-	// Add Dockerfile.clickhouse for telemetrystore services
+	// Add Dockerfile for telemetrystore services
 	if config.Spec.TelemetryStore.Spec.Enabled {
 		dockerfileBuf := bytes.NewBuffer(nil)
 		err := telemetryStoreDockerfileTemplate.Execute(dockerfileBuf, config)
@@ -85,7 +85,7 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 		}
 	}
 
-	// Add Dockerfile.otel for ingester services
+	// Add Dockerfile for ingester services
 	if config.Spec.Ingester.Spec.Enabled {
 		dockerfileBuf := bytes.NewBuffer(nil)
 		err := ingesterDockerfileTemplate.Execute(dockerfileBuf, config)

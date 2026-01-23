@@ -77,6 +77,26 @@ services:
     {{ end }}
   {{ end }}
 
+  {{ if $.Spec.TelemetryStore.Spec.Enabled }}
+  - name: {{ $.Metadata.Name}}-schema-migrator
+    type: worker
+    plan: standard
+    runtime: image
+    image:
+      url: docker.io/signoz/signoz-otel-collector:{{ $.Spec.Ingester.Spec.Version }}
+    envVars:
+      - key: CLICKHOUSE_HOST
+        fromService:
+          type: pserv
+          name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0
+          property: host
+    dockerCommand: |
+      /signoz-otel-collector migrate ready --clickhouse-dsn=tcp://${CLICKHOUSE_HOST}:9000 && \
+      /signoz-otel-collector migrate bootstrap --clickhouse-dsn=tcp://${CLICKHOUSE_HOST}:9000 && \
+      /signoz-otel-collector migrate sync up --clickhouse-dsn=tcp://${CLICKHOUSE_HOST}:9000 && \
+      /signoz-otel-collector migrate async up --clickhouse-dsn=tcp://${CLICKHOUSE_HOST}:9000
+  {{ end }}
+
 {{ if and $.Spec.MetaStore.Spec.Enabled (eq ($.Spec.MetaStore.Kind.String) "postgres") }}
 databases:
   - name: {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}
