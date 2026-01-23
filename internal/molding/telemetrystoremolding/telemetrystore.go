@@ -53,7 +53,7 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *v1alpha
 }
 
 func (molding *telemetrystore) getData(config *v1alpha1.Casting) (Data, error) {
-	storeAddresses := config.Spec.TelemetryStore.Status.Addresses[v1alpha1.TelemetryStoreClusterAddresses]
+	storeAddresses := config.Spec.TelemetryStore.Status.Addresses.TCP
 	if len(storeAddresses) == 0 {
 		return Data{}, fmt.Errorf("telemetry store addresses not set in status")
 	}
@@ -76,7 +76,7 @@ func (molding *telemetrystore) getData(config *v1alpha1.Casting) (Data, error) {
 		return Data{}, fmt.Errorf("failed to parse addresses: %w", err)
 	}
 
-	keeperAddresses := config.Spec.TelemetryKeeper.Status.Addresses[v1alpha1.TelemetryKeeperClientAddresses]
+	keeperAddresses := config.Spec.TelemetryKeeper.Status.Addresses.Client
 	if len(keeperAddresses) == 0 {
 		return Data{}, fmt.Errorf("telemetry keeper addresses not set in status")
 	}

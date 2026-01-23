@@ -68,8 +68,7 @@ func (e *linuxMoldingEnricher) enrichTelemetryStore(config *v1alpha1.Casting) er
 		}
 	}
 
-	initStatusMaps(&spec.Status)
-	spec.Status.Addresses[v1alpha1.TelemetryStoreClusterAddresses] = addresses
+	config.Spec.TelemetryStore.Status.Addresses.TCP = addresses
 	return nil
 }
 
@@ -92,44 +91,30 @@ func (e *linuxMoldingEnricher) enrichTelemetryKeeper(config *v1alpha1.Casting) e
 		raftAddresses = append(raftAddresses, types.FormatAddress("tcp", "localhost", baseTelemetryKeeperRaftPort+r))
 	}
 
-	initStatusMaps(&spec.Status)
-	spec.Status.Addresses[v1alpha1.TelemetryKeeperClientAddresses] = clientAddresses
-	spec.Status.Addresses[v1alpha1.TelemetryKeeperRaftAddresses] = raftAddresses
+	config.Spec.TelemetryKeeper.Status.Addresses.Client = clientAddresses
+	config.Spec.TelemetryKeeper.Status.Addresses.Raft = raftAddresses
 	return nil
 }
 
 func (e *linuxMoldingEnricher) enrichMetaStore(config *v1alpha1.Casting) error {
-	spec := &config.Spec.MetaStore
-	initStatusMaps(&spec.Status)
 	dsn := types.FormatAddress("postgres", "localhost", baseMetaStorePostgresPort)
-	spec.Status.Addresses[v1alpha1.MetaStoreDSNAddresses] = []string{dsn}
+	config.Spec.MetaStore.Status.Addresses.DSN = []string{dsn}
 	return nil
 }
 
 func (e *linuxMoldingEnricher) enrichSignoz(config *v1alpha1.Casting) error {
-	spec := &config.Spec.Signoz
-	initStatusMaps(&spec.Status)
-	spec.Status.Addresses[v1alpha1.SignozAPIAddresses] = []string{
+	config.Spec.Signoz.Status.Addresses.Opamp = []string{
+		types.FormatAddress("tcp", "localhost", 4320),
+	}
+	config.Spec.Signoz.Status.Addresses.APIServer = []string{
 		types.FormatAddress("tcp", "localhost", 8080),
 	}
 	return nil
 }
 
 func (e *linuxMoldingEnricher) enrichIngester(config *v1alpha1.Casting) error {
-	spec := &config.Spec.Ingester
-	initStatusMaps(&spec.Status)
-	spec.Status.Addresses[v1alpha1.IngesterReceiverAddresses] = []string{
+	config.Spec.Ingester.Status.Addresses.OTLP = []string{
 		types.FormatAddress("tcp", "localhost", 4317),
 	}
 	return nil
-}
-
-// initStatusMaps ensures all status maps are initialized.
-func initStatusMaps(status *v1alpha1.MoldingStatus) {
-	if status.Extras == nil {
-		status.Extras = make(map[string]string)
-	}
-	if status.Addresses == nil {
-		status.Addresses = make(map[string][]string)
-	}
 }

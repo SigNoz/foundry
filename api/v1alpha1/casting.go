@@ -39,23 +39,23 @@ type CastingStatus struct {
 }
 
 func MergeCastingSpecAndStatus(base *Casting) error {
-	if err := base.Spec.Signoz.Spec.MergeStatus(base.Spec.Signoz.Status); err != nil {
+	if err := base.Spec.Signoz.Spec.MergeStatus(base.Spec.Signoz.Status.MoldingStatus); err != nil {
 		return err
 	}
 
-	if err := base.Spec.TelemetryStore.Spec.MergeStatus(base.Spec.TelemetryStore.Status); err != nil {
+	if err := base.Spec.TelemetryStore.Spec.MergeStatus(base.Spec.TelemetryStore.Status.MoldingStatus); err != nil {
 		return err
 	}
 
-	if err := base.Spec.TelemetryKeeper.Spec.MergeStatus(base.Spec.TelemetryKeeper.Status); err != nil {
+	if err := base.Spec.TelemetryKeeper.Spec.MergeStatus(base.Spec.TelemetryKeeper.Status.MoldingStatus); err != nil {
 		return err
 	}
 
-	if err := base.Spec.MetaStore.Spec.MergeStatus(base.Spec.MetaStore.Status); err != nil {
+	if err := base.Spec.MetaStore.Spec.MergeStatus(base.Spec.MetaStore.Status.MoldingStatus); err != nil {
 		return err
 	}
 
-	if err := base.Spec.Ingester.Spec.MergeStatus(base.Spec.Ingester.Status); err != nil {
+	if err := base.Spec.Ingester.Spec.MergeStatus(base.Spec.Ingester.Status.MoldingStatus); err != nil {
 		return err
 	}
 

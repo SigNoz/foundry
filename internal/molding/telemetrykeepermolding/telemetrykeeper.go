@@ -56,8 +56,8 @@ func (molding *telemetrykeeper) getData(config *v1alpha1.Casting) (Data, error) 
 	data.ServerCount = serverCount
 
 	// Extract addresses from status
-	raftAddresses := config.Spec.TelemetryKeeper.Status.Addresses[v1alpha1.TelemetryKeeperRaftAddresses]
-	clientAddresses := config.Spec.TelemetryKeeper.Status.Addresses[v1alpha1.TelemetryKeeperClientAddresses]
+	raftAddresses := config.Spec.TelemetryKeeper.Status.Addresses.Raft
+	clientAddresses := config.Spec.TelemetryKeeper.Status.Addresses.Client
 
 	// Validate sufficient addresses for server count
 	if len(raftAddresses) < serverCount {

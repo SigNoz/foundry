@@ -55,17 +55,17 @@ func (molding *ingester) MoldV1Alpha1(ctx context.Context, config *v1alpha1.Cast
 }
 
 func (molding *ingester) getData(config *v1alpha1.Casting) (Data, error) {
-	if len(config.Spec.Signoz.Status.Addresses) == 0 {
+	if len(config.Spec.Signoz.Status.Addresses.Opamp) == 0 {
 		return Data{}, fmt.Errorf("signoz address is not set")
 	}
 
-	signozAddress := config.Spec.Signoz.Status.Addresses[v1alpha1.SignozAPIAddresses][0]
+	signozAddress := config.Spec.Signoz.Status.Addresses.Opamp[0]
 
-	if len(config.Spec.TelemetryStore.Status.Addresses) == 0 {
+	if len(config.Spec.TelemetryStore.Status.Addresses.TCP) == 0 {
 		return Data{}, fmt.Errorf("telemetry store address is not set")
 	}
 
-	telemetryStoreAddresses := config.Spec.TelemetryStore.Status.Addresses[v1alpha1.TelemetryStoreClusterAddresses]
+	telemetryStoreAddresses := config.Spec.TelemetryStore.Status.Addresses.TCP
 	var telemetryStoreTracesAddresses []string
 	for _, address := range telemetryStoreAddresses {
 		telemetryStoreTracesAddresses = append(telemetryStoreTracesAddresses, address+"/signoz_traces")

@@ -4,13 +4,6 @@ import (
 	"github.com/signoz/foundry/internal/types"
 )
 
-var (
-	// TelemetryKeeperRaftAddresses is the key for inter-keeper consensus coordination.
-	TelemetryKeeperRaftAddresses string = "raft"
-	// TelemetryKeeperClientAddresses is the key for client connections.
-	TelemetryKeeperClientAddresses string = "client"
-)
-
 type TelemetryKeeper struct {
 	// Kind of the telemetry keeper to use.
 	Kind TelemetryKeeperKind `json:"kind,omitzero" yaml:"kind,omitempty"`
@@ -18,7 +11,23 @@ type TelemetryKeeper struct {
 	// Specification for the telemetry keeper.
 	Spec MoldingSpec `json:"spec" yaml:"spec"`
 
-	Status MoldingStatus `json:"status" yaml:"status"`
+	// Status of the telemetry keeper.
+	Status TelemetryKeeperStatus `json:"status" yaml:"status"`
+}
+
+type TelemetryKeeperStatus struct {
+	MoldingStatus `json:",inline" yaml:",inline"`
+
+	// Addresses of the telemetry keeper.
+	Addresses TelemetryKeeperStatusAddresses `json:"addresses" yaml:"addresses"`
+}
+
+type TelemetryKeeperStatusAddresses struct {
+	// Raft addresses.
+	Raft []string `json:"raft" yaml:"raft"`
+
+	// Client addresses.
+	Client []string `json:"client" yaml:"client"`
 }
 
 func DefaultTelemetryKeeper() TelemetryKeeper {

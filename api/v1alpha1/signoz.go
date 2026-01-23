@@ -2,15 +2,26 @@ package v1alpha1
 
 import "github.com/signoz/foundry/internal/types"
 
-var (
-	// SignozAPIAddresses is the key for API endpoint addresses.
-	SignozAPIAddresses string = "api"
-)
-
 type SigNoz struct {
+	// Specification for signoz.
 	Spec MoldingSpec `json:"spec" yaml:"spec"`
 
-	Status MoldingStatus `json:"status" yaml:"status"`
+	// Status of signoz.
+	Status SigNozStatus `json:"status" yaml:"status"`
+}
+
+type SigNozStatus struct {
+	MoldingStatus `json:",inline" yaml:",inline"`
+
+	Addresses SigNozStatusAddresses `json:"addresses" yaml:"addresses"`
+}
+
+type SigNozStatusAddresses struct {
+	// API server addresses.
+	APIServer []string `json:"apiserver" yaml:"apiserver"`
+
+	// Opamp server addresses.
+	Opamp []string `json:"opamp" yaml:"opamp"`
 }
 
 func DefaultSigNoz() SigNoz {

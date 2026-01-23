@@ -4,11 +4,6 @@ import (
 	"github.com/signoz/foundry/internal/types"
 )
 
-var (
-	// MetaStoreDSNAddresses is the key for database connection addresses.
-	MetaStoreDSNAddresses string = "dsn"
-)
-
 type MetaStore struct {
 	// Kind of the meta store to use.
 	Kind MetaStoreKind `json:"kind,omitzero" yaml:"kind,omitempty"`
@@ -17,7 +12,18 @@ type MetaStore struct {
 	Spec MoldingSpec `json:"spec" yaml:"spec"`
 
 	// Status of the meta store.
-	Status MoldingStatus `json:"status" yaml:"status"`
+	Status MetaStoreStatus `json:"status" yaml:"status"`
+}
+
+type MetaStoreStatus struct {
+	MoldingStatus `json:",inline" yaml:",inline"`
+
+	Addresses MetaStoreStatusAddresses `json:"addresses" yaml:"addresses"`
+}
+
+type MetaStoreStatusAddresses struct {
+	// DSN addresses.
+	DSN []string `json:"dsn" yaml:"dsn"`
 }
 
 func DefaultMetaStore() MetaStore {

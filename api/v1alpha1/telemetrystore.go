@@ -4,11 +4,6 @@ import (
 	"github.com/signoz/foundry/internal/types"
 )
 
-var (
-	// TelemetryStoreClusterAddresses is the key for cluster node addresses.
-	TelemetryStoreClusterAddresses string = "cluster"
-)
-
 type TelemetryStore struct {
 	// Kind of the telemetry store to use.
 	Kind TelemetryStoreKind `json:"kind,omitzero" yaml:"kind,omitempty"`
@@ -17,7 +12,18 @@ type TelemetryStore struct {
 	Spec MoldingSpec `json:"spec" yaml:"spec"`
 
 	// Status of the telemetry store.
-	Status MoldingStatus `json:"status" yaml:"status"`
+	Status TelemetryStoreStatus `json:"status" yaml:"status"`
+}
+
+type TelemetryStoreStatus struct {
+	MoldingStatus `json:",inline" yaml:",inline"`
+
+	Addresses TelemetryStoreStatusAddresses `json:"addresses" yaml:"addresses"`
+}
+
+type TelemetryStoreStatusAddresses struct {
+	// TCP addresses.
+	TCP []string `json:"tcp" yaml:"tcp"`
 }
 
 func DefaultTelemetryStore() TelemetryStore {

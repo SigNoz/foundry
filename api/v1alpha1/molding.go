@@ -23,9 +23,6 @@ type MoldingSpec struct {
 }
 
 type MoldingStatus struct {
-	// Status of the molding
-	Addresses map[string][]string `json:"addresses,omitempty" yaml:"addresses,omitempty"`
-
 	// Extra information about the molding
 	Extras map[string]string `json:"extras,omitempty" yaml:"extras,omitempty"`
 
