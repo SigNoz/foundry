@@ -19,11 +19,6 @@ var (
 	MetaStoreKindSQLite   MetaStoreKind = MetaStoreKind{s: "sqlite"}
 )
 
-var (
-	// MetaStoreDSNAddresses is the key for database connection addresses.
-	MetaStoreDSNAddresses string = "dsn"
-)
-
 type MetaStoreKind struct {
 	s string
 }
