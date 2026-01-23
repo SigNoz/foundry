@@ -49,6 +49,6 @@ func (kind *MoldingKind) UnmarshalYAML(node *yaml.Node) error {
 	return kind.UnmarshalText([]byte(node.Value))
 }
 
-func (kind MoldingKind) MarshalYAML() (interface{}, error) {
+func (kind MoldingKind) MarshalYAML() (any, error) {
 	return kind.String(), nil
 }

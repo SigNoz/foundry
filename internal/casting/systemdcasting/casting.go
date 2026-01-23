@@ -5,9 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+
 	"github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/molding"
-	"log/slog"
 
 	"net"
 	"os"
@@ -243,8 +244,8 @@ func (c *systemdCasting) forgeTelemetryStore(tmpl *types.Template, cfg *v1alpha1
 	spec.Status.Extras["cfgPath"] = filepath.Join("/etc/clickhouse-server/", filepath.Base(mats[0].Path()))
 
 	// Create service materials for each shard/replica
-	for s := 0; s < shards; s++ {
-		for r := 0; r < reps; r++ {
+	for s := range shards {
+		for r := range reps {
 			svcName := fmt.Sprintf("%s-telemetrystore-%s-%d-%d%s", cfg.Metadata.Name, kind, s, r, svcSuffix)
 			svcMat, err := c.renderTemplate(tmpl, cfg, svcName)
 			if err != nil {

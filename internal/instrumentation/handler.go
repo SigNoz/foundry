@@ -174,10 +174,7 @@ func (handler *PrettyHandler) appendAttr(buf *Buffer, attr slog.Attr, key bool, 
 		// Add spaces after the level key.
 		if attr.Key == slog.LevelKey {
 			// The total spaces should be totalLevelSpaces.
-			spaces := totalLevelSpaces - len(attr.Value.String())
-			if spaces < 0 {
-				spaces = 0
-			}
+			spaces := max(totalLevelSpaces-len(attr.Value.String()), 0)
 			_, _ = buf.Write(bytes.Repeat([]byte(" "), spaces))
 		}
 	}

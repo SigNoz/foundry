@@ -1,5 +1,7 @@
 package v1alpha1
 
+import "maps"
+
 type MoldingSpec struct {
 	// Whether the molding is enabled
 	Enabled bool `json:"enabled,omitempty" yaml:"enabled,omitempty"`
@@ -43,9 +45,7 @@ func (spec *MoldingSpec) MergeStatus(status MoldingStatus) error {
 		status.Env = make(map[string]string)
 	}
 
-	for key, value := range status.Env {
-		spec.Env[key] = value
-	}
+	maps.Copy(spec.Env, status.Env)
 
 	if err := Merge(&spec.Config, status.Config); err != nil {
 		return err

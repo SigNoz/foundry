@@ -66,6 +66,6 @@ func (kind *MetaStoreKind) UnmarshalYAML(node *yaml.Node) error {
 	return kind.UnmarshalText([]byte(node.Value))
 }
 
-func (kind MetaStoreKind) MarshalYAML() (interface{}, error) {
+func (kind MetaStoreKind) MarshalYAML() (any, error) {
 	return kind.String(), nil
 }

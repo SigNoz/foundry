@@ -65,6 +65,6 @@ func (kind *TelemetryKeeperKind) UnmarshalYAML(node *yaml.Node) error {
 	return kind.UnmarshalText([]byte(node.Value))
 }
 
-func (kind TelemetryKeeperKind) MarshalYAML() (interface{}, error) {
+func (kind TelemetryKeeperKind) MarshalYAML() (any, error) {
 	return kind.String(), nil
 }

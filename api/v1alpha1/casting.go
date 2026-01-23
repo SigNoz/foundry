@@ -4,13 +4,13 @@ type Casting struct {
 	TypeVersion `json:",inline" yaml:",inline"`
 
 	// Metadata of the casting configuration.
-	Metadata TypeMetadata `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Metadata TypeMetadata `json:"metadata" yaml:"metadata"`
 
 	// Specification for the casting.
-	Spec CastingSpec `json:"spec,omitempty" yaml:"spec,omitempty"`
+	Spec CastingSpec `json:"spec" yaml:"spec"`
 
 	// Status of the casting.
-	Status CastingStatus `json:"status,omitempty" yaml:"status,omitempty"`
+	Status CastingStatus `json:"status" yaml:"status"`
 }
 
 type CastingSpec struct {
