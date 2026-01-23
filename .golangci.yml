@@ -15,6 +15,9 @@ linters:
     - unused
     - staticcheck
     - godot
+    - gocyclo
+    - wastedassign
+    - modernize
   settings:
     iface:
       enable:
