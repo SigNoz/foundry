@@ -14,10 +14,10 @@ type TelemetryStore struct {
 	Kind TelemetryStoreKind `json:"kind,omitzero" yaml:"kind,omitempty"`
 
 	// Specification for the telemetry store.
-	Spec MoldingSpec `json:"spec,omitempty" yaml:"spec,omitempty"`
+	Spec MoldingSpec `json:"spec" yaml:"spec"`
 
 	// Status of the telemetry store.
-	Status MoldingStatus `json:"status,omitempty" yaml:"status,omitempty"`
+	Status MoldingStatus `json:"status" yaml:"status"`
 }
 
 func DefaultTelemetryStore() TelemetryStore {

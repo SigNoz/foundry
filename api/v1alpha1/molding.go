@@ -7,7 +7,7 @@ type MoldingSpec struct {
 	Enabled bool `json:"enabled,omitempty" yaml:"enabled,omitempty"`
 
 	// Cluster configuration for the molding
-	Cluster TypeCluster `json:"cluster,omitempty" yaml:"cluster,omitempty"`
+	Cluster TypeCluster `json:"cluster" yaml:"cluster"`
 
 	// The version of the molding to use
 	Version string `json:"version,omitempty" yaml:"version,omitempty"`
@@ -19,7 +19,7 @@ type MoldingSpec struct {
 	Env map[string]string `json:"env,omitempty" yaml:"env,omitempty"`
 
 	// Configuration for the molding
-	Config TypeConfig `json:"config,omitempty" yaml:"config,omitempty"`
+	Config TypeConfig `json:"config" yaml:"config"`
 }
 
 type MoldingStatus struct {
@@ -33,7 +33,7 @@ type MoldingStatus struct {
 	Env map[string]string `json:"env,omitempty" yaml:"env,omitempty"`
 
 	// Configuration for the molding
-	Config TypeConfig `json:"config,omitempty" yaml:"config,omitempty"`
+	Config TypeConfig `json:"config" yaml:"config"`
 }
 
 func (spec *MoldingSpec) MergeStatus(status MoldingStatus) error {

@@ -8,9 +8,9 @@ var (
 )
 
 type SigNoz struct {
-	Spec MoldingSpec `json:"spec,omitempty" yaml:"spec,omitempty"`
+	Spec MoldingSpec `json:"spec" yaml:"spec"`
 
-	Status MoldingStatus `json:"status,omitempty" yaml:"status,omitempty"`
+	Status MoldingStatus `json:"status" yaml:"status"`
 }
 
 func DefaultSigNoz() SigNoz {
