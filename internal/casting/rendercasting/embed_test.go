@@ -10,9 +10,9 @@ import (
 
 func TestNotEmptyAndValid(t *testing.T) {
 	serviceTemplates := map[string]*types.Template{
-		"telemetryKeeperDockerfileTemplate":  telemetryKeeperDockerfileTemplate,
-		"telemetryStoreDockerfileTemplate": telemetryStoreDockerfileTemplate,
-		"renderYAMLTemplate":       renderYAMLTemplate,
+		"telemetryKeeperDockerfileTemplate": telemetryKeeperDockerfileTemplate,
+		"telemetryStoreDockerfileTemplate":  telemetryStoreDockerfileTemplate,
+		"renderYAMLTemplate":                renderYAMLTemplate,
 	}
 
 	for name, st := range serviceTemplates {

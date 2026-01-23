@@ -3,6 +3,7 @@ package rendercasting
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/molding"
@@ -15,34 +16,31 @@ type renderMoldingEnricher struct {
 	material types.Material
 }
 
-func newRenderMoldingEnricher(config *v1alpha1.Casting) *renderMoldingEnricher {
-	return &renderMoldingEnricher{material: types.Material{}}
+func newRenderMoldingEnricher(config *v1alpha1.Casting) (*renderMoldingEnricher, error) {
+	material, err := getRenderMaterial(config, "render.yaml")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get render yaml material: %w", err)
+	}
+
+	return &renderMoldingEnricher{material: material}, nil
 }
 
 func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *v1alpha1.Casting) error {
 	switch kind {
 	case v1alpha1.MoldingKindTelemetryStore:
-		// For Render, we use service names for addresses
-		// Service names follow format: name-telemetrystore-kind-shard-replica
-		// Collect all addresses from all shards and replicas
-		var addresses []string
-		replicas := 1
-		shards := 1
-		cluster := config.Spec.TelemetryKeeper.Spec.Cluster
-		if cluster.Replicas != nil {
-			replicas = max(*config.Spec.TelemetryStore.Spec.Cluster.Replicas+1, 1)
+		// Get telemetrystore service names
+		serviceNames, err := enricher.material.GetStringSlice("services.#.name")
+		if err != nil {
+			return fmt.Errorf("failed to get telemetrystore service names: %w", err)
 		}
-		if cluster.Shards != nil {
-			shards = max(*config.Spec.TelemetryStore.Spec.Cluster.Shards, 1)
-		}
-		for shardIdx := 0; shardIdx < shards; shardIdx++ {
-			for replicaIdx := 0; replicaIdx < replicas; replicaIdx++ {
-				serviceName := fmt.Sprintf("%s-telemetrystore-%s-%d-%d", config.Metadata.Name, config.Spec.TelemetryStore.Kind.String(), shardIdx, replicaIdx)
-				address := types.FormatAddress("tcp", serviceName, 9000)
-				addresses = append(addresses, address)
+
+		var telemetrystoreAddresses []string
+		for _, serviceName := range serviceNames {
+			if strings.Contains(serviceName, "telemetrystore") {
+				telemetrystoreAddresses = append(telemetrystoreAddresses, types.FormatAddress("tcp", serviceName, 9000))
 			}
 		}
-		config.Spec.TelemetryStore.Status.Addresses.TCP = addresses
+		config.Spec.TelemetryStore.Status.Addresses.TCP = telemetrystoreAddresses
 
 	case v1alpha1.MoldingKindSignoz:
 		// For Render, we use service names for addresses
@@ -53,33 +51,37 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 		config.Spec.Signoz.Status.Addresses.Opamp = []string{address}
 
 	case v1alpha1.MoldingKindTelemetryKeeper:
-		// For Render, we use service names for addresses
-		// Service names follow format: name-telemetrykeeper-kind-N
-		// We need to collect all replica addresses
-		var clientAddresses []string
-		var raftAddresses []string
-		replicas := int(*config.Spec.TelemetryKeeper.Spec.Cluster.Replicas)
-		for i := 0; i < replicas; i++ {
-			serviceName := fmt.Sprintf("%s-telemetrykeeper-%s-%d", config.Metadata.Name, config.Spec.TelemetryKeeper.Kind.String(), i)
-			clientAddress := types.FormatAddress("tcp", serviceName, 9181)
-			raftAddress := types.FormatAddress("tcp", serviceName, 9234)
-			clientAddresses = append(clientAddresses, clientAddress)
-			raftAddresses = append(raftAddresses, raftAddress)
+		// Get telemetrykeeper service names
+		serviceNames, err := enricher.material.GetStringSlice("services.#.name")
+		if err != nil {
+			return fmt.Errorf("failed to get telemetrykeeper service names: %w", err)
 		}
-		config.Spec.TelemetryKeeper.Status.Addresses.Client = clientAddresses
-		config.Spec.TelemetryKeeper.Status.Addresses.Raft = raftAddresses
+
+		var telemetrykeeperClientAddresses []string
+		var telemetrykeeperRaftAddresses []string
+		for _, serviceName := range serviceNames {
+			if strings.Contains(serviceName, "telemetrykeeper") {
+				telemetrykeeperClientAddresses = append(telemetrykeeperClientAddresses, types.FormatAddress("tcp", serviceName, 9181))
+				telemetrykeeperRaftAddresses = append(telemetrykeeperRaftAddresses, types.FormatAddress("tcp", serviceName, 9234))
+			}
+		}
+		config.Spec.TelemetryKeeper.Status.Addresses.Client = telemetrykeeperClientAddresses
+		config.Spec.TelemetryKeeper.Status.Addresses.Raft = telemetrykeeperRaftAddresses
 
 	case v1alpha1.MoldingKindIngester:
-		// For Render, we use service names for addresses
-		// Service names follow format: name-ingester-N
-		var addresses []string
-		replicas := int(*config.Spec.Ingester.Spec.Cluster.Replicas)
-		for i := 0; i < replicas; i++ {
-			serviceName := fmt.Sprintf("%s-ingester-%d", config.Metadata.Name, i)
-			address := types.FormatAddress("tcp", serviceName, 4318)
-			addresses = append(addresses, address)
+		// Get ingester service names
+		serviceNames, err := enricher.material.GetStringSlice("services.#.name")
+		if err != nil {
+			return fmt.Errorf("failed to get ingester service names: %w", err)
 		}
-		config.Spec.Ingester.Status.Addresses.OTLP = addresses
+
+		var ingesterAddresses []string
+		for _, serviceName := range serviceNames {
+			if strings.Contains(serviceName, "ingester") {
+				ingesterAddresses = append(ingesterAddresses, types.FormatAddress("tcp", serviceName, 4318))
+			}
+		}
+		config.Spec.Ingester.Status.Addresses.OTLP = ingesterAddresses
 	}
 
 	return nil

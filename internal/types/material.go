@@ -77,7 +77,7 @@ func (m Material) FmtContents() []byte {
 		}
 		return fmtContents
 	case FormatText:
-		// For text format, contents are stored as raw bytes (not JSON)
+		// For text format, contents are stored as raw bytes (not JSON, as gjson not needed)
 		return m.contents
 	default:
 		return m.contents

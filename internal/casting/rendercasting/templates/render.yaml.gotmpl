@@ -23,11 +23,6 @@ services:
     runtime: docker
     dockerfilePath: telemetrystore/Dockerfile
     dockerContext: clickhouse
-    envVars:
-      - key: CLICKHOUSE_SKIP_USER_SETUP
-        value: "1"
-      - key: CLICKHOUSE_CONFIG
-        value: /etc/clickhouse-server/config.yaml
     disk:
       name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}-data
       mountPath: /var/lib/clickhouse
@@ -51,10 +46,6 @@ services:
         value: {{ $value }}
       {{ end }}
     {{ end }}
-    disk:
-      name: {{ $.Metadata.Name }}-ingester-{{ $replicaIdx }}-data
-      mountPath: /var/lib/signoz
-      sizeGB: 5
   {{ end }}
   {{ end }}
 

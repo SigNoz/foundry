@@ -32,26 +32,20 @@ func New(logger *slog.Logger) *renderCasting {
 }
 
 func (c *renderCasting) Enricher(ctx context.Context, config *v1alpha1.Casting) (molding.MoldingEnricher, error) {
-	return newRenderMoldingEnricher(config), nil
+	return newRenderMoldingEnricher(config)
 }
 
 func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPath string) ([]types.Material, error) {
 	var materials []types.Material
 
-	// Generate render.yaml with custom template functions
-	buf := bytes.NewBuffer(nil)
-	err := c.castings[0].Execute(buf, config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute render yaml template: %w", err)
-	}
-
-	blueprintMaterial, err := types.NewYAMLMaterial(buf.Bytes(), "render.yaml")
+	// Generate render.yaml
+	blueprintMaterial, err := getRenderMaterial(&config, "render.yaml")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create blueprint yaml material: %w", err)
 	}
 	materials = append(materials, blueprintMaterial)
 
-	// Add Dockerfile.keeper for telemetrykeeper services
+	// Generate Dockerfile.keeper for telemetrykeeper services
 	if config.Spec.TelemetryKeeper.Spec.Enabled {
 		dockerfileBuf := bytes.NewBuffer(nil)
 		err := telemetryKeeperDockerfileTemplate.Execute(dockerfileBuf, config)
@@ -114,7 +108,19 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 }
 
 func (c *renderCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPath string) error {
-	c.logger.InfoContext(ctx, "Render casting - Please Generate the render.yaml with forge", slog.String("pours_path", poursPath))
-	c.logger.InfoContext(ctx, "Please deploy the render.yaml to Render using: render blueprint deploy render.yaml")
+	c.logger.InfoContext(ctx, "Please run 'forge' first to generate the Render Casting",
+		slog.String("pours_path", poursPath))
+	c.logger.InfoContext(ctx, "After forging, deploy render.yaml to Render using Infrastructure as Code",
+		slog.String("Docs", "https://render.com/docs/infrastructure-as-code#setup"))
 	return nil
+}
+
+func getRenderMaterial(config *v1alpha1.Casting, path string) (types.Material, error) {
+	buf := bytes.NewBuffer(nil)
+	err := renderYAMLTemplate.Execute(buf, config)
+	if err != nil {
+		return types.Material{}, fmt.Errorf("failed to execute render yaml template: %w", err)
+	}
+
+	return types.NewYAMLMaterial(buf.Bytes(), path)
 }
