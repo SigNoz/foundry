@@ -85,16 +85,15 @@ services:
     image:
       url: docker.io/signoz/signoz-otel-collector:{{ $.Spec.Ingester.Spec.Version }}
     envVars:
-      - key: CLICKHOUSE_HOST
-        fromService:
-          type: pserv
-          name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0
-          property: host
+      {{ if index $.Spec.Signoz.Status.Env "SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN" }}
+      - key: CLICKHOUSE_DSN
+        value: {{ index $.Spec.Signoz.Status.Env "SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN" }}
+      {{ end }}
     dockerCommand: |
-      /signoz-otel-collector migrate ready --clickhouse-dsn=tcp://${CLICKHOUSE_HOST}:9000 && \
-      /signoz-otel-collector migrate bootstrap --clickhouse-dsn=tcp://${CLICKHOUSE_HOST}:9000 && \
-      /signoz-otel-collector migrate sync up --clickhouse-dsn=tcp://${CLICKHOUSE_HOST}:9000 && \
-      /signoz-otel-collector migrate async up --clickhouse-dsn=tcp://${CLICKHOUSE_HOST}:9000
+      /signoz-otel-collector migrate ready --clickhouse-dsn=tcp://${CLICKHOUSE_DSN}:9000 && \
+      /signoz-otel-collector migrate bootstrap --clickhouse-dsn=tcp://${CLICKHOUSE_DSN}:9000 && \
+      /signoz-otel-collector migrate sync up --clickhouse-dsn=tcp://${CLICKHOUSE_DSN}:9000 && \
+      /signoz-otel-collector migrate async up --clickhouse-dsn=tcp://${CLICKHOUSE_DSN}:9000
   {{ end }}
 
 {{ if and $.Spec.MetaStore.Spec.Enabled (eq ($.Spec.MetaStore.Kind.String) "postgres") }}
