@@ -2,17 +2,17 @@
 WantedBy=multi-user.target
 
 [Service]
-EnvironmentFile=/Users/grandwizard/Stash/foundry/examples/systemd/binary/pours/signoz-signoz/signoz-signoz.env
-Restart=on-failure
-Type=simple
 User=signoz
-WorkingDirectory=/opt/signoz
 Environment=SIGNOZ_WEB_DIRECTORY=/opt/signoz/web
 ExecStart=/opt/signoz/bin/signoz server
+Restart=on-failure
+Type=simple
+WorkingDirectory=/opt/signoz
+EnvironmentFile=/Users/grandwizard/Stash/foundry/examples/systemd/binary/pours/signoz-signoz/signoz-signoz.env
 Group=signoz
 KillMode=mixed
 
 [Unit]
+Documentation=https://signoz.io/docs
 After=signoz-telemetrystore-clickhouse-0-0 signoz-metastore-postgres
 Description=SigNoz
-Documentation=https://signoz.io/docs
