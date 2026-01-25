@@ -1,3 +1,8 @@
+[Unit]
+After=signoz-telemetrystore-clickhouse-0-0 signoz-metastore-postgres
+Description=SigNoz
+Documentation=https://signoz.io/docs
+
 [Install]
 WantedBy=multi-user.target
 
@@ -11,8 +16,3 @@ Restart=on-failure
 Type=simple
 User=signoz
 WorkingDirectory=/opt/signoz
-
-[Unit]
-After=signoz-telemetrystore-clickhouse-0-0 signoz-metastore-postgres
-Description=SigNoz
-Documentation=https://signoz.io/docs
