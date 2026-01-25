@@ -12,6 +12,7 @@ func TestNotEmptyAndValid(t *testing.T) {
 	serviceTemplates := map[string]*types.Template{
 		"telemetryKeeperDockerfileTemplate": telemetryKeeperDockerfileTemplate,
 		"telemetryStoreDockerfileTemplate":  telemetryStoreDockerfileTemplate,
+		"ingesterDockerfileTemplate":        ingesterDockerfileTemplate,
 		"renderYAMLTemplate":                renderYAMLTemplate,
 	}
 
