@@ -1,4 +1,4 @@
-FROM clickhouse/clickhouse-server:{{ $.Spec.TelemetryStore.Spec.Version }}
+FROM clickhouse/clickhouse-server:25.5.6
 
 COPY configs/config.yaml /etc/clickhouse-server/config.yaml
 COPY configs/functions.yaml /etc/clickhouse-server/config.d/functions.yaml

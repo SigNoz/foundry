@@ -34,21 +34,37 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 			return fmt.Errorf("failed to get telemetrystore service names: %w", err)
 		}
 
-		var telemetrystoreAddresses []string
+		var addrs []string
+		var storeServiceNames []string
 		for _, serviceName := range serviceNames {
 			if strings.Contains(serviceName, "telemetrystore") {
-				telemetrystoreAddresses = append(telemetrystoreAddresses, types.FormatAddress("tcp", serviceName, 9000))
+				addrs = append(addrs, types.FormatAddress("tcp", serviceName, 9000))
+				storeServiceNames = append(storeServiceNames, serviceName)
 			}
 		}
-		config.Spec.TelemetryStore.Status.Addresses.TCP = telemetrystoreAddresses
+		config.Spec.TelemetryStore.Status.Addresses.TCP = addrs
+
+		// Store service names in extras for template usage
+		if config.Spec.TelemetryStore.Status.Extras == nil {
+			config.Spec.TelemetryStore.Status.Extras = make(map[string]string)
+		}
+		config.Spec.TelemetryStore.Status.Extras["service_names"] = strings.Join(storeServiceNames, ",")
 
 	case v1alpha1.MoldingKindSignoz:
-		// For Render, we use service names for addresses
-		// Service names follow format: name-signoz-N
-		serviceName := fmt.Sprintf("%s-signoz", config.Metadata.Name)
-		address := types.FormatAddress("http", serviceName, 8080)
-		config.Spec.Signoz.Status.Addresses.APIServer = []string{address}
-		config.Spec.Signoz.Status.Addresses.Opamp = []string{address}
+		// Get telemetrystore service names
+		serviceNames, err := enricher.material.GetStringSlice("services.#.name")
+		if err != nil {
+			return fmt.Errorf("failed to get telemetrystore service names: %w", err)
+		}
+
+		var addrs []string
+		for _, serviceName := range serviceNames {
+			if strings.Contains(serviceName, "signoz") {
+				addrs = append(addrs, types.FormatAddress("http", serviceName, 8080))
+			}
+		}
+		config.Spec.Signoz.Status.Addresses.APIServer = addrs
+		config.Spec.Signoz.Status.Addresses.Opamp = addrs
 
 	case v1alpha1.MoldingKindTelemetryKeeper:
 		// Get telemetrykeeper service names
@@ -57,16 +73,24 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 			return fmt.Errorf("failed to get telemetrykeeper service names: %w", err)
 		}
 
-		var telemetrykeeperClientAddresses []string
-		var telemetrykeeperRaftAddresses []string
+		var addrsClient []string
+		var addrsRaft []string
+		var keeperServiceNames []string
 		for _, serviceName := range serviceNames {
 			if strings.Contains(serviceName, "telemetrykeeper") {
-				telemetrykeeperClientAddresses = append(telemetrykeeperClientAddresses, types.FormatAddress("tcp", serviceName, 9181))
-				telemetrykeeperRaftAddresses = append(telemetrykeeperRaftAddresses, types.FormatAddress("tcp", serviceName, 9234))
+				addrsClient = append(addrsClient, types.FormatAddress("tcp", serviceName, 9181))
+				addrsRaft = append(addrsRaft, types.FormatAddress("tcp", serviceName, 9234))
+				keeperServiceNames = append(keeperServiceNames, serviceName)
 			}
 		}
-		config.Spec.TelemetryKeeper.Status.Addresses.Client = telemetrykeeperClientAddresses
-		config.Spec.TelemetryKeeper.Status.Addresses.Raft = telemetrykeeperRaftAddresses
+		config.Spec.TelemetryKeeper.Status.Addresses.Client = addrsClient
+		config.Spec.TelemetryKeeper.Status.Addresses.Raft = addrsRaft
+
+		// Store service names in extras for template usage
+		if config.Spec.TelemetryKeeper.Status.Extras == nil {
+			config.Spec.TelemetryKeeper.Status.Extras = make(map[string]string)
+		}
+		config.Spec.TelemetryKeeper.Status.Extras["service_names"] = strings.Join(keeperServiceNames, ",")
 
 	case v1alpha1.MoldingKindIngester:
 		// Get ingester service names
@@ -75,13 +99,13 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 			return fmt.Errorf("failed to get ingester service names: %w", err)
 		}
 
-		var ingesterAddresses []string
+		var addrs []string
 		for _, serviceName := range serviceNames {
 			if strings.Contains(serviceName, "ingester") {
-				ingesterAddresses = append(ingesterAddresses, types.FormatAddress("tcp", serviceName, 4318))
+				addrs = append(addrs, types.FormatAddress("tcp", serviceName, 4318))
 			}
 		}
-		config.Spec.Ingester.Status.Addresses.OTLP = ingesterAddresses
+		config.Spec.Ingester.Status.Addresses.OTLP = addrs
 	}
 
 	return nil

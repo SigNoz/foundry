@@ -1,4 +1,4 @@
-FROM clickhouse/clickhouse-keeper:{{ $.Spec.TelemetryKeeper.Spec.Version }}
+FROM clickhouse/clickhouse-keeper:25.5.6
 
 # Copy all keeper config files
 COPY configs/ /etc/clickhouse-keeper/

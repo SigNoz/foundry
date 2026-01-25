@@ -121,6 +121,5 @@ func getRenderMaterial(config *v1alpha1.Casting, path string) (types.Material, e
 	if err != nil {
 		return types.Material{}, fmt.Errorf("failed to execute render yaml template: %w", err)
 	}
-
 	return types.NewYAMLMaterial(buf.Bytes(), path)
 }

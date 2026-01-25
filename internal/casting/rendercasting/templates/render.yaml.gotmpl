@@ -32,6 +32,15 @@ services:
         value: "1"
       - key: CLICKHOUSE_CONFIG
         value: /etc/clickhouse-server/config.yaml
+      {{ if index $.Spec.TelemetryKeeper.Status.Extras "service_names" }}
+      {{ range $index, $serviceName := splitList "," (index $.Spec.TelemetryKeeper.Status.Extras "service_names") }}
+      - key: DEPENDENCY_LINK_{{ $index }}
+        fromService:
+          name: {{ $serviceName }}
+          type: pserv
+          property: host
+      {{ end }}
+      {{ end }}
   {{ end }}
   {{ end }}
   {{ end }}
@@ -44,13 +53,22 @@ services:
     runtime: docker
     dockerfilePath: ingester/Dockerfile
     dockerContext: ingester
-    {{ if $.Spec.Ingester.Spec.Env }}
     envVars:
+      {{ if $.Spec.Ingester.Spec.Env }}
       {{ range $key, $value := $.Spec.Ingester.Spec.Env }}
       - key: {{ $key }}
         value: {{ $value }}
       {{ end }}
-    {{ end }}
+      {{ end }}
+      {{ if index $.Spec.TelemetryStore.Status.Extras "service_names" }}
+      {{ range $index, $serviceName := splitList "," (index $.Spec.TelemetryStore.Status.Extras "service_names") }}
+      - key: DEPENDENCY_LINK_{{ $index }}
+        fromService:
+          name: {{ $serviceName }}
+          type: pserv
+          property: host
+      {{ end }}
+      {{ end }}
   {{ end }}
   {{ end }}
 
@@ -75,39 +93,45 @@ services:
           name: {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}
           property: connectionString
     {{ end }}
+    {{ if index $.Spec.TelemetryStore.Status.Extras "service_names" }}
+    {{ range $index, $serviceName := splitList "," (index $.Spec.TelemetryStore.Status.Extras "service_names") }}
+      - key: DEPENDENCY_LINK_{{ $index }}
+        fromService:
+          name: {{ $serviceName }}
+          type: pserv
+          property: host
+    {{ end }}
+    {{ end }}
   {{ end }}
 
   {{ if $.Spec.TelemetryStore.Spec.Enabled }}
-  - name: {{ $.Metadata.Name}}-schema-migrator-sync
+  - name: {{ $.Metadata.Name}}-schema-migrator
     type: worker
     plan: standard
     runtime: image
     image:
-      url: docker.io/signoz/signoz-otel-collector:{{ $.Spec.Ingester.Spec.Version }}
+      url: docker.io/signoz/signoz-otel-collector:v0.129.13-rc.2
     envVars:
-      {{ if index $.Spec.Signoz.Status.Env "SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN" }}
+      {{ if index $.Spec.Signoz.Spec.Env "SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN" }}
       - key: CLICKHOUSE_DSN
-        value: {{ index $.Spec.Signoz.Status.Env "SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN" }}
+        value: {{ index $.Spec.Signoz.Spec.Env "SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN" }}
       {{ end }}
-    preDeployCommand: /signoz-otel-collector migrate ready --clickhouse-dsn=${CLICKHOUSE_DSN}
-    dockerCommand:
-      /signoz-otel-collector migrate bootstrap --clickhouse-dsn=${CLICKHOUSE_DSN} && /signoz-otel-collector migrate sync up --clickhouse-dsn=${CLICKHOUSE_DSN}
-  {{ end }}
-  {{ if $.Spec.TelemetryStore.Spec.Enabled }}
-  - name: {{ $.Metadata.Name}}-schema-migrator-async
-    type: worker
-    plan: standard
-    runtime: image
-    image:
-      url: docker.io/signoz/signoz-otel-collector:{{ $.Spec.Ingester.Spec.Version }}
-      {{ if index $.Spec.Signoz.Status.Env "SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN" }}
-      - key: CLICKHOUSE_DSN
-        value: {{ index $.Spec.Signoz.Status.Env "SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN" }}
+      {{ if index $.Spec.TelemetryStore.Status.Extras "service_names" }}
+      {{ range $index, $serviceName := splitList "," (index $.Spec.TelemetryStore.Status.Extras "service_names") }}
+      - key: DEPENDENCY_LINK_{{ $index }}
+        fromService:
+          name: {{ $serviceName }}
+          type: pserv
+          property: host
       {{ end }}
-    preDeployCommand: /signoz-otel-collector migrate ready --clickhouse-dsn=${CLICKHOUSE_DSN}
-    dockerCommand:
-      /signoz-otel-collector migrate async up --clickhouse-dsn=${CLICKHOUSE_DSN}
+      {{ end }}
+    preDeployCommand: /signoz-otel-collector migrate ready --clickhouse-dsn=${CLICKHOUSE_DSN} --timeout 60s
+    dockerCommand: |
+      /bin/sh -c /signoz-otel-collector migrate bootstrap --clickhouse-dsn=$CLICKHOUSE_DSN
+        && /signoz-otel-collector migrate sync up --clickhouse-dsn=$CLICKHOUSE_DSN
+        && /signoz-otel-collector migrate async up --clickhouse-dsn=$CLICKHOUSE_DSN
   {{ end }}
+
 {{ if and $.Spec.MetaStore.Spec.Enabled (eq ($.Spec.MetaStore.Kind.String) "postgres") }}
 databases:
   - name: {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}

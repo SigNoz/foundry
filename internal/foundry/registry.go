@@ -51,7 +51,8 @@ func NewRegistry(logger *slog.Logger) (*Registry, error) {
 			},
 			{
 				Platform: "render",
-			}:{
+				Flavor:   "blueprint",
+			}: {
 				Casting: rendercasting.New(logger),
 			},
 		},
