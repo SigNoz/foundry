@@ -2,14 +2,14 @@
 WantedBy=multi-user.target
 
 [Service]
-Type=notify
-User=postgres
 EnvironmentFile=/Users/grandwizard/Stash/foundry/examples/systemd/binary/pours/signoz-metastore-postgres/signoz-metastore-postgres.env
 ExecReload=/bin/kill -HUP $MAINPID
 ExecStart=/usr/bin/postgres -D /usr/local/pgsql/data
 KillMode=mixed
 KillSignal=SIGINT
 TimeoutSec=infinity
+Type=notify
+User=postgres
 
 [Unit]
 After=network-online.target

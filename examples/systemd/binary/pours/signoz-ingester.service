@@ -2,12 +2,12 @@
 WantedBy=multi-user.target
 
 [Service]
-User=signoz
 ExecStart=/opt/ingester/bin/signoz-otel-collector --config=/Users/grandwizard/Stash/foundry/examples/systemd/binary/pours/ingestor/ingester.yaml --manager-config=/Users/grandwizard/Stash/foundry/examples/systemd/binary/pours/ingestor/opamp.yaml
 Group=signoz
 KillMode=mixed
 Restart=on-failure
 Type=simple
+User=signoz
 
 [Unit]
 After=signoz-telemetrystore-clickhouse-0-0
