@@ -59,6 +59,7 @@ tmp/
 
 ### Foundry ###
 pours/
+!examples/**/pours/
 
 ### VSCode ###
 !.vscode/settings.json

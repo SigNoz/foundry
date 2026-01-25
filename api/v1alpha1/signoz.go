@@ -7,13 +7,13 @@ type SigNoz struct {
 	Spec MoldingSpec `json:"spec" yaml:"spec"`
 
 	// Status of signoz.
-	Status SigNozStatus `json:"status" yaml:"status"`
+	Status SigNozStatus `json:"status" yaml:"status,omitempty"`
 }
 
 type SigNozStatus struct {
 	MoldingStatus `json:",inline" yaml:",inline"`
 
-	Addresses SigNozStatusAddresses `json:"addresses" yaml:"addresses"`
+	Addresses SigNozStatusAddresses `json:"addresses" yaml:"addresses,omitempty"`
 }
 
 type SigNozStatusAddresses struct {

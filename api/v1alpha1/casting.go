@@ -10,7 +10,7 @@ type Casting struct {
 	Spec CastingSpec `json:"spec" yaml:"spec"`
 
 	// Status of the casting.
-	Status CastingStatus `json:"status" yaml:"status"`
+	Status CastingStatus `json:"status,omitzero" yaml:"status,omitempty"`
 }
 
 type CastingSpec struct {
@@ -18,19 +18,19 @@ type CastingSpec struct {
 	Deployment TypeDeployment `json:"deployment" yaml:"deployment"`
 
 	// The configuration for the signoz molding.
-	Signoz SigNoz `json:"signoz" yaml:"signoz"`
+	Signoz SigNoz `json:"signoz,omitzero" yaml:"signoz,omitempty"`
 
 	// The configuration for the telemetry store molding.
-	TelemetryStore TelemetryStore `json:"telemetrystore" yaml:"telemetrystore"`
+	TelemetryStore TelemetryStore `json:"telemetrystore,omitzero" yaml:"telemetrystore,omitempty"`
 
 	// The configuration for the telemetry keeper molding.
-	TelemetryKeeper TelemetryKeeper `json:"telemetrykeeper" yaml:"telemetrykeeper"`
+	TelemetryKeeper TelemetryKeeper `json:"telemetrykeeper,omitzero" yaml:"telemetrykeeper,omitempty"`
 
 	// The configuration for the meta store molding.
-	MetaStore MetaStore `json:"metastore" yaml:"metastore"`
+	MetaStore MetaStore `json:"metastore,omitzero" yaml:"metastore,omitempty"`
 
 	// The configuration for the ingester molding.
-	Ingester Ingester `json:"ingester" yaml:"ingester"`
+	Ingester Ingester `json:"ingester,omitzero" yaml:"ingester,omitempty"`
 }
 
 type CastingStatus struct {
@@ -76,6 +76,17 @@ func DefaultCasting() Casting {
 			TelemetryKeeper: DefaultTelemetryKeeper(),
 			MetaStore:       DefaultMetaStore(),
 			Ingester:        DefaultIngester(),
+		},
+	}
+}
+
+func ExampleCasting() Casting {
+	return Casting{
+		TypeVersion: TypeVersion{
+			APIVersion: "v1alpha1",
+		},
+		Metadata: TypeMetadata{
+			Name: "signoz",
 		},
 	}
 }

@@ -8,10 +8,10 @@ import (
 )
 
 func (foundry *Foundry) Cast(ctx context.Context, config v1alpha1.Casting, poursPath string) error {
-	foundry.Logger.InfoContext(ctx, "starting casting pipeline", slog.String("casting.metadata.name", config.Metadata.Name))
+	foundry.Logger.InfoContext(ctx, "starting cast pipeline", slog.String("casting.metadata.name", config.Metadata.Name))
 
 	// Get the casting for the deployment mode
-	casting, err := foundry.CastingByDeploymentMode(config.Spec.Deployment.Mode)
+	casting, err := foundry.Registry.Casting(config.Spec.Deployment)
 	if err != nil {
 		return err
 	}

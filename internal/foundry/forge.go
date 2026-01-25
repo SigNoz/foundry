@@ -12,17 +12,15 @@ import (
 )
 
 func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, path string, poursWriterOpts *writer.Options) error {
-	foundry.Logger.InfoContext(ctx, "starting forging pipeline", slog.String("casting.metadata.name", config.Metadata.Name))
+	foundry.Logger.InfoContext(ctx, "starting forge pipeline", slog.String("casting.metadata.name", config.Metadata.Name))
 
-	// Get the casting for the deployment mode
-	casting, err := foundry.CastingByDeploymentMode(config.Spec.Deployment.Mode)
+	casting, err := foundry.Registry.Casting(config.Spec.Deployment)
 	if err != nil {
-		foundry.Logger.ErrorContext(ctx, "casting not found:", slog.String("casting.spec.deployment.mode", config.Spec.Deployment.Mode))
-		return fmt.Errorf("casting not found: %w", err)
+		foundry.Logger.ErrorContext(ctx, "casting not found", slog.String("casting.spec.deployment.mode", config.Spec.Deployment.Mode))
+		return err
 	}
 
-	// Enrich the configuration with casting specific information
-	foundry.Logger.InfoContext(ctx, "getting the molding enricher", slog.String("casting.metadata.name", config.Metadata.Name))
+	foundry.Logger.InfoContext(ctx, "enriching moldings with casting specific information", slog.String("casting.metadata.name", config.Metadata.Name))
 	moldingEnricher, err := casting.Enricher(ctx, &config)
 	if err != nil {
 		foundry.Logger.ErrorContext(ctx, "failed to get molding enricher", slog.String("casting.metadata.name", config.Metadata.Name), foundryerrors.LogAttr(err))

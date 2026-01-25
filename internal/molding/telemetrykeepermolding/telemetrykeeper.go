@@ -9,7 +9,6 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
-	"github.com/signoz/foundry/internal/types"
 )
 
 var _ molding.Molding = (*telemetrykeeper)(nil)
@@ -29,11 +28,12 @@ func (molding *telemetrykeeper) Kind() v1alpha1.MoldingKind {
 }
 
 func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *v1alpha1.Casting) error {
-	data, err := molding.getData(config)
+	data, err := newData(config)
 	if err != nil {
 		molding.logger.ErrorContext(ctx, "failed to get data", foundryerrors.LogAttr(err))
 		return err
 	}
+
 	// Generate per-server configs (each keeper node needs its own server_id)
 	configs := make(map[string]string, data.ServerCount)
 	for i := 0; i < data.ServerCount; i++ {
@@ -47,44 +47,4 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *v1alph
 
 	config.Spec.TelemetryKeeper.Status.Config.Data = configs
 	return nil
-}
-
-func (molding *telemetrykeeper) getData(config *v1alpha1.Casting) (Data, error) {
-	// Get server count from cluster spec
-	var data Data
-	serverCount := max(*config.Spec.TelemetryKeeper.Spec.Cluster.Replicas, 1)
-	data.ServerCount = serverCount
-
-	// Extract addresses from status
-	raftAddresses := config.Spec.TelemetryKeeper.Status.Addresses.Raft
-	clientAddresses := config.Spec.TelemetryKeeper.Status.Addresses.Client
-
-	// Validate sufficient addresses for server count
-	if len(raftAddresses) < serverCount {
-		return Data{}, fmt.Errorf(
-			"insufficient raft addresses: have %d, need %d servers",
-			len(raftAddresses), serverCount,
-		)
-	}
-	if len(clientAddresses) < serverCount {
-		return Data{}, fmt.Errorf(
-			"insufficient client addresses: have %d, need %d servers",
-			len(clientAddresses), serverCount,
-		)
-	}
-
-	// Parse and validate addresses
-	newRaftAddrs, err := types.NewAddresses(raftAddresses[:serverCount])
-	if err != nil {
-		return Data{}, fmt.Errorf("failed to parse raft addresses: %w", err)
-	}
-	data.RaftAddresses = newRaftAddrs
-
-	newClientAddrs, err := types.NewAddresses(clientAddresses[:serverCount])
-	if err != nil {
-		return Data{}, fmt.Errorf("failed to parse client addresses: %w", err)
-	}
-	data.ClientAddresses = newClientAddrs
-
-	return data, nil
 }

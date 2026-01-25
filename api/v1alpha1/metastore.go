@@ -12,13 +12,13 @@ type MetaStore struct {
 	Spec MoldingSpec `json:"spec" yaml:"spec"`
 
 	// Status of the meta store.
-	Status MetaStoreStatus `json:"status" yaml:"status"`
+	Status MetaStoreStatus `json:"status" yaml:"status,omitempty"`
 }
 
 type MetaStoreStatus struct {
 	MoldingStatus `json:",inline" yaml:",inline"`
 
-	Addresses MetaStoreStatusAddresses `json:"addresses" yaml:"addresses"`
+	Addresses MetaStoreStatusAddresses `json:"addresses" yaml:"addresses,omitempty"`
 }
 
 type MetaStoreStatusAddresses struct {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/config"
-	goyaml "gopkg.in/yaml.v3"
+	"github.com/signoz/foundry/internal/types"
 )
 
 type yamlConfig struct {
@@ -26,7 +26,7 @@ func (*yamlConfig) GetV1Alpha1(ctx context.Context, path string) (v1alpha1.Casti
 
 	var casting v1alpha1.Casting
 
-	err = goyaml.Unmarshal(bytes, &casting)
+	err = types.UnmarshalYAML(bytes, &casting)
 	if err != nil {
 		return v1alpha1.Casting{}, fmt.Errorf("failed to unmarshal yaml: %w", err)
 	}
@@ -41,7 +41,7 @@ func (*yamlConfig) GetV1Alpha1(ctx context.Context, path string) (v1alpha1.Casti
 }
 
 func (*yamlConfig) CreateV1Alpha1Lock(ctx context.Context, config v1alpha1.Casting, path string) error {
-	contents, err := goyaml.Marshal(config)
+	contents, err := types.MarshalYAML(config)
 	if err != nil {
 		return fmt.Errorf("failed to marshal yaml: %w", err)
 	}
@@ -62,7 +62,7 @@ func (*yamlConfig) GetV1Alpha1Lock(ctx context.Context, path string) (v1alpha1.C
 
 	var casting v1alpha1.Casting
 
-	err = goyaml.Unmarshal(bytes, &casting)
+	err = types.UnmarshalYAML(bytes, &casting)
 	if err != nil {
 		return v1alpha1.Casting{}, fmt.Errorf("failed to unmarshal yaml: %w", err)
 	}

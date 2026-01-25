@@ -12,22 +12,22 @@ type TelemetryKeeper struct {
 	Spec MoldingSpec `json:"spec" yaml:"spec"`
 
 	// Status of the telemetry keeper.
-	Status TelemetryKeeperStatus `json:"status" yaml:"status"`
+	Status TelemetryKeeperStatus `json:"status" yaml:"status,omitempty"`
 }
 
 type TelemetryKeeperStatus struct {
 	MoldingStatus `json:",inline" yaml:",inline"`
 
 	// Addresses of the telemetry keeper.
-	Addresses TelemetryKeeperStatusAddresses `json:"addresses" yaml:"addresses"`
+	Addresses TelemetryKeeperStatusAddresses `json:"addresses" yaml:"addresses,omitempty"`
 }
 
 type TelemetryKeeperStatusAddresses struct {
 	// Raft addresses.
-	Raft []string `json:"raft" yaml:"raft"`
+	Raft []string `json:"raft" yaml:"raft,omitempty"`
 
 	// Client addresses.
-	Client []string `json:"client" yaml:"client"`
+	Client []string `json:"client" yaml:"client,omitempty"`
 }
 
 func DefaultTelemetryKeeper() TelemetryKeeper {

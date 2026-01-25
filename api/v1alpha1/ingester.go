@@ -7,13 +7,13 @@ type Ingester struct {
 	Spec MoldingSpec `json:"spec" yaml:"spec"`
 
 	// Status of the ingester.
-	Status IngesterStatus `json:"status" yaml:"status"`
+	Status IngesterStatus `json:"status" yaml:"status,omitempty"`
 }
 
 type IngesterStatus struct {
 	MoldingStatus `json:",inline" yaml:",inline"`
 
-	Addresses IngesterStatusAddresses `json:"addresses" yaml:"addresses"`
+	Addresses IngesterStatusAddresses `json:"addresses" yaml:"addresses,omitempty"`
 }
 
 type IngesterStatusAddresses struct {

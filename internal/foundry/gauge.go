@@ -11,7 +11,9 @@ import (
 )
 
 func (foundry *Foundry) Gauge(ctx context.Context, config v1alpha1.Casting) error {
-	toolers, err := foundry.ToolersByDeploymentMode(config.Spec.Deployment.Mode)
+	foundry.Logger.InfoContext(ctx, "starting gauge pipeline", slog.String("casting.metadata.name", config.Metadata.Name))
+
+	toolers, err := foundry.Registry.Toolers(config.Spec.Deployment)
 	if err != nil {
 		return err
 	}
@@ -21,7 +23,7 @@ func (foundry *Foundry) Gauge(ctx context.Context, config v1alpha1.Casting) erro
 	for _, tooler := range toolers {
 		err := tooler.Gauge(ctx)
 		if err != nil {
-			foundry.Logger.ErrorContext(ctx, "tool  is not available or cannot be detected properly", slog.String("tool.name", tooler.Name()), foundryerrors.LogAttr(err))
+			foundry.Logger.ErrorContext(ctx, "tool is not available or cannot be detected properly", slog.String("tool.name", tooler.Name()), foundryerrors.LogAttr(err))
 			unavailableTools = append(unavailableTools, tooler.Name())
 			continue
 		}

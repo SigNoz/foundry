@@ -12,13 +12,13 @@ type TelemetryStore struct {
 	Spec MoldingSpec `json:"spec" yaml:"spec"`
 
 	// Status of the telemetry store.
-	Status TelemetryStoreStatus `json:"status" yaml:"status"`
+	Status TelemetryStoreStatus `json:"status" yaml:"status,omitempty"`
 }
 
 type TelemetryStoreStatus struct {
 	MoldingStatus `json:",inline" yaml:",inline"`
 
-	Addresses TelemetryStoreStatusAddresses `json:"addresses" yaml:"addresses"`
+	Addresses TelemetryStoreStatusAddresses `json:"addresses" yaml:"addresses,omitempty"`
 }
 
 type TelemetryStoreStatusAddresses struct {
