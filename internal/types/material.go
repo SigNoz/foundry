@@ -1,7 +1,6 @@
 package types
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/tidwall/gjson"
@@ -15,13 +14,12 @@ type Material struct {
 	format   Format
 }
 
-func NewMaterial(contents any, path string, format Format) (Material, error) {
-	contentsBytes, err := json.Marshal(contents)
-	if err != nil {
-		return Material{}, fmt.Errorf("failed to marshal contents: %w", err)
-	}
-
-	return NewYAMLMaterial(contentsBytes, path)
+func NewMaterial(contents []byte, path string) (Material, error) {
+	return Material{
+		contents: contents,
+		path:     path,
+		format:   FormatText,
+	}, nil
 }
 
 func NewYAMLMaterial(contents []byte, path string) (Material, error) {
@@ -49,14 +47,6 @@ func NewINIMaterial(contents []byte, path string) (Material, error) {
 	}, nil
 }
 
-func NewTextMaterial(contents []byte, path string) Material {
-	return Material{
-		contents: contents,
-		path:     path,
-		format:   FormatText,
-	}
-}
-
 func (m Material) Contents() []byte {
 	return m.contents
 }
@@ -76,9 +66,6 @@ func (m Material) FmtContents() []byte {
 			return nil
 		}
 		return fmtContents
-	case FormatText:
-		// For text format, contents are stored as raw bytes (not JSON, as gjson not needed)
-		return m.contents
 	default:
 		return m.contents
 	}

@@ -52,7 +52,10 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute dockerfile keeper template: %w", err)
 		}
-		dockerfileMaterial := types.NewTextMaterial(dockerfileBuf.Bytes(), "telemetrykeeper/Dockerfile")
+		dockerfileMaterial, err := types.NewMaterial(dockerfileBuf.Bytes(), "telemetrykeeper/Dockerfile")
+		if err != nil {
+			return nil, err
+		}
 		materials = append(materials, dockerfileMaterial)
 
 		// Add telemetrykeeper config files (for dockerfile to copy)
@@ -72,7 +75,10 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute dockerfile clickhouse template: %w", err)
 		}
-		dockerfileMaterial := types.NewTextMaterial(dockerfileBuf.Bytes(), "telemetrystore/Dockerfile")
+		dockerfileMaterial, err := types.NewMaterial(dockerfileBuf.Bytes(), "telemetrystore/Dockerfile")
+		if err != nil {
+			return nil, err
+		}
 		materials = append(materials, dockerfileMaterial)
 
 		// Add telemetrystore config files (for dockerfile to copy)
@@ -92,7 +98,10 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute dockerfile otel template: %w", err)
 		}
-		dockerfileMaterial := types.NewTextMaterial(dockerfileBuf.Bytes(), "ingester/Dockerfile")
+		dockerfileMaterial, err := types.NewMaterial(dockerfileBuf.Bytes(), "ingester/Dockerfile")
+		if err != nil {
+			return nil, err
+		}
 		materials = append(materials, dockerfileMaterial)
 
 		for filename, content := range config.Spec.Ingester.Spec.Config.Data {
