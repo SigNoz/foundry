@@ -3,7 +3,10 @@ WantedBy=multi-user.target
 
 [Service]
 Environment=SIGNOZ_WEB_DIRECTORY=/opt/signoz/web
-EnvironmentFile=/Users/grandwizard/Stash/foundry/examples/systemd/binary/pours/signoz-signoz/signoz-signoz.env
+Environment=SIGNOZ_SQLSTORE_POSTGRES_DSN=postgres://signoz:signoz@localhost:5432/signoz?sslmode=disable
+Environment=SIGNOZ_SQLSTORE_PROVIDER=postgres
+Environment=SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN=tcp://localhost:9000
+Environment=SIGNOZ_TELEMETRYSTORE_PROVIDER=clickhouse
 ExecStart=/opt/signoz/bin/signoz server
 Group=signoz
 KillMode=mixed
