@@ -42,7 +42,7 @@ func New(logger *slog.Logger) *systemdCasting {
 			metaStoreServiceTemplate,
 			signozServiceTemplate,
 			ingesterServiceTemplate,
-			telemtryStoreMigratorServiceTemplate,
+			telemetryStoreMigratorServiceTemplate,
 		},
 	}
 }
@@ -111,7 +111,7 @@ func (c *systemdCasting) forgeCasting(tmpl *types.Template, cfg *v1alpha1.Castin
 		return c.forgeTelemetryStore(tmpl, cfg, poursPath)
 	case telemetryKeeperServiceTemplate:
 		return c.forgeTelemetryKeeper(tmpl, cfg, poursPath)
-	case telemtryStoreMigratorServiceTemplate:
+	case telemetryStoreMigratorServiceTemplate:
 		return c.forgeMigrator(tmpl, cfg)
 	default:
 		return nil, nil
@@ -228,7 +228,7 @@ func (c *systemdCasting) forgeTelemetryStore(tmpl *types.Template, cfg *v1alpha1
 	shards := max(1, *spec.Spec.Cluster.Shards)
 
 	// Create config materials
-	mats, err := c.configMaterials(spec.Status.Config.Data, kind)
+	mats, err := c.configMaterials(spec.Status.Config.Data, "telemetrystore")
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +265,7 @@ func (c *systemdCasting) forgeTelemetryKeeper(tmpl *types.Template, cfg *v1alpha
 	reps := max(1, *spec.Spec.Cluster.Replicas)
 
 	// Create config materials
-	mats, err := c.configMaterials(spec.Status.Config.Data, kind)
+	mats, err := c.configMaterials(spec.Status.Config.Data, "telemetrykeeper")
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +302,7 @@ func (c *systemdCasting) forgeMigrator(tmpl *types.Template, cfg *v1alpha1.Casti
 	}
 
 	// Create service material
-	svcMat, err := c.renderTemplate(tmpl, cfg, cfg.Metadata.Name+"-telmetrystore-migrator"+svcSuffix)
+	svcMat, err := c.renderTemplate(tmpl, cfg, cfg.Metadata.Name+"-telemetrystore-migrator"+svcSuffix)
 	if err != nil {
 		return nil, err
 	}
