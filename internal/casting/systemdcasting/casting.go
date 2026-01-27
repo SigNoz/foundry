@@ -393,7 +393,7 @@ func (c *systemdCasting) setupSystemEnvironment(ctx context.Context, config *v1a
 	}
 
 	// Validate required binaries
-	return c.validateBinaries(serviceMap)
+	return c.validateBinaries(config, serviceMap)
 }
 
 // copyDir copies all files from srcDir to dstDir.
@@ -421,24 +421,44 @@ func (c *systemdCasting) copyDir(srcDir, dstDir string) error {
 }
 
 // validateBinaries checks if required binaries exist.
-func (c *systemdCasting) validateBinaries(serviceMap map[string][]string) error {
-	checks := []struct {
-		category, path, name string
+func (c *systemdCasting) validateBinaries(config *v1alpha1.Casting, serviceMap map[string][]string) error {
+	binaries := map[string]struct {
+		path, name string
 	}{
-		{"signoz", "/opt/signoz/bin/signoz", "signoz"},
-		{"ingester", "/opt/ingester/bin/signoz-otel-collector", "signoz-otel-collector"},
+		"signoz":   {"/opt/signoz/bin/signoz", "signoz"},
+		"ingester": {"/opt/ingester/bin/signoz-otel-collector", "signoz-otel-collector"},
 	}
 
 	var missing []string
-	for _, chk := range checks {
-		if len(serviceMap[chk.category]) > 0 {
-			if _, err := os.Stat(chk.path); os.IsNotExist(err) {
-				missing = append(missing, chk.name)
+	for category, bin := range binaries {
+		if len(serviceMap[category]) > 0 {
+			if _, err := os.Stat(bin.path); os.IsNotExist(err) {
+				missing = append(missing, bin.name)
 			}
 		}
 	}
 	if len(missing) > 0 {
 		return fmt.Errorf("missing binaries: %s - please install before running cast", strings.Join(missing, ", "))
+	}
+
+	if config.Spec.Signoz.Status.Env == nil {
+		config.Spec.Signoz.Status.Env = make(map[string]string)
+	}
+	// Set SIGNOZ_BINARY_PATH if signoz services exist
+	if len(serviceMap["signoz"]) > 0 {
+		if bin, ok := binaries["signoz"]; ok {
+			config.Spec.Signoz.Status.Env["SIGNOZ_BINARY_PATH"] = bin.path
+		}
+	}
+
+	if config.Spec.Ingester.Status.Env == nil {
+		config.Spec.Ingester.Status.Env = make(map[string]string)
+	}
+	// Set OTEL_COLLECTOR_BINARY_PATH if ingester services exist
+	if len(serviceMap["ingester"]) > 0 {
+		if bin, ok := binaries["ingester"]; ok {
+			config.Spec.Ingester.Status.Env["OTEL_COLLECTOR_BINARY_PATH"] = bin.path
+		}
 	}
 	return nil
 }
@@ -472,7 +492,7 @@ func (c *systemdCasting) runMigrationsAndStartApps(ctx context.Context, config *
 		}
 
 		c.logger.InfoContext(ctx, "Running database migrations")
-		if err := c.runMigrator(ctx, config, poursPath); err != nil {
+		if err := c.runMigrator(ctx, config); err != nil {
 			return fmt.Errorf("migration failed: %w", err)
 		}
 	}
@@ -568,25 +588,12 @@ func (c *systemdCasting) waitForClickHouse(ctx context.Context, config *v1alpha1
 }
 
 // runMigrator finds and runs the schema migrator.
-func (c *systemdCasting) runMigrator(ctx context.Context, config *v1alpha1.Casting, poursPath string) error {
+func (c *systemdCasting) runMigrator(ctx context.Context, config *v1alpha1.Casting) error {
 	// Find migrator binary
-	migratorBinary := ""
-	paths := []string{
-		"/usr/bin/signoz-schema-migrator",
-		"/usr/local/bin/signoz-schema-migrator",
-		filepath.Join(poursPath, "signoz-schema-migrator/bin/signoz-schema-migrator"),
-	}
-	for _, p := range paths {
-		if _, err := os.Stat(p); err == nil {
-			migratorBinary = p
-			break
-		}
-	}
-	if migratorBinary == "" {
-		if _, err := exec.LookPath("signoz-schema-migrator"); err != nil {
-			return fmt.Errorf("signoz-schema-migrator binary not found")
-		}
-		migratorBinary = "signoz-schema-migrator"
+	migratorBinary := config.Spec.Ingester.Status.Env["OTEL_COLLECTOR_BINARY_PATH"]
+	
+	if _, err := exec.LookPath(migratorBinary); err != nil {
+		return fmt.Errorf("Migrator not found at %s", migratorBinary)
 	}
 
 	// Get DSN
@@ -596,12 +603,16 @@ func (c *systemdCasting) runMigrator(ctx context.Context, config *v1alpha1.Casti
 	}
 
 	// Run migrations
+	c.logger.DebugContext(ctx, "Running migrator bootstrap")
+	if err := c.execCommandSilent(ctx, migratorBinary, "migrate", "bootstrap", "--clickhouse-dsn="+dsn); err != nil {
+		return fmt.Errorf("migrator bootstrap failed: %w", err)
+	}
 	c.logger.DebugContext(ctx, "Running migrator sync")
-	if err := c.execCommandSilent(ctx, migratorBinary, "sync", "--dsn="+dsn, "--replication=true", "--up="); err != nil {
+	if err := c.execCommandSilent(ctx, migratorBinary, "migrate", "sync", "up", "--clickhouse-dsn="+dsn); err != nil {
 		return fmt.Errorf("migrator sync failed: %w", err)
 	}
 	c.logger.DebugContext(ctx, "Running migrator async")
-	if err := c.execCommandSilent(ctx, migratorBinary, "async", "--dsn="+dsn, "--replication=true", "--up="); err != nil {
+	if err := c.execCommandSilent(ctx, migratorBinary, "migrate", "async", "up", "--clickhouse-dsn="+dsn); err != nil {
 		return fmt.Errorf("migrator async failed: %w", err)
 	}
 	return nil
