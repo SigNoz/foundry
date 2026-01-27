@@ -135,7 +135,7 @@ func (c *systemdCasting) forgeIngester(tmpl *types.Template, cfg *v1alpha1.Casti
 	}
 
 	// Create config materials
-	mats, err := c.configMaterials(spec.Status.Config.Data, "ingestor")
+	mats, err := c.configMaterials(spec.Status.Config.Data, "ingester")
 	if err != nil {
 		return nil, err
 	}
@@ -322,7 +322,7 @@ func (c *systemdCasting) renderTemplate(tmpl *types.Template, cfg *v1alpha1.Cast
 func (c *systemdCasting) configMaterials(data map[string]string, path string) ([]types.Material, error) {
 	mats := make([]types.Material, 0, len(data))
 	for file, content := range data {
-		m, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "conifigs/", path, file))
+		m, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "configs/", path, file))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create config material %s: %w", file, err)
 		}
