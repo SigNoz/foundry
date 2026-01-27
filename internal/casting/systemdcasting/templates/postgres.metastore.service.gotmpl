@@ -12,7 +12,11 @@ User=postgres
 Environment={{ $key }}={{ $value }}
 {{ end }}
 {{ end }}
+{{ if and $.Spec.MetaStore.Status.Extras (index $.Spec.MetaStore.Status.Extras "POSTGRES_BINARY_PATH") }}
+ExecStart={{ index $.Spec.MetaStore.Status.Extras "POSTGRES_BINARY_PATH" }} -D /usr/local/pgsql/data
+{{ else }}
 ExecStart=/usr/bin/postgres -D /usr/local/pgsql/data
+{{ end }}
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 KillSignal=SIGINT

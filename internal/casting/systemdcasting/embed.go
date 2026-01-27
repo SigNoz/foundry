@@ -15,4 +15,5 @@ var (
 	telemetryStoreServiceTemplate  *types.Template = types.MustNewTemplateFromFS(templates, "templates/clickhouse.telemetrystore.v2556.service.gotmpl", types.FormatINI)
 	telemetryKeeperServiceTemplate *types.Template = types.MustNewTemplateFromFS(templates, "templates/clickhousekeeper.telemetrykeeper.v2556.service.gotmpl", types.FormatINI)
 	metaStoreServiceTemplate       *types.Template = types.MustNewTemplateFromFS(templates, "templates/postgres.metastore.service.gotmpl", types.FormatINI)
+	migratorServiceTemplate        *types.Template = types.MustNewTemplateFromFS(templates, "templates/migrator.service.gotmpl", types.FormatINI)
 )
