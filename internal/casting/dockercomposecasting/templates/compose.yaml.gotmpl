@@ -100,7 +100,7 @@ services:
       retries: 3
       start_period: 30s
   {{- end }}
-  ingester:
+  {{ $.Metadata.Name }}-ingester:
     image: {{ $.Spec.Ingester.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
@@ -131,7 +131,7 @@ services:
       {{- end }}
     deploy:
       replicas: {{ int $.Spec.Ingester.Spec.Cluster.Replicas }}
-  signoz:
+  {{ $.Metadata.Name }}-signoz:
     image: {{ $.Spec.Signoz.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
