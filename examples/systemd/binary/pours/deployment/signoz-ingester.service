@@ -1,0 +1,15 @@
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+ExecStart=/opt/ingester/bin/signoz-otel-collector --config=%Y/deployment/ingestor/ingester.yaml --manager-config=%Y/deployment/ingestor/opamp.yaml
+Group=signoz
+KillMode=mixed
+Restart=on-failure
+Type=simple
+User=signoz
+
+[Unit]
+After=signoz-telemetrystore-clickhouse-0-0
+Description=SigNoz OTel Collector
+Documentation=https://signoz.io/docs

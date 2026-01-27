@@ -2,7 +2,7 @@ services:
   {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}:
     container_name: {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx  }}
-    image: docker.io/clickhouse/clickhouse-keeper:{{ $.Spec.TelemetryKeeper.Spec.Version }}
+    image: {{ $.Spec.TelemetryKeeper.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
     volumes:
@@ -37,7 +37,7 @@ services:
       {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $keeperIdx }}:
         condition: service_healthy
       {{- end }}
-    image: docker.io/clickhouse/clickhouse-server:{{ $.Spec.TelemetryStore.Spec.Version }}
+    image: {{ $.Spec.TelemetryStore.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
     environment:
@@ -62,7 +62,7 @@ services:
   {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts:
     container_name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts
-    image: docker.io/clickhouse/clickhouse-server:{{ $.Spec.TelemetryStore.Spec.Version }}
+    image: {{ $.Spec.TelemetryStore.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
     volumes:
@@ -101,7 +101,7 @@ services:
       start_period: 30s
   {{- end }}
   ingester:
-    image: docker.io/signoz/signoz-otel-collector:{{ $.Spec.Ingester.Spec.Version }}
+    image: {{ $.Spec.Ingester.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
     command:
@@ -132,7 +132,7 @@ services:
     deploy:
       replicas: {{ int $.Spec.Ingester.Spec.Cluster.Replicas }}
   signoz:
-    image: docker.io/signoz/signoz:{{ $.Spec.Signoz.Spec.Version }}
+    image: {{ $.Spec.Signoz.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
     depends_on:

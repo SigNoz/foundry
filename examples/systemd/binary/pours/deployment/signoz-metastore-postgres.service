@@ -1,0 +1,20 @@
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+Environment=POSTGRES_DB=signoz
+Environment=POSTGRES_PASSWORD=signoz
+Environment=POSTGRES_USER=signoz
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStart=/usr/bin/postgres -D /usr/local/pgsql/data
+KillMode=mixed
+KillSignal=SIGINT
+TimeoutSec=infinity
+Type=notify
+User=postgres
+
+[Unit]
+After=network-online.target
+Description=PostgreSQL database server
+Documentation=man:postgres(1)
+Wants=network-online.target
