@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/signoz/foundry/internal/casting"
+	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/molding"
 
 	"net"
@@ -30,7 +30,7 @@ const (
 	clickhouseRetryDelay = 2 * time.Second
 )
 
-var _ casting.Casting = (*systemdCasting)(nil)
+var _ rootcasting.Casting = (*systemdCasting)(nil)
 
 type systemdCasting struct {
 	logger   *slog.Logger
@@ -287,13 +287,13 @@ func (c *systemdCasting) renderTemplate(tmpl *types.Template, cfg *v1alpha1.Cast
 	if err := tmpl.Execute(&buf, cfg); err != nil {
 		return types.Material{}, fmt.Errorf("execute template %s: %w", path, err)
 	}
-	return types.NewINIMaterial(buf.Bytes(), path)
+	return types.NewINIMaterial(buf.Bytes(), filepath.Join(rootcasting.DeploymentDir, path))
 }
 
 func (c *systemdCasting) configMaterials(data map[string]string, path string) ([]types.Material, error) {
 	mats := make([]types.Material, 0, len(data))
 	for file, content := range data {
-		m, err := types.NewYAMLMaterial([]byte(content), filepath.Join(path, file))
+		m, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, path, file))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create config material %s: %w", file, err)
 		}
@@ -313,9 +313,10 @@ func (c *systemdCasting) execCommand(ctx context.Context, name string, args ...s
 // discoverAndPrepareServices discovers service files, categorizes them, and prepares systemd.
 // Returns nil serviceMap if no services found.
 func (c *systemdCasting) discoverAndPrepareServices(ctx context.Context, poursPath string) (map[string][]string, error) {
-	entries, err := os.ReadDir(poursPath)
+	deploymentPath := filepath.Join(poursPath, rootcasting.DeploymentDir)
+	entries, err := os.ReadDir(deploymentPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read directory %s: %w", poursPath, err)
+		return nil, fmt.Errorf("failed to read directory %s: %w", deploymentPath, err)
 	}
 
 	serviceMap := map[string][]string{"keeper": {}, "store": {}, "postgres": {}, "signoz": {}, "ingester": {}}
@@ -324,7 +325,7 @@ func (c *systemdCasting) discoverAndPrepareServices(ctx context.Context, poursPa
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".service") {
 			continue
 		}
-		servicePath := filepath.Join(poursPath, entry.Name())
+		servicePath := filepath.Join(deploymentPath, entry.Name())
 		baseName := strings.TrimSuffix(entry.Name(), ".service")
 
 		switch {
@@ -382,12 +383,12 @@ func (c *systemdCasting) setupSystemEnvironment(ctx context.Context, config *v1a
 
 	// Copy clickhouse configs to standard locations
 	if config.Spec.TelemetryStore.Spec.Enabled {
-		if err := c.copyDir(filepath.Join(poursPath, config.Spec.TelemetryStore.Kind.String()), "/etc/clickhouse-server/"); err != nil {
+		if err := c.copyDir(filepath.Join(poursPath, rootcasting.DeploymentDir, config.Spec.TelemetryStore.Kind.String()), "/etc/clickhouse-server/"); err != nil {
 			return fmt.Errorf("failed to copy clickhouse-server configs: %w", err)
 		}
 	}
 	if config.Spec.TelemetryKeeper.Spec.Enabled {
-		if err := c.copyDir(filepath.Join(poursPath, config.Spec.TelemetryKeeper.Kind.String()), "/etc/clickhouse-keeper/"); err != nil {
+		if err := c.copyDir(filepath.Join(poursPath, rootcasting.DeploymentDir, config.Spec.TelemetryKeeper.Kind.String()), "/etc/clickhouse-keeper/"); err != nil {
 			return fmt.Errorf("failed to copy clickhouse-keeper configs: %w", err)
 		}
 	}

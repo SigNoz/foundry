@@ -3,9 +3,11 @@ package dockercomposecasting
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/molding"
 	"github.com/signoz/foundry/internal/types"
 )
@@ -17,7 +19,7 @@ type dockerComposeMoldingEnricher struct {
 }
 
 func newDockerComposeMoldingEnricher(config *v1alpha1.Casting) (*dockerComposeMoldingEnricher, error) {
-	material, err := getComposeMaterial(config, "compose.yaml")
+	material, err := getComposeMaterial(config, filepath.Join(rootcasting.DeploymentDir, "compose.yaml"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get compose yaml material: %w", err)
 	}
