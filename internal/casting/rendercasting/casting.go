@@ -52,12 +52,12 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute dockerfile keeper template: %w", err)
 		}
-		dockerfileMaterial := types.NewTextMaterial(dockerfileBuf.Bytes(), "telemetrykeeper/Dockerfile")
+		dockerfileMaterial := types.NewTextMaterial(dockerfileBuf.Bytes(), "configs/telemetrykeeper/Dockerfile")
 		materials = append(materials, dockerfileMaterial)
 
 		// Add telemetrykeeper config files (for dockerfile to copy)
 		for filename, content := range config.Spec.TelemetryKeeper.Spec.Config.Data {
-			material, err := types.NewYAMLMaterial([]byte(content), fmt.Sprintf("telemetrykeeper/configs/%s", filename))
+			material, err := types.NewYAMLMaterial([]byte(content), fmt.Sprintf("configs/telemetrykeeper/keeper.d/%s", filename))
 			if err != nil {
 				return nil, fmt.Errorf("failed to create telemetrykeeper config material: %w", err)
 			}
@@ -72,12 +72,12 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute dockerfile clickhouse template: %w", err)
 		}
-		dockerfileMaterial := types.NewTextMaterial(dockerfileBuf.Bytes(), "telemetrystore/Dockerfile")
+		dockerfileMaterial := types.NewTextMaterial(dockerfileBuf.Bytes(), "configs/telemetrystore/Dockerfile")
 		materials = append(materials, dockerfileMaterial)
 
 		// Add telemetrystore config files (for dockerfile to copy)
 		for filename, content := range config.Spec.TelemetryStore.Spec.Config.Data {
-			material, err := types.NewYAMLMaterial([]byte(content), fmt.Sprintf("telemetrystore/configs/%s", filename))
+			material, err := types.NewYAMLMaterial([]byte(content), fmt.Sprintf("configs/telemetrystore/config.d/%s", filename))
 			if err != nil {
 				return nil, fmt.Errorf("failed to create telemetrystore config material: %w", err)
 			}
@@ -92,11 +92,11 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute dockerfile otel template: %w", err)
 		}
-		dockerfileMaterial := types.NewTextMaterial(dockerfileBuf.Bytes(), "ingester/Dockerfile")
+		dockerfileMaterial := types.NewTextMaterial(dockerfileBuf.Bytes(), "configs/ingester/Dockerfile")
 		materials = append(materials, dockerfileMaterial)
 
 		for filename, content := range config.Spec.Ingester.Spec.Config.Data {
-			material, err := types.NewYAMLMaterial([]byte(content), fmt.Sprintf("ingester/configs/%s", filename))
+			material, err := types.NewYAMLMaterial([]byte(content), fmt.Sprintf("configs/ingester/%s", filename))
 			if err != nil {
 				return nil, fmt.Errorf("failed to create ingester config material: %w", err)
 			}

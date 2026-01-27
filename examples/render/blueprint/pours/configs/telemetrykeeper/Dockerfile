@@ -1,7 +1,7 @@
 FROM clickhouse/clickhouse-keeper:25.5.6
 
 # Copy all keeper config files
-COPY configs/ /etc/clickhouse-keeper/
+COPY keeper.d/ /etc/clickhouse-keeper/
 
 # Create entrypoint script to dynamically select config based on replica index
 RUN cat > /entrypoint.sh <<'EOF'

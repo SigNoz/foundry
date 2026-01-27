@@ -1,7 +1,6 @@
 FROM clickhouse/clickhouse-server:25.5.6
 
-COPY configs/config.yaml /etc/clickhouse-server/config.yaml
-COPY configs/functions.yaml /etc/clickhouse-server/config.d/functions.yaml
+COPY config.d/ /etc/clickhouse-server/
 
 RUN mkdir -p /var/lib/clickhouse/user_scripts/ \
     && chown clickhouse:clickhouse /var/lib/clickhouse/user_scripts

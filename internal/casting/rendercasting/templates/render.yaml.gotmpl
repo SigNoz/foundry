@@ -5,8 +5,8 @@ services:
     type: pserv
     plan: standard
     runtime: docker
-    dockerfilePath: telemetrykeeper/Dockerfile
-    dockerContext: telemetrykeeper
+    dockerfilePath: configs/telemetrykeeper/Dockerfile
+    dockerContext: configs/telemetrykeeper
     disk:
       name: {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}-data
       mountPath: /var/lib/clickhouse-keeper
@@ -21,8 +21,8 @@ services:
     type: pserv
     plan: standard
     runtime: docker
-    dockerfilePath: telemetrystore/Dockerfile
-    dockerContext: telemetrystore
+    dockerfilePath: configs/telemetrystore/Dockerfile
+    dockerContext: configs/telemetrystore
     disk:
       name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}-data
       mountPath: /var/lib/clickhouse
@@ -51,8 +51,8 @@ services:
     type: pserv
     plan: standard
     runtime: docker
-    dockerfilePath: ingester/Dockerfile
-    dockerContext: ingester
+    dockerfilePath: configs/ingester/Dockerfile
+    dockerContext: configs/ingester
     envVars:
       {{ if $.Spec.Ingester.Spec.Env }}
       {{ range $key, $value := $.Spec.Ingester.Spec.Env }}
