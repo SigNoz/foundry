@@ -138,6 +138,8 @@ spec:
           opamp.yaml: |
             server_endpoint: ws://tcp://localhost:4320/v1/opamp
       enabled: true
+      env:
+        OTEL_COLLECTOR_BINARY_PATH: /opt/ingester/bin/signoz-otel-collector
       image: signoz/signoz-otel-collector:latest
       version: latest
     status:
@@ -280,6 +282,7 @@ spec:
       config: {}
       enabled: true
       env:
+        POSTGRES_BINARY_PATH: /usr/bin/postgres
         POSTGRES_DB: signoz
         POSTGRES_PASSWORD: signoz
         POSTGRES_USER: signoz
@@ -301,6 +304,7 @@ spec:
       config: {}
       enabled: true
       env:
+        SIGNOZ_BINARY_PATH: /opt/signoz/bin/signoz
         SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@localhost:5432/signoz?sslmode=disable
         SIGNOZ_SQLSTORE_PROVIDER: postgres
         SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://localhost:9000

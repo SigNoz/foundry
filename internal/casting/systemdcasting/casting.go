@@ -133,6 +133,14 @@ func (c *systemdCasting) forgeIngester(tmpl *types.Template, cfg *v1alpha1.Casti
 	if spec.Status.Extras == nil {
 		spec.Status.Extras = make(map[string]string)
 	}
+	if spec.Spec.Env == nil {
+		spec.Spec.Env = make(map[string]string)
+	}
+
+	// Set OTEL collector binary path with default fallback
+	if spec.Spec.Env["OTEL_COLLECTOR_BINARY_PATH"] == "" {
+		spec.Spec.Env["OTEL_COLLECTOR_BINARY_PATH"] = "/opt/ingester/bin/signoz-otel-collector"
+	}
 
 	// Create config materials
 	mats, err := c.configMaterials(spec.Status.Config.Data, "ingester")
@@ -163,8 +171,13 @@ func (c *systemdCasting) forgeSignoz(tmpl *types.Template, cfg *v1alpha1.Casting
 	if spec.Status.Extras == nil {
 		spec.Status.Extras = make(map[string]string)
 	}
-	if spec.Status.Env == nil {
-		spec.Status.Env = make(map[string]string)
+	if spec.Spec.Env == nil {
+		spec.Spec.Env = make(map[string]string)
+	}
+
+	// Set signoz binary path with default fallback
+	if spec.Spec.Env["SIGNOZ_BINARY_PATH"] == "" {
+		spec.Spec.Env["SIGNOZ_BINARY_PATH"] = "/opt/signoz/bin/signoz"
 	}
 
 	// Create env material
@@ -190,14 +203,14 @@ func (c *systemdCasting) forgeMetaStore(tmpl *types.Template, cfg *v1alpha1.Cast
 	if spec.Status.Extras == nil {
 		spec.Status.Extras = make(map[string]string)
 	}
-
-	// Find postgres binary path
-	postgresPath := c.findPostgresBinary()
-	if postgresPath == "" {
-		// Default to common location if not found
-		postgresPath = "/usr/bin/postgres"
+	if spec.Spec.Env == nil {
+		spec.Spec.Env = make(map[string]string)
 	}
-	spec.Status.Extras["POSTGRES_BINARY_PATH"] = postgresPath
+
+	// Set postgres binary path with default fallback
+	if spec.Spec.Env["POSTGRES_BINARY_PATH"] == "" {
+		spec.Spec.Env["POSTGRES_BINARY_PATH"] = "/usr/bin/postgres"
+	}
 
 	// Create env material
 	prefix := fmt.Sprintf("%s-metastore-%s", cfg.Metadata.Name, spec.Kind.String())
@@ -293,12 +306,11 @@ func (c *systemdCasting) forgeMigrator(tmpl *types.Template, cfg *v1alpha1.Casti
 
 	// Ensure OTEL_COLLECTOR_BINARY_PATH is set for migrator service
 	// The migrator uses the same binary as the ingester
-	if cfg.Spec.Ingester.Status.Env == nil {
-		cfg.Spec.Ingester.Status.Env = make(map[string]string)
+	if cfg.Spec.Ingester.Spec.Env == nil {
+		cfg.Spec.Ingester.Spec.Env = make(map[string]string)
 	}
-	if cfg.Spec.Ingester.Status.Env["OTEL_COLLECTOR_BINARY_PATH"] == "" {
-		// Default path for the migrator binary
-		cfg.Spec.Ingester.Status.Env["OTEL_COLLECTOR_BINARY_PATH"] = "/opt/ingester/bin/signoz-otel-collector"
+	if cfg.Spec.Ingester.Spec.Env["OTEL_COLLECTOR_BINARY_PATH"] == "" {
+		cfg.Spec.Ingester.Spec.Env["OTEL_COLLECTOR_BINARY_PATH"] = "/opt/ingester/bin/signoz-otel-collector"
 	}
 
 	// Create service material
@@ -426,7 +438,7 @@ func (c *systemdCasting) setupSystemEnvironment(ctx context.Context, config *v1a
 	}
 
 	// Validate required binaries
-	return c.validateBinaries(config, serviceMap)
+	return c.validateBinaries(serviceMap)
 }
 
 // copyDir copies all files from srcDir to dstDir.
@@ -454,7 +466,7 @@ func (c *systemdCasting) copyDir(srcDir, dstDir string) error {
 }
 
 // validateBinaries checks if required binaries exist.
-func (c *systemdCasting) validateBinaries(config *v1alpha1.Casting, serviceMap map[string][]string) error {
+func (c *systemdCasting) validateBinaries(serviceMap map[string][]string) error {
 	binaries := map[string]struct {
 		path, name string
 	}{
@@ -474,25 +486,6 @@ func (c *systemdCasting) validateBinaries(config *v1alpha1.Casting, serviceMap m
 		return fmt.Errorf("missing binaries: %s - please install before running cast", strings.Join(missing, ", "))
 	}
 
-	if config.Spec.Signoz.Status.Env == nil {
-		config.Spec.Signoz.Status.Env = make(map[string]string)
-	}
-	// Set SIGNOZ_BINARY_PATH if signoz services exist
-	if len(serviceMap["signoz"]) > 0 {
-		if bin, ok := binaries["signoz"]; ok {
-			config.Spec.Signoz.Status.Env["SIGNOZ_BINARY_PATH"] = bin.path
-		}
-	}
-
-	if config.Spec.Ingester.Status.Env == nil {
-		config.Spec.Ingester.Status.Env = make(map[string]string)
-	}
-	// Set OTEL_COLLECTOR_BINARY_PATH if ingester services exist
-	if len(serviceMap["ingester"]) > 0 {
-		if bin, ok := binaries["ingester"]; ok {
-			config.Spec.Ingester.Status.Env["OTEL_COLLECTOR_BINARY_PATH"] = bin.path
-		}
-	}
 	return nil
 }
 
@@ -528,39 +521,6 @@ func (c *systemdCasting) startAllServices(ctx context.Context, serviceMap map[st
 	}
 
 	return nil
-}
-
-// findPostgresBinary finds the postgres binary path.
-func (c *systemdCasting) findPostgresBinary() string {
-	// Try common locations
-	commonPaths := []string{
-		"/usr/bin/postgres",
-		"/usr/local/pgsql/bin/postgres",
-		"/usr/lib/postgresql/*/bin/postgres",
-	}
-
-	for _, path := range commonPaths {
-		// Handle glob patterns
-		if strings.Contains(path, "*") {
-			matches, err := filepath.Glob(path)
-			if err == nil && len(matches) > 0 {
-				for _, match := range matches {
-					if _, err := os.Stat(match); err == nil {
-						return match
-					}
-				}
-			}
-		} else if _, err := os.Stat(path); err == nil {
-			return path
-		}
-	}
-
-	// Try to find via which/whereis
-	if path, err := exec.LookPath("postgres"); err == nil {
-		return path
-	}
-
-	return ""
 }
 
 // initializePostgres sets up the PostgreSQL data directory.
@@ -605,10 +565,10 @@ func (c *systemdCasting) initializePostgres(ctx context.Context, config *v1alpha
 	}
 	_ = c.execCommand(ctx, "chown", "postgres:postgres", pwfile)
 
-	// Find postgres binary to determine bin directory
-	postgresPath := c.findPostgresBinary()
+	// Get postgres binary path from config to determine bin directory
+	postgresPath := config.Spec.MetaStore.Spec.Env["POSTGRES_BINARY_PATH"]
 	if postgresPath == "" {
-		return fmt.Errorf("postgres binary not found: please ensure PostgreSQL is installed")
+		postgresPath = "/usr/bin/postgres" // fallback
 	}
 	postgresBinDir := filepath.Dir(postgresPath)
 	initdbPath := filepath.Join(postgresBinDir, "initdb")
