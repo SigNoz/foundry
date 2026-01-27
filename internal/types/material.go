@@ -1,8 +1,8 @@
 package types
 
 import (
+	"encoding/json"
 	"fmt"
-
 	"github.com/tidwall/gjson"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	kyaml "sigs.k8s.io/yaml"
@@ -14,12 +14,21 @@ type Material struct {
 	format   Format
 }
 
-func NewMaterial(contents []byte, path string) (Material, error) {
+func NewMaterial(contents any, path string, format Format) (Material, error) {
+	contentsBytes, err := json.Marshal(contents)
+	if err != nil {
+		return Material{}, fmt.Errorf("failed to marshal contents: %w", err)
+	}
+
+	return NewYAMLMaterial(contentsBytes, path)
+}
+
+func NewTextMaterial(contents []byte, path string) Material {
 	return Material{
 		contents: contents,
 		path:     path,
 		format:   FormatText,
-	}, nil
+	}
 }
 
 func NewYAMLMaterial(contents []byte, path string) (Material, error) {
@@ -66,6 +75,8 @@ func (m Material) FmtContents() []byte {
 			return nil
 		}
 		return fmtContents
+	case FormatText:
+		return m.contents
 	default:
 		return m.contents
 	}
