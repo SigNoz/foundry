@@ -3,7 +3,6 @@ package types
 import (
 	"encoding/json"
 	"fmt"
-
 	"github.com/tidwall/gjson"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	kyaml "sigs.k8s.io/yaml"
@@ -22,6 +21,14 @@ func NewMaterial(contents any, path string, format Format) (Material, error) {
 	}
 
 	return NewYAMLMaterial(contentsBytes, path)
+}
+
+func NewTextMaterial(contents []byte, path string) Material {
+	return Material{
+		contents: contents,
+		path:     path,
+		format:   FormatText,
+	}
 }
 
 func NewYAMLMaterial(contents []byte, path string) (Material, error) {
@@ -68,6 +75,8 @@ func (m Material) FmtContents() []byte {
 			return nil
 		}
 		return fmtContents
+	case FormatText:
+		return m.contents
 	default:
 		return m.contents
 	}

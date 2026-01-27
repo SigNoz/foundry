@@ -1,0 +1,20 @@
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_IPC_LOCK CAP_SYS_NICE CAP_NET_BIND_SERVICE
+ExecStart=/usr/bin/clickhouse-keeper --config=/etc/clickhouse-keeper/keeper-0.yaml --pid-file=/run/clickhouse-keeper/clickhouse-keeper.pid
+Group=clickhouse
+LimitCORE=infinity
+LimitNOFILE=500000
+Restart=always
+RestartSec=30
+RuntimeDirectory=clickhouse-keeper
+Type=simple
+User=clickhouse
+
+[Unit]
+After=time-sync.target network-online.target
+Description=ClickHouse Keeper (v25.5.6)
+Requires=network-online.target
+Wants=time-sync.target

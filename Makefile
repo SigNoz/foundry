@@ -1,6 +1,6 @@
 clean:
-	cd pours && docker compose down --remove-orphans --volumes
-	cd ..
+	cd pours/deployment && docker compose down --remove-orphans --volumes
+	cd ../..
 	rm -rf ./pours
 
 gauge:
@@ -11,9 +11,6 @@ forge:
 
 cast:
 	go run ./cmd/foundryctl cast --debug -f ./tmp/casting.yaml
-
-docker:
-	cd pours && docker-compose up -d
 
 test:
 	make forge

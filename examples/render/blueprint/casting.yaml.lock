@@ -3,8 +3,8 @@ metadata:
   name: signoz
 spec:
   deployment:
-    flavor: compose
-    mode: docker
+    flavor: blueprint
+    platform: render
   ingester:
     spec:
       cluster:
@@ -136,14 +136,14 @@ spec:
                   exporters:
                     - signozclickhousemeter
           opamp.yaml: |
-            server_endpoint: ws://tcp://signoz-ingester:9000/v1/opamp
+            server_endpoint: ws://http://signoz-telemetrykeeper-clickhousekeeper-0:8080/v1/opamp
       enabled: true
       image: signoz/signoz-otel-collector:latest
       version: latest
     status:
       addresses:
         otlp:
-        - tcp://signoz-ingester:9000
+        - tcp://signoz-ingester-0:4318
       config:
         data:
           ingester.yaml: |
@@ -271,7 +271,7 @@ spec:
                   exporters:
                     - signozclickhousemeter
           opamp.yaml: |
-            server_endpoint: ws://tcp://signoz-ingester:9000/v1/opamp
+            server_endpoint: ws://http://signoz-telemetrykeeper-clickhousekeeper-0:8080/v1/opamp
   metastore:
     kind: postgres
     spec:
@@ -287,8 +287,7 @@ spec:
       version: "16"
     status:
       addresses:
-        dsn:
-        - tcp://signoz-metastore-postgres-0:9000
+        dsn: null
       config: {}
       env:
         POSTGRES_DB: signoz
@@ -301,7 +300,6 @@ spec:
       config: {}
       enabled: true
       env:
-        SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@signoz-metastore-postgres-0:9000/signoz?sslmode=disable
         SIGNOZ_SQLSTORE_PROVIDER: postgres
         SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://signoz-telemetrystore-clickhouse-0-0:9000
         SIGNOZ_TELEMETRYSTORE_PROVIDER: clickhouse
@@ -310,22 +308,19 @@ spec:
     status:
       addresses:
         apiserver:
-        - tcp://signoz-ingester:9000
-        - tcp://signoz-metastore-postgres-0:9000
-        - tcp://signoz-signoz:9000
-        - tcp://signoz-telemetrykeeper-clickhousekeeper-0:9000
-        - tcp://signoz-telemetrystore-clickhouse-0-0:9000
-        - tcp://signoz-telemetrystore-clickhouse-user-scripts:9000
+        - http://signoz-telemetrykeeper-clickhousekeeper-0:8080
+        - http://signoz-telemetrystore-clickhouse-0-0:8080
+        - http://signoz-ingester-0:8080
+        - http://signoz-signoz:8080
+        - http://signoz-schema-migrator:8080
         opamp:
-        - tcp://signoz-ingester:9000
-        - tcp://signoz-metastore-postgres-0:9000
-        - tcp://signoz-signoz:9000
-        - tcp://signoz-telemetrykeeper-clickhousekeeper-0:9000
-        - tcp://signoz-telemetrystore-clickhouse-0-0:9000
-        - tcp://signoz-telemetrystore-clickhouse-user-scripts:9000
+        - http://signoz-telemetrykeeper-clickhousekeeper-0:8080
+        - http://signoz-telemetrystore-clickhouse-0-0:8080
+        - http://signoz-ingester-0:8080
+        - http://signoz-signoz:8080
+        - http://signoz-schema-migrator:8080
       config: {}
       env:
-        SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@signoz-metastore-postgres-0:9000/signoz?sslmode=disable
         SIGNOZ_SQLSTORE_PROVIDER: postgres
         SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://signoz-telemetrystore-clickhouse-0-0:9000
         SIGNOZ_TELEMETRYSTORE_PROVIDER: clickhouse
@@ -387,6 +382,8 @@ spec:
               server_id: 0
               snapshot_storage_path: /var/lib/clickhouse/coordination/snapshots
               tcp_port: 9181
+      extras:
+        service_names: signoz-telemetrykeeper-clickhousekeeper-0
   telemetrystore:
     kind: clickhouse
     spec:
@@ -558,3 +555,5 @@ spec:
               name: histogramQuantile
               return_type: Float64
               type: executable
+      extras:
+        service_names: signoz-telemetrystore-clickhouse-0-0

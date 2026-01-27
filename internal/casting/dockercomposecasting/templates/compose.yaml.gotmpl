@@ -2,7 +2,7 @@ services:
   {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}:
     container_name: {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx  }}
-    image: docker.io/clickhouse/clickhouse-keeper:{{ $.Spec.TelemetryKeeper.Spec.Version }}
+    image: {{ $.Spec.TelemetryKeeper.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
     volumes:
@@ -37,7 +37,7 @@ services:
       {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $keeperIdx }}:
         condition: service_healthy
       {{- end }}
-    image: docker.io/clickhouse/clickhouse-server:{{ $.Spec.TelemetryStore.Spec.Version }}
+    image: {{ $.Spec.TelemetryStore.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
     environment:
@@ -62,7 +62,7 @@ services:
   {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts:
     container_name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts
-    image: docker.io/clickhouse/clickhouse-server:{{ $.Spec.TelemetryStore.Spec.Version }}
+    image: {{ $.Spec.TelemetryStore.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
     volumes:
@@ -100,16 +100,13 @@ services:
       retries: 3
       start_period: 30s
   {{- end }}
-  {{- range $replicaIdx := until (int $.Spec.Ingester.Spec.Cluster.Replicas) }}
-  {{ $.Metadata.Name }}-ingester-{{ $replicaIdx }}:
-    container_name: {{ $.Metadata.Name }}-ingester-{{ $replicaIdx }}
-    image: docker.io/signoz/signoz-otel-collector:v{{ $.Spec.Ingester.Spec.Version }}
+  {{ $.Metadata.Name }}-ingester:
+    image: {{ $.Spec.Ingester.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
     command:
       - "--config=/etc/otel-collector-config.yaml"
     volumes:
-      - {{ $.Metadata.Name }}-ingester-{{ $replicaIdx }}-data:/var/lib/signoz
       - ./configs/ingester/ingester.yaml:/etc/otel-collector-config.yaml:ro
     ports:
       - "4317:4317"   # OTLP gRPC
@@ -125,11 +122,17 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-  {{- end }}
-  {{- range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
-  {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}:
-    container_name: {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}
-    image: docker.io/signoz/signoz:v{{ $.Spec.Signoz.Spec.Version }}
+    depends_on:
+      {{- range $shardIdx := $.Spec.TelemetryStore.Spec.Cluster.Shards }}
+      {{- range $replicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
+      {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}:
+        condition: service_healthy
+      {{- end }}
+      {{- end }}
+    deploy:
+      replicas: {{ int $.Spec.Ingester.Spec.Cluster.Replicas }}
+  {{ $.Metadata.Name }}-signoz:
+    image: {{ $.Spec.Signoz.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
     depends_on:
@@ -153,8 +156,6 @@ services:
       - TELEMETRY_ENABLED=true
       - DEPLOYMENT_TYPE=docker-standalone-amd
       - DOT_METRICS_ENABLED=true
-    volumes:
-      - {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}-data:/var/lib/signoz
     ports:
       - "8080:8080"
     healthcheck:
@@ -168,7 +169,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-  {{- end }}
+    deploy:
+      replicas: {{ int $.Spec.Signoz.Spec.Cluster.Replicas }}
 networks:
   {{ $.Metadata.Name }}-network:
     name: {{ $.Metadata.Name }}-network
@@ -184,10 +186,4 @@ volumes:
   {{ $.Metadata.Name }}-telemetrystore-user-scripts:
   {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data:
-  {{- end }}
-  {{- range $replicaIdx := until (int $.Spec.Ingester.Spec.Cluster.Replicas) }}
-  {{ $.Metadata.Name }}-ingester-{{ $replicaIdx }}-data:
-  {{- end }}
-  {{- range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
-  {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}-data:
   {{- end }}

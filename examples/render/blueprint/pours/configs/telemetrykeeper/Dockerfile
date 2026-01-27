@@ -1,0 +1,27 @@
+FROM clickhouse/clickhouse-keeper:25.5.6
+
+# Copy all keeper config files
+COPY keeper.d/ /etc/clickhouse-keeper/
+
+# Create entrypoint script to dynamically select config based on replica index
+RUN cat > /entrypoint.sh <<'EOF'
+#!/bin/bash
+set -euo pipefail
+
+# Extract replica index from service name, default to 0
+REPLICA_INDEX=$(echo "${RENDER_SERVICE_NAME:-}" | grep -oE "[0-9]+$" || echo "0")
+CONFIG_FILE="/etc/clickhouse-keeper/keeper-${REPLICA_INDEX}.yaml"
+
+# Fallback to keeper-0.yaml if replica-specific config doesn't exist
+if [ ! -f "$CONFIG_FILE" ]; then
+  echo "Config $CONFIG_FILE not found, falling back to keeper-0.yaml"
+  CONFIG_FILE="/etc/clickhouse-keeper/keeper-0.yaml"
+fi
+
+echo "Starting ClickHouse Keeper with config: $CONFIG_FILE"
+exec /usr/bin/clickhouse-keeper --config-file="$CONFIG_FILE" "$@"
+EOF
+
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

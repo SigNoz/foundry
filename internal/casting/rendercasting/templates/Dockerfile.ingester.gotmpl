@@ -1,0 +1,4 @@
+FROM signoz/signoz-otel-collector:{{ $.Spec.Ingester.Spec.Version }}
+
+COPY ingester.yaml /etc/otel/config.yaml
+COPY opamp.yaml /etc/otel/manager-config.yaml
