@@ -9,11 +9,9 @@ listen_host: 0.0.0.0
 logger:
   console: 1
   count: 10
-  errorlog: /var/log/clickhouse-server/clickhouse-server.err.log
   formatting:
     type: console
   level: information
-  log: /var/log/clickhouse-server/clickhouse-server.log
   size: 1000M
 macros:
   replica: "01"

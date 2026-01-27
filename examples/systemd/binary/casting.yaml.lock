@@ -404,9 +404,6 @@ spec:
                     type: console
                 level: information
                 size: 1000M
-                errorlog: /var/log/clickhouse-server/clickhouse-server.err.log
-                log: /var/log/clickhouse-server/clickhouse-server.log
-
             macros:
                 replica: "01"
                 shard: "01"
@@ -493,9 +490,6 @@ spec:
                     type: console
                 level: information
                 size: 1000M
-                errorlog: /var/log/clickhouse-server/clickhouse-server.err.log
-                log: /var/log/clickhouse-server/clickhouse-server.log
-
             macros:
                 replica: "01"
                 shard: "01"
