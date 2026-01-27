@@ -42,7 +42,7 @@ func New(logger *slog.Logger) *systemdCasting {
 			metaStoreServiceTemplate,
 			signozServiceTemplate,
 			ingesterServiceTemplate,
-			migratorServiceTemplate,
+			telemtryStoreMigratorServiceTemplate,
 		},
 	}
 }
@@ -111,7 +111,7 @@ func (c *systemdCasting) forgeCasting(tmpl *types.Template, cfg *v1alpha1.Castin
 		return c.forgeTelemetryStore(tmpl, cfg, poursPath)
 	case telemetryKeeperServiceTemplate:
 		return c.forgeTelemetryKeeper(tmpl, cfg, poursPath)
-	case migratorServiceTemplate:
+	case telemtryStoreMigratorServiceTemplate:
 		return c.forgeMigrator(tmpl, cfg)
 	default:
 		return nil, nil
@@ -141,8 +141,8 @@ func (c *systemdCasting) forgeIngester(tmpl *types.Template, cfg *v1alpha1.Casti
 	}
 
 	// Set extras for template
-	spec.Status.Extras["cfgPath"] = mats[0].Path()
-	spec.Status.Extras["cfgOpampPath"] = mats[1].Path()
+	spec.Status.Extras["cfgPath"] = "configs/ingester/ingester.yaml"
+	spec.Status.Extras["cfgOpampPath"] = "configs/ingester/opamp.yaml"
 	spec.Status.Extras["workingDir"] = "/opt/ingester"
 
 	// Create service material
@@ -233,9 +233,6 @@ func (c *systemdCasting) forgeTelemetryStore(tmpl *types.Template, cfg *v1alpha1
 		return nil, err
 	}
 
-	// Set config path for template
-	spec.Status.Extras["cfgPath"] = filepath.Join("/etc/clickhouse-server/", filepath.Base(mats[0].Path()))
-
 	// Create service materials for each shard/replica
 	for s := range shards {
 		for r := range reps {
@@ -305,7 +302,7 @@ func (c *systemdCasting) forgeMigrator(tmpl *types.Template, cfg *v1alpha1.Casti
 	}
 
 	// Create service material
-	svcMat, err := c.renderTemplate(tmpl, cfg, cfg.Metadata.Name+"-migrator"+svcSuffix)
+	svcMat, err := c.renderTemplate(tmpl, cfg, cfg.Metadata.Name+"-telmetrystore-migrator"+svcSuffix)
 	if err != nil {
 		return nil, err
 	}
@@ -325,7 +322,7 @@ func (c *systemdCasting) renderTemplate(tmpl *types.Template, cfg *v1alpha1.Cast
 func (c *systemdCasting) configMaterials(data map[string]string, path string) ([]types.Material, error) {
 	mats := make([]types.Material, 0, len(data))
 	for file, content := range data {
-		m, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, path, file))
+		m, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "conifigs/", path, file))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create config material %s: %w", file, err)
 		}
@@ -418,12 +415,12 @@ func (c *systemdCasting) setupSystemEnvironment(ctx context.Context, config *v1a
 
 	// Copy clickhouse configs to standard locations
 	if config.Spec.TelemetryStore.Spec.Enabled {
-		if err := c.copyDir(filepath.Join(poursPath, rootcasting.DeploymentDir, config.Spec.TelemetryStore.Kind.String()), "/etc/clickhouse-server/"); err != nil {
+		if err := c.copyDir(filepath.Join(poursPath, rootcasting.DeploymentDir, "configs", config.Spec.TelemetryStore.Kind.String()), "/etc/clickhouse-server/"); err != nil {
 			return fmt.Errorf("failed to copy clickhouse-server configs: %w", err)
 		}
 	}
 	if config.Spec.TelemetryKeeper.Spec.Enabled {
-		if err := c.copyDir(filepath.Join(poursPath, rootcasting.DeploymentDir, config.Spec.TelemetryKeeper.Kind.String()), "/etc/clickhouse-keeper/"); err != nil {
+		if err := c.copyDir(filepath.Join(poursPath, rootcasting.DeploymentDir, "configs", config.Spec.TelemetryKeeper.Kind.String()), "/etc/clickhouse-keeper/"); err != nil {
 			return fmt.Errorf("failed to copy clickhouse-keeper configs: %w", err)
 		}
 	}

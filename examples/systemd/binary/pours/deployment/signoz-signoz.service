@@ -16,6 +16,7 @@ User=signoz
 WorkingDirectory=/opt/signoz
 
 [Unit]
-After=signoz-telemetrystore-clickhouse-0-0 signoz-metastore-postgres
+After=signoz-telemetrystore-clickhouse-0-0 signoz-metastore-postgres signoz-migrator
 Description=SigNoz
 Documentation=https://signoz.io/docs
+Requires=signoz-migrator

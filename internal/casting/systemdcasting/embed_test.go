@@ -15,6 +15,7 @@ func TestNotEmptyAndValid(t *testing.T) {
 		"metaStoreServiceTemplate":       metaStoreServiceTemplate,
 		"signozServiceTemplate":          signozServiceTemplate,
 		"ingesterServiceTemplate":        ingesterServiceTemplate,
+		"telemtryStoreMigratorTemplate": telemtryStoreMigratorServiceTemplate,
 	}
 
 	for name, st := range serviceTemplates {
