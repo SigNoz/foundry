@@ -3,7 +3,7 @@ Description=SigNoz OTel Collector
 Documentation=https://signoz.io/docs
 After={{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0{{ if $.Spec.TelemetryStore.Spec.Enabled }} {{ $.Metadata.Name }}-telemetrystore-migrator{{ end }}
 {{ if $.Spec.TelemetryStore.Spec.Enabled }}
-Requires={{ $.Metadata.Name }}-migrator
+Requires={{ $.Metadata.Name }}-telemetrystore-migrator
 {{ end }}
 
 [Service]

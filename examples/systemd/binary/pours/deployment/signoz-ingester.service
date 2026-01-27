@@ -13,4 +13,4 @@ User=signoz
 After=signoz-telemetrystore-clickhouse-0-0 signoz-telemetrystore-migrator
 Description=SigNoz OTel Collector
 Documentation=https://signoz.io/docs
-Requires=signoz-migrator
+Requires=signoz-telemetrystore-migrator

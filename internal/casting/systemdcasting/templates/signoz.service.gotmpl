@@ -3,7 +3,7 @@ Description=SigNoz
 Documentation=https://signoz.io/docs
 After={{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0 {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}{{ if $.Spec.TelemetryStore.Spec.Enabled }} {{ $.Metadata.Name }}-telemetrystore-migrator{{ end }}
 {{ if $.Spec.TelemetryStore.Spec.Enabled }}
-Requires={{ $.Metadata.Name }}-migrator
+Requires={{ $.Metadata.Name }}-telemetrystore-migrator
 {{ end }}
 
 [Service]

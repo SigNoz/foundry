@@ -80,11 +80,11 @@ func (c *systemdCasting) Cast(ctx context.Context, config v1alpha1.Casting, pour
 	}
 
 	// Setup system environment
-	if err := c.setupSystemEnvironment(runctx, &config, serviceMap, poursPath); err != nil {
+	if err := c.setupSystemEnvironment(runctx, &config, poursPath); err != nil {
 		return err
 	}
 
-	if len(serviceMap["postgres"]) > 0 {
+	if config.Spec.MetaStore.Spec.Enabled {
 		if err := c.initializePostgres(ctx, &config); err != nil {
 			return err
 		}
@@ -370,18 +370,18 @@ func (c *systemdCasting) discoverAndPrepareServices(ctx context.Context, poursPa
 		baseName := strings.TrimSuffix(entry.Name(), ".service")
 
 		switch {
-		case strings.Contains(baseName, "-telemetrykeeper-"):
+		case strings.HasSuffix(baseName, "-migrator"):
+			serviceMap["migrator"] = append(serviceMap["migrator"], servicePath)
+		case strings.Contains(baseName, "-telemetrykeeper-") && !strings.Contains(baseName, "-migrator"):
 			serviceMap["keeper"] = append(serviceMap["keeper"], servicePath)
-		case strings.Contains(baseName, "-telemetrystore-"):
+		case strings.Contains(baseName, "-telemetrystore-") && !strings.Contains(baseName, "-migrator"):
 			serviceMap["store"] = append(serviceMap["store"], servicePath)
-		case strings.Contains(baseName, "-metastore-"):
+		case strings.Contains(baseName, "-metastore-postgres"):
 			serviceMap["postgres"] = append(serviceMap["postgres"], servicePath)
 		case strings.HasSuffix(baseName, "-signoz"):
 			serviceMap["signoz"] = append(serviceMap["signoz"], servicePath)
 		case strings.HasSuffix(baseName, "-ingester"):
 			serviceMap["ingester"] = append(serviceMap["ingester"], servicePath)
-		case strings.HasSuffix(baseName, "-migrator"):
-			serviceMap["migrator"] = append(serviceMap["migrator"], servicePath)
 		default:
 			c.logger.WarnContext(ctx, "Unknown service type, skipping", slog.String("service", servicePath))
 		}
@@ -409,7 +409,7 @@ func (c *systemdCasting) discoverAndPrepareServices(ctx context.Context, poursPa
 }
 
 // setupSystemEnvironment creates signoz user, directories, copies configs, and validates binaries.
-func (c *systemdCasting) setupSystemEnvironment(ctx context.Context, config *v1alpha1.Casting, serviceMap map[string][]string, poursPath string) error {
+func (c *systemdCasting) setupSystemEnvironment(ctx context.Context, config *v1alpha1.Casting, poursPath string) error {
 	// Create signoz user if needed
 	if _, err := user.Lookup("signoz"); err != nil {
 		c.logger.InfoContext(ctx, "Creating user: signoz")
@@ -438,7 +438,7 @@ func (c *systemdCasting) setupSystemEnvironment(ctx context.Context, config *v1a
 	}
 
 	// Validate required binaries
-	return c.validateBinaries(serviceMap)
+	return c.validateBinaries()
 }
 
 // copyDir copies all files from srcDir to dstDir.
@@ -466,26 +466,22 @@ func (c *systemdCasting) copyDir(srcDir, dstDir string) error {
 }
 
 // validateBinaries checks if required binaries exist.
-func (c *systemdCasting) validateBinaries(serviceMap map[string][]string) error {
+func (c *systemdCasting) validateBinaries() error {
 	binaries := map[string]struct {
 		path, name string
 	}{
 		"signoz":   {"/opt/signoz/bin/signoz", "signoz"},
 		"ingester": {"/opt/ingester/bin/signoz-otel-collector", "signoz-otel-collector"},
 	}
-
 	var missing []string
-	for category, bin := range binaries {
-		if len(serviceMap[category]) > 0 {
-			if _, err := os.Stat(bin.path); os.IsNotExist(err) {
-				missing = append(missing, bin.name)
-			}
+	for _, bin := range binaries {
+		if _, err := os.Stat(bin.path); os.IsNotExist(err) {
+			missing = append(missing, bin.name)
 		}
 	}
 	if len(missing) > 0 {
 		return fmt.Errorf("missing binaries: %s - please install before running cast", strings.Join(missing, ", "))
 	}
-
 	return nil
 }
 
