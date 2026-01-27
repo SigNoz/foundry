@@ -1,7 +1,7 @@
 [Unit]
 Description=SigNoz OTel Collector
 Documentation=https://signoz.io/docs
-After={{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0{{ if $.Spec.TelemetryStore.Spec.Enabled }} {{ $.Metadata.Name }}-migrator{{ end }}
+After={{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0{{ if $.Spec.TelemetryStore.Spec.Enabled }} {{ $.Metadata.Name }}-telemetrystore-migrator{{ end }}
 {{ if $.Spec.TelemetryStore.Spec.Enabled }}
 Requires={{ $.Metadata.Name }}-migrator
 {{ end }}
