@@ -6,6 +6,8 @@ services:
     command:
     - --config=/etc/otel-collector-config.yaml
     depends_on:
+      signoz-migrator:
+        condition: service_completed_successfully
       signoz-telemetrystore-clickhouse-0-0:
         condition: service_healthy
     deploy:
@@ -48,6 +50,21 @@ services:
     - signoz-network
     volumes:
     - signoz-metastore-0-data:/var/lib/postgresql/data
+  signoz-migrator:
+    command:
+    - /signoz-otel-collector migrate bootstrap --clickhouse-dsn tcp://signoz-telemetrystore-clickhouse-0-0:9000
+    - /signoz-otel-collector migrate sync up --clickhouse-dsn tcp://signoz-telemetrystore-clickhouse-0-0:9000
+    - /signoz-otel-collector migrate async up --clickhouse-dsn tcp://signoz-telemetrystore-clickhouse-0-0:9000
+    container_name: signoz-migrator
+    depends_on:
+      signoz-telemetrystore-clickhouse-0-0:
+        condition: service_healthy
+    entrypoint:
+    - /bin/sh
+    - -c
+    image: signoz/signoz-otel-collector:latest
+    networks:
+    - signoz-network
   signoz-signoz:
     depends_on:
       signoz-metastore-postgres-0:
@@ -82,6 +99,8 @@ services:
     - signoz-network
     ports:
     - 8080:8080
+    volumes:
+    - signoz-signoz-0-data:/var/lib/signoz
   signoz-telemetrykeeper-clickhousekeeper-0:
     container_name: signoz-telemetrykeeper-clickhousekeeper-0
     entrypoint:
@@ -156,6 +175,7 @@ services:
     - signoz-telemetrystore-user-scripts:/var/lib/clickhouse/user_scripts
 volumes:
   signoz-metastore-0-data: null
+  signoz-signoz-0-data: null
   signoz-telemetrykeeper-0-data: null
   signoz-telemetrystore-0-0-data: null
   signoz-telemetrystore-user-scripts: null

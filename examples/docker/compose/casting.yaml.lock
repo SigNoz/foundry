@@ -312,6 +312,7 @@ spec:
         apiserver:
         - tcp://signoz-ingester:9000
         - tcp://signoz-metastore-postgres-0:9000
+        - tcp://signoz-migrator:9000
         - tcp://signoz-signoz:9000
         - tcp://signoz-telemetrykeeper-clickhousekeeper-0:9000
         - tcp://signoz-telemetrystore-clickhouse-0-0:9000
@@ -319,6 +320,7 @@ spec:
         opamp:
         - tcp://signoz-ingester:9000
         - tcp://signoz-metastore-postgres-0:9000
+        - tcp://signoz-migrator:9000
         - tcp://signoz-signoz:9000
         - tcp://signoz-telemetrykeeper-clickhousekeeper-0:9000
         - tcp://signoz-telemetrystore-clickhouse-0-0:9000
