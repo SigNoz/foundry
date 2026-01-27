@@ -1,14 +1,16 @@
 [Unit]
 Description=PostgreSQL database server
 Documentation=man:postgres(1)
-After=network-online.target
 Wants=network-online.target
+After=network-online.target
 
 [Service]
 Type=notify
 User=postgres
-{{ if and $.Spec.MetaStore.Status.Extras (index $.Spec.MetaStore.Status.Extras "envPath") }}
-EnvironmentFile={{ index $.Spec.MetaStore.Status.Extras "envPath" }}
+{{ if $.Spec.MetaStore.Spec.Env }}
+{{ range $key, $value := $.Spec.MetaStore.Spec.Env }}
+Environment={{ $key }}={{ $value }}
+{{ end }}
 {{ end }}
 ExecStart=/usr/bin/postgres -D /usr/local/pgsql/data
 ExecReload=/bin/kill -HUP $MAINPID

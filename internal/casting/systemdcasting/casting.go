@@ -3,7 +3,6 @@ package systemdcasting
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 
@@ -105,7 +104,7 @@ func (c *systemdCasting) Cast(ctx context.Context, config v1alpha1.Casting, pour
 func (c *systemdCasting) forgeCasting(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
 	switch tmpl {
 	case signozServiceTemplate:
-		return c.forgeSignoz(tmpl, cfg, poursPath)
+		return c.forgeSignoz(tmpl, cfg)
 	case metaStoreServiceTemplate:
 		return c.forgeMetaStore(tmpl, cfg, poursPath)
 	case ingesterServiceTemplate:
@@ -142,8 +141,8 @@ func (c *systemdCasting) forgeIngester(tmpl *types.Template, cfg *v1alpha1.Casti
 	}
 
 	// Set extras for template
-	spec.Status.Extras["cfgPath"] = filepath.Join(poursPath, mats[0].Path())
-	spec.Status.Extras["cfgOpampPath"] = filepath.Join(poursPath, mats[1].Path())
+	spec.Status.Extras["cfgPath"] = mats[0].Path()
+	spec.Status.Extras["cfgOpampPath"] = mats[1].Path()
 	spec.Status.Extras["workingDir"] = "/opt/ingester"
 
 	// Create service material
@@ -154,7 +153,7 @@ func (c *systemdCasting) forgeIngester(tmpl *types.Template, cfg *v1alpha1.Casti
 	return append(mats, svcMat), nil
 }
 
-func (c *systemdCasting) forgeSignoz(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
+func (c *systemdCasting) forgeSignoz(tmpl *types.Template, cfg *v1alpha1.Casting) ([]types.Material, error) {
 	spec := &cfg.Spec.Signoz
 	if !spec.Spec.Enabled {
 		return nil, nil
@@ -170,13 +169,7 @@ func (c *systemdCasting) forgeSignoz(tmpl *types.Template, cfg *v1alpha1.Casting
 
 	// Create env material
 	prefix := cfg.Metadata.Name + "-signoz"
-	envMat, err := c.envMaterial(spec.Status.Env, prefix)
-	if err != nil {
-		return nil, err
-	}
 
-	// Set extras for template
-	spec.Status.Extras["envPath"] = filepath.Join(poursPath, envMat.Path())
 	spec.Status.Extras["workingDir"] = "/opt/signoz"
 
 	// Create service material
@@ -184,7 +177,7 @@ func (c *systemdCasting) forgeSignoz(tmpl *types.Template, cfg *v1alpha1.Casting
 	if err != nil {
 		return nil, err
 	}
-	return []types.Material{envMat, svcMat}, nil
+	return []types.Material{svcMat}, nil
 }
 
 func (c *systemdCasting) forgeMetaStore(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
@@ -200,20 +193,12 @@ func (c *systemdCasting) forgeMetaStore(tmpl *types.Template, cfg *v1alpha1.Cast
 
 	// Create env material
 	prefix := fmt.Sprintf("%s-metastore-%s", cfg.Metadata.Name, spec.Kind.String())
-	envMat, err := c.envMaterial(spec.Status.Env, prefix)
-	if err != nil {
-		return nil, err
-	}
-
-	// Set extras for template
-	spec.Status.Extras["envPath"] = filepath.Join(poursPath, envMat.Path())
-
 	// Create service material
 	svcMat, err := c.renderTemplate(tmpl, cfg, prefix+svcSuffix)
 	if err != nil {
 		return nil, err
 	}
-	return []types.Material{envMat, svcMat}, nil
+	return []types.Material{svcMat}, nil
 }
 
 func (c *systemdCasting) forgeTelemetryStore(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
@@ -303,18 +288,6 @@ func (c *systemdCasting) renderTemplate(tmpl *types.Template, cfg *v1alpha1.Cast
 		return types.Material{}, fmt.Errorf("execute template %s: %w", path, err)
 	}
 	return types.NewINIMaterial(buf.Bytes(), path)
-}
-
-func (c *systemdCasting) envMaterial(envs map[string]string, prefix string) (types.Material, error) {
-	if envs == nil {
-		return types.Material{}, fmt.Errorf("envs not enriched for %s", prefix)
-	}
-	jb, _ := json.Marshal(envs)
-	ib, err := types.JSONToINI(jb)
-	if err != nil {
-		return types.Material{}, fmt.Errorf("failed to convert env to INI: %w", err)
-	}
-	return types.NewINIMaterial(ib, fmt.Sprintf("%s/%s.env", prefix, prefix))
 }
 
 func (c *systemdCasting) configMaterials(data map[string]string, path string) ([]types.Material, error) {

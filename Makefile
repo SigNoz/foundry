@@ -18,3 +18,6 @@ docker:
 test:
 	make forge
 	make docker
+
+gen:
+	go run ./cmd/foundryctl/*.go gen

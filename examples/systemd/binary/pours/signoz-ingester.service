@@ -2,7 +2,7 @@
 WantedBy=multi-user.target
 
 [Service]
-ExecStart=/opt/ingester/bin/signoz-otel-collector --config=/Users/grandwizard/Stash/foundry/examples/systemd/binary/pours/ingestor/ingester.yaml --manager-config=/Users/grandwizard/Stash/foundry/examples/systemd/binary/pours/ingestor/opamp.yaml
+ExecStart=/opt/ingester/bin/signoz-otel-collector --config=%Y/ingestor/ingester.yaml --manager-config=%Y/ingestor/opamp.yaml
 Group=signoz
 KillMode=mixed
 Restart=on-failure
