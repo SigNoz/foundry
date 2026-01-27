@@ -141,8 +141,8 @@ func (c *systemdCasting) forgeIngester(tmpl *types.Template, cfg *v1alpha1.Casti
 	}
 
 	// Set extras for template
-	spec.Status.Extras["cfgPath"] = filepath.Join(poursPath, mats[0].Path())
-	spec.Status.Extras["cfgOpampPath"] = filepath.Join(poursPath, mats[1].Path())
+	spec.Status.Extras["cfgPath"] = mats[0].Path()
+	spec.Status.Extras["cfgOpampPath"] = mats[1].Path()
 	spec.Status.Extras["workingDir"] = "/opt/ingester"
 
 	// Create service material
@@ -153,7 +153,7 @@ func (c *systemdCasting) forgeIngester(tmpl *types.Template, cfg *v1alpha1.Casti
 	return append(mats, svcMat), nil
 }
 
-func (c *systemdCasting) forgeSignoz(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
+func (c *systemdCasting) forgeSignoz(tmpl *types.Template, cfg *v1alpha1.Casting) ([]types.Material, error) {
 	spec := &cfg.Spec.Signoz
 	if !spec.Spec.Enabled {
 		return nil, nil
