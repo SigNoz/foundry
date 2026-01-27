@@ -104,7 +104,7 @@ func (c *systemdCasting) Cast(ctx context.Context, config v1alpha1.Casting, pour
 func (c *systemdCasting) forgeCasting(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
 	switch tmpl {
 	case signozServiceTemplate:
-		return c.forgeSignoz(tmpl, cfg, poursPath)
+		return c.forgeSignoz(tmpl, cfg)
 	case metaStoreServiceTemplate:
 		return c.forgeMetaStore(tmpl, cfg, poursPath)
 	case ingesterServiceTemplate:
