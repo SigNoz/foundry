@@ -3,6 +3,7 @@ WantedBy=multi-user.target
 
 [Service]
 Environment=SIGNOZ_WEB_DIRECTORY=/opt/signoz/web
+Environment=SIGNOZ_BINARY_PATH=/opt/signoz/bin/signoz
 Environment=SIGNOZ_SQLSTORE_POSTGRES_DSN=postgres://signoz:signoz@localhost:5432/signoz?sslmode=disable
 Environment=SIGNOZ_SQLSTORE_PROVIDER=postgres
 Environment=SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN=tcp://localhost:9000
@@ -16,6 +17,7 @@ User=signoz
 WorkingDirectory=/opt/signoz
 
 [Unit]
-After=signoz-telemetrystore-clickhouse-0-0 signoz-metastore-postgres
+After=signoz-telemetrystore-clickhouse-0-0 signoz-metastore-postgres signoz-telemetrystore-migrator
 Description=SigNoz
 Documentation=https://signoz.io/docs
+Requires=signoz-telemetrystore-migrator

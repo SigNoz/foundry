@@ -1,0 +1,24 @@
+[Unit]
+Description=SigNoz Schema Migrator
+Documentation=https://signoz.io/docs
+{{ if $.Spec.TelemetryStore.Spec.Enabled }}
+{{ $firstStore := printf "%s-telemetrystore-%s-0-0" $.Metadata.Name $.Spec.TelemetryStore.Kind.String }}
+After={{ $firstStore }}
+Requires={{ $firstStore }}
+{{ end }}
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=signoz
+Group=signoz
+{{ if and $.Spec.Ingester.Spec.Env (index $.Spec.Ingester.Spec.Env "OTEL_COLLECTOR_BINARY_PATH") }}
+{{ $migratorBinary := index $.Spec.Ingester.Spec.Env "OTEL_COLLECTOR_BINARY_PATH" }}
+{{ if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
+{{ $dsn := index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
+ExecStart=/bin/bash -c '{{ $migratorBinary }} migrate bootstrap --clickhouse-dsn={{ $dsn }} && {{ $migratorBinary }} migrate sync up --clickhouse-dsn={{ $dsn }} && {{ $migratorBinary }} migrate async up --clickhouse-dsn={{ $dsn }}'
+{{ end }}
+{{ end }}
+
+[Install]
+WantedBy=multi-user.target

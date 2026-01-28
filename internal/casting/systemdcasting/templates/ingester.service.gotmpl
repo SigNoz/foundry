@@ -1,7 +1,10 @@
 [Unit]
 Description=SigNoz OTel Collector
 Documentation=https://signoz.io/docs
-After={{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0
+After={{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0{{ if $.Spec.TelemetryStore.Spec.Enabled }} {{ $.Metadata.Name }}-telemetrystore-migrator{{ end }}
+{{ if $.Spec.TelemetryStore.Spec.Enabled }}
+Requires={{ $.Metadata.Name }}-telemetrystore-migrator
+{{ end }}
 
 [Service]
 User=signoz
@@ -11,7 +14,9 @@ KillMode=mixed
 Restart=on-failure
 {{/* Using Fragment specifier to get the config from pours directory */}}
 {{ if and $.Spec.Ingester.Status.Extras (index $.Spec.Ingester.Status.Extras "cfgPath") (index $.Spec.Ingester.Status.Extras "cfgOpampPath") }}
-ExecStart=/opt/ingester/bin/signoz-otel-collector --config=%Y/{{ index $.Spec.Ingester.Status.Extras "cfgPath" }} --manager-config=%Y/{{ index $.Spec.Ingester.Status.Extras "cfgOpampPath" }}
+{{ if and $.Spec.Ingester.Spec.Env (index $.Spec.Ingester.Spec.Env "OTEL_COLLECTOR_BINARY_PATH") }}
+ExecStart={{ index $.Spec.Ingester.Spec.Env "OTEL_COLLECTOR_BINARY_PATH" }} --config=%Y/{{ index $.Spec.Ingester.Status.Extras "cfgPath" }} --manager-config=%Y/{{ index $.Spec.Ingester.Status.Extras "cfgOpampPath" }}
+{{ end }}
 {{ end }}
 
 [Install]

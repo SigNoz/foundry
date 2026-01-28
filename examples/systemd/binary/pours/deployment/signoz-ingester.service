@@ -2,7 +2,7 @@
 WantedBy=multi-user.target
 
 [Service]
-ExecStart=/opt/ingester/bin/signoz-otel-collector --config=%Y/deployment/ingestor/ingester.yaml --manager-config=%Y/deployment/ingestor/opamp.yaml
+ExecStart=/opt/ingester/bin/signoz-otel-collector --config=%Y/configs/ingester/ingester.yaml --manager-config=%Y/configs/ingester/opamp.yaml
 Group=signoz
 KillMode=mixed
 Restart=on-failure
@@ -10,6 +10,7 @@ Type=simple
 User=signoz
 
 [Unit]
-After=signoz-telemetrystore-clickhouse-0-0
+After=signoz-telemetrystore-clickhouse-0-0 signoz-telemetrystore-migrator
 Description=SigNoz OTel Collector
 Documentation=https://signoz.io/docs
+Requires=signoz-telemetrystore-migrator

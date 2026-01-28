@@ -1,0 +1,15 @@
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+ExecStart=/bin/bash -c '/opt/ingester/bin/signoz-otel-collector migrate bootstrap --clickhouse-dsn=tcp://localhost:9000 && /opt/ingester/bin/signoz-otel-collector migrate sync up --clickhouse-dsn=tcp://localhost:9000 && /opt/ingester/bin/signoz-otel-collector migrate async up --clickhouse-dsn=tcp://localhost:9000'
+Group=signoz
+RemainAfterExit=yes
+Type=oneshot
+User=signoz
+
+[Unit]
+After=signoz-telemetrystore-clickhouse-0-0
+Description=SigNoz Schema Migrator
+Documentation=https://signoz.io/docs
+Requires=signoz-telemetrystore-clickhouse-0-0

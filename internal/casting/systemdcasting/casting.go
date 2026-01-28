@@ -9,7 +9,6 @@ import (
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/molding"
 
-	"net"
 	"os"
 	"os/exec"
 	"os/user"
@@ -24,10 +23,7 @@ import (
 const svcSuffix = ".service"
 
 const (
-	serviceStartTimeout  = 2 * time.Minute
-	serviceReadyWait     = 10 * time.Second
-	clickhouseReadyWait  = 60 * time.Second
-	clickhouseRetryDelay = 2 * time.Second
+	serviceStartTimeout = 2 * time.Minute
 )
 
 var _ rootcasting.Casting = (*systemdCasting)(nil)
@@ -46,6 +42,7 @@ func New(logger *slog.Logger) *systemdCasting {
 			metaStoreServiceTemplate,
 			signozServiceTemplate,
 			ingesterServiceTemplate,
+			telemetryStoreMigratorServiceTemplate,
 		},
 	}
 }
@@ -83,17 +80,18 @@ func (c *systemdCasting) Cast(ctx context.Context, config v1alpha1.Casting, pour
 	}
 
 	// Setup system environment
-	if err := c.setupSystemEnvironment(runctx, &config, serviceMap, poursPath); err != nil {
+	if err := c.setupSystemEnvironment(runctx, &config, poursPath); err != nil {
 		return err
 	}
 
-	// Initialize and start foundation services
-	if err := c.initAndStartFoundation(runctx, &config, serviceMap); err != nil {
-		return err
+	if config.Spec.MetaStore.Spec.Enabled {
+		if err := c.initializePostgres(ctx, &config); err != nil {
+			return err
+		}
 	}
 
-	// Run migrations and start application services
-	if err := c.runMigrationsAndStartApps(runctx, &config, serviceMap, poursPath); err != nil {
+	// Start all services - systemd dependencies handle ordering
+	if err := c.startAllServices(runctx, serviceMap); err != nil {
 		return err
 	}
 
@@ -113,6 +111,8 @@ func (c *systemdCasting) forgeCasting(tmpl *types.Template, cfg *v1alpha1.Castin
 		return c.forgeTelemetryStore(tmpl, cfg, poursPath)
 	case telemetryKeeperServiceTemplate:
 		return c.forgeTelemetryKeeper(tmpl, cfg, poursPath)
+	case telemetryStoreMigratorServiceTemplate:
+		return c.forgeMigrator(tmpl, cfg)
 	default:
 		return nil, nil
 	}
@@ -133,16 +133,24 @@ func (c *systemdCasting) forgeIngester(tmpl *types.Template, cfg *v1alpha1.Casti
 	if spec.Status.Extras == nil {
 		spec.Status.Extras = make(map[string]string)
 	}
+	if spec.Spec.Env == nil {
+		spec.Spec.Env = make(map[string]string)
+	}
+
+	// Set OTEL collector binary path with default fallback
+	if spec.Spec.Env["OTEL_COLLECTOR_BINARY_PATH"] == "" {
+		spec.Spec.Env["OTEL_COLLECTOR_BINARY_PATH"] = "/opt/ingester/bin/signoz-otel-collector"
+	}
 
 	// Create config materials
-	mats, err := c.configMaterials(spec.Status.Config.Data, "ingestor")
+	mats, err := c.configMaterials(spec.Status.Config.Data, "ingester")
 	if err != nil {
 		return nil, err
 	}
 
 	// Set extras for template
-	spec.Status.Extras["cfgPath"] = mats[0].Path()
-	spec.Status.Extras["cfgOpampPath"] = mats[1].Path()
+	spec.Status.Extras["cfgPath"] = "configs/ingester/ingester.yaml"
+	spec.Status.Extras["cfgOpampPath"] = "configs/ingester/opamp.yaml"
 	spec.Status.Extras["workingDir"] = "/opt/ingester"
 
 	// Create service material
@@ -163,8 +171,13 @@ func (c *systemdCasting) forgeSignoz(tmpl *types.Template, cfg *v1alpha1.Casting
 	if spec.Status.Extras == nil {
 		spec.Status.Extras = make(map[string]string)
 	}
-	if spec.Status.Env == nil {
-		spec.Status.Env = make(map[string]string)
+	if spec.Spec.Env == nil {
+		spec.Spec.Env = make(map[string]string)
+	}
+
+	// Set signoz binary path with default fallback
+	if spec.Spec.Env["SIGNOZ_BINARY_PATH"] == "" {
+		spec.Spec.Env["SIGNOZ_BINARY_PATH"] = "/opt/signoz/bin/signoz"
 	}
 
 	// Create env material
@@ -189,6 +202,14 @@ func (c *systemdCasting) forgeMetaStore(tmpl *types.Template, cfg *v1alpha1.Cast
 	// Initialize status extras
 	if spec.Status.Extras == nil {
 		spec.Status.Extras = make(map[string]string)
+	}
+	if spec.Spec.Env == nil {
+		spec.Spec.Env = make(map[string]string)
+	}
+
+	// Set postgres binary path with default fallback
+	if spec.Spec.Env["POSTGRES_BINARY_PATH"] == "" {
+		spec.Spec.Env["POSTGRES_BINARY_PATH"] = "/usr/bin/postgres"
 	}
 
 	// Create env material
@@ -220,13 +241,10 @@ func (c *systemdCasting) forgeTelemetryStore(tmpl *types.Template, cfg *v1alpha1
 	shards := max(1, *spec.Spec.Cluster.Shards)
 
 	// Create config materials
-	mats, err := c.configMaterials(spec.Status.Config.Data, kind)
+	mats, err := c.configMaterials(spec.Status.Config.Data, "telemetrystore")
 	if err != nil {
 		return nil, err
 	}
-
-	// Set config path for template
-	spec.Status.Extras["cfgPath"] = filepath.Join("/etc/clickhouse-server/", filepath.Base(mats[0].Path()))
 
 	// Create service materials for each shard/replica
 	for s := range shards {
@@ -260,7 +278,7 @@ func (c *systemdCasting) forgeTelemetryKeeper(tmpl *types.Template, cfg *v1alpha
 	reps := max(1, *spec.Spec.Cluster.Replicas)
 
 	// Create config materials
-	mats, err := c.configMaterials(spec.Status.Config.Data, kind)
+	mats, err := c.configMaterials(spec.Status.Config.Data, "telemetrykeeper")
 	if err != nil {
 		return nil, err
 	}
@@ -280,6 +298,29 @@ func (c *systemdCasting) forgeTelemetryKeeper(tmpl *types.Template, cfg *v1alpha
 	return mats, nil
 }
 
+func (c *systemdCasting) forgeMigrator(tmpl *types.Template, cfg *v1alpha1.Casting) ([]types.Material, error) {
+	spec := &cfg.Spec.TelemetryStore
+	if !spec.Spec.Enabled {
+		return nil, nil
+	}
+
+	// Ensure OTEL_COLLECTOR_BINARY_PATH is set for migrator service
+	// The migrator uses the same binary as the ingester
+	if cfg.Spec.Ingester.Spec.Env == nil {
+		cfg.Spec.Ingester.Spec.Env = make(map[string]string)
+	}
+	if cfg.Spec.Ingester.Spec.Env["OTEL_COLLECTOR_BINARY_PATH"] == "" {
+		cfg.Spec.Ingester.Spec.Env["OTEL_COLLECTOR_BINARY_PATH"] = "/opt/ingester/bin/signoz-otel-collector"
+	}
+
+	// Create service material
+	svcMat, err := c.renderTemplate(tmpl, cfg, cfg.Metadata.Name+"-telemetrystore-migrator"+svcSuffix)
+	if err != nil {
+		return nil, err
+	}
+	return []types.Material{svcMat}, nil
+}
+
 // --- Material Helpers ---
 
 func (c *systemdCasting) renderTemplate(tmpl *types.Template, cfg *v1alpha1.Casting, path string) (types.Material, error) {
@@ -293,7 +334,7 @@ func (c *systemdCasting) renderTemplate(tmpl *types.Template, cfg *v1alpha1.Cast
 func (c *systemdCasting) configMaterials(data map[string]string, path string) ([]types.Material, error) {
 	mats := make([]types.Material, 0, len(data))
 	for file, content := range data {
-		m, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, path, file))
+		m, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "configs/", path, file))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create config material %s: %w", file, err)
 		}
@@ -319,7 +360,7 @@ func (c *systemdCasting) discoverAndPrepareServices(ctx context.Context, poursPa
 		return nil, fmt.Errorf("failed to read directory %s: %w", deploymentPath, err)
 	}
 
-	serviceMap := map[string][]string{"keeper": {}, "store": {}, "postgres": {}, "signoz": {}, "ingester": {}}
+	serviceMap := map[string][]string{"keeper": {}, "store": {}, "postgres": {}, "signoz": {}, "ingester": {}, "migrator": {}}
 
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".service") {
@@ -329,11 +370,13 @@ func (c *systemdCasting) discoverAndPrepareServices(ctx context.Context, poursPa
 		baseName := strings.TrimSuffix(entry.Name(), ".service")
 
 		switch {
-		case strings.Contains(baseName, "-telemetrykeeper-"):
+		case strings.HasSuffix(baseName, "-migrator"):
+			serviceMap["migrator"] = append(serviceMap["migrator"], servicePath)
+		case strings.Contains(baseName, "-telemetrykeeper-") && !strings.Contains(baseName, "-migrator"):
 			serviceMap["keeper"] = append(serviceMap["keeper"], servicePath)
-		case strings.Contains(baseName, "-telemetrystore-"):
+		case strings.Contains(baseName, "-telemetrystore-") && !strings.Contains(baseName, "-migrator"):
 			serviceMap["store"] = append(serviceMap["store"], servicePath)
-		case strings.Contains(baseName, "-metastore-"):
+		case strings.Contains(baseName, "-metastore-postgres"):
 			serviceMap["postgres"] = append(serviceMap["postgres"], servicePath)
 		case strings.HasSuffix(baseName, "-signoz"):
 			serviceMap["signoz"] = append(serviceMap["signoz"], servicePath)
@@ -366,7 +409,7 @@ func (c *systemdCasting) discoverAndPrepareServices(ctx context.Context, poursPa
 }
 
 // setupSystemEnvironment creates signoz user, directories, copies configs, and validates binaries.
-func (c *systemdCasting) setupSystemEnvironment(ctx context.Context, config *v1alpha1.Casting, serviceMap map[string][]string, poursPath string) error {
+func (c *systemdCasting) setupSystemEnvironment(ctx context.Context, config *v1alpha1.Casting, poursPath string) error {
 	// Create signoz user if needed
 	if _, err := user.Lookup("signoz"); err != nil {
 		c.logger.InfoContext(ctx, "Creating user: signoz")
@@ -379,22 +422,23 @@ func (c *systemdCasting) setupSystemEnvironment(ctx context.Context, config *v1a
 	if err := os.MkdirAll(poursPath, 0755); err != nil {
 		return fmt.Errorf("failed to create working directory %s: %w", poursPath, err)
 	}
-	_ = c.execCommand(ctx, "chown", "-R", "signoz:signoz", poursPath) // best effort
+	_ = c.execCommand(ctx, "chown", "-R", "signoz:signoz", poursPath)      // best effort
+	_ = c.execCommand(ctx, "chown", "-R", "signoz:signoz", "/opt/signoz/") // best effort
 
 	// Copy clickhouse configs to standard locations
 	if config.Spec.TelemetryStore.Spec.Enabled {
-		if err := c.copyDir(filepath.Join(poursPath, rootcasting.DeploymentDir, config.Spec.TelemetryStore.Kind.String()), "/etc/clickhouse-server/"); err != nil {
+		if err := c.copyDir(filepath.Join(poursPath, rootcasting.DeploymentDir, "configs", config.Spec.TelemetryStore.Kind.String()), "/etc/clickhouse-server/"); err != nil {
 			return fmt.Errorf("failed to copy clickhouse-server configs: %w", err)
 		}
 	}
 	if config.Spec.TelemetryKeeper.Spec.Enabled {
-		if err := c.copyDir(filepath.Join(poursPath, rootcasting.DeploymentDir, config.Spec.TelemetryKeeper.Kind.String()), "/etc/clickhouse-keeper/"); err != nil {
+		if err := c.copyDir(filepath.Join(poursPath, rootcasting.DeploymentDir, "configs", config.Spec.TelemetryKeeper.Kind.String()), "/etc/clickhouse-keeper/"); err != nil {
 			return fmt.Errorf("failed to copy clickhouse-keeper configs: %w", err)
 		}
 	}
 
 	// Validate required binaries
-	return c.validateBinaries(serviceMap)
+	return c.validateBinaries()
 }
 
 // copyDir copies all files from srcDir to dstDir.
@@ -422,20 +466,17 @@ func (c *systemdCasting) copyDir(srcDir, dstDir string) error {
 }
 
 // validateBinaries checks if required binaries exist.
-func (c *systemdCasting) validateBinaries(serviceMap map[string][]string) error {
-	checks := []struct {
-		category, path, name string
+func (c *systemdCasting) validateBinaries() error {
+	binaries := map[string]struct {
+		path, name string
 	}{
-		{"signoz", "/opt/signoz/bin/signoz", "signoz"},
-		{"ingester", "/opt/ingester/bin/signoz-otel-collector", "signoz-otel-collector"},
+		"signoz":   {"/opt/signoz/bin/signoz", "signoz"},
+		"ingester": {"/opt/ingester/bin/signoz-otel-collector", "signoz-otel-collector"},
 	}
-
 	var missing []string
-	for _, chk := range checks {
-		if len(serviceMap[chk.category]) > 0 {
-			if _, err := os.Stat(chk.path); os.IsNotExist(err) {
-				missing = append(missing, chk.name)
-			}
+	for _, bin := range binaries {
+		if _, err := os.Stat(bin.path); os.IsNotExist(err) {
+			missing = append(missing, bin.name)
 		}
 	}
 	if len(missing) > 0 {
@@ -444,182 +485,46 @@ func (c *systemdCasting) validateBinaries(serviceMap map[string][]string) error 
 	return nil
 }
 
-// initAndStartFoundation initializes postgres if needed and starts foundation services.
-func (c *systemdCasting) initAndStartFoundation(ctx context.Context, config *v1alpha1.Casting, serviceMap map[string][]string) error {
-	// Initialize PostgreSQL if postgres services exist
-	if len(serviceMap["postgres"]) > 0 {
-		if err := c.initializePostgres(ctx, config); err != nil {
-			return err
-		}
+// startAllServices enables and starts all discovered services.
+// Systemd dependencies ensure proper ordering.
+func (c *systemdCasting) startAllServices(ctx context.Context, serviceMap map[string][]string) error {
+	// Collect all services
+	var allServices []string
+	for _, services := range serviceMap {
+		allServices = append(allServices, services...)
 	}
 
-	// Start foundation services
-	return c.startServicesByCategory(ctx, serviceMap, []string{"keeper", "store", "postgres"})
-}
-
-// runMigrationsAndStartApps waits for foundation, runs migrations, and starts app services.
-func (c *systemdCasting) runMigrationsAndStartApps(ctx context.Context, config *v1alpha1.Casting, serviceMap map[string][]string, poursPath string) error {
-	// Wait for store and keeper services to be active
-	waitFor := append(serviceMap["store"], serviceMap["keeper"]...)
-	if err := c.waitForServices(ctx, waitFor); err != nil {
-		return fmt.Errorf("services not ready for migration: %w", err)
-	}
-
-	// Run migrations if telemetry store is enabled
-	if config.Spec.TelemetryStore.Spec.Enabled {
-		// Wait for ClickHouse to accept connections
-		if err := c.waitForClickHouse(ctx, config); err != nil {
-			return fmt.Errorf("clickhouse not ready: %w", err)
-		}
-
-		c.logger.InfoContext(ctx, "Running database migrations")
-		if err := c.runMigrator(ctx, config, poursPath); err != nil {
-			return fmt.Errorf("migration failed: %w", err)
-		}
-	}
-
-	// Start application services
-	return c.startServicesByCategory(ctx, serviceMap, []string{"signoz", "ingester"})
-}
-
-// startServicesByCategory enables and starts services for given categories.
-func (c *systemdCasting) startServicesByCategory(ctx context.Context, serviceMap map[string][]string, categories []string) error {
-	for _, cat := range categories {
-		for _, svc := range serviceMap[cat] {
-			unitName := filepath.Base(svc)
-			c.logger.DebugContext(ctx, "Enabling service", slog.String("service", svc))
-			if err := c.execCommand(ctx, "systemctl", "enable", svc); err != nil {
-				return fmt.Errorf("failed to enable service %s: %w", svc, err)
-			}
-			c.logger.InfoContext(ctx, "Starting service", slog.String("service", unitName))
-			startCtx, cancel := context.WithTimeout(ctx, serviceStartTimeout)
-			err := c.execCommand(startCtx, "systemctl", "start", unitName)
-			cancel()
-			if err != nil {
-				return fmt.Errorf("failed to start service %s: %w", unitName, err)
-			}
-		}
-	}
-	return nil
-}
-
-// waitForServices waits for all services to be active.
-func (c *systemdCasting) waitForServices(ctx context.Context, services []string) error {
-	if len(services) == 0 {
+	if len(allServices) == 0 {
 		return nil
 	}
 
-	deadline := time.Now().Add(serviceReadyWait)
-	for {
-		allActive := true
-		for _, svc := range services {
-			cmd := exec.CommandContext(ctx, "systemctl", "is-active", filepath.Base(svc))
-			if err := cmd.Run(); err != nil {
-				allActive = false
-				break
-			}
+	// Enable and start all services - systemd will handle ordering via dependencies
+	for _, svc := range allServices {
+		unitName := filepath.Base(svc)
+		c.logger.DebugContext(ctx, "Enabling service", slog.String("service", unitName), slog.String("path", svc))
+		// Use full path for enable - systemctl can work with paths to service files
+		if err := c.execCommand(ctx, "systemctl", "enable", svc); err != nil {
+			return fmt.Errorf("failed to enable service %s: %w", unitName, err)
 		}
-		if allActive {
-			return nil
-		}
-		if time.Now().After(deadline) {
-			return fmt.Errorf("timeout waiting for services to be active")
-		}
-		select {
-		case <-time.After(2 * time.Second):
-		case <-ctx.Done():
-			return ctx.Err()
+		c.logger.InfoContext(ctx, "Starting service", slog.String("service", unitName))
+		startCtx, cancel := context.WithTimeout(ctx, serviceStartTimeout)
+		// Use full path for start as well
+		err := c.execCommand(startCtx, "systemctl", "start", unitName)
+		cancel()
+		if err != nil {
+			return fmt.Errorf("failed to start service %s: %w", unitName, err)
 		}
 	}
-}
 
-// waitForClickHouse waits for ClickHouse to accept TCP connections.
-func (c *systemdCasting) waitForClickHouse(ctx context.Context, config *v1alpha1.Casting) error {
-	addrs := config.Spec.TelemetryStore.Status.Addresses.TCP
-	if len(addrs) == 0 {
-		return fmt.Errorf("no clickhouse addresses configured")
-	}
-
-	// Extract host:port from the address (format: tcp://host:port)
-	addr := addrs[0]
-	addr = strings.TrimPrefix(addr, "tcp://")
-
-	c.logger.DebugContext(ctx, "Waiting for ClickHouse to be ready", slog.String("address", addr))
-
-	deadline := time.Now().Add(clickhouseReadyWait)
-	for {
-		conn, err := net.DialTimeout("tcp", addr, 2*time.Second)
-		if err == nil {
-			_ = conn.Close()
-			c.logger.DebugContext(ctx, "ClickHouse is ready")
-			return nil
-		}
-
-		if time.Now().After(deadline) {
-			return fmt.Errorf("timeout waiting for clickhouse at %s: %w", addr, err)
-		}
-
-		c.logger.DebugContext(ctx, "ClickHouse not ready, retrying...", slog.String("error", err.Error()))
-		select {
-		case <-time.After(clickhouseRetryDelay):
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-}
-
-// runMigrator finds and runs the schema migrator.
-func (c *systemdCasting) runMigrator(ctx context.Context, config *v1alpha1.Casting, poursPath string) error {
-	// Find migrator binary
-	migratorBinary := ""
-	paths := []string{
-		"/usr/bin/signoz-schema-migrator",
-		"/usr/local/bin/signoz-schema-migrator",
-		filepath.Join(poursPath, "signoz-schema-migrator/bin/signoz-schema-migrator"),
-	}
-	for _, p := range paths {
-		if _, err := os.Stat(p); err == nil {
-			migratorBinary = p
-			break
-		}
-	}
-	if migratorBinary == "" {
-		if _, err := exec.LookPath("signoz-schema-migrator"); err != nil {
-			return fmt.Errorf("signoz-schema-migrator binary not found")
-		}
-		migratorBinary = "signoz-schema-migrator"
-	}
-
-	// Get DSN
-	var dsn string
-	if addrs := config.Spec.TelemetryStore.Status.Addresses.TCP; len(addrs) > 0 {
-		dsn = addrs[0]
-	}
-
-	// Run migrations
-	c.logger.DebugContext(ctx, "Running migrator sync")
-	if err := c.execCommandSilent(ctx, migratorBinary, "sync", "--dsn="+dsn, "--replication=true", "--up="); err != nil {
-		return fmt.Errorf("migrator sync failed: %w", err)
-	}
-	c.logger.DebugContext(ctx, "Running migrator async")
-	if err := c.execCommandSilent(ctx, migratorBinary, "async", "--dsn="+dsn, "--replication=true", "--up="); err != nil {
-		return fmt.Errorf("migrator async failed: %w", err)
-	}
 	return nil
-}
-
-// execCommandSilent executes a command without outputting to stdout/stderr.
-func (c *systemdCasting) execCommandSilent(ctx context.Context, name string, args ...string) error {
-	cmd := exec.CommandContext(ctx, name, args...)
-	return cmd.Run()
 }
 
 // initializePostgres sets up the PostgreSQL data directory.
 func (c *systemdCasting) initializePostgres(ctx context.Context, config *v1alpha1.Casting) error {
 	pgDataDir := "/usr/local/pgsql/data"
 
-	// Skip if already initialized
-	if _, err := os.Stat(pgDataDir); err == nil {
+	// Check if PostgreSQL is already initialized by looking for PG_VERSION file
+	if _, err := os.Stat(filepath.Join(pgDataDir, "PG_VERSION")); err == nil {
 		c.logger.DebugContext(ctx, "PostgreSQL already initialized", slog.String("path", pgDataDir))
 		return nil
 	}
@@ -656,17 +561,26 @@ func (c *systemdCasting) initializePostgres(ctx context.Context, config *v1alpha
 	}
 	_ = c.execCommand(ctx, "chown", "postgres:postgres", pwfile)
 
+	// Get postgres binary path from config to determine bin directory
+	postgresPath := config.Spec.MetaStore.Spec.Env["POSTGRES_BINARY_PATH"]
+	if postgresPath == "" {
+		postgresPath = "/usr/bin/postgres" // fallback
+	}
+	postgresBinDir := filepath.Dir(postgresPath)
+	initdbPath := filepath.Join(postgresBinDir, "initdb")
+	pgCtlPath := filepath.Join(postgresBinDir, "pg_ctl")
+
 	// Initialize database
-	c.logger.DebugContext(ctx, "Running initdb", slog.String("user", pgUser))
+	c.logger.DebugContext(ctx, "Running initdb", slog.String("user", pgUser), slog.String("initdb", initdbPath))
 	if err := c.execCommand(ctx, "su", "-", "postgres", "-c",
-		fmt.Sprintf("initdb -D %s --username=%s --pwfile=%s", pgDataDir, pgUser, pwfile)); err != nil {
+		fmt.Sprintf("%s -D %s --username=%s --pwfile=%s", initdbPath, pgDataDir, pgUser, pwfile)); err != nil {
 		return fmt.Errorf("failed to initialize PostgreSQL: %w", err)
 	}
 
 	// Start temp server and create database
 	c.logger.DebugContext(ctx, "Starting temporary PostgreSQL for DB creation")
 	if err := c.execCommand(ctx, "su", "-", "postgres", "-c",
-		fmt.Sprintf("pg_ctl -D %s -o \"-c listen_addresses=localhost\" -w start", pgDataDir)); err != nil {
+		fmt.Sprintf("%s -D %s -o \"-c listen_addresses=localhost\" -w start", pgCtlPath, pgDataDir)); err != nil {
 		return fmt.Errorf("failed to start temporary postgres: %w", err)
 	}
 
@@ -677,7 +591,7 @@ func (c *systemdCasting) initializePostgres(ctx context.Context, config *v1alpha
 	_ = cmd.Run() // ignore error - database may already exist
 
 	// Stop temporary PostgreSQL
-	if err := c.execCommand(ctx, "su", "-", "postgres", "-c", fmt.Sprintf("pg_ctl -D %s -m fast -w stop", pgDataDir)); err != nil {
+	if err := c.execCommand(ctx, "su", "-", "postgres", "-c", fmt.Sprintf("%s -D %s -m fast -w stop", pgCtlPath, pgDataDir)); err != nil {
 		return fmt.Errorf("failed to stop temporary postgres: %w", err)
 	}
 
