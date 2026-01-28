@@ -1,6 +1,6 @@
 # Foundry
 
-Foundry is a centralized hub for [SigNoz](https://signoz.io) installation setups— **integrations for install**. Select yours, configure, and run.
+Foundry is a centralized hub for [SigNoz](https://signoz.io) installation setups: **integrations for install**. Select yours, configure, and run.
 
 ## Overview
 
@@ -15,10 +15,9 @@ Foundry abstracts away the complexities of the installation process so you can s
 - **Automatic dependency management**: Handles inter-service dependencies
 - **Tool validation**: Verify prerequisites before deployment
 
-
 ## Installing Foundry
 
-Download the latest `foundryctl` from [GitHub Releases](https://github.com/signoz/foundry/releases):
+Download the latest `foundryctl` binary from [GitHub Releases](https://github.com/signoz/foundry/releases).
 
 Or build from source:
 
@@ -44,12 +43,20 @@ spec:
     flavor: compose
 ```
 
+### Validate environment for tools
+
+Run the `gauge` command to validate that all required tools are installed for your deployment:
+
+```bash
+foundryctl gauge -f casting.yaml
+```
+
 ### Forging Pours
 
 Run the `forge` command to generate deployment and configuration files:
 
 ```bash
-./foundryctl forge
+foundryctl forge -f casting.yaml
 ```
 
 ### Casting to your environment
@@ -57,7 +64,7 @@ Run the `forge` command to generate deployment and configuration files:
 Run the `cast` command to deploy SigNoz:
 
 ```bash
-./foundryctl cast
+foundryctl cast -f casting.yaml
 ```
 
 ## Concepts
@@ -100,17 +107,15 @@ spec:
 
 ### Supported deployments
 
-| Platform | Mode | Flavor | Description |
-|----------|------|--------|-------------|
-| - | docker | compose | Docker Compose deployment |
-| - | systemd | binary | Systemd services with binaries |
-| render | - | blueprint | Render Blueprint deployment |
+| Deployment | Example |
+|------------|---------|
+| Docker Compose | [examples/docker/compose/](examples/docker/compose/) |
+| Systemd (binary) | [examples/systemd/binary/](examples/systemd/binary/) |
+| Render Blueprint | [examples/render/blueprint/](examples/render/blueprint/) |
 
 ### Moldings
 
 **Moldings** are the individual components that make up a SigNoz deployment:
-
-Foundry manages the following moldings:
 
 | Molding | Implementation |
 |---------|----------------|
@@ -123,6 +128,21 @@ Foundry manages the following moldings:
 ### Pours
 
 **Pours** are the generated deployment and configuration files. When you run `forge`, Foundry creates the `pours/` directory containing everything needed to run SigNoz.
+
+```
+pours/
+└── deployment/
+    ├── compose.yaml
+    └── configs/
+        ├── ingester/
+        │   ├── ingester.yaml
+        │   └── opamp.yaml
+        ├── telemetrykeeper/
+        │   └── keeper-0.yaml
+        └── telemetrystore/
+            ├── config.yaml
+            └── functions.yaml
+```
 
 ## CLI reference
 
@@ -181,50 +201,6 @@ Generates example Casting configurations for all supported deployment modes:
 ```bash
 foundryctl gen
 ```
-
-## Output structure
-
-After running `forge`, Foundry creates a `pours/` directory with deployment-specific files.
-
-### Docker Compose
-
-```
-pours/
-└── deployment/
-    └── compose.yaml
-    ├── configs/
-          ├── ingester/
-          │   ├── ingester.yaml
-          │   └── opamp.yaml
-          ├── telemetrykeeper/
-          │   └── keeper-0.yaml
-          └── telemetrystore/
-              ├── config.yaml
-              └── functions.yaml
-```
-
-### Systemd
-
-```
-pours/
-└── deployment/
-    ├── configs/
-    │   └── ...
-    ├── signoz-ingester.service
-    ├── signoz-metastore-postgres.service
-    ├── signoz-signoz.service
-    ├── signoz-telemetrykeeper-clickhousekeeper-0.service
-    ├── signoz-telemetrystore-clickhouse-0-0.service
-    └── signoz-telemetrystore-migrator.service
-```
-
-## Examples
-
-Example configurations are available in the `examples/` directory:
-
-- [`examples/docker/compose/`](examples/docker/compose/) - Docker Compose deployment
-- [`examples/systemd/binary/`](examples/systemd/binary/) - Systemd binary deployment
-- [`examples/render/blueprint/`](examples/render/blueprint/) - Render Blueprint deployment
 
 ## What's next
 
