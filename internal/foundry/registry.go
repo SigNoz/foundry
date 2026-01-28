@@ -18,6 +18,22 @@ import (
 	"github.com/signoz/foundry/internal/tooler/systemdtooler"
 )
 
+// DeploymentItem describes a deployment type.
+type DeploymentItem struct {
+	Platform string
+	Mode     string
+	Flavor   string
+}
+
+// ToDescriptor creates a DeploymentItem from TypeDeployment.
+func ToDeploymentItem(d v1alpha1.TypeDeployment) DeploymentItem {
+	return DeploymentItem{
+		Platform: d.Platform,
+		Mode:     d.Mode,
+		Flavor:   d.Flavor,
+	}
+}
+
 // Defines a single casting item in the registry.
 type CastingItem struct {
 	// The particular casting implementation.
@@ -29,12 +45,12 @@ type CastingItem struct {
 
 type Registry struct {
 	// Castings for the different deployments.
-	castings map[v1alpha1.TypeDeployment]CastingItem
+	castings map[DeploymentItem]CastingItem
 }
 
 func NewRegistry(logger *slog.Logger) (*Registry, error) {
 	return &Registry{
-		castings: map[v1alpha1.TypeDeployment]CastingItem{
+		castings: map[DeploymentItem]CastingItem{
 			{
 				Mode:   "docker",
 				Flavor: "compose",
@@ -59,12 +75,12 @@ func NewRegistry(logger *slog.Logger) (*Registry, error) {
 	}, nil
 }
 
-func (registry *Registry) CastingItems() map[v1alpha1.TypeDeployment]CastingItem {
+func (registry *Registry) CastingItems() map[DeploymentItem]CastingItem {
 	return registry.castings
 }
 
 func (registry *Registry) Casting(deployment v1alpha1.TypeDeployment) (casting.Casting, error) {
-	item, ok := registry.castings[deployment]
+	item, ok := registry.castings[ToDeploymentItem(deployment)]
 	if !ok {
 		return nil, fmt.Errorf("deployment '%+v' is not supported, raise an issue at https://github.com/signoz/foundry/issues to request support for this deployment", deployment)
 	}
@@ -73,7 +89,7 @@ func (registry *Registry) Casting(deployment v1alpha1.TypeDeployment) (casting.C
 }
 
 func (registry *Registry) Toolers(deployment v1alpha1.TypeDeployment) ([]tooler.Tooler, error) {
-	item, ok := registry.castings[deployment]
+	item, ok := registry.castings[ToDeploymentItem(deployment)]
 	if !ok {
 		return nil, fmt.Errorf("deployment '%+v' is not supported, raise an issue at https://github.com/signoz/foundry/issues to request support for this deployment", deployment)
 	}

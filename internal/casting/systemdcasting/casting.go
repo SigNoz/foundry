@@ -138,7 +138,7 @@ func (c *systemdCasting) forgeIngester(tmpl *types.Template, cfg *v1alpha1.Casti
 	}
 
 	// Set ingester binary path from annotation or default
-	if annotations := cfg.Metadata.Annotations; annotations != nil {
+	if annotations := cfg.Spec.Deployment.Annotations; annotations != nil {
 		if path := annotations["foundry.signoz.io/ingester-binary-path"]; path != "" {
 			spec.Status.Env["INGESTER_BINARY_PATH"] = path
 		}
@@ -181,7 +181,7 @@ func (c *systemdCasting) forgeSignoz(tmpl *types.Template, cfg *v1alpha1.Casting
 	}
 
 	// Set signoz binary path from annotation or default
-	if annotations := cfg.Metadata.Annotations; annotations != nil {
+	if annotations := cfg.Spec.Deployment.Annotations; annotations != nil {
 		if path := annotations["foundry.signoz.io/signoz-binary-path"]; path != "" {
 			spec.Status.Env["SIGNOZ_BINARY_PATH"] = path
 		}
@@ -218,7 +218,7 @@ func (c *systemdCasting) forgeMetaStore(tmpl *types.Template, cfg *v1alpha1.Cast
 	}
 
 	// Set metastore binary path from annotation or default
-	if annotations := cfg.Metadata.Annotations; annotations != nil {
+	if annotations := cfg.Spec.Deployment.Annotations; annotations != nil {
 		if path := annotations["foundry.signoz.io/metastore-binary-path"]; path != "" {
 			spec.Status.Env["METASTORE_BINARY_PATH"] = path
 		}

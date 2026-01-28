@@ -16,10 +16,6 @@ type TypeVersion struct {
 type TypeMetadata struct {
 	// The name of this installation. This name can be used to identify the installation.
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
-
-	// Annotations is an unstructured key-value map for arbitrary metadata.
-	// Can be used to specify deployment-specific settings.
-	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 type TypeCluster struct {
@@ -47,6 +43,10 @@ type TypeDeployment struct {
 	// Flavor: Defines the flavor of mode for the deployment, allows the user the pattern to deploy on
 	// Example values: compose|swarm|helmfile|helm|kustomize|binary|rpm|deb|chocolatey
 	Flavor string `json:"flavor,omitempty" yaml:"flavor,omitempty"`
+
+	// Annotations is an unstructured key-value map for arbitrary metadata.
+	// Can be used to specify deployment-specific settings.
+	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 func Merge(base, overrides any) error {

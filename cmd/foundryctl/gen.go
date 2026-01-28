@@ -40,7 +40,11 @@ func runGen(ctx context.Context, logger *slog.Logger) error {
 		logger.InfoContext(ctx, "generating example files for deployment", slog.Any("deployment", deployment))
 
 		config := v1alpha1.ExampleCasting()
-		config.Spec.Deployment = deployment
+		config.Spec.Deployment = v1alpha1.TypeDeployment{
+			Platform: deployment.Platform,
+			Mode: deployment.Mode,
+			Flavor: deployment.Flavor,
+		}
 
 		rootPath := filepath.Join("examples/", deployment.Platform, deployment.Mode, deployment.Flavor)
 		err = os.MkdirAll(rootPath, 0755)
