@@ -8,6 +8,8 @@ services:
     depends_on:
       signoz-telemetrystore-clickhouse-0-0:
         condition: service_healthy
+      signoz-telemetrystore-migrator:
+        condition: service_completed_successfully
     deploy:
       replicas: 1
     healthcheck:
@@ -82,6 +84,8 @@ services:
     - signoz-network
     ports:
     - 8080:8080
+    volumes:
+    - signoz-signoz-0-data:/var/lib/signoz
   signoz-telemetrykeeper-clickhousekeeper-0:
     container_name: signoz-telemetrykeeper-clickhousekeeper-0
     entrypoint:
@@ -154,8 +158,24 @@ services:
     - signoz-network
     volumes:
     - signoz-telemetrystore-user-scripts:/var/lib/clickhouse/user_scripts
+  signoz-telemetrystore-migrator:
+    command:
+    - /signoz-otel-collector migrate bootstrap --clickhouse-dsn tcp://signoz-telemetrystore-clickhouse-0-0:9000
+    - /signoz-otel-collector migrate sync up --clickhouse-dsn tcp://signoz-telemetrystore-clickhouse-0-0:9000
+    - /signoz-otel-collector migrate async up --clickhouse-dsn tcp://signoz-telemetrystore-clickhouse-0-0:9000
+    container_name: signoz-telemetrystore-migrator
+    depends_on:
+      signoz-telemetrystore-clickhouse-0-0:
+        condition: service_healthy
+    entrypoint:
+    - /bin/sh
+    - -c
+    image: signoz/signoz-otel-collector:latest
+    networks:
+    - signoz-network
 volumes:
   signoz-metastore-0-data: null
+  signoz-signoz-0-data: null
   signoz-telemetrykeeper-0-data: null
   signoz-telemetrystore-0-0-data: null
   signoz-telemetrystore-user-scripts: null

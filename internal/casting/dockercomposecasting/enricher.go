@@ -38,7 +38,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 
 		var telemetrystoreContainerNames []string
 		for _, containerName := range containerNames {
-			if strings.Contains(containerName, "telemetrystore") && !strings.Contains(containerName, "user-scripts") {
+			if strings.Contains(containerName, "telemetrystore-clickhouse") && !strings.Contains(containerName, "user-scripts") {
 				telemetrystoreContainerNames = append(telemetrystoreContainerNames, types.FormatAddress("tcp", containerName, 9000))
 			}
 		}
