@@ -12,11 +12,8 @@ User=postgres
 Environment={{ $key }}={{ $value }}
 {{ end }}
 {{ end }}
-{{ if and $.Spec.MetaStore.Status.Env (index $.Spec.MetaStore.Status.Env "METASTORE_BINARY_PATH") }}
-ExecStart={{ index $.Spec.MetaStore.Status.Env "METASTORE_BINARY_PATH" }} -D /usr/local/pgsql/data
-{{ else }}
-ExecStart=/usr/bin/postgres -D /usr/local/pgsql/data
-{{ end }}
+{{- $metastoreBinaryPath := index $.Metadata.Annotations "foundry.signoz.io/metastore-binary-path" | default "/usr/bin/postgres" }}
+ExecStart={{ $metastoreBinaryPath }} -D /usr/local/pgsql/data
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 KillSignal=SIGINT

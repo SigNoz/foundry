@@ -13,10 +13,9 @@ Type=simple
 KillMode=mixed
 Restart=on-failure
 {{/* Using Fragment specifier to get the config from pours directory */}}
+{{- $ingesterBinaryPath := index $.Metadata.Annotations "foundry.signoz.io/ingester-binary-path" | default "/opt/ingester/bin/signoz-otel-collector" }}
 {{ if and $.Spec.Ingester.Status.Extras (index $.Spec.Ingester.Status.Extras "cfgPath") (index $.Spec.Ingester.Status.Extras "cfgOpampPath") }}
-{{ if and $.Spec.Ingester.Status.Env (index $.Spec.Ingester.Status.Env "INGESTER_BINARY_PATH") }}
-ExecStart={{ index $.Spec.Ingester.Status.Env "INGESTER_BINARY_PATH" }} --config=%Y/{{ index $.Spec.Ingester.Status.Extras "cfgPath" }} --manager-config=%Y/{{ index $.Spec.Ingester.Status.Extras "cfgOpampPath" }}
-{{ end }}
+ExecStart={{ $ingesterBinaryPath }} --config=%Y/{{ index $.Spec.Ingester.Status.Extras "cfgPath" }} --manager-config=%Y/{{ index $.Spec.Ingester.Status.Extras "cfgOpampPath" }}
 {{ end }}
 
 [Install]
