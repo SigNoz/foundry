@@ -19,7 +19,7 @@ clickhouse-server --version
 clickhouse-keeper --version
 ```
 
-### 2. Install PostgreSQL
+### 2. Install Metastore Binary (PostgreSQL)
 
 PostgreSQL is used as the metadata store.
 
@@ -41,7 +41,7 @@ sudo mkdir -p /opt/signoz /var/lib/signoz
 sudo cp -r signoz_linux_*/* /opt/signoz/
 ```
 
-### 4. Install SigNoz OTel Collector (Ingester)
+### 4. Install Ingester Binary (SigNoz OTel Collector)
 
 ```bash
 curl -L https://github.com/SigNoz/signoz-otel-collector/releases/latest/download/signoz-otel-collector_linux_$(uname -m | sed 's/x86_64/amd64/g' | sed 's/aarch64/arm64/g').tar.gz -o signoz-otel-collector.tar.gz
@@ -57,6 +57,8 @@ sudo cp -r signoz-otel-collector_linux_*/* /opt/ingester/
 sudo useradd -r -s /sbin/nologin signoz
 sudo chown -R signoz:signoz /opt/signoz /var/lib/signoz /opt/ingester /var/lib/ingester
 ```
+
+Also, make sure that "signoz" user is allowed to transverse to the pours directory.
 
 ## Deployment
 
