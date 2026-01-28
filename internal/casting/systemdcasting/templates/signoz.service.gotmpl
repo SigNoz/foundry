@@ -1,7 +1,10 @@
 [Unit]
 Description=SigNoz
 Documentation=https://signoz.io/docs
-After={{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0 {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}
+After={{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0 {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}{{ if $.Spec.TelemetryStore.Spec.Enabled }} {{ $.Metadata.Name }}-telemetrystore-migrator{{ end }}
+{{ if $.Spec.TelemetryStore.Spec.Enabled }}
+Requires={{ $.Metadata.Name }}-telemetrystore-migrator
+{{ end }}
 
 [Service]
 User=signoz
@@ -10,7 +13,9 @@ Type=simple
 KillMode=mixed
 Restart=on-failure
 WorkingDirectory=/opt/signoz
-ExecStart=/opt/signoz/bin/signoz server
+{{ if and $.Spec.Signoz.Spec.Env (index $.Spec.Signoz.Spec.Env "SIGNOZ_BINARY_PATH") }}
+ExecStart={{ index $.Spec.Signoz.Spec.Env "SIGNOZ_BINARY_PATH" }} server
+{{ end }}
 Environment=SIGNOZ_WEB_DIRECTORY=/opt/signoz/web
 {{ if $.Spec.Signoz.Spec.Env }}
 {{ range $key, $value := $.Spec.Signoz.Spec.Env }}

@@ -2,6 +2,7 @@
 WantedBy=multi-user.target
 
 [Service]
+Environment=POSTGRES_BINARY_PATH=/usr/bin/postgres
 Environment=POSTGRES_DB=signoz
 Environment=POSTGRES_PASSWORD=signoz
 Environment=POSTGRES_USER=signoz
