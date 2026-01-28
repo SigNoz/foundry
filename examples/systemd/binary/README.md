@@ -105,7 +105,6 @@ journalctl -u <name>-signoz.service -f
 
 ## Configuration
 
-
 ### Custom Binary Path
 
 Use annotations to specify custom binary paths or other deployment metadata:
@@ -114,7 +113,7 @@ Use annotations to specify custom binary paths or other deployment metadata:
 |------|------|-------------|
 | `foundry.signoz.io/signoz-binary-path` | string | Path to the SigNoz binary |
 | `foundry.signoz.io/ingester-binary-path` | string | Path to the OTel Collector binary |
-| `foundry.signoz.io/metastore-binary-path` | string | Path to the PostgreSQL binary |
+| `foundry.signoz.io/metastore-postgres-binary-path` | string | Path to the PostgreSQL binary |
 
 ```yaml
 apiVersion: v1alpha1
