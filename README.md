@@ -1,6 +1,6 @@
 # Foundry
 
-Foundry is a centralized hub for [SigNoz](https://signoz.io) installation setups: **integrations for install**. Select yours, configure, and run.
+Foundry is a centralized hub for [SigNoz](https://signoz.io) installation setups: **integrations for install**. Select yours, configure, and run SigNoz.
 
 ## Overview
 
@@ -15,23 +15,20 @@ Foundry abstracts away the complexities of the installation process so you can s
 - **Automatic dependency management**: Handles inter-service dependencies
 - **Tool validation**: Verify prerequisites before deployment
 
-## Installing Foundry
+## Quick start
 
-Download the latest `foundryctl` binary from [GitHub Releases](https://github.com/signoz/foundry/releases).
+**1. Install foundryctl**
 
-Or build from source:
+Download from [GitHub Releases](https://github.com/signoz/foundry/releases), or build from source:
 
 ```bash
-git clone https://github.com/signoz/foundry.git
-cd foundry
+git clone https://github.com/signoz/foundry.git && cd foundry
 go build -o foundryctl ./cmd/foundryctl
 ```
 
-## Deploying SigNoz
+**2. Create a Casting**
 
-### Creating a Casting
-
-Create a file named `casting.yaml`:
+Create `casting.yaml`:
 
 ```yaml
 apiVersion: v1alpha1
@@ -43,25 +40,7 @@ spec:
     flavor: compose
 ```
 
-### Validate environment for tools
-
-Run the `gauge` command to validate that all required tools are installed for your deployment:
-
-```bash
-foundryctl gauge -f casting.yaml
-```
-
-### Forging Pours
-
-Run the `forge` command to generate deployment and configuration files:
-
-```bash
-foundryctl forge -f casting.yaml
-```
-
-### Casting to your environment
-
-Run the `cast` command to deploy SigNoz:
+**3. Deploy**
 
 ```bash
 foundryctl cast -f casting.yaml
