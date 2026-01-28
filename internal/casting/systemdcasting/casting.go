@@ -394,12 +394,12 @@ func (c *systemdCasting) setupSystemEnvironment(ctx context.Context, config *v1a
 
 	// Copy clickhouse configs to standard locations
 	if config.Spec.TelemetryStore.Spec.Enabled {
-		if err := c.copyDir(filepath.Join(poursPath, rootcasting.DeploymentDir, "configs", config.Spec.TelemetryStore.Kind.String()), "/etc/clickhouse-server/"); err != nil {
+		if err := c.copyDir(filepath.Join(poursPath, rootcasting.DeploymentDir, "configs", "telemetrystore"), "/etc/clickhouse-server/"); err != nil {
 			return fmt.Errorf("failed to copy clickhouse-server configs: %w", err)
 		}
 	}
 	if config.Spec.TelemetryKeeper.Spec.Enabled {
-		if err := c.copyDir(filepath.Join(poursPath, rootcasting.DeploymentDir, "configs", config.Spec.TelemetryKeeper.Kind.String()), "/etc/clickhouse-keeper/"); err != nil {
+		if err := c.copyDir(filepath.Join(poursPath, rootcasting.DeploymentDir, "configs", "telemetrykeeper"), "/etc/clickhouse-keeper/"); err != nil {
 			return fmt.Errorf("failed to copy clickhouse-keeper configs: %w", err)
 		}
 	}
@@ -489,6 +489,7 @@ func (c *systemdCasting) startAllServices(ctx context.Context, serviceMap map[st
 // initializePostgres sets up the PostgreSQL data directory.
 func (c *systemdCasting) initializePostgres(ctx context.Context, config *v1alpha1.Casting) error {
 	pgDataDir := "/usr/local/pgsql/data"
+	pwfile := "/tmp/postgres_pwfile_init"
 
 	// Check if PostgreSQL is already initialized by looking for PG_VERSION file
 	if _, err := os.Stat(filepath.Join(pgDataDir, "PG_VERSION")); err == nil {
@@ -498,11 +499,14 @@ func (c *systemdCasting) initializePostgres(ctx context.Context, config *v1alpha
 
 	c.logger.InfoContext(ctx, "Initializing PostgreSQL")
 
+	// Clean up any leftover state from previous failed initialization
+	c.cleanupPostgresInit(ctx, pgDataDir, pwfile)
+
 	// Create directories
 	if err := os.MkdirAll(pgDataDir, 0700); err != nil {
 		return fmt.Errorf("failed to create PostgreSQL data directory: %w", err)
 	}
-	if err := c.execCommand(ctx, "chown", "-R", "postgres:postgres", pgDataDir); err != nil {
+	if err := c.execCommand(ctx, "chown", "-R", "postgres:postgres", filepath.Dir(pgDataDir)); err != nil {
 		return fmt.Errorf("failed to set ownership on PostgreSQL data directory: %w", err)
 	}
 
@@ -522,7 +526,6 @@ func (c *systemdCasting) initializePostgres(ctx context.Context, config *v1alpha
 	}
 
 	// Create password file
-	pwfile := "/tmp/postgres_pwfile_init"
 	if err := os.WriteFile(pwfile, []byte(pgPass+"\n"), 0600); err != nil {
 		return fmt.Errorf("failed to create password file: %w", err)
 	}
@@ -541,6 +544,7 @@ func (c *systemdCasting) initializePostgres(ctx context.Context, config *v1alpha
 	c.logger.DebugContext(ctx, "Running initdb", slog.String("user", pgUser), slog.String("initdb", initdbPath))
 	if err := c.execCommand(ctx, "su", "-", "postgres", "-c",
 		fmt.Sprintf("%s -D %s --username=%s --pwfile=%s", initdbPath, pgDataDir, pgUser, pwfile)); err != nil {
+		c.cleanupPostgresInit(ctx, pgDataDir, pwfile)
 		return fmt.Errorf("failed to initialize PostgreSQL: %w", err)
 	}
 
@@ -548,6 +552,7 @@ func (c *systemdCasting) initializePostgres(ctx context.Context, config *v1alpha
 	c.logger.DebugContext(ctx, "Starting temporary PostgreSQL for DB creation")
 	if err := c.execCommand(ctx, "su", "-", "postgres", "-c",
 		fmt.Sprintf("%s -D %s -o \"-c listen_addresses=localhost\" -w start", pgCtlPath, pgDataDir)); err != nil {
+		c.cleanupPostgresInit(ctx, pgDataDir, pwfile)
 		return fmt.Errorf("failed to start temporary postgres: %w", err)
 	}
 
@@ -563,9 +568,24 @@ func (c *systemdCasting) initializePostgres(ctx context.Context, config *v1alpha
 	}
 
 	// Clean up password file
-	if err := os.Remove(pwfile); err != nil {
-		return fmt.Errorf("failed to remove password file: %w", err)
-	}
+	_ = os.Remove(pwfile)
 
 	return nil
+}
+
+// cleanupPostgresInit removes leftover state from a failed PostgreSQL initialization.
+func (c *systemdCasting) cleanupPostgresInit(ctx context.Context, pgDataDir, pwfile string) {
+	// Remove password file if it exists
+	if _, err := os.Stat(pwfile); err == nil {
+		c.logger.DebugContext(ctx, "Removing leftover password file", slog.String("path", pwfile))
+		_ = os.Remove(pwfile)
+	}
+
+	// Remove data directory if it exists but is not properly initialized
+	if _, err := os.Stat(pgDataDir); err == nil {
+		if _, err := os.Stat(filepath.Join(pgDataDir, "PG_VERSION")); os.IsNotExist(err) {
+			c.logger.DebugContext(ctx, "Removing incomplete PostgreSQL data directory", slog.String("path", pgDataDir))
+			_ = os.RemoveAll(pgDataDir)
+		}
+	}
 }
