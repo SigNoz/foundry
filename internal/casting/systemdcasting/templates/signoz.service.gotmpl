@@ -13,9 +13,10 @@ Type=simple
 KillMode=mixed
 Restart=on-failure
 WorkingDirectory=/opt/signoz
-{{ if and $.Spec.Signoz.Spec.Env (index $.Spec.Signoz.Spec.Env "SIGNOZ_BINARY_PATH") }}
-ExecStart={{ index $.Spec.Signoz.Spec.Env "SIGNOZ_BINARY_PATH" }} server
-{{ end }}
+{{- if and $.Metadata.Annotations (index $.Metadata.Annotations "foundry.signoz.io/signoz-binary-path") }}
+{{- $signozBinaryPath := index $.Metadata.Annotations "foundry.signoz.io/signoz-binary-path" }}
+ExecStart={{ $signozBinaryPath }} server
+{{- end }}
 Environment=SIGNOZ_WEB_DIRECTORY=/opt/signoz/web
 {{ if $.Spec.Signoz.Spec.Env }}
 {{ range $key, $value := $.Spec.Signoz.Spec.Env }}

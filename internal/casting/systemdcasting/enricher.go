@@ -99,6 +99,19 @@ func (e *linuxMoldingEnricher) enrichTelemetryKeeper(config *v1alpha1.Casting) e
 func (e *linuxMoldingEnricher) enrichMetaStore(config *v1alpha1.Casting) error {
 	dsn := types.FormatAddress("postgres", "localhost", baseMetaStorePostgresPort)
 	config.Spec.MetaStore.Status.Addresses.DSN = []string{dsn}
+	
+	// Get the annotation value
+	metastoreBin := config.Metadata.Annotations["foundry.signoz.io/metastore-postgres-binary-path"]
+
+	// If it's missing, apply the default and write it back
+	if metastoreBin == "" {
+		metastoreBin = "/usr/bin/postgres"
+
+		if config.Metadata.Annotations == nil {
+			config.Metadata.Annotations = make(map[string]string)
+		}
+		config.Metadata.Annotations["foundry.signoz.io/metastore-postgres-binary-path"] = metastoreBin
+	}
 	return nil
 }
 
@@ -109,6 +122,20 @@ func (e *linuxMoldingEnricher) enrichSignoz(config *v1alpha1.Casting) error {
 	config.Spec.Signoz.Status.Addresses.APIServer = []string{
 		types.FormatAddress("tcp", "localhost", 8080),
 	}
+
+	// Get the annotation value
+	signozBin := config.Metadata.Annotations["foundry.signoz.io/signoz-binary-path"]
+
+	// If it's missing, apply the default and write it back
+	if signozBin == "" {
+		signozBin = "/opt/signoz/bin/signoz"
+
+		if config.Metadata.Annotations == nil {
+			config.Metadata.Annotations = make(map[string]string)
+		}
+		config.Metadata.Annotations["foundry.signoz.io/signoz-binary-path"] = signozBin
+	}
+
 	return nil
 }
 
@@ -116,5 +143,19 @@ func (e *linuxMoldingEnricher) enrichIngester(config *v1alpha1.Casting) error {
 	config.Spec.Ingester.Status.Addresses.OTLP = []string{
 		types.FormatAddress("tcp", "localhost", 4317),
 	}
+
+	// Get the annotation value
+	ingesterBin := config.Metadata.Annotations["foundry.signoz.io/ingester-binary-path"]
+
+	// If it's missing, apply the default and write it back
+	if ingesterBin == "" {
+		ingesterBin = "/opt/ingester/bin/signoz-otel-collector"
+
+		if config.Metadata.Annotations == nil {
+			config.Metadata.Annotations = make(map[string]string)
+		}
+		config.Metadata.Annotations["foundry.signoz.io/ingester-binary-path"] = ingesterBin
+	}
+
 	return nil
 }
