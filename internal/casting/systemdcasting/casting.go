@@ -134,18 +134,6 @@ func (c *systemdCasting) forgeIngester(tmpl *types.Template, cfg *v1alpha1.Casti
 		spec.Status.Extras = make(map[string]string)
 	}
 
-	// Get the annotation value
-	ingesterBin := cfg.Metadata.Annotations["foundry.signoz.io/ingester-binary-path"]
-
-	// If it's missing, apply the default and write it back
-	if ingesterBin == "" {
-		ingesterBin = "/opt/ingester/bin/signoz-otel-collector"
-
-		if cfg.Metadata.Annotations == nil {
-			cfg.Metadata.Annotations = make(map[string]string)
-		}
-		cfg.Metadata.Annotations["foundry.signoz.io/ingester-binary-path"] = ingesterBin
-	}
 	// Create config materials
 	mats, err := c.configMaterials(spec.Status.Config.Data, "ingester")
 	if err != nil {
@@ -176,19 +164,6 @@ func (c *systemdCasting) forgeSignoz(tmpl *types.Template, cfg *v1alpha1.Casting
 		spec.Status.Extras = make(map[string]string)
 	}
 
-	// Get the annotation value
-	signozBin := cfg.Metadata.Annotations["foundry.signoz.io/signoz-binary-path"]
-
-	// If it's missing, apply the default and write it back
-	if signozBin == "" {
-		signozBin = "/opt/signoz/bin/signoz"
-
-		if cfg.Metadata.Annotations == nil {
-			cfg.Metadata.Annotations = make(map[string]string)
-		}
-		cfg.Metadata.Annotations["foundry.signoz.io/signoz-binary-path"] = signozBin
-	}
-
 	// Create env material
 	prefix := cfg.Metadata.Name + "-signoz"
 
@@ -211,19 +186,6 @@ func (c *systemdCasting) forgeMetaStore(tmpl *types.Template, cfg *v1alpha1.Cast
 	// Initialize status extras
 	if spec.Status.Extras == nil {
 		spec.Status.Extras = make(map[string]string)
-	}
-
-	// Get the annotation value
-	metastoreBin := cfg.Metadata.Annotations["foundry.signoz.io/metastore-binary-path"]
-
-	// If it's missing, apply the default and write it back
-	if metastoreBin == "" {
-		metastoreBin = "/usr/bin/postgres"
-
-		if cfg.Metadata.Annotations == nil {
-			cfg.Metadata.Annotations = make(map[string]string)
-		}
-		cfg.Metadata.Annotations["foundry.signoz.io/metastore-binary-path"] = metastoreBin
 	}
 
 	// Create env material
@@ -316,19 +278,6 @@ func (c *systemdCasting) forgeMigrator(tmpl *types.Template, cfg *v1alpha1.Casti
 	spec := &cfg.Spec.TelemetryStore
 	if !spec.Spec.Enabled {
 		return nil, nil
-	}
-
-	// Get the annotation value
-	ingesterBin := cfg.Metadata.Annotations["foundry.signoz.io/ingester-binary-path"]
-
-	// If it's missing, apply the default and write it back
-	if ingesterBin == "" {
-		ingesterBin = "/opt/ingester/bin/signoz-otel-collector"
-
-		if cfg.Metadata.Annotations == nil {
-			cfg.Metadata.Annotations = make(map[string]string)
-		}
-		cfg.Metadata.Annotations["foundry.signoz.io/ingester-binary-path"] = ingesterBin
 	}
 
 	// Create service material
