@@ -1,6 +1,6 @@
 # Foundry
 
-Foundry is a centralized hub for [SigNoz](https://signoz.io) installation setups: **integrations for install**. Select yours, configure, and run SigNoz.
+Foundry is a centralized hub for [SigNoz](https://signoz.io) installation configurations and deployments - **integrations for install**. Select yours, configure, and run SigNoz.
 
 ## Overview
 
@@ -46,7 +46,9 @@ spec:
 foundryctl cast -f casting.yaml
 ```
 
-## Concepts
+## The Foundry Model
+
+Foundry uses a metalworking metaphor: you define a **Casting**, which contains **Moldings** (components), and Foundry **forges** them into **Pours** (generated files).
 
 ### Casting
 
@@ -187,7 +189,7 @@ foundryctl gen
 - Read the [SigNoz documentation](https://signoz.io/docs/) to learn more about SigNoz
 - Join the [SigNoz community on Slack](https://signoz.io/slack) to get help
 
-## Getting help
+## How can I get help?
 
 - **Issues**: [GitHub Issues](https://github.com/signoz/foundry/issues)
 - **Documentation**: [SigNoz Docs](https://signoz.io/docs/)
