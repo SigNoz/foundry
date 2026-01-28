@@ -101,7 +101,7 @@ func (e *linuxMoldingEnricher) enrichMetaStore(config *v1alpha1.Casting) error {
 	config.Spec.MetaStore.Status.Addresses.DSN = []string{dsn}
 	
 	// Get the annotation value
-	metastoreBin := config.Metadata.Annotations["foundry.signoz.io/metastore-binary-path"]
+	metastoreBin := config.Metadata.Annotations["foundry.signoz.io/metastore-postgres-binary-path"]
 
 	// If it's missing, apply the default and write it back
 	if metastoreBin == "" {
@@ -110,7 +110,7 @@ func (e *linuxMoldingEnricher) enrichMetaStore(config *v1alpha1.Casting) error {
 		if config.Metadata.Annotations == nil {
 			config.Metadata.Annotations = make(map[string]string)
 		}
-		config.Metadata.Annotations["foundry.signoz.io/metastore-binary-path"] = metastoreBin
+		config.Metadata.Annotations["foundry.signoz.io/metastore-postgres-binary-path"] = metastoreBin
 	}
 	return nil
 }
