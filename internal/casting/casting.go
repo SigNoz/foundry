@@ -8,6 +8,10 @@ import (
 	"github.com/signoz/foundry/internal/types"
 )
 
+// DeploymentDir is the subdirectory within the pours directory where
+// deployment-specific materials (compose files, service units, configs) are written.
+const DeploymentDir = "deployment"
+
 type Casting interface {
 	// Returns the enricher for the casting.
 	Enricher(ctx context.Context, config *v1alpha1.Casting) (molding.MoldingEnricher, error)

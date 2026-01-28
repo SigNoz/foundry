@@ -12,8 +12,12 @@ Restart=on-failure
 WorkingDirectory=/opt/signoz
 ExecStart=/opt/signoz/bin/signoz server
 Environment=SIGNOZ_WEB_DIRECTORY=/opt/signoz/web
+{{ if $.Spec.Signoz.Spec.Env }}
+{{ range $key, $value := $.Spec.Signoz.Spec.Env }}
+Environment={{ $key }}={{ $value }}
+{{ end }}
+{{ end }}
 {{ if and $.Spec.Signoz.Status.Extras (index $.Spec.Signoz.Status.Extras "envPath") }}
-EnvironmentFile={{ index $.Spec.Signoz.Status.Extras "envPath" }}
 {{ end }}
 [Install]
 WantedBy=multi-user.target

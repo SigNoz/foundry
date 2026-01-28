@@ -1,0 +1,1 @@
+server_endpoint: ws://http://signoz-telemetrykeeper-clickhousekeeper-0:8080/v1/opamp

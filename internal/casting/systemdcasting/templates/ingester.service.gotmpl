@@ -9,8 +9,9 @@ Group=signoz
 Type=simple
 KillMode=mixed
 Restart=on-failure
+{{/* Using Fragment specifier to get the config from pours directory */}}
 {{ if and $.Spec.Ingester.Status.Extras (index $.Spec.Ingester.Status.Extras "cfgPath") (index $.Spec.Ingester.Status.Extras "cfgOpampPath") }}
-ExecStart=/opt/ingester/bin/signoz-otel-collector --config={{ index $.Spec.Ingester.Status.Extras "cfgPath" }} --manager-config={{ index $.Spec.Ingester.Status.Extras "cfgOpampPath" }}
+ExecStart=/opt/ingester/bin/signoz-otel-collector --config=%Y/{{ index $.Spec.Ingester.Status.Extras "cfgPath" }} --manager-config=%Y/{{ index $.Spec.Ingester.Status.Extras "cfgOpampPath" }}
 {{ end }}
 
 [Install]

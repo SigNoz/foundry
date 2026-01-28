@@ -4,86 +4,109 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"sort"
-
 	"gopkg.in/ini.v1"
+	"slices"
 )
 
 // INI/Env bytes -> JSON bytes.
 func INIToJSON(contents []byte) ([]byte, error) {
-	cfg, err := ini.Load(contents)
+	cfg, err := ini.LoadSources(ini.LoadOptions{
+		AllowShadows: true,
+	}, contents)
 	if err != nil {
 		return nil, err
 	}
-	ini.DefaultHeader = false
-	data := make(map[string]any)
+
+	data := make(map[string]map[string]any)
 
 	for _, section := range cfg.Sections() {
-		hash := section.KeysHash()
-		if len(hash) == 0 {
+		// Skip the default section if it's empty (common in systemd files)
+		if section.Name() == ini.DefaultSection && len(section.Keys()) == 0 {
 			continue
 		}
 
-		// If it's the default section and it's the only thing there,
-		// we can choose to keep it flat or nested.
-		// For consistency with Systemd, we'll keep the section names.
-		data[section.Name()] = hash
+		sectionData := make(map[string]any)
+		for _, key := range section.Keys() {
+			// Use ValueWithShadows() to get all values for this key
+			vals := key.ValueWithShadows()
+
+			if len(vals) > 1 {
+				// If multiple values exist, store as an array
+				sectionData[key.Name()] = vals
+			} else {
+				// If only one value exists, store as a string
+				sectionData[key.Name()] = key.String()
+			}
+		}
+		data[section.Name()] = sectionData
 	}
 
-	return json.Marshal(data)
+	return json.MarshalIndent(data, "", "  ")
 }
 
-// JSON bytes -> INI/Env bytes.
+// JSONToINI converts JSON to Systemd INI format.
 func JSONToINI(contents []byte) ([]byte, error) {
-	var data map[string]any
+	var data map[string]map[string]any
 	if err := json.Unmarshal(contents, &data); err != nil {
 		return nil, err
 	}
 
-	cfg := ini.Empty()
+	cfg, err := ini.LoadSources(ini.LoadOptions{
+		AllowShadows:            true,
+		PreserveSurroundedQuote: true,
+	}, []byte(""))
 
-	ini.PrettyFormat = false
-	ini.DefaultHeader = false
-
-	var sectionKeys []string
-	var flatKeys []string
-
-	for key, value := range data {
-		// Check if the value is a nested map (a Section)
-		// or a simple value (a flat key for DEFAULT)
-		if _, ok := value.(map[string]any); ok {
-			sectionKeys = append(sectionKeys, key)
-		} else {
-			flatKeys = append(flatKeys, key)
-		}
+	if err != nil {
+		return nil, err
 	}
+	ini.PrettyFormat = false
+	// Process Sections
+	for _, sName := range getSortedKeys(data) {
+		section, _ := cfg.NewSection(sName)
 
-	sort.Strings(sectionKeys)
-	for _, k := range sectionKeys {
-		sec, _ := cfg.NewSection(k)
-
-		m := data[k].(map[string]any)
-		keys := make([]string, 0, len(m))
-		for k := range m {
-			keys = append(keys, k)
-		}
-
-		sort.Strings(keys)
-		for _, k := range keys {
-			if _, err := sec.NewKey(k, fmt.Sprint(m[k])); err != nil {
+		// Process Keys (Sorted)
+		for _, kName := range getSortedKeys(data[sName]) {
+			if err := writeEntry(section, kName, data[sName][kName]); err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	sort.Strings(flatKeys)
-	for _, k := range flatKeys {
-		if _, err := cfg.Section("").NewKey(k, fmt.Sprint(data[k])); err != nil {
-			return nil, err
-		}
-	}
-
 	var buf bytes.Buffer
-	_, err := cfg.WriteTo(&buf)
+	_, err = cfg.WriteTo(&buf)
 	return buf.Bytes(), err
+}
+
+// writeEntry adds the "Shadow" (multiple keys).
+func writeEntry(sec *ini.Section, key string, value any) error {
+	if vals, ok := value.([]any); ok {
+		for i, v := range vals {
+			strVal := fmt.Sprint(v)
+			if i == 0 {
+				if _, err := sec.NewKey(key, strVal); err != nil {
+					return err
+				}
+			} else {
+				if err := sec.Key(key).AddShadow(strVal); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	if _, err := sec.NewKey(key, fmt.Sprint(value)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// getSortedKeys is a generic helper that returns keys in consistent order.
+// This ensures generated files have stable output regardless of map iteration order.
+func getSortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
 }

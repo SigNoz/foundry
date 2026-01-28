@@ -1,0 +1,145 @@
+services:
+  {{ if $.Spec.TelemetryKeeper.Spec.Enabled }}
+  {{ range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
+  - name: {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}
+    type: pserv
+    plan: standard
+    runtime: docker
+    dockerfilePath: configs/telemetrykeeper/Dockerfile
+    dockerContext: configs/telemetrykeeper
+    disk:
+      name: {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}-data
+      mountPath: /var/lib/clickhouse-keeper
+      sizeGB: 5
+  {{ end }}
+  {{ end }}
+
+  {{ if $.Spec.TelemetryStore.Spec.Enabled }}
+  {{ range $shardIdx := $.Spec.TelemetryStore.Spec.Cluster.Shards }}
+  {{ range $replicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
+  - name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}
+    type: pserv
+    plan: standard
+    runtime: docker
+    dockerfilePath: configs/telemetrystore/Dockerfile
+    dockerContext: configs/telemetrystore
+    disk:
+      name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}-data
+      mountPath: /var/lib/clickhouse
+      sizeGB: 20
+    envVars:
+      - key: CLICKHOUSE_SKIP_USER_SETUP
+        value: "1"
+      - key: CLICKHOUSE_CONFIG
+        value: /etc/clickhouse-server/config.yaml
+      {{ if index $.Spec.TelemetryKeeper.Status.Extras "service_names" }}
+      {{ range $index, $serviceName := splitList "," (index $.Spec.TelemetryKeeper.Status.Extras "service_names") }}
+      - key: DEPENDENCY_LINK_{{ $index }}
+        fromService:
+          name: {{ $serviceName }}
+          type: pserv
+          property: host
+      {{ end }}
+      {{ end }}
+  {{ end }}
+  {{ end }}
+  {{ end }}
+
+  {{ if $.Spec.Ingester.Spec.Enabled }}
+  {{ range $replicaIdx := until (int $.Spec.Ingester.Spec.Cluster.Replicas) }}
+  - name: {{ $.Metadata.Name }}-ingester-{{ $replicaIdx }}
+    type: pserv
+    plan: standard
+    runtime: docker
+    dockerfilePath: configs/ingester/Dockerfile
+    dockerContext: configs/ingester
+    envVars:
+      {{ if $.Spec.Ingester.Spec.Env }}
+      {{ range $key, $value := $.Spec.Ingester.Spec.Env }}
+      - key: {{ $key }}
+        value: {{ $value }}
+      {{ end }}
+      {{ end }}
+      {{ if index $.Spec.TelemetryStore.Status.Extras "service_names" }}
+      {{ range $index, $serviceName := splitList "," (index $.Spec.TelemetryStore.Status.Extras "service_names") }}
+      - key: DEPENDENCY_LINK_{{ $index }}
+        fromService:
+          name: {{ $serviceName }}
+          type: pserv
+          property: host
+      {{ end }}
+      {{ end }}
+  {{ end }}
+  {{ end }}
+
+  {{ if $.Spec.Signoz.Spec.Enabled }}
+  - name: {{ $.Metadata.Name }}-signoz
+    type: web
+    plan: standard
+    runtime: image
+    image:
+      url: docker.io/signoz/signoz:{{ $.Spec.Signoz.Spec.Version }}
+    healthCheckPath: /api/v1/health
+    envVars:
+    {{ if $.Spec.Signoz.Spec.Env }}
+      {{ range $key, $value := $.Spec.Signoz.Spec.Env }}
+      - key: {{ $key }}
+        value: {{ $value }}
+      {{ end }}
+    {{ end }}
+    {{ if and $.Spec.MetaStore.Spec.Enabled (eq ($.Spec.MetaStore.Kind.String) "postgres") }}
+      - key: SIGNOZ_SQLSTORE_POSTGRES_DSN
+        fromDatabase:
+          name: {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}
+          property: connectionString
+    {{ end }}
+    {{ if index $.Spec.TelemetryStore.Status.Extras "service_names" }}
+    {{ range $index, $serviceName := splitList "," (index $.Spec.TelemetryStore.Status.Extras "service_names") }}
+      - key: DEPENDENCY_LINK_{{ $index }}
+        fromService:
+          name: {{ $serviceName }}
+          type: pserv
+          property: host
+    {{ end }}
+    {{ end }}
+  {{ end }}
+
+  {{ if $.Spec.TelemetryStore.Spec.Enabled }}
+  - name: {{ $.Metadata.Name}}-schema-migrator
+    type: worker
+    plan: standard
+    runtime: image
+    image:
+      url: docker.io/signoz/signoz-otel-collector:v0.129.13-rc.2
+    envVars:
+      {{ if index $.Spec.Signoz.Spec.Env "SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN" }}
+      - key: CLICKHOUSE_DSN
+        value: {{ index $.Spec.Signoz.Spec.Env "SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN" }}
+      {{ end }}
+      {{ if index $.Spec.TelemetryStore.Status.Extras "service_names" }}
+      {{ range $index, $serviceName := splitList "," (index $.Spec.TelemetryStore.Status.Extras "service_names") }}
+      - key: DEPENDENCY_LINK_{{ $index }}
+        fromService:
+          name: {{ $serviceName }}
+          type: pserv
+          property: host
+      {{ end }}
+      {{ end }}
+    preDeployCommand: /signoz-otel-collector migrate ready --clickhouse-dsn=${CLICKHOUSE_DSN} --timeout 60s
+    dockerCommand: |
+      /bin/sh -c /signoz-otel-collector migrate bootstrap --clickhouse-dsn=$CLICKHOUSE_DSN
+        && /signoz-otel-collector migrate sync up --clickhouse-dsn=$CLICKHOUSE_DSN
+        && /signoz-otel-collector migrate async up --clickhouse-dsn=$CLICKHOUSE_DSN
+  {{ end }}
+
+{{ if and $.Spec.MetaStore.Spec.Enabled (eq ($.Spec.MetaStore.Kind.String) "postgres") }}
+databases:
+  - name: {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}
+    plan: free
+    postgresMajorVersion: "{{ $.Spec.MetaStore.Spec.Version }}"
+    {{ if $.Spec.MetaStore.Spec.Env }}
+    databaseName: {{ index $.Spec.MetaStore.Spec.Env "POSTGRES_DB" }}
+    user: {{ index $.Spec.MetaStore.Spec.Env "POSTGRES_USER" }}
+    {{ end }}
+    ipAllowList: []
+{{ end }}

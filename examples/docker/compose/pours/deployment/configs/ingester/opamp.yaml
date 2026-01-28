@@ -1,0 +1,1 @@
+server_endpoint: ws://tcp://signoz-ingester:9000/v1/opamp

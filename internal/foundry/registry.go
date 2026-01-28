@@ -7,6 +7,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/casting/dockercomposecasting"
+	"github.com/signoz/foundry/internal/casting/rendercasting"
 	"github.com/signoz/foundry/internal/casting/systemdcasting"
 	"github.com/signoz/foundry/internal/tooler"
 	"github.com/signoz/foundry/internal/tooler/clickhousekeepertooler"
@@ -47,6 +48,12 @@ func NewRegistry(logger *slog.Logger) (*Registry, error) {
 			}: {
 				Casting: systemdcasting.New(logger),
 				Toolers: []tooler.Tooler{systemdtooler.New(), clickhousekeepertooler.New(), clickhousetooler.New(), postgrestooler.New()},
+			},
+			{
+				Platform: "render",
+				Flavor:   "blueprint",
+			}: {
+				Casting: rendercasting.New(logger),
 			},
 		},
 	}, nil

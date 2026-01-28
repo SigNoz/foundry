@@ -13,12 +13,12 @@ import (
 	"time"
 
 	"github.com/signoz/foundry/api/v1alpha1"
-	"github.com/signoz/foundry/internal/casting"
+	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/molding"
 	"github.com/signoz/foundry/internal/types"
 )
 
-var _ casting.Casting = (*dockerComposeCasting)(nil)
+var _ rootcasting.Casting = (*dockerComposeCasting)(nil)
 
 type dockerComposeCasting struct {
 	logger   *slog.Logger
@@ -45,7 +45,7 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config v1alpha1.
 		return nil, fmt.Errorf("failed to execute compose yaml template: %w", err)
 	}
 
-	composeMaterial, err := types.NewYAMLMaterial(buf.Bytes(), "compose.yaml")
+	composeMaterial, err := types.NewYAMLMaterial(buf.Bytes(), filepath.Join(rootcasting.DeploymentDir, "compose.yaml"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create compose yaml material: %w", err)
 	}
@@ -54,7 +54,7 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config v1alpha1.
 
 	// Add telemetrykeeper config files
 	for filename, content := range config.Spec.TelemetryKeeper.Spec.Config.Data {
-		material, err := types.NewYAMLMaterial([]byte(content), fmt.Sprintf("configs/telemetrykeeper/%s", filename))
+		material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "configs", "telemetrykeeper", filename))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create telemetrykeeper config material: %w", err)
 		}
@@ -63,7 +63,7 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config v1alpha1.
 
 	// Add telemetrystore config files
 	for filename, content := range config.Spec.TelemetryStore.Spec.Config.Data {
-		material, err := types.NewYAMLMaterial([]byte(content), fmt.Sprintf("configs/telemetrystore/%s", filename))
+		material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "configs", "telemetrystore", filename))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create telemetrystore config material: %w", err)
 		}
@@ -72,7 +72,7 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config v1alpha1.
 
 	// Add metastore config files
 	for filename, content := range config.Spec.MetaStore.Spec.Config.Data {
-		material, err := types.NewYAMLMaterial([]byte(content), fmt.Sprintf("configs/metastore/%s", filename))
+		material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "configs", "metastore", filename))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create metastore config material: %w", err)
 		}
@@ -81,7 +81,7 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config v1alpha1.
 
 	// Add signoz config files
 	for filename, content := range config.Spec.Signoz.Spec.Config.Data {
-		material, err := types.NewYAMLMaterial([]byte(content), fmt.Sprintf("configs/signoz/%s", filename))
+		material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "configs", "signoz", filename))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create signoz config material: %w", err)
 		}
@@ -90,7 +90,7 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config v1alpha1.
 
 	// Add ingester config files
 	for filename, content := range config.Spec.Ingester.Spec.Config.Data {
-		material, err := types.NewYAMLMaterial([]byte(content), fmt.Sprintf("configs/ingester/%s", filename))
+		material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "configs", "ingester", filename))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create ingester config material: %w", err)
 		}
@@ -104,7 +104,7 @@ func (casting *dockerComposeCasting) Cast(ctx context.Context, config v1alpha1.C
 	casting.logger.InfoContext(ctx, "Executing commands for platform")
 
 	// Check if compose file exists
-	composeFile := filepath.Join(outputPath, "compose.yaml")
+	composeFile := filepath.Join(outputPath, rootcasting.DeploymentDir, "compose.yaml")
 	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
 		return fmt.Errorf("compose file does not exist at path: %s", composeFile)
 	}
@@ -121,7 +121,7 @@ func (casting *dockerComposeCasting) Cast(ctx context.Context, config v1alpha1.C
 	}
 
 	// Build command arguments: "up -d"
-	args := append(composeCmd[1:], "-f", composeFile, "up", "-d")
+	args := append(composeCmd[1:], "-p", config.Metadata.Name, "-f", composeFile, "up", "-d")
 
 	casting.logger.DebugContext(runctx, "Running command", slog.String("command", strings.Join(append([]string{composeCmd[0]}, args...), " ")))
 
