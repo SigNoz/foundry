@@ -1,1 +1,1 @@
-server_endpoint: ws://tcp://signoz-ingester:9000/v1/opamp
+server_endpoint: ws://signoz-signoz:4320/v1/opamp

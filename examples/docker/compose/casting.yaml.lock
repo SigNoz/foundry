@@ -136,7 +136,7 @@ spec:
                   exporters:
                     - signozclickhousemeter
           opamp.yaml: |
-            server_endpoint: ws://tcp://signoz-ingester:9000/v1/opamp
+            server_endpoint: ws://signoz-signoz:4320/v1/opamp
       enabled: true
       image: signoz/signoz-otel-collector:latest
       version: latest
@@ -271,7 +271,7 @@ spec:
                   exporters:
                     - signozclickhousemeter
           opamp.yaml: |
-            server_endpoint: ws://tcp://signoz-ingester:9000/v1/opamp
+            server_endpoint: ws://signoz-signoz:4320/v1/opamp
   metastore:
     kind: postgres
     spec:
@@ -310,19 +310,9 @@ spec:
     status:
       addresses:
         apiserver:
-        - tcp://signoz-ingester:9000
-        - tcp://signoz-metastore-postgres-0:9000
-        - tcp://signoz-signoz:9000
-        - tcp://signoz-telemetrykeeper-clickhousekeeper-0:9000
-        - tcp://signoz-telemetrystore-clickhouse-0-0:9000
-        - tcp://signoz-telemetrystore-clickhouse-user-scripts:9000
+        - tcp://signoz-signoz:8080
         opamp:
-        - tcp://signoz-ingester:9000
-        - tcp://signoz-metastore-postgres-0:9000
-        - tcp://signoz-signoz:9000
-        - tcp://signoz-telemetrykeeper-clickhousekeeper-0:9000
-        - tcp://signoz-telemetrystore-clickhouse-0-0:9000
-        - tcp://signoz-telemetrystore-clickhouse-user-scripts:9000
+        - ws://signoz-signoz:4320
       config: {}
       env:
         SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@signoz-metastore-postgres-0:9000/signoz?sslmode=disable
