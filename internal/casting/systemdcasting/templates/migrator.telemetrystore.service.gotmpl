@@ -12,7 +12,10 @@ Type=oneshot
 RemainAfterExit=yes
 User=signoz
 Group=signoz
-{{- $migratorBinary := index $.Metadata.Annotations "foundry.signoz.io/ingester-binary-path" | default "/opt/ingester/bin/signoz-otel-collector" }}
+{{- $migratorBinary := "/opt/ingester/bin/signoz-otel-collector" }}
+{{- if and $.Metadata.Annotations (index $.Metadata.Annotations "foundry.signoz.io/ingester-binary-path") }}
+{{- $migratorBinary = index $.Metadata.Annotations "foundry.signoz.io/ingester-binary-path" }}
+{{- end }}
 {{ if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
 {{- $dsn := index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
 ExecStart=/bin/bash -c '{{ $migratorBinary }} migrate bootstrap --clickhouse-dsn={{ $dsn }} && {{ $migratorBinary }} migrate sync up --clickhouse-dsn={{ $dsn }} && {{ $migratorBinary }} migrate async up --clickhouse-dsn={{ $dsn }}'
