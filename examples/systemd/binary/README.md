@@ -103,28 +103,29 @@ journalctl -u <name>-signoz.service -f
 ```
 
 
-### Custom Binary Paths
+## Configuration
 
-If foundryctl is unable to identify the binary paths for postgres, signoz, or ingester, specify them using the `*_BINARY_PATH` environment variables:
+
+### Custom Binary Path
+
+Use annotations to specify custom binary paths or other deployment metadata:
+
+| Name | Type | Description |
+|------|------|-------------|
+| `foundry.signoz.io/signoz-binary-path` | string | Path to the SigNoz binary |
+| `foundry.signoz.io/ingester-binary-path` | string | Path to the OTel Collector binary |
+| `foundry.signoz.io/metastore-binary-path` | string | Path to the PostgreSQL binary |
 
 ```yaml
 apiVersion: v1alpha1
 metadata:
   name: signoz
+  annotations:
+        foundry.signoz.io/signoz-binary-path: /opt/signoz/bin/signoz
+        foundry.signoz.io/ingester-binary-path: /opt/ingester/bin/signoz-otel-collector
+        foundry.signoz.io/metastore-binary-path: /usr/bin/postgres
 spec:
   deployment:
     flavor: binary
     mode: systemd
-  signoz:
-    spec:
-      env:
-        SIGNOZ_BINARY_PATH: /opt/signoz/bin/signoz
-  ingester:
-    spec:
-      env:
-        OTEL_COLLECTOR_BINARY_PATH: /opt/ingester/bin/signoz-otel-collector
-  metastore:
-    spec:
-      env:
-        POSTGRES_BINARY_PATH: /usr/bin/postgres
 ```
