@@ -282,7 +282,6 @@ spec:
       config: {}
       enabled: true
       env:
-        POSTGRES_BINARY_PATH: /usr/bin/postgres
         POSTGRES_DB: signoz
         POSTGRES_PASSWORD: signoz
         POSTGRES_USER: signoz
@@ -294,6 +293,7 @@ spec:
         - postgres://localhost:5432
       config: {}
       env:
+        METASTORE_BINARY_PATH: /usr/bin/postgres
         POSTGRES_DB: signoz
         POSTGRES_PASSWORD: signoz
         POSTGRES_USER: signoz
@@ -304,7 +304,6 @@ spec:
       config: {}
       enabled: true
       env:
-        SIGNOZ_BINARY_PATH: /opt/signoz/bin/signoz
         SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@localhost:5432/signoz?sslmode=disable
         SIGNOZ_SQLSTORE_PROVIDER: postgres
         SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://localhost:9000
@@ -319,6 +318,7 @@ spec:
         - tcp://localhost:4320
       config: {}
       env:
+        SIGNOZ_BINARY_PATH: /opt/signoz/bin/signoz
         SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@localhost:5432/signoz?sslmode=disable
         SIGNOZ_SQLSTORE_PROVIDER: postgres
         SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://localhost:9000
