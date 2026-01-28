@@ -99,7 +99,7 @@ func (e *linuxMoldingEnricher) enrichTelemetryKeeper(config *v1alpha1.Casting) e
 func (e *linuxMoldingEnricher) enrichMetaStore(config *v1alpha1.Casting) error {
 	dsn := types.FormatAddress("postgres", "localhost", baseMetaStorePostgresPort)
 	config.Spec.MetaStore.Status.Addresses.DSN = []string{dsn}
-	
+
 	// Get the annotation value
 	metastoreBin := config.Metadata.Annotations["foundry.signoz.io/metastore-postgres-binary-path"]
 
@@ -117,7 +117,7 @@ func (e *linuxMoldingEnricher) enrichMetaStore(config *v1alpha1.Casting) error {
 
 func (e *linuxMoldingEnricher) enrichSignoz(config *v1alpha1.Casting) error {
 	config.Spec.Signoz.Status.Addresses.Opamp = []string{
-		types.FormatAddress("tcp", "localhost", 4320),
+		types.FormatAddress("ws", "localhost", 4320),
 	}
 	config.Spec.Signoz.Status.Addresses.APIServer = []string{
 		types.FormatAddress("tcp", "localhost", 8080),

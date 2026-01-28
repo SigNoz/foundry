@@ -37,7 +37,7 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 		var addrs []string
 		var storeServiceNames []string
 		for _, serviceName := range serviceNames {
-			if strings.Contains(serviceName, "telemetrystore") {
+			if strings.Contains(serviceName, "telemetrystore") && !strings.Contains(serviceName, "migrator") {
 				addrs = append(addrs, types.FormatAddress("tcp", serviceName, 9000))
 				storeServiceNames = append(storeServiceNames, serviceName)
 			}
@@ -57,14 +57,16 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 			return fmt.Errorf("failed to get telemetrystore service names: %w", err)
 		}
 
-		var addrs []string
+		var apiServerAddr []string
+		var opampAddr []string
 		for _, serviceName := range serviceNames {
-			if strings.Contains(serviceName, "signoz") {
-				addrs = append(addrs, types.FormatAddress("http", serviceName, 8080))
+			if strings.Contains(serviceName, "-signoz") {
+				apiServerAddr = append(apiServerAddr, types.FormatAddress("tcp", serviceName, 8080))
+				opampAddr = append(opampAddr, types.FormatAddress("ws", serviceName, 4320))
 			}
 		}
-		config.Spec.Signoz.Status.Addresses.APIServer = addrs
-		config.Spec.Signoz.Status.Addresses.Opamp = addrs
+		config.Spec.Signoz.Status.Addresses.APIServer = apiServerAddr
+		config.Spec.Signoz.Status.Addresses.Opamp = opampAddr
 
 	case v1alpha1.MoldingKindTelemetryKeeper:
 		// Get telemetrykeeper service names

@@ -1,1 +1,1 @@
-server_endpoint: ws://tcp://localhost:4320/v1/opamp
+server_endpoint: ws://localhost:4320/v1/opamp
