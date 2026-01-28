@@ -52,15 +52,16 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 			return fmt.Errorf("failed to get signoz container names: %w", err)
 		}
 
-		var signozContainerNames []string
+		var apiServerAddr []string
+		var opampAddr []string
 		for _, containerName := range containerNames {
-			if strings.Contains(containerName, "signoz") {
-				signozContainerNames = append(signozContainerNames, types.FormatAddress("tcp", containerName, 9000))
+			if strings.Contains(containerName, "-signoz") {
+				apiServerAddr = append(apiServerAddr, types.FormatAddress("tcp", containerName, 8080))
+				opampAddr = append(opampAddr, types.FormatAddress("ws", containerName, 4320))
 			}
 		}
-
-		config.Spec.Signoz.Status.Addresses.APIServer = signozContainerNames
-		config.Spec.Signoz.Status.Addresses.Opamp = signozContainerNames
+		config.Spec.Signoz.Status.Addresses.APIServer = apiServerAddr
+		config.Spec.Signoz.Status.Addresses.Opamp = opampAddr
 
 	case v1alpha1.MoldingKindTelemetryKeeper:
 		// Get telemetrykeeper container names (using service keys since they match container_name)

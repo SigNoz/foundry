@@ -16,7 +16,7 @@ Restart=on-failure
 {{- if and $.Metadata.Annotations (index $.Metadata.Annotations "foundry.signoz.io/ingester-binary-path") }}
 {{- $ingesterBinaryPath := index $.Metadata.Annotations "foundry.signoz.io/ingester-binary-path" }}
 {{ if and $.Spec.Ingester.Status.Extras (index $.Spec.Ingester.Status.Extras "cfgPath") (index $.Spec.Ingester.Status.Extras "cfgOpampPath") }}
-ExecStart={{ $ingesterBinaryPath }} --config=%Y/{{ index $.Spec.Ingester.Status.Extras "cfgPath" }} --manager-config=%Y/{{ index $.Spec.Ingester.Status.Extras "cfgOpampPath" }}
+ExecStart={{ $ingesterBinaryPath }} --config=%Y/{{ index $.Spec.Ingester.Status.Extras "cfgPath" }} --manager-config=%Y/{{ index $.Spec.Ingester.Status.Extras "cfgOpampPath" }} --copy-path=/var/lib/ingester/ingester.yaml
 {{ end }}
 {{- end }}
 [Install]
