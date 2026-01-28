@@ -312,19 +312,19 @@ spec:
         apiserver:
         - tcp://signoz-ingester:9000
         - tcp://signoz-metastore-postgres-0:9000
-        - tcp://signoz-migrator:9000
         - tcp://signoz-signoz:9000
         - tcp://signoz-telemetrykeeper-clickhousekeeper-0:9000
         - tcp://signoz-telemetrystore-clickhouse-0-0:9000
         - tcp://signoz-telemetrystore-clickhouse-user-scripts:9000
+        - tcp://signoz-telemetrystore-migrator:9000
         opamp:
         - tcp://signoz-ingester:9000
         - tcp://signoz-metastore-postgres-0:9000
-        - tcp://signoz-migrator:9000
         - tcp://signoz-signoz:9000
         - tcp://signoz-telemetrykeeper-clickhousekeeper-0:9000
         - tcp://signoz-telemetrystore-clickhouse-0-0:9000
         - tcp://signoz-telemetrystore-clickhouse-user-scripts:9000
+        - tcp://signoz-telemetrystore-migrator:9000
       config: {}
       env:
         SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@signoz-metastore-postgres-0:9000/signoz?sslmode=disable

@@ -129,7 +129,7 @@ services:
         condition: service_healthy
       {{- end }}
       {{- end }}
-      {{ $.Metadata.Name }}-migrator:
+      {{ $.Metadata.Name }}-telemetrystore-migrator:
         condition: service_completed_successfully
     deploy:
       replicas: {{ int $.Spec.Ingester.Spec.Cluster.Replicas }}
@@ -177,9 +177,9 @@ services:
     volumes:
       - {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}-data:/var/lib/signoz
   {{- end }}
-  {{ $.Metadata.Name }}-migrator:
+  {{ $.Metadata.Name }}-telemetrystore-migrator:
     image: {{ $.Spec.Ingester.Spec.Image }}
-    container_name: {{ $.Metadata.Name }}-migrator
+    container_name: {{ $.Metadata.Name }}-telemetrystore-migrator
     networks:
       - {{ $.Metadata.Name }}-network
     entrypoint:
