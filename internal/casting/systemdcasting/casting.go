@@ -129,17 +129,22 @@ func (c *systemdCasting) forgeIngester(tmpl *types.Template, cfg *v1alpha1.Casti
 		return nil, fmt.Errorf("no config molded for %s", v1alpha1.MoldingKindIngester)
 	}
 
-	// Initialize status extras
+	// Initialize status extras and env
 	if spec.Status.Extras == nil {
 		spec.Status.Extras = make(map[string]string)
 	}
-	if spec.Spec.Env == nil {
-		spec.Spec.Env = make(map[string]string)
+	if spec.Status.Env == nil {
+		spec.Status.Env = make(map[string]string)
 	}
 
-	// Set OTEL collector binary path with default fallback
-	if spec.Spec.Env["OTEL_COLLECTOR_BINARY_PATH"] == "" {
-		spec.Spec.Env["OTEL_COLLECTOR_BINARY_PATH"] = "/opt/ingester/bin/signoz-otel-collector"
+	// Set ingester binary path from annotation or default
+	if annotations := cfg.Metadata.Annotations; annotations != nil {
+		if path := annotations["foundry.signoz.io/ingester-binary-path"]; path != "" {
+			spec.Status.Env["INGESTER_BINARY_PATH"] = path
+		}
+	}
+	if spec.Status.Env["INGESTER_BINARY_PATH"] == "" {
+		spec.Status.Env["INGESTER_BINARY_PATH"] = "/opt/ingester/bin/signoz-otel-collector"
 	}
 
 	// Create config materials
@@ -171,13 +176,18 @@ func (c *systemdCasting) forgeSignoz(tmpl *types.Template, cfg *v1alpha1.Casting
 	if spec.Status.Extras == nil {
 		spec.Status.Extras = make(map[string]string)
 	}
-	if spec.Spec.Env == nil {
-		spec.Spec.Env = make(map[string]string)
+	if spec.Status.Env == nil {
+		spec.Status.Env = make(map[string]string)
 	}
 
-	// Set signoz binary path with default fallback
-	if spec.Spec.Env["SIGNOZ_BINARY_PATH"] == "" {
-		spec.Spec.Env["SIGNOZ_BINARY_PATH"] = "/opt/signoz/bin/signoz"
+	// Set signoz binary path from annotation or default
+	if annotations := cfg.Metadata.Annotations; annotations != nil {
+		if path := annotations["foundry.signoz.io/signoz-binary-path"]; path != "" {
+			spec.Status.Env["SIGNOZ_BINARY_PATH"] = path
+		}
+	}
+	if spec.Status.Env["SIGNOZ_BINARY_PATH"] == "" {
+		spec.Status.Env["SIGNOZ_BINARY_PATH"] = "/opt/signoz/bin/signoz"
 	}
 
 	// Create env material
@@ -199,17 +209,22 @@ func (c *systemdCasting) forgeMetaStore(tmpl *types.Template, cfg *v1alpha1.Cast
 		return nil, nil
 	}
 
-	// Initialize status extras
+	// Initialize status extras and env
 	if spec.Status.Extras == nil {
 		spec.Status.Extras = make(map[string]string)
 	}
-	if spec.Spec.Env == nil {
-		spec.Spec.Env = make(map[string]string)
+	if spec.Status.Env == nil {
+		spec.Status.Env = make(map[string]string)
 	}
 
-	// Set postgres binary path with default fallback
-	if spec.Spec.Env["POSTGRES_BINARY_PATH"] == "" {
-		spec.Spec.Env["POSTGRES_BINARY_PATH"] = "/usr/bin/postgres"
+	// Set metastore binary path from annotation or default
+	if annotations := cfg.Metadata.Annotations; annotations != nil {
+		if path := annotations["foundry.signoz.io/metastore-binary-path"]; path != "" {
+			spec.Status.Env["METASTORE_BINARY_PATH"] = path
+		}
+	}
+	if spec.Status.Env["METASTORE_BINARY_PATH"] == "" {
+		spec.Status.Env["METASTORE_BINARY_PATH"] = "/usr/bin/postgres"
 	}
 
 	// Create env material

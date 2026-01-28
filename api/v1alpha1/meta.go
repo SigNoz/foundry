@@ -16,6 +16,10 @@ type TypeVersion struct {
 type TypeMetadata struct {
 	// The name of this installation. This name can be used to identify the installation.
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+
+	// Annotations is an unstructured key-value map for arbitrary metadata.
+	// Can be used to specify deployment-specific settings.
+	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 type TypeCluster struct {
