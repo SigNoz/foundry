@@ -1,0 +1,257 @@
+definitions:
+  V1Alpha1CastingSpec:
+    properties:
+      deployment:
+        $ref: '#/definitions/V1Alpha1TypeDeployment'
+      ingester:
+        $ref: '#/definitions/V1Alpha1Ingester'
+      metastore:
+        $ref: '#/definitions/V1Alpha1MetaStore'
+      signoz:
+        $ref: '#/definitions/V1Alpha1SigNoz'
+      telemetrykeeper:
+        $ref: '#/definitions/V1Alpha1TelemetryKeeper'
+      telemetrystore:
+        $ref: '#/definitions/V1Alpha1TelemetryStore'
+    type: object
+  V1Alpha1CastingStatus:
+    properties:
+      checksum:
+        type: string
+    type: object
+  V1Alpha1Ingester:
+    properties:
+      spec:
+        $ref: '#/definitions/V1Alpha1MoldingSpec'
+      status:
+        $ref: '#/definitions/V1Alpha1IngesterStatus'
+    type: object
+  V1Alpha1IngesterStatus:
+    properties:
+      addresses:
+        $ref: '#/definitions/V1Alpha1IngesterStatusAddresses'
+      config:
+        $ref: '#/definitions/V1Alpha1TypeConfig'
+      env:
+        additionalProperties:
+          type: string
+        type: object
+      extras:
+        additionalProperties:
+          type: string
+        type: object
+    type: object
+  V1Alpha1IngesterStatusAddresses:
+    properties:
+      otlp:
+        items:
+          type: string
+        type:
+        - array
+        - "null"
+    type: object
+  V1Alpha1MetaStore:
+    properties:
+      kind:
+        type: string
+      spec:
+        $ref: '#/definitions/V1Alpha1MoldingSpec'
+      status:
+        $ref: '#/definitions/V1Alpha1MetaStoreStatus'
+    type: object
+  V1Alpha1MetaStoreStatus:
+    properties:
+      addresses:
+        $ref: '#/definitions/V1Alpha1MetaStoreStatusAddresses'
+      config:
+        $ref: '#/definitions/V1Alpha1TypeConfig'
+      env:
+        additionalProperties:
+          type: string
+        type: object
+      extras:
+        additionalProperties:
+          type: string
+        type: object
+    type: object
+  V1Alpha1MetaStoreStatusAddresses:
+    properties:
+      dsn:
+        items:
+          type: string
+        type:
+        - array
+        - "null"
+    type: object
+  V1Alpha1MoldingSpec:
+    properties:
+      cluster:
+        $ref: '#/definitions/V1Alpha1TypeCluster'
+      config:
+        $ref: '#/definitions/V1Alpha1TypeConfig'
+      enabled:
+        type: boolean
+      env:
+        additionalProperties:
+          type: string
+        type: object
+      image:
+        type: string
+      version:
+        type: string
+    type: object
+  V1Alpha1SigNoz:
+    properties:
+      spec:
+        $ref: '#/definitions/V1Alpha1MoldingSpec'
+      status:
+        $ref: '#/definitions/V1Alpha1SigNozStatus'
+    type: object
+  V1Alpha1SigNozStatus:
+    properties:
+      addresses:
+        $ref: '#/definitions/V1Alpha1SigNozStatusAddresses'
+      config:
+        $ref: '#/definitions/V1Alpha1TypeConfig'
+      env:
+        additionalProperties:
+          type: string
+        type: object
+      extras:
+        additionalProperties:
+          type: string
+        type: object
+    type: object
+  V1Alpha1SigNozStatusAddresses:
+    properties:
+      apiserver:
+        items:
+          type: string
+        type:
+        - array
+        - "null"
+      opamp:
+        items:
+          type: string
+        type:
+        - array
+        - "null"
+    type: object
+  V1Alpha1TelemetryKeeper:
+    properties:
+      kind:
+        type: string
+      spec:
+        $ref: '#/definitions/V1Alpha1MoldingSpec'
+      status:
+        $ref: '#/definitions/V1Alpha1TelemetryKeeperStatus'
+    type: object
+  V1Alpha1TelemetryKeeperStatus:
+    properties:
+      addresses:
+        $ref: '#/definitions/V1Alpha1TelemetryKeeperStatusAddresses'
+      config:
+        $ref: '#/definitions/V1Alpha1TypeConfig'
+      env:
+        additionalProperties:
+          type: string
+        type: object
+      extras:
+        additionalProperties:
+          type: string
+        type: object
+    type: object
+  V1Alpha1TelemetryKeeperStatusAddresses:
+    properties:
+      client:
+        items:
+          type: string
+        type:
+        - array
+        - "null"
+      raft:
+        items:
+          type: string
+        type:
+        - array
+        - "null"
+    type: object
+  V1Alpha1TelemetryStore:
+    properties:
+      kind:
+        type: string
+      spec:
+        $ref: '#/definitions/V1Alpha1MoldingSpec'
+      status:
+        $ref: '#/definitions/V1Alpha1TelemetryStoreStatus'
+    type: object
+  V1Alpha1TelemetryStoreStatus:
+    properties:
+      addresses:
+        $ref: '#/definitions/V1Alpha1TelemetryStoreStatusAddresses'
+      config:
+        $ref: '#/definitions/V1Alpha1TypeConfig'
+      env:
+        additionalProperties:
+          type: string
+        type: object
+      extras:
+        additionalProperties:
+          type: string
+        type: object
+    type: object
+  V1Alpha1TelemetryStoreStatusAddresses:
+    properties:
+      tcp:
+        items:
+          type: string
+        type:
+        - array
+        - "null"
+    type: object
+  V1Alpha1TypeCluster:
+    properties:
+      replicas:
+        type:
+        - "null"
+        - integer
+      shards:
+        type:
+        - "null"
+        - integer
+    type: object
+  V1Alpha1TypeConfig:
+    properties:
+      data:
+        additionalProperties:
+          type: string
+        type: object
+    type: object
+  V1Alpha1TypeDeployment:
+    properties:
+      flavor:
+        type: string
+      mode:
+        type: string
+      platform:
+        type: string
+    type: object
+  V1Alpha1TypeMetadata:
+    properties:
+      annotations:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+    type: object
+properties:
+  apiVersion:
+    type: string
+  metadata:
+    $ref: '#/definitions/V1Alpha1TypeMetadata'
+  spec:
+    $ref: '#/definitions/V1Alpha1CastingSpec'
+  status:
+    $ref: '#/definitions/V1Alpha1CastingStatus'
+type: object

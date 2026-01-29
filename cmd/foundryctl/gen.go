@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -12,24 +13,52 @@ import (
 	"github.com/signoz/foundry/internal/instrumentation"
 	"github.com/signoz/foundry/internal/types"
 	"github.com/spf13/cobra"
+	"github.com/swaggest/jsonschema-go"
 )
 
 func registerGenCmd(rootCmd *cobra.Command) {
 	genCmd := &cobra.Command{
 		Use:   "gen",
 		Short: "Generate example files for all supported deployments.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			logger := instrumentation.NewLogger(commonCfg.Debug)
-
-			return runGen(ctx, logger)
-		},
 	}
+
+	registerGenExamples(genCmd)
+	registerGenSchemas(genCmd)
 
 	rootCmd.AddCommand(genCmd)
 }
 
-func runGen(ctx context.Context, logger *slog.Logger) error {
+func registerGenExamples(rootCmd *cobra.Command) {
+	genExamplesCmd := &cobra.Command{
+		Use:   "examples",
+		Short: "Generate example files for all supported deployments.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			logger := instrumentation.NewLogger(commonCfg.Debug)
+
+			return runGenExamples(ctx, logger)
+		},
+	}
+
+	rootCmd.AddCommand(genExamplesCmd)
+}
+
+func registerGenSchemas(rootCmd *cobra.Command) {
+	genSchemasCmd := &cobra.Command{
+		Use:   "schemas",
+		Short: "Generate schema files.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			logger := instrumentation.NewLogger(commonCfg.Debug)
+
+			return runGenSchemas(ctx, logger)
+		},
+	}
+
+	rootCmd.AddCommand(genSchemasCmd)
+}
+
+func runGenExamples(ctx context.Context, logger *slog.Logger) error {
 	foundry, err := foundry.New(logger)
 	if err != nil {
 		logger.ErrorContext(ctx, "failed to create foundry, please report this issues to developers at https://github.com/signoz/foundry/issues", foundryerrors.LogAttr(err))
@@ -42,7 +71,7 @@ func runGen(ctx context.Context, logger *slog.Logger) error {
 		config := v1alpha1.ExampleCasting()
 		config.Spec.Deployment = deployment
 
-		rootPath := filepath.Join("examples/", deployment.Platform, deployment.Mode, deployment.Flavor)
+		rootPath := filepath.Join("docs", "examples/", deployment.Platform, deployment.Mode, deployment.Flavor)
 		err = os.MkdirAll(rootPath, 0755)
 		if err != nil {
 			return err
@@ -58,6 +87,22 @@ func runGen(ctx context.Context, logger *slog.Logger) error {
 			logger.ErrorContext(ctx, "failed to forge casting", slog.Any("deployment", deployment), foundryerrors.LogAttr(err))
 			continue
 		}
+	}
+
+	return nil
+}
+
+func runGenSchemas(context.Context, *slog.Logger) error {
+	reflector := jsonschema.Reflector{}
+
+	schema, err := reflector.Reflect(v1alpha1.Casting{})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = os.WriteFile(filepath.Join("docs", "schemas", "v1alpha1.yaml"), types.MustMarshalYAML(schema), 0644)
+	if err != nil {
+		return err
 	}
 
 	return nil
