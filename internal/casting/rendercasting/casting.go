@@ -54,12 +54,12 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute dockerfile keeper template: %w", err)
 		}
-		dockerfileMaterial := types.NewTextMaterial(dockerfileBuf.Bytes(), filepath.Join(configsDir,"telemetrykeeper/Dockerfile" ))
+		dockerfileMaterial := types.NewTextMaterial(dockerfileBuf.Bytes(), filepath.Join(configsDir, "telemetrykeeper/Dockerfile"))
 		materials = append(materials, dockerfileMaterial)
 
 		// Add telemetrykeeper config files (for dockerfile to copy)
 		for filename, content := range config.Spec.TelemetryKeeper.Spec.Config.Data {
-			material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(configsDir,fmt.Sprintf( "telemetrykeeper/keeper.d/%s", filename)))
+			material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(configsDir, fmt.Sprintf("telemetrykeeper/keeper.d/%s", filename)))
 			if err != nil {
 				return nil, fmt.Errorf("failed to create telemetrykeeper config material: %w", err)
 			}
