@@ -1,4 +1,4 @@
-FROM clickhouse/clickhouse-server:{{ $.Spec.TelemetryStore.Spec.Version }}
+FROM {{$.Spec.TelemetryStore.Spec.Image }}
 
 COPY config.d/ /etc/clickhouse-server/
 

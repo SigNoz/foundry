@@ -78,7 +78,7 @@ services:
     plan: standard
     runtime: image
     image:
-      url: docker.io/signoz/signoz:{{ $.Spec.Signoz.Spec.Version }}
+      url: {{ $.Spec.Signoz.Spec.Image }}
     healthCheckPath: /api/v1/health
     envVars:
     {{ if $.Spec.Signoz.Spec.Env }}
@@ -110,7 +110,7 @@ services:
     plan: standard
     runtime: image
     image:
-      url: docker.io/signoz/signoz-otel-collector:v0.129.13-rc.2
+      url: {{ $.Spec.Ingester.Spec.Image }}
     envVars:
       {{ if index $.Spec.Signoz.Spec.Env "SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN" }}
       - key: CLICKHOUSE_DSN

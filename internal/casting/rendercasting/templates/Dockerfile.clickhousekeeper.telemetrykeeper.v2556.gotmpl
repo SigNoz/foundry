@@ -1,4 +1,4 @@
-FROM clickhouse/clickhouse-keeper:{{ $.Spec.TelemetryKeeper.Spec.Version }}
+FROM {{ $.Spec.TelemetryKeeper.Spec.Image }}
 
 # Copy all keeper config files
 COPY keeper.d/ /etc/clickhouse-keeper/
