@@ -66,7 +66,7 @@ services:
     key: DEPENDENCY_LINK_0
   healthCheckPath: /api/v1/health
   image:
-    url: docker.io/signoz/signoz:latest
+    url: signoz/signoz:latest
   name: signoz-signoz
   plan: standard
   runtime: image
@@ -84,7 +84,7 @@ services:
       type: pserv
     key: DEPENDENCY_LINK_0
   image:
-    url: docker.io/signoz/signoz-otel-collector:v0.129.13-rc.2
+    url: signoz/signoz-otel-collector:latest
   name: signoz-schema-migrator
   plan: standard
   preDeployCommand: /signoz-otel-collector migrate ready --clickhouse-dsn=${CLICKHOUSE_DSN}
