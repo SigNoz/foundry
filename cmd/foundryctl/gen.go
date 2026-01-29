@@ -92,7 +92,7 @@ func runGenExamples(ctx context.Context, logger *slog.Logger) error {
 	return nil
 }
 
-func runGenSchemas(ctx context.Context, logger *slog.Logger) error {
+func runGenSchemas(context.Context, *slog.Logger) error {
 	reflector := jsonschema.Reflector{}
 
 	schema, err := reflector.Reflect(v1alpha1.Casting{})
