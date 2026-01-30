@@ -6,24 +6,24 @@ import (
 
 type TelemetryStore struct {
 	// Kind of the telemetry store to use.
-	Kind TelemetryStoreKind `json:"kind,omitzero" yaml:"kind,omitempty"`
+	Kind TelemetryStoreKind `json:"kind,omitzero" yaml:"kind,omitempty" description:"Kind of the telemetry store to use" example:"clickhouse" enum:"clickhouse"`
 
 	// Specification for the telemetry store.
-	Spec MoldingSpec `json:"spec" yaml:"spec"`
+	Spec MoldingSpec `json:"spec" yaml:"spec" description:"Specification for the telemetry store"`
 
 	// Status of the telemetry store.
-	Status TelemetryStoreStatus `json:"status" yaml:"status,omitempty"`
+	Status TelemetryStoreStatus `json:"status" yaml:"status,omitempty" description:"Status of the telemetry store"`
 }
 
 type TelemetryStoreStatus struct {
 	MoldingStatus `json:",inline" yaml:",inline"`
 
-	Addresses TelemetryStoreStatusAddresses `json:"addresses" yaml:"addresses,omitempty"`
+	Addresses TelemetryStoreStatusAddresses `json:"addresses" yaml:"addresses,omitempty" description:"Addresses of the telemetry store"`
 }
 
 type TelemetryStoreStatusAddresses struct {
 	// TCP addresses.
-	TCP []string `json:"tcp" yaml:"tcp"`
+	TCP []string `json:"tcp" yaml:"tcp" description:"TCP addresses"`
 }
 
 func DefaultTelemetryStore() TelemetryStore {

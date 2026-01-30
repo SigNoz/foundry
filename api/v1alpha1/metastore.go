@@ -6,24 +6,24 @@ import (
 
 type MetaStore struct {
 	// Kind of the meta store to use.
-	Kind MetaStoreKind `json:"kind,omitzero" yaml:"kind,omitempty"`
+	Kind MetaStoreKind `json:"kind,omitzero" yaml:"kind,omitempty" description:"Kind of the meta store to use" example:"postgres" enum:"postgres,sqlite"`
 
 	// Specification for the meta store.
-	Spec MoldingSpec `json:"spec" yaml:"spec"`
+	Spec MoldingSpec `json:"spec" yaml:"spec" description:"Specification for the meta store"`
 
 	// Status of the meta store.
-	Status MetaStoreStatus `json:"status" yaml:"status,omitempty"`
+	Status MetaStoreStatus `json:"status" yaml:"status,omitempty" description:"Status of the meta store"`
 }
 
 type MetaStoreStatus struct {
 	MoldingStatus `json:",inline" yaml:",inline"`
 
-	Addresses MetaStoreStatusAddresses `json:"addresses" yaml:"addresses,omitempty"`
+	Addresses MetaStoreStatusAddresses `json:"addresses" yaml:"addresses,omitempty" description:"Addresses of the meta store"`
 }
 
 type MetaStoreStatusAddresses struct {
 	// DSN addresses.
-	DSN []string `json:"dsn" yaml:"dsn"`
+	DSN []string `json:"dsn" yaml:"dsn" description:"DSN addresses"`
 }
 
 func DefaultMetaStore() MetaStore {

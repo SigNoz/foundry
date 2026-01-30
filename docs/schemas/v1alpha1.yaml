@@ -3,20 +3,27 @@ definitions:
     properties:
       deployment:
         $ref: '#/definitions/V1Alpha1TypeDeployment'
+        description: Deployment configuration for the platform
       ingester:
         $ref: '#/definitions/V1Alpha1Ingester'
+        description: The configuration for the ingester molding
       metastore:
         $ref: '#/definitions/V1Alpha1MetaStore'
+        description: The configuration for the meta store molding
       signoz:
         $ref: '#/definitions/V1Alpha1SigNoz'
+        description: The configuration for the SigNoz molding
       telemetrykeeper:
         $ref: '#/definitions/V1Alpha1TelemetryKeeper'
+        description: The configuration for the telemetry keeper molding
       telemetrystore:
         $ref: '#/definitions/V1Alpha1TelemetryStore'
+        description: The configuration for the telemetry store molding
     type: object
   V1Alpha1CastingStatus:
     properties:
       checksum:
+        description: Checksum of the casting file
         type: string
     type: object
   V1Alpha1Ingester:
@@ -32,13 +39,16 @@ definitions:
         $ref: '#/definitions/V1Alpha1IngesterStatusAddresses'
       config:
         $ref: '#/definitions/V1Alpha1TypeConfig'
+        description: Configuration for the molding
       env:
         additionalProperties:
           type: string
+        description: Environment variables for the molding
         type: object
       extras:
         additionalProperties:
           type: string
+        description: Extra information about the molding
         type: object
     type: object
   V1Alpha1IngesterStatusAddresses:
@@ -53,30 +63,43 @@ definitions:
   V1Alpha1MetaStore:
     properties:
       kind:
+        description: Kind of the meta store to use
+        enum:
+        - postgres
+        - sqlite
+        examples:
+        - postgres
         type: string
       spec:
         $ref: '#/definitions/V1Alpha1MoldingSpec'
+        description: Specification for the meta store
       status:
         $ref: '#/definitions/V1Alpha1MetaStoreStatus'
+        description: Status of the meta store
     type: object
   V1Alpha1MetaStoreStatus:
     properties:
       addresses:
         $ref: '#/definitions/V1Alpha1MetaStoreStatusAddresses'
+        description: Addresses of the meta store
       config:
         $ref: '#/definitions/V1Alpha1TypeConfig'
+        description: Configuration for the molding
       env:
         additionalProperties:
           type: string
+        description: Environment variables for the molding
         type: object
       extras:
         additionalProperties:
           type: string
+        description: Extra information about the molding
         type: object
     type: object
   V1Alpha1MetaStoreStatusAddresses:
     properties:
       dsn:
+        description: DSN addresses
         items:
           type: string
         type:
@@ -87,17 +110,28 @@ definitions:
     properties:
       cluster:
         $ref: '#/definitions/V1Alpha1TypeCluster'
+        description: Cluster configuration for the molding
       config:
         $ref: '#/definitions/V1Alpha1TypeConfig'
+        description: Configuration for the molding
       enabled:
+        default: true
+        description: Whether the molding is enabled
         type: boolean
       env:
         additionalProperties:
           type: string
+        description: Environment variables for the molding
         type: object
       image:
+        description: Container image of the molding
+        examples:
+        - signoz/signoz:latest
         type: string
       version:
+        description: The version of the molding to use
+        examples:
+        - latest
         type: string
     type: object
   V1Alpha1SigNoz:
@@ -113,13 +147,16 @@ definitions:
         $ref: '#/definitions/V1Alpha1SigNozStatusAddresses'
       config:
         $ref: '#/definitions/V1Alpha1TypeConfig'
+        description: Configuration for the molding
       env:
         additionalProperties:
           type: string
+        description: Environment variables for the molding
         type: object
       extras:
         additionalProperties:
           type: string
+        description: Extra information about the molding
         type: object
     type: object
   V1Alpha1SigNozStatusAddresses:
@@ -140,36 +177,49 @@ definitions:
   V1Alpha1TelemetryKeeper:
     properties:
       kind:
+        description: Kind of the telemetry keeper to use
+        enum:
+        - clickhousekeeper
+        examples:
+        - clickhousekeeper
         type: string
       spec:
         $ref: '#/definitions/V1Alpha1MoldingSpec'
+        description: Specification for the telemetry keeper
       status:
         $ref: '#/definitions/V1Alpha1TelemetryKeeperStatus'
+        description: Status of the telemetry keeper
     type: object
   V1Alpha1TelemetryKeeperStatus:
     properties:
       addresses:
         $ref: '#/definitions/V1Alpha1TelemetryKeeperStatusAddresses'
+        description: Addresses of the telemetry keeper
       config:
         $ref: '#/definitions/V1Alpha1TypeConfig'
+        description: Configuration for the molding
       env:
         additionalProperties:
           type: string
+        description: Environment variables for the molding
         type: object
       extras:
         additionalProperties:
           type: string
+        description: Extra information about the molding
         type: object
     type: object
   V1Alpha1TelemetryKeeperStatusAddresses:
     properties:
       client:
+        description: Client addresses
         items:
           type: string
         type:
         - array
         - "null"
       raft:
+        description: Raft addresses
         items:
           type: string
         type:
@@ -179,30 +229,42 @@ definitions:
   V1Alpha1TelemetryStore:
     properties:
       kind:
+        description: Kind of the telemetry store to use
+        enum:
+        - clickhouse
+        examples:
+        - clickhouse
         type: string
       spec:
         $ref: '#/definitions/V1Alpha1MoldingSpec'
+        description: Specification for the telemetry store
       status:
         $ref: '#/definitions/V1Alpha1TelemetryStoreStatus'
+        description: Status of the telemetry store
     type: object
   V1Alpha1TelemetryStoreStatus:
     properties:
       addresses:
         $ref: '#/definitions/V1Alpha1TelemetryStoreStatusAddresses'
+        description: Addresses of the telemetry store
       config:
         $ref: '#/definitions/V1Alpha1TypeConfig'
+        description: Configuration for the molding
       env:
         additionalProperties:
           type: string
+        description: Environment variables for the molding
         type: object
       extras:
         additionalProperties:
           type: string
+        description: Extra information about the molding
         type: object
     type: object
   V1Alpha1TelemetryStoreStatusAddresses:
     properties:
       tcp:
+        description: TCP addresses
         items:
           type: string
         type:
@@ -212,10 +274,16 @@ definitions:
   V1Alpha1TypeCluster:
     properties:
       replicas:
+        description: Number of replicas for the component
+        examples:
+        - 1
         type:
         - "null"
         - integer
       shards:
+        description: Number of shards for the component
+        examples:
+        - 1
         type:
         - "null"
         - integer
@@ -225,15 +293,51 @@ definitions:
       data:
         additionalProperties:
           type: string
+        description: Configuration data as key-value pairs
         type: object
     type: object
   V1Alpha1TypeDeployment:
     properties:
       flavor:
+        description: Flavor of mode for the deployment
+        enum:
+        - compose
+        - swarm
+        - helmfile
+        - helm
+        - kustomize
+        - binary
+        - rpm
+        - deb
+        - chocolatey
+        examples:
+        - compose
         type: string
       mode:
+        description: Type of installation method
+        enum:
+        - binary
+        - docker
+        - kubernetes
+        - helm
+        - nomad
+        - windows
+        - systemctl
+        examples:
+        - docker
         type: string
       platform:
+        description: Provider where an installation runs on
+        enum:
+        - aws
+        - gcp
+        - azure
+        - digitalocean
+        - railway
+        - docker
+        - linux
+        examples:
+        - aws
         type: string
     type: object
   V1Alpha1TypeMetadata:
@@ -241,17 +345,27 @@ definitions:
       annotations:
         additionalProperties:
           type: string
+        description: Unstructured key-value map for arbitrary metadata
         type: object
       name:
+        description: The name of this installation
+        examples:
+        - signoz-dev
         type: string
     type: object
 properties:
   apiVersion:
+    description: API Version of the casting configuration schema
+    examples:
+    - v1alpha1
     type: string
   metadata:
     $ref: '#/definitions/V1Alpha1TypeMetadata'
+    description: Metadata of the casting configuration
   spec:
     $ref: '#/definitions/V1Alpha1CastingSpec'
+    description: Specification for the casting
   status:
     $ref: '#/definitions/V1Alpha1CastingStatus'
+    description: Status of the casting
 type: object

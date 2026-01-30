@@ -4,38 +4,38 @@ type Casting struct {
 	TypeVersion `json:",inline" yaml:",inline"`
 
 	// Metadata of the casting configuration.
-	Metadata TypeMetadata `json:"metadata" yaml:"metadata"`
+	Metadata TypeMetadata `json:"metadata" yaml:"metadata" description:"Metadata of the casting configuration"`
 
 	// Specification for the casting.
-	Spec CastingSpec `json:"spec" yaml:"spec"`
+	Spec CastingSpec `json:"spec" yaml:"spec" description:"Specification for the casting"`
 
 	// Status of the casting.
-	Status CastingStatus `json:"status,omitzero" yaml:"status,omitempty"`
+	Status CastingStatus `json:"status,omitzero" yaml:"status,omitempty" description:"Status of the casting"`
 }
 
 type CastingSpec struct {
 	// Mode platform in which the platform will run.
-	Deployment TypeDeployment `json:"deployment" yaml:"deployment"`
+	Deployment TypeDeployment `json:"deployment" yaml:"deployment" description:"Deployment configuration for the platform"`
 
 	// The configuration for the signoz molding.
-	Signoz SigNoz `json:"signoz,omitzero" yaml:"signoz,omitempty"`
+	Signoz SigNoz `json:"signoz,omitzero" yaml:"signoz,omitempty" description:"The configuration for the SigNoz molding"`
 
 	// The configuration for the telemetry store molding.
-	TelemetryStore TelemetryStore `json:"telemetrystore,omitzero" yaml:"telemetrystore,omitempty"`
+	TelemetryStore TelemetryStore `json:"telemetrystore,omitzero" yaml:"telemetrystore,omitempty" description:"The configuration for the telemetry store molding"`
 
 	// The configuration for the telemetry keeper molding.
-	TelemetryKeeper TelemetryKeeper `json:"telemetrykeeper,omitzero" yaml:"telemetrykeeper,omitempty"`
+	TelemetryKeeper TelemetryKeeper `json:"telemetrykeeper,omitzero" yaml:"telemetrykeeper,omitempty" description:"The configuration for the telemetry keeper molding"`
 
 	// The configuration for the meta store molding.
-	MetaStore MetaStore `json:"metastore,omitzero" yaml:"metastore,omitempty"`
+	MetaStore MetaStore `json:"metastore,omitzero" yaml:"metastore,omitempty" description:"The configuration for the meta store molding"`
 
 	// The configuration for the ingester molding.
-	Ingester Ingester `json:"ingester,omitzero" yaml:"ingester,omitempty"`
+	Ingester Ingester `json:"ingester,omitzero" yaml:"ingester,omitempty" description:"The configuration for the ingester molding"`
 }
 
 type CastingStatus struct {
 	// Checksum of the casting file.
-	Checksum string `json:"checksum" yaml:"checksum"`
+	Checksum string `json:"checksum" yaml:"checksum" description:"Checksum of the casting file"`
 }
 
 func MergeCastingSpecAndStatus(base *Casting) error {
