@@ -6,7 +6,7 @@ import (
 
 type TelemetryKeeper struct {
 	// Kind of the telemetry keeper to use.
-	Kind TelemetryKeeperKind `json:"kind,omitzero" yaml:"kind,omitempty" description:"Kind of the telemetry keeper to use" example:"clickhousekeeper" enum:"clickhousekeeper"`
+	Kind TelemetryKeeperKind `json:"kind,omitzero" yaml:"kind,omitempty" description:"Kind of the telemetry keeper to use" examples:"[\"clickhousekeeper\"]"`
 
 	// Specification for the telemetry keeper.
 	Spec MoldingSpec `json:"spec" yaml:"spec" description:"Specification for the telemetry keeper"`

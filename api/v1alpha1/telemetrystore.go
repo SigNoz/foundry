@@ -6,7 +6,7 @@ import (
 
 type TelemetryStore struct {
 	// Kind of the telemetry store to use.
-	Kind TelemetryStoreKind `json:"kind,omitzero" yaml:"kind,omitempty" description:"Kind of the telemetry store to use" example:"clickhouse" enum:"clickhouse"`
+	Kind TelemetryStoreKind `json:"kind,omitzero" yaml:"kind,omitempty" description:"Kind of the telemetry store to use" examples:"[\"clickhouse\"]"`
 
 	// Specification for the telemetry store.
 	Spec MoldingSpec `json:"spec" yaml:"spec" description:"Specification for the telemetry store"`

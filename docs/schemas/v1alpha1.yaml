@@ -64,11 +64,9 @@ definitions:
     properties:
       kind:
         description: Kind of the meta store to use
-        enum:
-        - postgres
-        - sqlite
         examples:
         - postgres
+        - sqlite
         type: string
       spec:
         $ref: '#/definitions/V1Alpha1MoldingSpec'
@@ -178,8 +176,6 @@ definitions:
     properties:
       kind:
         description: Kind of the telemetry keeper to use
-        enum:
-        - clickhousekeeper
         examples:
         - clickhousekeeper
         type: string
@@ -230,8 +226,6 @@ definitions:
     properties:
       kind:
         description: Kind of the telemetry store to use
-        enum:
-        - clickhouse
         examples:
         - clickhouse
         type: string
@@ -300,7 +294,7 @@ definitions:
     properties:
       flavor:
         description: Flavor of mode for the deployment
-        enum:
+        examples:
         - compose
         - swarm
         - helmfile
@@ -310,12 +304,10 @@ definitions:
         - rpm
         - deb
         - chocolatey
-        examples:
-        - compose
         type: string
       mode:
         description: Type of installation method
-        enum:
+        examples:
         - binary
         - docker
         - kubernetes
@@ -323,12 +315,10 @@ definitions:
         - nomad
         - windows
         - systemctl
-        examples:
-        - docker
         type: string
       platform:
         description: Provider where an installation runs on
-        enum:
+        examples:
         - aws
         - gcp
         - azure
@@ -336,8 +326,6 @@ definitions:
         - railway
         - docker
         - linux
-        examples:
-        - aws
         type: string
     type: object
   V1Alpha1TypeMetadata:

@@ -38,15 +38,13 @@ type TypeConfig struct {
 type TypeDeployment struct {
 	// Platform: Provider where an installation runs on using various cloud vendors
 	// Example values: aws|gcp|azure|digitalocean|railway
-	Platform string `json:"platform,omitempty" yaml:"platform,omitempty" description:"Provider where an installation runs on" example:"aws" enum:"aws,gcp,azure,digitalocean,railway,docker,linux"`
+	Platform string `json:"platform,omitempty" yaml:"platform,omitempty" description:"Provider where an installation runs on" examples:"[\"aws\",\"gcp\",\"azure\",\"digitalocean\",\"railway\",\"docker\",\"linux\"]"`
 
 	// Mode: Type of installation method that we support, currently identifies the engine or technology behind a deployment
-	// Example values: binary|docker|kubernetes|helm|nomad|windows|systemctl
-	Mode string `json:"mode,omitempty" yaml:"mode,omitempty" description:"Type of installation method" example:"docker" enum:"binary,docker,kubernetes,helm,nomad,windows,systemctl"`
+	Mode string `json:"mode,omitempty" yaml:"mode,omitempty" description:"Type of installation method" examples:"[\"binary\",\"docker\",\"kubernetes\",\"helm\",\"nomad\",\"windows\",\"systemctl\"]"`
 
 	// Flavor: Defines the flavor of mode for the deployment, allows the user the pattern to deploy on
-	// Example values: compose|swarm|helmfile|helm|kustomize|binary|rpm|deb|chocolatey
-	Flavor string `json:"flavor,omitempty" yaml:"flavor,omitempty" description:"Flavor of mode for the deployment" example:"compose" enum:"compose,swarm,helmfile,helm,kustomize,binary,rpm,deb,chocolatey"`
+	Flavor string `json:"flavor,omitempty" yaml:"flavor,omitempty" description:"Flavor of mode for the deployment" examples:"[\"compose\",\"swarm\",\"helmfile\",\"helm\",\"kustomize\",\"binary\",\"rpm\",\"deb\",\"chocolatey\"]"`
 }
 
 func Merge(base, overrides any) error {

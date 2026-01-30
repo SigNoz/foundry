@@ -6,7 +6,7 @@ import (
 
 type MetaStore struct {
 	// Kind of the meta store to use.
-	Kind MetaStoreKind `json:"kind,omitzero" yaml:"kind,omitempty" description:"Kind of the meta store to use" example:"postgres" enum:"postgres,sqlite"`
+	Kind MetaStoreKind `json:"kind,omitzero" yaml:"kind,omitempty" description:"Kind of the meta store to use" examples:"[\"postgres\",\"sqlite\"]"`
 
 	// Specification for the meta store.
 	Spec MoldingSpec `json:"spec" yaml:"spec" description:"Specification for the meta store"`
