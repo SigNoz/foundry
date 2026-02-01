@@ -33,6 +33,9 @@ archives:
       {{ .ProjectName }}_{{- .Os }}_{{- .Arch }}
     wrap_in_directory: true
     strip_binary_directory: false
+    files:
+      - src: README.md
+        dst: README.md
 
 release:
   name_template: "v{{ .Version }}"

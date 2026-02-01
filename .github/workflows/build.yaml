@@ -1,0 +1,44 @@
+name: build
+on:
+  push:
+    tags:
+      - v*
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build:
+    uses: signoz/primus.workflows/.github/workflows/go-build.yaml@main
+    secrets: inherit
+    with:
+      PRIMUS_REF: main
+      GO_BUILD_CONTEXT: ./cmd/foundryctl
+      GO_VERSION: 1.25
+      GO_BUILD_FLAGS: ""
+      DOCKER_BASE_IMAGES: '{"distroless":"gcr.io/distroless/base:latest"}'
+      DOCKER_DOCKERFILE_PATH: Dockerfile.multi-arch
+      DOCKER_MANIFEST: true
+      DOCKER_PROVIDERS: dockerhub
+  foundryctl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: self-checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: go-install
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ inputs.GO_VERSION }}
+      - name: run-goreleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser-pro
+          version: '~> v2'
+          args: release --clean
+          workdir: ${{ matrix.workdirs }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
