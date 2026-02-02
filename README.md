@@ -38,12 +38,7 @@ Foundry abstracts away the complexities of the installation process so you can s
 
 **1. Install foundryctl**
 
-Download from [GitHub Releases](https://github.com/signoz/foundry/releases), or build from source:
-
-```bash
-git clone https://github.com/signoz/foundry.git && cd foundry
-go build -o foundryctl ./cmd/foundryctl
-```
+Download the binary from [GitHub Releases](https://github.com/signoz/foundry/releases).
 
 **2. Create a Casting**
 
