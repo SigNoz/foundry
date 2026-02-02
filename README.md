@@ -1,6 +1,16 @@
-# Foundry
+<h1 align="center" style="border-bottom: none">
+    <a href="https://signoz.io" target="_blank">
+        <img alt="Foundry" src="https://github.com/user-attachments/assets/ef9a33f7-12d7-4c94-8908-0a02b22f0c18" width="100" height="100">
+    </a>
+    <br>Foundry
+</h1>
 
-Foundry is a centralized hub for [SigNoz](https://signoz.io) installation configurations and deployments - **integrations for install**. Select yours, configure, and run SigNoz.
+<p align="center">
+  <a href="https://github.com/signoz/foundry/releases"><img src="https://img.shields.io/github/v/release/signoz/foundry?include_prereleases&style=flat-square" alt="Release"></a>
+  <a href="https://goreportcard.com/report/github.com/signoz/foundry"><img src="https://goreportcard.com/badge/github.com/signoz/foundry?style=flat-square" alt="Go Report Card"></a>
+  <a href="https://golang.org"><img src="https://img.shields.io/badge/Go-1.25+-blue.svg" alt="Go Version"></a>
+
+<p align="center">Foundry is a centralized hub for <a href="https://signoz.io">SigNoz</a> installation configurations and deployments: <strong>integrations for install</strong>. Select yours, configure, and run SigNoz.</p>
 
 ## Overview
 
@@ -153,13 +163,15 @@ foundryctl gen
 
 ## What's next
 
-- **[How to write a casting](docs/casting.md)** — Step-by-step guide to casting files
-- Explore the [example configurations](examples/) for different deployment scenarios
-- Read the [SigNoz documentation](https://signoz.io/docs/) to learn more about SigNoz
-- Join the [SigNoz community on Slack](https://signoz.io/slack) to get help
+- [How to write a casting](docs/casting.md): step-by-step guide to casting files
+- [Example configurations](examples/): Docker, systemd, and Render
+- [SigNoz documentation](https://signoz.io/docs/): learn more about SigNoz
+- [SigNoz Slack](https://signoz.io/slack): community and support
 
 ## How can I get help?
 
 - **Issues**: [GitHub Issues](https://github.com/signoz/foundry/issues)
 - **Documentation**: [SigNoz Docs](https://signoz.io/docs/)
 - **Community**: [SigNoz Slack](https://signoz.io/slack)
+
+**Made with ❤️ for the SigNoz community**

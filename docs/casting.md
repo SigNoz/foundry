@@ -67,7 +67,7 @@ Pick one row:
 >  foundry.signoz.io/signoz-binary-path: /opt/signoz/bin/signoz
 >  foundry.signoz.io/ingester-binary-path: /opt/ingester/bin/signoz-otel-collector
 >  foundry.signoz.io/metastore-postgres-binary-path: /usr/bin/postgres
-```
+> ```
 
 #### 3. What runs (moldings)
 
