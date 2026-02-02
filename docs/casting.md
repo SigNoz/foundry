@@ -6,11 +6,11 @@ A _casting_ is one YAML file that describes a full SigNoz deployment. Foundry fi
 
 You’ll build the file in this order:
 
-1. **Name your deployment** — `apiVersion` and `metadata` (name, optional annotations).
-2. **Where it runs** — Deployment target: Docker, systemd, or Render.
-3. **What runs** — Moldings (SigNoz, ingester, ClickHouse, metastore). Add blocks when you want to change defaults.
-4. **How it's configured** — Per-molding `spec`: images, env, scaling, config files.
-5. **Run it** — Point Foundry at the file and generate artifacts.
+1. **Name your deployment**: `apiVersion` and `metadata` (name, optional annotations).
+2. **Where it runs**: Deployment target: Docker, systemd, or Render.
+3. **What runs**: Moldings (SigNoz, ingester, ClickHouse, metastore). Add blocks when you want to change defaults.
+4. **How it's configured**: Per-molding `spec`: images, env, scaling, config files.
+5. **Run it**: Point Foundry at the file and generate artifacts.
 
 
 #### 1. Name your deployment
@@ -20,13 +20,14 @@ Top of the file: `apiVersion` and `metadata`.
 ```yaml
 apiVersion: v1alpha1
 metadata:
-  name: signoz-prod    # deployment ID — used as prefix for service names
+  name: signoz-prod    # deployment ID: used as prefix for service names
   annotations: {}     # optional; required for systemd (step 2)
 ```
 
-`name` is required — use something that identifies this deployment (`signoz-prod`, `signoz-dev`, whatever). `annotations` is optional unless you're on systemd/binary; then you'll put binary paths there (see step 2).
+`name` is required: use something that identifies this deployment (`signoz-prod`, `signoz-dev`, whatever). `annotations` is optional unless you're on systemd/binary; then you'll put binary paths there (see step 2).
 
-> **Tip:** Short, environment-specific names work best; they end up in generated service names.
+> [!TIP] 
+> Short, environment-specific names work best; they end up in generated service names.
 
 #### 2. Where it runs (deployment target)
 
@@ -44,27 +45,28 @@ Pick one row:
 
 | Where you're deploying | `mode`     | `flavor`    | `platform` |
 | ---------------------- | ---------- | ----------- | --------- |
-| **Docker Compose**      | `docker`   | `compose`   | —         |
-| **Linux (systemd)**    | `systemd`  | `binary`    | —         |
-| **[Render](https://render.com)** | — | `blueprint` | `render`  |
+| **Docker Compose**      | `docker`   | `compose`   | (none)    |
+| **Linux (systemd)**    | `systemd`  | `binary`    | (none)    |
+| **[Render](https://render.com)** | (none) | `blueprint` | `render`  |
 
-> **Note — systemd (`mode` + `flavor: binary`):** Foundry needs the paths to your binaries. Put them in `metadata.annotations`:
+> [!NOTE] 
+> systemd (`mode` + `flavor: binary`):** Foundry needs the paths to your binaries. Put them in `metadata.annotations`:
 >
 > | Annotation | What it's for |
 > | ---------- | ------------- |
 > | `foundry.signoz.io/signoz-binary-path` | SigNoz binary (for example, `/opt/signoz/bin/signoz`) |
 > | `foundry.signoz.io/ingester-binary-path` | OTel Collector / ingester (for example, `/opt/ingester/bin/signoz-otel-collector`) |
 > | `foundry.signoz.io/metastore-postgres-binary-path` | PostgreSQL binary when using Postgres metastore (for example, `/usr/bin/postgres`) |
-
-Example:
-
-```yaml
-metadata:
-  name: signoz
-  annotations:
-    foundry.signoz.io/signoz-binary-path: /opt/signoz/bin/signoz
-    foundry.signoz.io/ingester-binary-path: /opt/ingester/bin/signoz-otel-collector
-    foundry.signoz.io/metastore-postgres-binary-path: /usr/bin/postgres
+>
+> Example:
+> 
+> ```yaml
+> metadata:
+> name: signoz
+> annotations:
+>  foundry.signoz.io/signoz-binary-path: /opt/signoz/bin/signoz
+>  foundry.signoz.io/ingester-binary-path: /opt/ingester/bin/signoz-otel-collector
+>  foundry.signoz.io/metastore-postgres-binary-path: /usr/bin/postgres
 ```
 
 #### 3. What runs (moldings)
@@ -137,7 +139,7 @@ That's it. The casting file is the source of truth; Foundry does the rest.
 
 ## Examples
 
-**Minimal — Docker Compose, all defaults:**
+**Minimal: Docker Compose, all defaults:**
 
 ```yaml
 apiVersion: v1alpha1
