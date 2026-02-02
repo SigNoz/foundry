@@ -9,7 +9,7 @@ permissions:
   id-token: write
 
 jobs:
-  build:
+  docker:
     uses: signoz/primus.workflows/.github/workflows/go-build.yaml@main
     secrets: inherit
     with:
@@ -21,7 +21,7 @@ jobs:
       DOCKER_DOCKERFILE_PATH: Dockerfile.multi-arch
       DOCKER_MANIFEST: true
       DOCKER_PROVIDERS: dockerhub
-  foundryctl:
+  binary:
     runs-on: ubuntu-latest
     steps:
       - name: self-checkout
