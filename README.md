@@ -28,7 +28,7 @@ go build -o foundryctl ./cmd/foundryctl
 
 **2. Create a Casting**
 
-Create `casting.yaml`:
+Create a `casting.yaml` file (see [How to write a casting](docs/casting.md) for the full guide). Minimal example:
 
 ```yaml
 apiVersion: v1alpha1
@@ -52,41 +52,9 @@ Foundry uses a metalworking metaphor: you define a **Casting**, which contains *
 
 ### Casting
 
-A **Casting** is a complete SigNoz deployment definition. The configuration uses a Kubernetes-like YAML syntax:
+A Casting is a complete SigNoz deployment definition: one YAML file that Foundry merges with built-in defaults. For a step-by-step guide (metadata, deployment target, moldings, config, and examples), see **[How to write a casting](docs/casting.md)**.
 
-```yaml
-apiVersion: v1alpha1
-metadata:
-  name: <deployment-name>
-spec:
-  deployment:
-    platform: <platform>    # Optional: render, aws, gcp, etc.
-    mode: <mode>            # Required: docker, systemd
-    flavor: <flavor>        # Required: compose, binary, blueprint
-  
-  # Molding configurations (all optional - defaults provided)
-  signoz:
-    spec:
-      image: <image>
-  
-  telemetrystore:
-    spec:
-      image: <image>
-  
-  telemetrykeeper:
-    spec:
-      image: <image>
-  
-  metastore:
-    spec:
-      image: <image>
-  
-  ingester:
-    spec:
-      image: <image>
-```
-
-### Supported deployments
+### Examples
 
 | Deployment | Example |
 |------------|---------|
@@ -185,6 +153,7 @@ foundryctl gen
 
 ## What's next
 
+- **[How to write a casting](docs/casting.md)** — Step-by-step guide to casting files
 - Explore the [example configurations](examples/) for different deployment scenarios
 - Read the [SigNoz documentation](https://signoz.io/docs/) to learn more about SigNoz
 - Join the [SigNoz community on Slack](https://signoz.io/slack) to get help
