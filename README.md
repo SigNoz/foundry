@@ -60,19 +60,15 @@ foundryctl cast -f casting.yaml
 Foundry uses a metalworking metaphor: you define a **Casting**, which contains **Moldings** (components), and Foundry **forges** them into **Pours** (generated files).
 
 ```mermaid
-graph TB
+graph LR
     A[📋 casting.yaml<br/>Single Config File] --> B[🔧 foundryctl gauge<br/>Validate Tools]
-    
     B --> C[⚒️ foundryctl forge<br/>Generate Deployment Files]
-    
     C --> D[🏺 pours/<br/>compose.yaml + configs]
-    
+
     D --> E[🔥 foundryctl cast<br/>Deploy]
-    
     E --> F[⚙️ Docker Compose /<br/>Systemd /<br/>Cloud Platform]
-    
     F --> G[✨ SigNoz Running<br/>ClickHouse, PostgreSQL,<br/>OTel Collector, SigNoz UI]
-    
+
     style A fill:#FF9900,stroke:#E68A00,stroke-width:3px,color:#000
     style D fill:#FDB44B,stroke:#E68A00,stroke-width:3px,color:#000
     style G fill:#4E9FFF,stroke:#2A7FD8,stroke-width:3px,color:#fff
