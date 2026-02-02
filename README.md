@@ -38,7 +38,18 @@ Foundry abstracts away the complexities of the installation process so you can s
 
 **1. Install foundryctl**
 
-Download the binary from [GitHub Releases](https://github.com/signoz/foundry/releases).
+You can install `foundryctl` by downloading the latest release directly from [GitHub Releases](https://github.com/signoz/foundry/releases). To quickly get the correct binary for your architecture via the command line, run:
+
+```bash
+curl -L https://github.com/SigNoz/foundry/releases/latest/download/foundry_linux_$(uname -m | sed 's/x86_64/amd64/g' | sed 's/aarch64/arm64/g').tar.gz -o foundry.tar.gz
+tar -xzf foundry.tar.gz
+```
+
+After extracting, use `foundryctl` from the unpacked directory:
+
+```bash
+./foundry/bin/foundryctl <COMMAND> <OPTIONS>
+```
 
 **2. Create a Casting**
 
