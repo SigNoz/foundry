@@ -17,6 +17,16 @@ Just as a metalworking foundry turns raw materials into finished products, Found
 
 Foundry abstracts away the complexities of the installation process so you can spend time *using* SigNoz rather than *installing* it.
 
+<p align="center">
+  <img
+    src="assets/cli.gif"
+    alt="Foundry CLI demo"
+    width="900"
+    loading="lazy"
+    style="border-radius: 8px; border: 1px solid #30363d;"
+  />
+</p>
+
 ## Features
 
 - **Multi-platform support**: Deploy SigNoz using Docker Compose, Systemd (bare metal), or Render for flexible installation across environments.
@@ -54,7 +64,6 @@ spec:
 ```bash
 foundryctl cast -f casting.yaml
 ```
-
 ## The Foundry Model
 
 Foundry uses a metalworking metaphor: you define a **Casting**, which contains **Moldings** (components), and Foundry **forges** them into **Pours** (generated files).
