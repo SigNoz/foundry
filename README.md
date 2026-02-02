@@ -6,8 +6,7 @@
 </h1>
 
 <p align="center">
-  <a href="https://github.com/signoz/foundry/releases"><img src="https://img.shields.io/github/v/release/signoz/foundry?include_prereleases&style=flat-square" alt="Release"></a>
-  <a href="https://goreportcard.com/report/github.com/signoz/foundry"><img src="https://goreportcard.com/badge/github.com/signoz/foundry?style=flat-square" alt="Go Report Card"></a>
+ <img alt="GitHub Release" src="https://img.shields.io/github/v/release/signoz/foundry">
   <a href="https://golang.org"><img src="https://img.shields.io/badge/Go-1.25+-blue.svg" alt="Go Version"></a>
 
 <p align="center">Foundry is a centralized hub for <a href="https://signoz.io">SigNoz</a> installation configurations and deployments: <strong>integrations for install</strong>. Select yours, configure, and run SigNoz.</p>
@@ -60,6 +59,28 @@ foundryctl cast -f casting.yaml
 
 Foundry uses a metalworking metaphor: you define a **Casting**, which contains **Moldings** (components), and Foundry **forges** them into **Pours** (generated files).
 
+```mermaid
+graph TB
+    A[📋 casting.yaml<br/>Single Config File] --> B[🔧 foundryctl gauge<br/>Validate Tools]
+    
+    B --> C[⚒️ foundryctl forge<br/>Generate Deployment Files]
+    
+    C --> D[🏺 pours/<br/>compose.yaml + configs]
+    
+    D --> E[🔥 foundryctl cast<br/>Deploy]
+    
+    E --> F[⚙️ Docker Compose /<br/>Systemd /<br/>Cloud Platform]
+    
+    F --> G[✨ SigNoz Running<br/>ClickHouse, PostgreSQL,<br/>OTel Collector, SigNoz UI]
+    
+    style A fill:#FF9900,stroke:#E68A00,stroke-width:3px,color:#000
+    style D fill:#FDB44B,stroke:#E68A00,stroke-width:3px,color:#000
+    style G fill:#4E9FFF,stroke:#2A7FD8,stroke-width:3px,color:#fff
+    style B fill:#1F1F1F,stroke:#FF9900,stroke-width:2px,color:#fff
+    style C fill:#1F1F1F,stroke:#FF9900,stroke-width:2px,color:#fff
+    style E fill:#1F1F1F,stroke:#FF9900,stroke-width:2px,color:#fff
+    style F fill:#2D2D2D,stroke:#4E9FFF,stroke-width:2px,color:#fff
+```
 ### Casting
 
 A Casting is a complete SigNoz deployment definition: one YAML file that Foundry merges with built-in defaults. For a step-by-step guide (metadata, deployment target, moldings, config, and examples), see **[How to write a casting](docs/casting.md)**.
