@@ -6,7 +6,7 @@
 </h1>
 
 <p align="center">
- <img alt="GitHub Release" src="https://img.shields.io/github/v/release/signoz/foundry">
+<img alt="GitHub Release" src="https://img.shields.io/github/v/release/signoz/foundry?include_prereleases">
   <a href="https://golang.org"><img src="https://img.shields.io/badge/Go-1.25+-blue.svg" alt="Go Version"></a>
 
 <p align="center">Foundry is a centralized hub for <a href="https://signoz.io">SigNoz</a> installation configurations and deployments: <strong>integrations for install</strong>. Select yours, configure, and run SigNoz.</p>

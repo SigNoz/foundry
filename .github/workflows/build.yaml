@@ -17,6 +17,7 @@ jobs:
       GO_BUILD_CONTEXT: ./cmd/foundryctl
       GO_VERSION: 1.25
       GO_BUILD_FLAGS: ""
+      GO_NAME: foundryctl
       DOCKER_BASE_IMAGES: '{"distroless":"gcr.io/distroless/base:latest"}'
       DOCKER_DOCKERFILE_PATH: Dockerfile.multi-arch
       DOCKER_MANIFEST: true
