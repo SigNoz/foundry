@@ -7,6 +7,6 @@ WORKDIR /usr/local/foundryctl
 ARG OS="linux"
 ARG ARCH
 
-COPY ./target/${OS}-${ARCH}/foundry /usr/local/bin/foundryctl
+COPY ./target/${OS}-${ARCH}/foundryctl /usr/local/bin/foundryctl
 
 ENTRYPOINT ["/usr/local/bin/foundryctl"]
