@@ -19,7 +19,7 @@ Foundry abstracts away the complexities of the installation process so you can s
 
 <p align="center">
   <img
-    src="assets/cli.gif"
+    src="docs/assets/cli.gif"
     alt="Foundry CLI demo"
     width="900"
     loading="lazy"
@@ -100,9 +100,9 @@ A Casting is a complete SigNoz deployment definition: one YAML file that Foundry
 
 | Deployment | Example |
 |------------|---------|
-| Docker Compose | [examples/docker/compose/](examples/docker/compose/) |
-| Systemd (binary) | [examples/systemd/binary/](examples/systemd/binary/) |
-| Render Blueprint | [examples/render/blueprint/](examples/render/blueprint/) |
+| Docker Compose | [examples/docker/compose/](docs/examples/docker/compose/) |
+| Systemd (binary) | [examples/systemd/binary/](docs/examples/systemd/binary/) |
+| Render Blueprint | [examples/render/blueprint/](docs/examples/render/blueprint/) |
 
 ### Moldings
 
@@ -196,7 +196,7 @@ foundryctl gen
 ## What's next
 
 - [How to write a casting](docs/casting.md): step-by-step guide to casting files
-- [Example configurations](examples/): Docker, systemd, and Render
+- [Example configurations](docs/examples/): Docker, systemd, and Render
 - [SigNoz documentation](https://signoz.io/docs/): learn more about SigNoz
 - [SigNoz Slack](https://signoz.io/slack): community and support
 
