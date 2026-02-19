@@ -124,7 +124,7 @@ metadata:
   annotations:
         foundry.signoz.io/signoz-binary-path: /opt/signoz/bin/signoz
         foundry.signoz.io/ingester-binary-path: /opt/ingester/bin/signoz-otel-collector
-        foundry.signoz.io/metastore-binary-path: /usr/bin/postgres
+        foundry.signoz.io/metastore-postgres-binary-path: /usr/bin/postgres
 spec:
   deployment:
     flavor: binary
