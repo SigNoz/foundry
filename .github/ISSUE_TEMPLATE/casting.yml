@@ -1,0 +1,74 @@
+name: Casting
+description: Request support for a new casting (e.g., Kubernetes, Nomad, a new cloud provider).
+title: "(casting) <title>"
+labels: ["new-casting"]
+body:
+  - type: input
+    id: platform
+    attributes:
+      label: Deployment mode / platform
+      description: What new deployment target should Foundry support?
+      placeholder: "e.g., Kubernetes, Nomad, Fly.io"
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why this Casting?
+      description: Describe the use case. Who benefits and what environment does it target?
+    validations:
+      required: true
+
+  - type: textarea
+    id: casting_config
+    attributes:
+      label: Proposed Casting configuration
+      description: Show how a user would configure this deployment mode in their `casting.yaml`.
+      render: yaml
+      placeholder: |
+        apiVersion: v1alpha1
+        metadata:
+          name: signoz
+        spec:
+          deployment:
+            mode: <new-mode>
+            flavor: <new-flavor>
+    validations:
+      required: false
+
+  - type: textarea
+    id: pours_structure
+    attributes:
+      label: Expected Pours structure
+      description: What files would be generated under `pours/` for this deployment mode?
+      placeholder: |
+        pours/
+        └── deployment/
+            └── ...
+    validations:
+      required: false
+
+  - type: textarea
+    id: tooling
+    attributes:
+      label: Tooling requirements
+      description: What tools or CLIs need to be present (checked by `foundryctl gauge`)?
+    validations:
+      required: false
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Links to platform docs, examples, or prior art.
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Any constraints, limitations, or relevant discussion.
+    validations:
+      required: false

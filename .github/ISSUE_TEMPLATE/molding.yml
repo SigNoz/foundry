@@ -1,0 +1,76 @@
+name: Molding
+description: Request support for a new SigNoz component (Molding) such as telemetrystore, metastore, telemetrykeeper.
+title: "(molding) <title>"
+labels: ["new-molding"]
+body:
+  - type: input
+    id: molding_name
+    attributes:
+      label: Molding name
+      description: What is the name of the component or service you'd like to add?
+    validations:
+      required: true
+
+  - type: textarea
+    id: what_it_does
+    attributes:
+      label: What does it do?
+      description: Briefly describe the role this Molding would play in a SigNoz deployment.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why_molding
+    attributes:
+      label: Why should it be a Molding?
+      description: How does this component fit into the Foundry model? Which deployment modes would it apply to?
+    validations:
+      required: true
+
+  - type: textarea
+    id: casting_config
+    attributes:
+      label: Proposed Casting configuration
+      description: Show how a user would reference this Molding in their `casting.yaml`.
+      render: yaml
+      placeholder: |
+        apiVersion: v1alpha1
+        metadata:
+          name: signoz
+        spec:
+          deployment:
+            mode: docker
+            flavor: compose
+          moldings:
+            # your new molding here
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected_pours
+    attributes:
+      label: Expected Pours
+      description: What files should be generated in the `pours/` directory for this Molding?
+      placeholder: |
+        pours/
+        └── deployment/
+            └── configs/
+                └── <molding-name>/
+    validations:
+      required: false
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Links to official docs, Docker images, or configuration examples for this component.
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Any other information that would help evaluate or implement this Molding.
+    validations:
+      required: false

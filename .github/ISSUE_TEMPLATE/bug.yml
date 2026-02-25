@@ -1,0 +1,121 @@
+name: Bug
+description: Report a runtime failure (forge/cast), unexpected behavior, a Casting config issue (merge, defaults, schema), or a Molding config issue (defaults, template rendering).
+title: "(bug) <title>"
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      description: What kind of issue is this?
+      options:
+        - Runtime (forge/cast failure, unexpected behavior)
+        - Casting config (merge behavior, missing defaults, schema)
+        - Molding config (defaults, template rendering, molding-specific)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the defect
+      description: |
+        Runtime: what went wrong, what command failed.
+        Casting config: describe the merge/forge behavior, missing defaults, or schema confusion.
+        Molding config: describe defaults, template rendering, or molding-specific issues.
+    validations:
+      required: true
+
+  - type: textarea
+    id: casting_config
+    attributes:
+      label: Casting configuration
+      description: Paste your `casting.yaml` here (remove any sensitive values). Required for Casting/Molding config issues.
+      render: yaml
+    validations:
+      required: false
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: For Casting/Molding config issues, describe how to trigger the problem (e.g., run forge with this config).
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect Foundry to do? For Casting/Molding config, describe the expected merge/forge result.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened? Include error output or actual `pours/` output.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: debug_output
+    attributes:
+      label: Command output
+      description: Run with `--debug` and paste the full output below (helpful for runtime issues).
+      placeholder: "foundryctl --debug <command> -f casting.yaml"
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    id: foundry_version
+    attributes:
+      label: Foundry version
+      placeholder: "e.g., v0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: os_arch
+    attributes:
+      label: OS / Architecture
+      placeholder: "e.g., macOS arm64, Ubuntu 22.04 amd64"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment_mode
+    attributes:
+      label: Deployment mode
+      options:
+        - docker
+        - systemd
+        - render
+    validations:
+      required: true
+
+  - type: dropdown
+    id: flavor
+    attributes:
+      label: Flavor
+      options:
+        - compose
+        - binary
+        - blueprint
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Screenshots, links, related docs, or workarounds tried.
+    validations:
+      required: false
