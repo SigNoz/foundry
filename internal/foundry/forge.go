@@ -27,22 +27,26 @@ func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, path
 		return fmt.Errorf("failed to get molding enricher: %w", err)
 	}
 
-	foundry.Logger.InfoContext(ctx, "enriching configuration with casting specific information", slog.String("casting.metadata.name", config.Metadata.Name))
-	for _, moldingKind := range molding.MoldingsInOrder() {
-		err = moldingEnricher.EnrichStatus(ctx, moldingKind, &config)
-		if err != nil {
-			return fmt.Errorf("failed to enrich configuration with casting specific information: %w", err)
+	if casting.NeedsMoldings() {
+		foundry.Logger.InfoContext(ctx, "enriching configuration with casting specific information", slog.String("casting.metadata.name", config.Metadata.Name))
+		for _, moldingKind := range molding.MoldingsInOrder() {
+			err = moldingEnricher.EnrichStatus(ctx, moldingKind, &config)
+			if err != nil {
+				return fmt.Errorf("failed to enrich configuration with casting specific information: %w", err)
+			}
 		}
-	}
 
-	// Molding the configuration
-	for _, molding := range molding.MoldingsInOrder() {
-		foundry.Logger.InfoContext(ctx, "molding configuration for kind", slog.String("molding.kind", molding.String()))
-		err = foundry.Moldings[molding].MoldV1Alpha1(ctx, &config)
-		if err != nil {
-			foundry.Logger.ErrorContext(ctx, "failed to mold configuration", slog.String("molding.kind", molding.String()), foundryerrors.LogAttr(err))
-			return err
+		// Molding the configuration
+		for _, molding := range molding.MoldingsInOrder() {
+			foundry.Logger.InfoContext(ctx, "molding configuration for kind", slog.String("molding.kind", molding.String()))
+			err = foundry.Moldings[molding].MoldV1Alpha1(ctx, &config)
+			if err != nil {
+				foundry.Logger.ErrorContext(ctx, "failed to mold configuration", slog.String("molding.kind", molding.String()), foundryerrors.LogAttr(err))
+				return err
+			}
 		}
+	} else {
+		foundry.Logger.InfoContext(ctx, "skipping molding generation", slog.String("casting.metadata.name", config.Metadata.Name))
 	}
 
 	// merging status into spec

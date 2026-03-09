@@ -21,4 +21,7 @@ type Casting interface {
 
 	// Runs the forged files.
 	Cast(ctx context.Context, config v1alpha1.Casting, poursPath string) error
+
+	// NeedsMoldings returns true if the casting requires molding generation.
+	NeedsMoldings() bool
 }

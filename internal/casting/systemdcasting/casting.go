@@ -99,6 +99,10 @@ func (c *systemdCasting) Cast(ctx context.Context, config v1alpha1.Casting, pour
 	return nil
 }
 
+func (c *systemdCasting) NeedsMoldings() bool {
+	return true
+}
+
 func (c *systemdCasting) forgeCasting(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
 	switch tmpl {
 	case signozServiceTemplate:

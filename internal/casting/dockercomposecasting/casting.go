@@ -140,6 +140,10 @@ func (casting *dockerComposeCasting) Cast(ctx context.Context, config v1alpha1.C
 	return nil
 }
 
+func (casting *dockerComposeCasting) NeedsMoldings() bool {
+	return true
+}
+
 func getComposeMaterial(config *v1alpha1.Casting, path string) (types.Material, error) {
 	buf := bytes.NewBuffer(nil)
 	err := composeYAMLTemplate.Execute(buf, config)

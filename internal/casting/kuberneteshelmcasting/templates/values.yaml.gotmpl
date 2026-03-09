@@ -1,0 +1,108 @@
+clickhouse:
+  enabled: {{ $.Spec.TelemetryStore.Spec.Enabled }}
+  {{- with $.Spec.TelemetryStore.Spec.Image }}
+  {{- $parts := splitn ":" 2 . }}
+  image:
+    repository: {{ $parts._0 }}
+    tag: {{ $parts._1 | default "latest" }}
+  {{- end }}
+  {{- if or $.Spec.TelemetryStore.Spec.Cluster.Shards $.Spec.TelemetryStore.Spec.Cluster.Replicas }}
+  layout:
+    {{- with $.Spec.TelemetryStore.Spec.Cluster.Shards }}
+    shardsCount: {{ . }}
+    {{- end }}
+    {{- with $.Spec.TelemetryStore.Spec.Cluster.Replicas }}
+    replicasCount: {{ add . 1 }}
+    {{- end }}
+  {{- end }}
+  {{- with $.Spec.TelemetryStore.Spec.Config.Data }}
+  {{- with index . "values.yaml" }}
+{{ . | indent 2 }}
+  {{- end }}
+  {{- end }}
+  keeper:
+    enabled: {{ $.Spec.TelemetryKeeper.Spec.Enabled }}
+    {{- with $.Spec.TelemetryKeeper.Spec.Image }}
+    {{- $parts := splitn ":" 2 . }}
+    image:
+      repository: {{ $parts._0 }}
+      tag: {{ $parts._1 | default "latest" }}
+    {{- end }}
+    {{- with $.Spec.TelemetryKeeper.Spec.Cluster.Replicas }}
+    replicaCount: {{ . }}
+    {{- end }}
+    {{- with $.Spec.TelemetryKeeper.Spec.Config.Data }}
+    {{- with index . "values.yaml" }}
+{{ . | indent 4 }}
+    {{- end }}
+    {{- end }}
+signoz:
+  {{- with $.Spec.Signoz.Spec.Image }}
+  {{- $parts := splitn ":" 2 . }}
+  image:
+    repository: {{ $parts._0 }}
+    tag: {{ $parts._1 | default "latest" }}
+  {{- end }}
+  {{- with $.Spec.Signoz.Spec.Cluster.Replicas }}
+  replicaCount: {{ . }}
+  {{- end }}
+  {{- if $.Spec.Signoz.Spec.Env }}
+  env:
+    {{- range $key, $value := $.Spec.Signoz.Spec.Env }}
+    - name: {{ $key }}
+      value: {{ $value }}
+    {{- end }}
+  {{- end }}
+  {{- with $.Spec.Signoz.Spec.Config.Data }}
+  {{- with index . "values.yaml" }}
+{{ . | indent 2 }}
+  {{- end }}
+  {{- end }}
+otelCollector:
+  enabled: {{ $.Spec.Ingester.Spec.Enabled }}
+  {{- with $.Spec.Ingester.Spec.Image }}
+  {{- $parts := splitn ":" 2 . }}
+  image:
+    repository: {{ $parts._0 }}
+    tag: {{ $parts._1 | default "latest" }}
+  {{- end }}
+  {{- with $.Spec.Ingester.Spec.Cluster.Replicas }}
+  replicaCount: {{ . }}
+  {{- end }}
+  {{- if $.Spec.Ingester.Spec.Env }}
+  env:
+    {{- range $key, $value := $.Spec.Ingester.Spec.Env }}
+    - name: {{ $key }}
+      value: {{ $value }}
+    {{- end }}
+  {{- end }}
+  {{- with $.Spec.Ingester.Spec.Config.Data }}
+  {{- with index . "values.yaml" }}
+{{ . | indent 2 }}
+  {{- end }}
+  {{- end }}
+postgresql:
+  enabled: {{ $.Spec.MetaStore.Spec.Enabled }}
+  {{- with $.Spec.MetaStore.Spec.Image }}
+  {{- $parts := splitn ":" 2 . }}
+  image:
+    repository: {{ $parts._0 }}
+    tag: {{ $parts._1 | default "latest" }}
+  {{- end }}
+  {{- if $.Spec.MetaStore.Spec.Env }}
+  auth:
+    {{- with index $.Spec.MetaStore.Spec.Env "POSTGRES_DB" }}
+    database: {{ . }}
+    {{- end }}
+    {{- with index $.Spec.MetaStore.Spec.Env "POSTGRES_USER" }}
+    username: {{ . }}
+    {{- end }}
+    {{- with index $.Spec.MetaStore.Spec.Env "POSTGRES_PASSWORD" }}
+    password: {{ . }}
+    {{- end }}
+  {{- end }}
+  {{- with $.Spec.MetaStore.Spec.Config.Data }}
+  {{- with index . "values.yaml" }}
+{{ . | indent 2 }}
+  {{- end }}
+  {{- end }}

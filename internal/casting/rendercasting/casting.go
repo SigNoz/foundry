@@ -117,6 +117,10 @@ func (c *renderCasting) Cast(ctx context.Context, config v1alpha1.Casting, pours
 	return nil
 }
 
+func (c *renderCasting) NeedsMoldings() bool {
+	return true
+}
+
 func getRenderMaterial(config *v1alpha1.Casting, path string) (types.Material, error) {
 	buf := bytes.NewBuffer(nil)
 	err := renderYAMLTemplate.Execute(buf, config)
