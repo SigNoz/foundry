@@ -16,6 +16,7 @@ import (
 	"github.com/signoz/foundry/internal/types"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/repo"
@@ -23,9 +24,9 @@ import (
 )
 
 const (
-	helmChartRepo     = "https://charts.signoz.io"
-	helmRepoName      = "signoz"
-	helmChartName     = "signoz/signoz"
+	helmChartRepoUrl     = "https://charts.signoz.io"
+	helmChartRepoName      = "signoz"
+	helmChart    = "signoz/signoz"
 	helmDeployTimeout = 10 * time.Minute
 
 	annotationChart      = "foundry.signoz.io/kubernetes-helm-casting-chart"
@@ -103,7 +104,41 @@ func (c *helmCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursP
 		return nil, fmt.Errorf("failed to execute values yaml template: %w", err)
 	}
 
-	valuesMaterial, err := types.NewYAMLMaterial(buf.Bytes(), filepath.Join(rootcasting.DeploymentDir, "values.yaml"))
+	valuesBytes := buf.Bytes()
+
+	// Merge patches into base values. Each patch is a partial values YAML
+	// that overrides base values via CoalesceTables (patch wins, base fills gaps).
+	if len(config.Patches) > 0 {
+		baseVals := map[string]any{}
+		if err := yaml.Unmarshal(valuesBytes, &baseVals); err != nil {
+			return nil, fmt.Errorf("failed to parse base values: %w", err)
+		}
+
+		for _, patch := range config.Patches {
+			if patch.Path == "" {
+				continue
+			}
+
+			patchBytes, err := os.ReadFile(patch.Path)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read patch file %q: %w", patch.Path, err)
+			}
+
+			patchVals := map[string]any{}
+			if err := yaml.Unmarshal(patchBytes, &patchVals); err != nil {
+				return nil, fmt.Errorf("failed to parse patch file %q: %w", patch.Path, err)
+			}
+
+			baseVals = chartutil.CoalesceTables(patchVals, baseVals)
+		}
+
+		valuesBytes, err = yaml.Marshal(baseVals)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal merged values: %w", err)
+		}
+	}
+
+	valuesMaterial, err := types.NewYAMLMaterial(valuesBytes, filepath.Join(rootcasting.DeploymentDir, "values.yaml"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create values yaml material: %w", err)
 	}
@@ -144,29 +179,29 @@ func (c *helmCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPa
 		}
 		c.logger.InfoContext(ctx, "Installing from local chart", slog.String("path", chartRef))
 	} else {
-		repoURL := helmChartRepo
+		repoURL := helmChartRepoUrl
 		if config.Metadata.Annotations != nil {
 			if u := config.Metadata.Annotations[annotationRepoURL]; u != "" {
 				repoURL = u
 			}
 		}
 
-		chartRef = helmChartName
+		chartRef = helmChart
 		if config.Metadata.Annotations != nil {
 			if ch := config.Metadata.Annotations[annotationChart]; ch != "" {
 				chartRef = ch
 			}
 		}
 
-		chartRepo := helmChartRepo
+		repoName := helmChartRepoName
 		if config.Metadata.Annotations != nil {
 			if ch := config.Metadata.Annotations[annotationRepoName]; ch != "" {
 				chartRef = ch
 			}
 		}
 
-		c.logger.InfoContext(ctx, "Adding Helm repo", slog.String("name", helmRepoName), slog.String("url", repoURL), slog.String("repo", chartRepo))
-		if err := addHelmRepo(settings, chartRepo, repoURL); err != nil {
+		c.logger.InfoContext(ctx, "Adding Helm repo", slog.String("name", repoName), slog.String("url", repoURL), slog.String("chart", chartRef))
+		if err := addHelmRepo(settings, repoName, repoURL); err != nil {
 			return fmt.Errorf("failed to add helm repo: %w", err)
 		}
 	}

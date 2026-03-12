@@ -1,0 +1,16 @@
+signoz:
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    hosts:
+      - host: signoz.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: signoz-tls
+        hosts:
+          - signoz.example.com

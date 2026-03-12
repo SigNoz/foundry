@@ -1,0 +1,14 @@
+clickhouse:
+  persistence:
+    size: 200Gi
+    storageClass: gp3
+signoz:
+  ingress:
+    enabled: true
+    hosts:
+      - host: signoz.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+otelCollector:
+  minReadySeconds: 10

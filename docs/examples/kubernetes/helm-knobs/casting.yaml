@@ -1,0 +1,51 @@
+apiVersion: v1alpha1
+metadata:
+  name: signoz
+spec:
+  deployment:
+    flavor: helm
+    mode: kubernetes
+  telemetrystore:
+    spec:
+      config:
+        knobs:
+          resources:
+            requests:
+              memory: "8Gi"
+              cpu: "2"
+            limits:
+              memory: "16Gi"
+              cpu: "4"
+          persistence:
+            size: 100Gi
+            storageClass: gp3
+          tolerations:
+            - key: "dedicated"
+              operator: "Equal"
+              value: "clickhouse"
+              effect: "NoSchedule"
+          nodeSelector:
+            node-type: storage
+  ingester:
+    spec:
+      config:
+        knobs:
+          resources:
+            requests:
+              memory: "2Gi"
+              cpu: "500m"
+          podAnnotations:
+            prometheus.io/scrape: "true"
+            prometheus.io/port: "8888"
+  signoz:
+    spec:
+      config:
+        knobs:
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+          service:
+            type: LoadBalancer
+            annotations:
+              service.beta.kubernetes.io/aws-load-balancer-type: nlb

@@ -1,0 +1,10 @@
+apiVersion: v1alpha1
+metadata:
+  name: signoz
+spec:
+  deployment:
+    flavor: helm
+    mode: kubernetes
+patches:
+  - path: patches/ingress.yaml
+  - path: patches/monitoring.yaml
