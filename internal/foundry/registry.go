@@ -6,6 +6,7 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/casting"
+	"github.com/signoz/foundry/internal/casting/coolifycasting"
 	"github.com/signoz/foundry/internal/casting/dockercomposecasting"
 	"github.com/signoz/foundry/internal/casting/rendercasting"
 	"github.com/signoz/foundry/internal/casting/systemdcasting"
@@ -54,6 +55,12 @@ func NewRegistry(logger *slog.Logger) (*Registry, error) {
 				Flavor:   "blueprint",
 			}: {
 				Casting: rendercasting.New(logger),
+			},
+			{
+				Platform: "coolify",
+				Flavor:   "stack",
+			}: {
+				Casting: coolifycasting.New(logger),
 			},
 		},
 	}, nil
