@@ -11,6 +11,9 @@ type Casting struct {
 
 	// Status of the casting.
 	Status CastingStatus `json:"status,omitzero" yaml:"status,omitempty" description:"Status of the casting"`
+
+	// Patches for the casting, these are the overrides for the pours in the casting.
+	Patches []Patch `json:"patches,omitempty" yaml:"patches,omitempty" description:"Patches for the casting."`
 }
 
 type CastingSpec struct {
@@ -36,6 +39,11 @@ type CastingSpec struct {
 type CastingStatus struct {
 	// Checksum of the casting file.
 	Checksum string `json:"checksum" yaml:"checksum" description:"Checksum of the casting file"`
+}
+
+type Patch struct {
+	// Path to the patch file.
+	Path string `json:"path,omitempty" yaml:"path,omitempty" description:"Path to the patch file"`
 }
 
 func MergeCastingSpecAndStatus(base *Casting) error {

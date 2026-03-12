@@ -1,0 +1,26 @@
+{{- $name := print $.Metadata.Name "-metastore" -}}
+{{- $knobs := $.Spec.MetaStore.Spec.Config.Knobs -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+{{- if and $knobs (hasKey $knobs "serviceAnnotations") }}
+  annotations:
+{{ toYaml (index $knobs "serviceAnnotations") | indent 4 }}
+{{- end }}
+  labels:
+    app.kubernetes.io/component: metastore
+    app.kubernetes.io/instance: {{ $.Metadata.Name }}
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: {{ $name }}
+spec:
+  type: {{ if and $knobs (hasKey $knobs "serviceType") }}{{ index $knobs "serviceType" }}{{ else }}ClusterIP{{ end }}
+  ports:
+    - name: tcp-postgresql
+      port: 5432
+      protocol: TCP
+      targetPort: tcp-postgresql
+  selector:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $.Metadata.Name }}
+    app.kubernetes.io/component: metastore

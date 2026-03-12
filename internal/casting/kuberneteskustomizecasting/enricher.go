@@ -69,7 +69,10 @@ func (e *kustomizeMoldingEnricher) enrichTelemetryKeeper(config *v1alpha1.Castin
 }
 
 func (e *kustomizeMoldingEnricher) enrichMetaStore(config *v1alpha1.Casting) error {
-	// No-op: moldings use Status.Env which metastore molding sets; DSN only read if set.
+	name := config.Metadata.Name + "-metastore"
+	config.Spec.MetaStore.Status.Addresses.DSN = []string{
+		fmt.Sprintf("postgres://%s:5432", name),
+	}
 	return nil
 }
 

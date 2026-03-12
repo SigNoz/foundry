@@ -154,6 +154,10 @@ spec:
           app.kubernetes.io/name: {{ $name }}
           app.kubernetes.io/instance: {{ $.Metadata.Name }}
           app.kubernetes.io/version: {{ $.Spec.TelemetryStore.Spec.Version | quote }}
+        {{- if and $knobs (index $knobs "podAnnotations") }}
+        annotations: {{- (index $knobs "podAnnotations") | toYaml | nindent 10 }}
+        {{- end }}
+
       spec:
         {{- if and $knobs (index $knobs "imagePullSecrets") }}
         imagePullSecrets:

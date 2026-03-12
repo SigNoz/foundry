@@ -1,0 +1,107 @@
+{{- $name := print $.Metadata.Name "-metastore" -}}
+{{- $knobs := $.Spec.MetaStore.Spec.Config.Knobs -}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  labels:
+    app.kubernetes.io/component: metastore
+    app.kubernetes.io/instance: {{ $.Metadata.Name }}
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: {{ $name }}
+spec:
+  serviceName: {{ $name }}
+  replicas: {{ int $.Spec.MetaStore.Spec.Cluster.Replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+      app.kubernetes.io/instance: {{ $.Metadata.Name }}
+      app.kubernetes.io/component: metastore
+  template:
+    metadata:
+{{- if and $knobs (hasKey $knobs "podAnnotations") }}
+      annotations:
+{{ toYaml (index $knobs "podAnnotations") | indent 8 }}
+{{- end }}
+      labels:
+        app.kubernetes.io/component: metastore
+        app.kubernetes.io/instance: {{ $.Metadata.Name }}
+        app.kubernetes.io/name: {{ $name }}
+    spec:
+      containers:
+        - name: postgres
+          image: {{ $.Spec.MetaStore.Spec.Image }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: tcp-postgresql
+              containerPort: 5432
+              protocol: TCP
+          env:
+            - name: POSTGRES_USER
+              value: {{ index $.Spec.MetaStore.Spec.Env "POSTGRES_USER" }}
+            - name: POSTGRES_PASSWORD
+              value: {{ index $.Spec.MetaStore.Spec.Env "POSTGRES_PASSWORD" }}
+            - name: POSTGRES_DB
+              value: {{ index $.Spec.MetaStore.Spec.Env "POSTGRES_DB" }}
+            - name: POSTGRESQL_VOLUME_DIR
+              value: "/var/lib/postgresql"
+            - name: POSTGRESQL_PORT_NUMBER
+              value: "5432"
+            - name: PGDATA
+              value: "/var/lib/postgresql/data"
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - exec pg_isready -U "$POSTGRES_USER" -h 127.0.0.1 -p 5432
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 6
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - exec pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h 127.0.0.1 -p 5432
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 6
+          resources:
+{{- if and $knobs (hasKey $knobs "resources") }}
+{{ toYaml (index $knobs "resources") | indent 12 }}
+{{- else }}
+            requests:
+              cpu: 100m
+              memory: 128Mi
+{{- end }}
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql
+{{- if and $knobs (hasKey $knobs "nodeSelector") }}
+      nodeSelector:
+{{ toYaml (index $knobs "nodeSelector") | indent 8 }}
+{{- end }}
+{{- if and $knobs (hasKey $knobs "tolerations") }}
+      tolerations:
+{{ toYaml (index $knobs "tolerations") | indent 8 }}
+{{- end }}
+      serviceAccountName: {{ $name }}
+  volumeClaimTemplates:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: pgdata
+      spec:
+        accessModes:
+          - ReadWriteOnce
+{{- if and $knobs (hasKey $knobs "storageClass") }}
+        storageClassName: {{ index $knobs "storageClass" }}
+{{- end }}
+        resources:
+          requests:
+            storage: {{ if and $knobs (hasKey $knobs "storageSize") }}{{ index $knobs "storageSize" }}{{ else }}10Gi{{ end }}

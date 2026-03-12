@@ -41,6 +41,12 @@ var (
 	ingesterServiceaccount = types.MustNewTemplateFromFS(templates, "templates/ingester/serviceaccount.yaml.gotmpl", types.FormatYAML)
 	ingesterKustomization  = types.MustNewTemplateFromFS(templates, "templates/ingester/kustomization.yaml.gotmpl", types.FormatYAML)
 
+	// metastore/postgresql.
+	metastoreService        = types.MustNewTemplateFromFS(templates, "templates/metastore/postgresql/service.yaml.gotmpl", types.FormatYAML)
+	metastoreServiceaccount = types.MustNewTemplateFromFS(templates, "templates/metastore/postgresql/serviceaccount.yaml.gotmpl", types.FormatYAML)
+	metastoreStatefulset    = types.MustNewTemplateFromFS(templates, "templates/metastore/postgresql/statefulset.yaml.gotmpl", types.FormatYAML)
+	metastoreKustomization  = types.MustNewTemplateFromFS(templates, "templates/metastore/postgresql/kustomization.yaml.gotmpl", types.FormatYAML)
+
 	// telemetrystore-migrator.
 	telemetrystoreMigratorJob           = types.MustNewTemplateFromFS(templates, "templates/telemetrystore-migrator/job.yaml.gotmpl", types.FormatYAML)
 	telemetrystoreMigratorKustomization = types.MustNewTemplateFromFS(templates, "templates/telemetrystore-migrator/kustomization.yaml.gotmpl", types.FormatYAML)

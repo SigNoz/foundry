@@ -3,10 +3,14 @@ package kuberneteskustomizecasting
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	rootcasting "github.com/signoz/foundry/internal/casting"
@@ -92,12 +96,16 @@ func New(logger *slog.Logger) *kustomizeCasting {
 			ingesterDeployment,
 			ingesterService,
 			ingesterServiceaccount,
+			metastoreService,
+			metastoreServiceaccount,
+			metastoreStatefulset,
 			telemetrystoreMigratorJob,
 			clickhouseOperatorKustomization,
 			clickhouseInstallationKustomization,
 			clickhouseKeeperKustomization,
 			signozKustomization,
 			ingesterKustomization,
+			metastoreKustomization,
 			telemetrystoreMigratorKustomization,
 			deploymentKustomization,
 		},
@@ -109,6 +117,14 @@ func (c *kustomizeCasting) Enricher(ctx context.Context, config *v1alpha1.Castin
 }
 
 func (c *kustomizeCasting) Forge(ctx context.Context, cfg v1alpha1.Casting, poursPath string) ([]types.Material, error) {
+	if err := c.validateKnobs(cfg); err != nil {
+		return nil, fmt.Errorf("invalid knobs: %w", err)
+	}
+
+	if err := c.resolvePatchPaths(&cfg, poursPath); err != nil {
+		return nil, fmt.Errorf("failed to resolve patch paths: %w", err)
+	}
+
 	var materials []types.Material
 	for _, tmpl := range c.castings {
 		m, err := c.forgeCasting(tmpl, &cfg, poursPath)
@@ -120,11 +136,135 @@ func (c *kustomizeCasting) Forge(ctx context.Context, cfg v1alpha1.Casting, pour
 	return materials, nil
 }
 
+const clickhouseOperatorVersion = "0.25.3"
+
+var clickhouseCRDs = []string{
+	"clickhouseinstallations.clickhouse.altinity.com.crd.yaml",
+	"clickhouseinstallationtemplates.clickhouse.altinity.com.crd.yaml",
+	"clickhouseoperatorconfigurations.clickhouse.altinity.com.crd.yaml",
+	"clickhousekeeperinstallations.clickhouse-keeper.altinity.com.crd.yaml",
+}
+
 func (c *kustomizeCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPath string) error {
-	c.logger.InfoContext(ctx, "Please run 'forge' first to generate the Kubernetes manifests",
-		slog.String("pours_path", poursPath))
-	c.logger.InfoContext(ctx, "After forging, apply with: kubectl apply -k pours/deployment",
-		slog.String("Docs", "https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/"))
+	c.logger.InfoContext(ctx, "Applying kustomize manifests")
+
+	kustomizeDir := filepath.Join(poursPath, rootcasting.DeploymentDir)
+	if _, err := os.Stat(filepath.Join(kustomizeDir, "kustomization.yaml")); os.IsNotExist(err) {
+		return fmt.Errorf("kustomization.yaml does not exist at path: %s, run 'forge' first", kustomizeDir)
+	}
+
+	runctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	if err := c.applyCRDs(runctx); err != nil {
+		return fmt.Errorf("failed to apply CRDs: %w", err)
+	}
+
+	cmd := exec.CommandContext(runctx, "kubectl", "apply", "-k", kustomizeDir)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	c.logger.DebugContext(runctx, "Running command",
+		slog.String("command", fmt.Sprintf("kubectl apply -k %s", kustomizeDir)))
+
+	if err := cmd.Run(); err != nil {
+		c.logger.ErrorContext(runctx, "kubectl apply failed", slog.String("error", err.Error()))
+		return fmt.Errorf("kubectl apply -k failed: %w", err)
+	}
+
+	c.logger.InfoContext(runctx, "Kustomize manifests applied successfully")
+	return nil
+}
+
+func (c *kustomizeCasting) applyCRDs(ctx context.Context) error {
+	c.logger.InfoContext(ctx, "Applying ClickHouse CRDs",
+		slog.String("version", clickhouseOperatorVersion))
+
+	for _, crd := range clickhouseCRDs {
+		url := fmt.Sprintf(
+			"https://raw.githubusercontent.com/Altinity/clickhouse-operator/%s/deploy/operatorhub/%s/%s",
+			clickhouseOperatorVersion, clickhouseOperatorVersion, crd,
+		)
+
+		cmd := exec.CommandContext(ctx, "kubectl", "apply", "-f", url)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		c.logger.DebugContext(ctx, "Applying CRD", slog.String("url", url))
+
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to apply CRD %s: %w", crd, err)
+		}
+	}
+
+	return nil
+}
+
+// validateKnobs parses each component's knobs into KustomizeKnobs to catch
+// type mismatches and unknown keys before templates run.
+func (c *kustomizeCasting) validateKnobs(cfg v1alpha1.Casting) error {
+	components := map[string]map[string]any{
+		"signoz":          cfg.Spec.Signoz.Spec.Config.Knobs,
+		"ingester":        cfg.Spec.Ingester.Spec.Config.Knobs,
+		"telemetrystore":  cfg.Spec.TelemetryStore.Spec.Config.Knobs,
+		"telemetrykeeper": cfg.Spec.TelemetryKeeper.Spec.Config.Knobs,
+		"metastore":       cfg.Spec.MetaStore.Spec.Config.Knobs,
+	}
+
+	for component, knobs := range components {
+		if knobs == nil {
+			continue
+		}
+
+		data, err := json.Marshal(knobs)
+		if err != nil {
+			return fmt.Errorf("component %s: failed to marshal knobs: %w", component, err)
+		}
+
+		var k KustomizeKnobs
+		if err := json.Unmarshal(data, &k); err != nil {
+			return fmt.Errorf("component %s: %w", component, err)
+		}
+	}
+
+	return nil
+}
+
+// resolvePatchPaths converts patch file paths from project-root-relative to
+// kustomization-directory-relative so kustomize can find them without copying.
+func (c *kustomizeCasting) resolvePatchPaths(cfg *v1alpha1.Casting, poursPath string) error {
+	if len(cfg.Patches) == 0 {
+		return nil
+	}
+
+	kustomizeDir := filepath.Join(poursPath, rootcasting.DeploymentDir)
+	absKustomizeDir, err := filepath.Abs(kustomizeDir)
+	if err != nil {
+		return fmt.Errorf("failed to resolve kustomize directory: %w", err)
+	}
+
+	for i, patch := range cfg.Patches {
+		if patch.Path == "" {
+			continue
+		}
+
+		absPatchPath, err := filepath.Abs(patch.Path)
+		if err != nil {
+			return fmt.Errorf("failed to resolve patch path %q: %w", patch.Path, err)
+		}
+
+		if _, err := os.Stat(absPatchPath); err != nil {
+			return fmt.Errorf("patch file %q does not exist: %w", patch.Path, err)
+		}
+
+		relPath, err := filepath.Rel(absKustomizeDir, absPatchPath)
+		if err != nil {
+			return fmt.Errorf("failed to compute relative path for %q: %w", patch.Path, err)
+		}
+
+		cfg.Patches[i].Path = relPath
+	}
+
 	return nil
 }
 
