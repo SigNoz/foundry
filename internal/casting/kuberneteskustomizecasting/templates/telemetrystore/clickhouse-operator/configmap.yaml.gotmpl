@@ -191,7 +191,7 @@ data:
         scheme: auto
         secret:
           name: "clickhouse-operator"
-          namespace: "datastore"
+          namespace: "{{ $.Metadata.Name }}"
         timeouts:
           connect: 1
           query: 4

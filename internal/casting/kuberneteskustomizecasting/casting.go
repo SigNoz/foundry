@@ -107,6 +107,7 @@ func New(logger *slog.Logger) *kustomizeCasting {
 			ingesterKustomization,
 			metastoreKustomization,
 			telemetrystoreMigratorKustomization,
+			deploymentNamespace,
 			deploymentKustomization,
 		},
 	}

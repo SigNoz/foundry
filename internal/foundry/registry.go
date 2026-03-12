@@ -15,6 +15,7 @@ import (
 	"github.com/signoz/foundry/internal/tooler/clickhousetooler"
 	"github.com/signoz/foundry/internal/tooler/dockercomposetooler"
 	"github.com/signoz/foundry/internal/tooler/dockertooler"
+	"github.com/signoz/foundry/internal/tooler/kubectltooler"
 	"github.com/signoz/foundry/internal/tooler/postgrestooler"
 	"github.com/signoz/foundry/internal/tooler/systemdtooler"
 )
@@ -55,7 +56,7 @@ func NewRegistry(logger *slog.Logger) (*Registry, error) {
 				Flavor: "kustomize",
 			}: {
 				Casting: kuberneteskustomizecasting.New(logger),
-				Toolers: []tooler.Tooler{},
+				Toolers: []tooler.Tooler{kubectltooler.New()},
 			},
 			{
 				Platform: "render",

@@ -52,5 +52,6 @@ var (
 	telemetrystoreMigratorKustomization = types.MustNewTemplateFromFS(templates, "templates/telemetrystore-migrator/kustomization.yaml.gotmpl", types.FormatYAML)
 
 	// deployment.
+	deploymentNamespace     = types.MustNewTemplateFromFS(templates, "templates/namespace.yaml.gotmpl", types.FormatYAML)
 	deploymentKustomization = types.MustNewTemplateFromFS(templates, "templates/kustomization.yaml.gotmpl", types.FormatYAML)
 )
