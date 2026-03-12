@@ -14,18 +14,18 @@ clickhouse:
   {{- with $.Spec.TelemetryStore.Spec.Config.Knobs }}
 {{ toYaml . | indent 2 }}
   {{- end }}
-zookeeper:
-  enabled: {{ $.Spec.TelemetryKeeper.Spec.Enabled }}
-  {{- with $.Spec.TelemetryKeeper.Spec.Image }}
-  {{- $parts := splitn ":" 2 . }}
-  image:
-    repository: {{ $parts._0 }}
-    tag: {{ $parts._1 | default "latest" }}
-  {{- end }}
-  replicaCount: {{ $.Spec.TelemetryKeeper.Spec.Cluster.Replicas }}
-  {{- with $.Spec.TelemetryKeeper.Spec.Config.Knobs }}
+  keeper:
+    enabled: {{ $.Spec.TelemetryKeeper.Spec.Enabled }}
+    {{- with $.Spec.TelemetryKeeper.Spec.Image }}
+    {{- $parts := splitn ":" 2 . }}
+    image:
+      repository: {{ $parts._0 }}
+      tag: {{ $parts._1 | default "latest" }}
+    {{- end }}
+    replicaCount: {{ $.Spec.TelemetryKeeper.Spec.Cluster.Replicas }}
+    {{- with $.Spec.TelemetryKeeper.Spec.Config.Knobs }}
 {{ toYaml . | indent 4 }}
-  {{- end }}
+    {{- end }}
 signoz:
   {{- with $.Spec.Signoz.Spec.Image }}
   {{- $parts := splitn ":" 2 . }}
