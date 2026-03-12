@@ -32,12 +32,16 @@ func (g *TerraformGenerator) Generate(ctx context.Context, config v1alpha1.Casti
 	}
 
 	provider := config.Spec.Infrastructure.Provider
-	g.logger.InfoContext(ctx, "Generating Terraform manifests", slog.String("provider", string(provider)))
+	computeType := config.Spec.Infrastructure.ComputeType
+	g.logger.InfoContext(ctx, "Generating Terraform manifests",
+		slog.String("provider", string(provider)),
+		slog.String("computeType", string(computeType)),
+	)
 
 	var materials []types.Material
 
 	// Get provider-specific templates
-	mainTemplate, varsTemplate, outputsTemplate, err := g.getTemplatesForProvider(provider)
+	mainTemplate, varsTemplate, outputsTemplate, err := g.getTemplatesForProvider(provider, computeType)
 	if err != nil {
 		return nil, err
 	}
@@ -89,15 +93,36 @@ func (g *TerraformGenerator) Generate(ctx context.Context, config v1alpha1.Casti
 	return materials, nil
 }
 
-// getTemplatesForProvider returns the appropriate templates for the given infrastructure provider.
-func (g *TerraformGenerator) getTemplatesForProvider(provider v1alpha1.InfrastructureProvider) (main, vars, outputs *types.Template, err error) {
+// getTemplatesForProvider returns the appropriate templates for the given infrastructure provider and compute type.
+func (g *TerraformGenerator) getTemplatesForProvider(provider v1alpha1.InfrastructureProvider, computeType v1alpha1.InfrastructureComputeType) (main, vars, outputs *types.Template, err error) {
 	switch provider {
 	case v1alpha1.InfrastructureProviderAWS:
-		return awsMainTFTemplate, awsVariablesTFTemplate, awsOutputsTFTemplate, nil
+		switch computeType {
+		case v1alpha1.InfrastructureComputeTypeEC2, "":
+			return awsEC2MainTFTemplate, awsEC2VariablesTFTemplate, awsEC2OutputsTFTemplate, nil
+		case v1alpha1.InfrastructureComputeTypeEKS:
+			return awsEKSMainTFTemplate, awsEKSVariablesTFTemplate, awsEKSOutputsTFTemplate, nil
+		default:
+			return nil, nil, nil, fmt.Errorf("unsupported compute type %q for provider %q", computeType, provider)
+		}
 	case v1alpha1.InfrastructureProviderGCP:
-		return gcpMainTFTemplate, gcpVariablesTFTemplate, gcpOutputsTFTemplate, nil
+		switch computeType {
+		case v1alpha1.InfrastructureComputeTypeGCE, "":
+			return gcpGCEMainTFTemplate, gcpGCEVariablesTFTemplate, gcpGCEOutputsTFTemplate, nil
+		case v1alpha1.InfrastructureComputeTypeGKE:
+			return gcpGKEMainTFTemplate, gcpGKEVariablesTFTemplate, gcpGKEOutputsTFTemplate, nil
+		default:
+			return nil, nil, nil, fmt.Errorf("unsupported compute type %q for provider %q", computeType, provider)
+		}
 	case v1alpha1.InfrastructureProviderAzure:
-		return azureMainTFTemplate, azureVariablesTFTemplate, azureOutputsTFTemplate, nil
+		switch computeType {
+		case v1alpha1.InfrastructureComputeTypeVM, "":
+			return azureVMMainTFTemplate, azureVMVariablesTFTemplate, azureVMOutputsTFTemplate, nil
+		case v1alpha1.InfrastructureComputeTypeAKS:
+			return azureAKSMainTFTemplate, azureAKSVariablesTFTemplate, azureAKSOutputsTFTemplate, nil
+		default:
+			return nil, nil, nil, fmt.Errorf("unsupported compute type %q for provider %q", computeType, provider)
+		}
 	default:
 		return nil, nil, nil, fmt.Errorf("unsupported infrastructure provider: %s", provider)
 	}
