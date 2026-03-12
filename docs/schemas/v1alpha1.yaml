@@ -132,6 +132,12 @@ definitions:
         - latest
         type: string
     type: object
+  V1Alpha1Patch:
+    properties:
+      path:
+        description: Path to the patch file
+        type: string
+    type: object
   V1Alpha1SigNoz:
     properties:
       spec:
@@ -289,6 +295,11 @@ definitions:
           type: string
         description: Configuration data as key-value pairs
         type: object
+      knobs:
+        additionalProperties: {}
+        description: Configuration knobs such as tolerations, resources as key-value
+          pairs for a casting
+        type: object
     type: object
   V1Alpha1TypeDeployment:
     properties:
@@ -350,6 +361,11 @@ properties:
   metadata:
     $ref: '#/definitions/V1Alpha1TypeMetadata'
     description: Metadata of the casting configuration
+  patches:
+    description: Patches for the casting.
+    items:
+      $ref: '#/definitions/V1Alpha1Patch'
+    type: array
   spec:
     $ref: '#/definitions/V1Alpha1CastingSpec'
     description: Specification for the casting

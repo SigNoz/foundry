@@ -33,6 +33,9 @@ type TypeCluster struct {
 type TypeConfig struct {
 	// Data contains the configuration data.
 	Data map[string]string `json:"data,omitempty" yaml:"data,omitempty" description:"Configuration data as key-value pairs"`
+
+	// Knobs contains the casting-specific defined common knobs such as tolerations, resources
+	Knobs map[string]any `json:"knobs,omitempty" yaml:"knobs,omitempty" description:"Configuration knobs such as tolerations, resources as key-value pairs for a casting"`
 }
 
 type TypeDeployment struct {

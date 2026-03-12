@@ -21,7 +21,7 @@ profiles:
   default:
     load_balancing: random
     log_queries: 1
-    max_memory_usage: 10000000000
+    max_memory_usage: 1e+10
 quotas:
   default:
     interval:

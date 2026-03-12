@@ -87,7 +87,6 @@ services:
     url: signoz/signoz-otel-collector:latest
   name: signoz-schema-migrator
   plan: standard
-  preDeployCommand: /signoz-otel-collector migrate ready --clickhouse-dsn=${CLICKHOUSE_DSN}
-    --timeout 60s
+  preDeployCommand: /signoz-otel-collector migrate ready --clickhouse-dsn=${CLICKHOUSE_DSN} --timeout 60s
   runtime: image
   type: worker
