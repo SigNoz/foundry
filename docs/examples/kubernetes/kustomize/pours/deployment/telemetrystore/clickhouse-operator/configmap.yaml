@@ -182,7 +182,7 @@ data:
         scheme: auto
         secret:
           name: "clickhouse-operator"
-          namespace: "datastore"
+          namespace: "signoz"
         timeouts:
           connect: 1
           query: 4
