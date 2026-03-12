@@ -8,17 +8,11 @@ clickhouse:
   {{- end }}
   {{- if or $.Spec.TelemetryStore.Spec.Cluster.Shards $.Spec.TelemetryStore.Spec.Cluster.Replicas }}
   layout:
-    {{- with $.Spec.TelemetryStore.Spec.Cluster.Shards }}
-    shardsCount: {{ . }}
-    {{- end }}
-    {{- with $.Spec.TelemetryStore.Spec.Cluster.Replicas }}
-    replicasCount: {{ add . 1 }}
-    {{- end }}
+    shardsCount: {{ $.Spec.TelemetryStore.Spec.Cluster.Shards  }}
+    replicasCount: {{ $.Spec.TelemetryStore.Spec.Cluster.Replicas }}
   {{- end }}
-  {{- with $.Spec.TelemetryStore.Spec.Config.Data }}
-  {{- with index . "values" }} 
-{{ . | indent 2 }}
-  {{- end }}
+  {{- with $.Spec.TelemetryStore.Spec.Config.Knobs }}
+{{ toYaml . | indent 2 }}
   {{- end }}
   keeper:
     enabled: {{ $.Spec.TelemetryKeeper.Spec.Enabled }}
@@ -28,13 +22,9 @@ clickhouse:
       repository: {{ $parts._0 }}
       tag: {{ $parts._1 | default "latest" }}
     {{- end }}
-    {{- with $.Spec.TelemetryKeeper.Spec.Cluster.Replicas }}
-    replicaCount: {{ . }}
-    {{- end }}
-    {{- with $.Spec.TelemetryKeeper.Spec.Config.Data }}
-    {{- with index . "values" }}
-{{ . | indent 4 }}
-    {{- end }}
+    replicaCount: {{ $.Spec.TelemetryKeeper.Spec.Cluster.Replicas }}
+    {{- with $.Spec.TelemetryKeeper.Spec.Config.Knobs }}
+{{ toYaml . | indent 4 }}
     {{- end }}
 signoz:
   {{- with $.Spec.Signoz.Spec.Image }}
@@ -53,10 +43,8 @@ signoz:
       value: {{ $value }}
     {{- end }}
   {{- end }}
-  {{- with $.Spec.Signoz.Spec.Config.Data }}
-  {{- with index . "values" }}
-{{ . | indent 2 }}
-  {{- end }}
+  {{- with $.Spec.Signoz.Spec.Config.Knobs }}
+{{ toYaml . | indent 2 }}
   {{- end }}
 otelCollector:
   enabled: {{ $.Spec.Ingester.Spec.Enabled }}
@@ -76,10 +64,8 @@ otelCollector:
       value: {{ $value }}
     {{- end }}
   {{- end }}
-  {{- with $.Spec.Ingester.Spec.Config.Data }}
-  {{- with index . "values" }}
-{{ . | indent 2 }}
-  {{- end }}
+  {{- with $.Spec.Ingester.Spec.Config.Knobs }}
+{{ toYaml . | indent 2 }}
   {{- end }}
 postgresql:
   enabled: {{ $.Spec.MetaStore.Spec.Enabled }}
@@ -101,8 +87,6 @@ postgresql:
     password: {{ . }}
     {{- end }}
   {{- end }}
-  {{- with $.Spec.MetaStore.Spec.Config.Data }}
-  {{- with index . "values" }}
-{{ . | indent 2 }}
-  {{- end }}
+  {{- with $.Spec.MetaStore.Spec.Config.Knobs }}
+{{ toYaml . | indent 2 }}
   {{- end }}

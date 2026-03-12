@@ -3,6 +3,7 @@ package kuberneteshelmcasting
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -27,22 +28,64 @@ const (
 	helmChartName     = "signoz/signoz"
 	helmDeployTimeout = 10 * time.Minute
 
-	defaultHelmNamespace = "platform"
-
-	annotationNamespace  = "foundry.signoz.io/kubernetes-helm-casting-namespace"
 	annotationChart      = "foundry.signoz.io/kubernetes-helm-casting-chart"
 	annotationRepoURL    = "foundry.signoz.io/kubernetes-helm-casting-repo-url"
+	annotationRepoName    = "foundry.signoz.io/kubernetes-helm-casting-repo-name"
 	annotationForgeChart = "foundry.signoz.io/kubernetes-helm-casting-forge-chart"
 )
 
 var _ rootcasting.Casting = (*helmCasting)(nil)
 
+// HelmKnobs defines the supported knobs for the helm casting.
+// Knobs map directly to SigNoz Helm chart values.
+type HelmKnobs struct {
+	// Resources defines CPU and memory requests/limits.
+	Resources map[string]any `json:"resources,omitempty" yaml:"resources,omitempty"`
+
+	// Tolerations defines pod tolerations for scheduling.
+	Tolerations []map[string]any `json:"tolerations,omitempty" yaml:"tolerations,omitempty"`
+
+	// NodeSelector defines node selection constraints.
+	NodeSelector map[string]string `json:"nodeSelector,omitempty" yaml:"nodeSelector,omitempty"`
+
+	// Affinity defines pod affinity and anti-affinity rules.
+	Affinity map[string]any `json:"affinity,omitempty" yaml:"affinity,omitempty"`
+
+	// TopologySpreadConstraints defines how pods are spread across topology domains.
+	TopologySpreadConstraints []map[string]any `json:"topologySpreadConstraints,omitempty" yaml:"topologySpreadConstraints,omitempty"`
+
+	// PodSecurityContext defines the pod-level security context.
+	PodSecurityContext map[string]any `json:"podSecurityContext,omitempty" yaml:"podSecurityContext,omitempty"`
+
+	// SecurityContext defines the container-level security context.
+	SecurityContext map[string]any `json:"securityContext,omitempty" yaml:"securityContext,omitempty"`
+
+	// ImagePullSecrets lists secret names for pulling container images.
+	ImagePullSecrets []map[string]any `json:"imagePullSecrets,omitempty" yaml:"imagePullSecrets,omitempty"`
+
+	// PodAnnotations defines annotations to add to the pod template.
+	PodAnnotations map[string]string `json:"podAnnotations,omitempty" yaml:"podAnnotations,omitempty"`
+
+	// PodLabels defines extra labels to add to the pod template.
+	PodLabels map[string]string `json:"podLabels,omitempty" yaml:"podLabels,omitempty"`
+
+	// Persistence defines storage configuration (size, storageClass).
+	Persistence map[string]any `json:"persistence,omitempty" yaml:"persistence,omitempty"`
+
+	// Service defines service configuration (type, annotations, labels).
+	Service map[string]any `json:"service,omitempty" yaml:"service,omitempty"`
+}
+
 type helmCasting struct {
 	logger *slog.Logger
+	casting *types.Template
 }
 
 func New(logger *slog.Logger) *helmCasting {
-	return &helmCasting{logger: logger}
+	return &helmCasting{
+		logger: logger,
+		casting: valuesYAMLTemplate,
+	}
 }
 
 func (c *helmCasting) Enricher(ctx context.Context, config *v1alpha1.Casting) (molding.MoldingEnricher, error) {
@@ -50,6 +93,10 @@ func (c *helmCasting) Enricher(ctx context.Context, config *v1alpha1.Casting) (m
 }
 
 func (c *helmCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPath string) ([]types.Material, error) {
+	if err := c.validateKnobs(config); err != nil {
+		return nil, fmt.Errorf("invalid knobs: %w", err)
+	}
+
 	buf := bytes.NewBuffer(nil)
 	err := valuesYAMLTemplate.Execute(buf, config)
 	if err != nil {
@@ -65,26 +112,10 @@ func (c *helmCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursP
 }
 
 func (c *helmCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPath string) error {
+
 	valuesFile := filepath.Join(poursPath, rootcasting.DeploymentDir, "values.yaml")
 	if _, err := os.Stat(valuesFile); os.IsNotExist(err) {
 		return fmt.Errorf("values.yaml does not exist at path %s, run 'forge' first", valuesFile)
-	}
-
-	namespace := defaultHelmNamespace
-	if config.Metadata.Annotations != nil {
-		if ns := config.Metadata.Annotations[annotationNamespace]; ns != "" {
-			namespace = ns
-		}
-	}
-
-	settings := cli.New()
-	settings.SetNamespace(namespace)
-
-	actionConfig := new(action.Configuration)
-	if err := actionConfig.Init(settings.RESTClientGetter(), namespace, "", func(format string, v ...interface{}) {
-		c.logger.Info(fmt.Sprintf(format, v...))
-	}); err != nil {
-		return fmt.Errorf("failed to initialize helm action config: %w", err)
 	}
 
 	valuesBytes, err := os.ReadFile(valuesFile)
@@ -92,9 +123,19 @@ func (c *helmCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPa
 		return fmt.Errorf("failed to read values file: %w", err)
 	}
 
-	vals, err := parseValues(valuesBytes)
-	if err != nil {
+	vals := map[string]any{}
+	if err := yaml.Unmarshal(valuesBytes, &vals); err != nil {
 		return fmt.Errorf("failed to parse values: %w", err)
+	}
+
+	settings := cli.New()
+	settings.SetNamespace(config.Metadata.Name)
+
+	actionConfig := new(action.Configuration)
+	if err := actionConfig.Init(settings.RESTClientGetter(), config.Metadata.Name, "", func(format string, v ...interface{}) {
+		c.logger.Info(fmt.Sprintf(format, v...))
+	}); err != nil {
+		return fmt.Errorf("failed to initialize helm action config: %w", err)
 	}
 
 	var chartRef string
@@ -119,8 +160,15 @@ func (c *helmCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPa
 			}
 		}
 
-		c.logger.InfoContext(ctx, "Adding Helm repo", slog.String("name", helmRepoName), slog.String("url", repoURL))
-		if err := addHelmRepo(settings, helmRepoName, repoURL); err != nil {
+		chartRepo := helmChartRepo
+		if config.Metadata.Annotations != nil {
+			if ch := config.Metadata.Annotations[annotationRepoName]; ch != "" {
+				chartRef = ch
+			}
+		}
+
+		c.logger.InfoContext(ctx, "Adding Helm repo", slog.String("name", helmRepoName), slog.String("url", repoURL), slog.String("repo", chartRepo))
+		if err := addHelmRepo(settings, chartRepo, repoURL); err != nil {
 			return fmt.Errorf("failed to add helm repo: %w", err)
 		}
 	}
@@ -128,18 +176,17 @@ func (c *helmCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPa
 	c.logger.InfoContext(ctx, "Deploying with Helm",
 		slog.String("release", config.Metadata.Name),
 		slog.String("chart", chartRef),
-		slog.String("namespace", namespace),
+		slog.String("namespace", config.Metadata.Name),
 	)
 
 	histClient := action.NewHistory(actionConfig)
 	histClient.Max = 1
 	_, err = histClient.Run(config.Metadata.Name)
-	releaseExists := err == nil
 
-	if !releaseExists {
+	if err != nil {
 		install := action.NewInstall(actionConfig)
 		install.ReleaseName = config.Metadata.Name
-		install.Namespace = namespace
+		install.Namespace = config.Metadata.Name
 		install.CreateNamespace = true
 		install.Wait = true
 		install.Timeout = helmDeployTimeout
@@ -159,7 +206,7 @@ func (c *helmCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPa
 		}
 	} else {
 		upgrade := action.NewUpgrade(actionConfig)
-		upgrade.Namespace = namespace
+		upgrade.Namespace = config.Metadata.Name
 		upgrade.Wait = true
 		upgrade.Timeout = helmDeployTimeout
 
@@ -180,13 +227,39 @@ func (c *helmCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPa
 
 	c.logger.InfoContext(ctx, "Helm deployment complete",
 		slog.String("release", config.Metadata.Name),
-		slog.String("namespace", namespace),
+		slog.String("namespace", config.Metadata.Name),
 	)
 	return nil
 }
 
-func (c *helmCasting) NeedsMoldings() bool {
-	return false
+// validateKnobs parses each component's knobs into HelmKnobs to catch
+// type mismatches and unknown keys before templates run.
+func (c *helmCasting) validateKnobs(cfg v1alpha1.Casting) error {
+	components := map[string]map[string]any{
+		"signoz":          cfg.Spec.Signoz.Spec.Config.Knobs,
+		"ingester":        cfg.Spec.Ingester.Spec.Config.Knobs,
+		"telemetrystore":  cfg.Spec.TelemetryStore.Spec.Config.Knobs,
+		"telemetrykeeper": cfg.Spec.TelemetryKeeper.Spec.Config.Knobs,
+		"metastore":       cfg.Spec.MetaStore.Spec.Config.Knobs,
+	}
+
+	for component, knobs := range components {
+		if knobs == nil {
+			continue
+		}
+
+		data, err := json.Marshal(knobs)
+		if err != nil {
+			return fmt.Errorf("component %s: failed to marshal knobs: %w", component, err)
+		}
+
+		var k HelmKnobs
+		if err := json.Unmarshal(data, &k); err != nil {
+			return fmt.Errorf("component %s: %w", component, err)
+		}
+	}
+
+	return nil
 }
 
 func (c *helmCasting) shouldForgeChart(config *v1alpha1.Casting) bool {
@@ -220,12 +293,4 @@ func addHelmRepo(settings *cli.EnvSettings, name, url string) error {
 
 	f.Update(repoEntry)
 	return f.WriteFile(repoFile, 0644)
-}
-
-func parseValues(data []byte) (map[string]any, error) {
-	vals := map[string]any{}
-	if err := yaml.Unmarshal(data, &vals); err != nil {
-		return nil, err
-	}
-	return vals, nil
 }
