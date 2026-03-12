@@ -24,9 +24,9 @@ import (
 )
 
 const (
-	helmChartRepoUrl     = "https://charts.signoz.io"
-	helmChartRepoName      = "signoz"
-	helmChart    = "signoz/signoz"
+	helmChartRepoUrl  = "https://charts.signoz.io"
+	helmChartRepoName = "signoz"
+	helmChart         = "signoz/signoz"
 	helmDeployTimeout = 10 * time.Minute
 
 	annotationChart      = "foundry.signoz.io/kubernetes-helm-casting-chart"
@@ -167,7 +167,9 @@ func (c *helmCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPa
 	settings.SetNamespace(config.Metadata.Name)
 
 	actionConfig := new(action.Configuration)
-	if err := actionConfig.Init(settings.RESTClientGetter(), config.Metadata.Name, os.Getenv("HELM_DRIVER"), c.logger.Debug); err != nil {
+	if err := actionConfig.Init(settings.RESTClientGetter(), config.Metadata.Name, os.Getenv("HELM_DRIVER"), func(format string, v ...any) {
+		c.logger.Debug(fmt.Sprintf(format, v...))
+	}); err != nil {
 		return fmt.Errorf("failed to initialize helm action config: %w", err)
 	}
 
