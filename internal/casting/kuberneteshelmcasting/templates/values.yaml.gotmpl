@@ -38,9 +38,8 @@ signoz:
   {{- end }}
   {{- if $.Spec.Signoz.Spec.Env }}
   env:
-    {{- range $key, $value := $.Spec.Signoz.Spec.Env }}
-    - name: {{ $key }}
-      value: {{ $value }}
+    {{- with $.Spec.Signoz.Spec.Env}}
+{{ toYaml . | indent 4 }}
     {{- end }}
   {{- end }}
   {{- with $.Spec.Signoz.Spec.Config.Knobs }}
@@ -59,9 +58,8 @@ otelCollector:
   {{- end }}
   {{- if $.Spec.Ingester.Spec.Env }}
   env:
-    {{- range $key, $value := $.Spec.Ingester.Spec.Env }}
-    - name: {{ $key }}
-      value: {{ $value }}
+    {{- with $.Spec.Ingester.Spec.Env}}
+{{ toYaml . | indent 4 }}
     {{- end }}
   {{- end }}
   {{- with $.Spec.Ingester.Spec.Config.Knobs }}

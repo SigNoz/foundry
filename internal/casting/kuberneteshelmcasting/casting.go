@@ -30,7 +30,7 @@ const (
 
 	annotationChart      = "foundry.signoz.io/kubernetes-helm-casting-chart"
 	annotationRepoURL    = "foundry.signoz.io/kubernetes-helm-casting-repo-url"
-	annotationRepoName    = "foundry.signoz.io/kubernetes-helm-casting-repo-name"
+	annotationRepoName   = "foundry.signoz.io/kubernetes-helm-casting-repo-name"
 	annotationForgeChart = "foundry.signoz.io/kubernetes-helm-casting-forge-chart"
 )
 
@@ -77,13 +77,13 @@ type HelmKnobs struct {
 }
 
 type helmCasting struct {
-	logger *slog.Logger
+	logger  *slog.Logger
 	casting *types.Template
 }
 
 func New(logger *slog.Logger) *helmCasting {
 	return &helmCasting{
-		logger: logger,
+		logger:  logger,
 		casting: valuesYAMLTemplate,
 	}
 }
@@ -132,9 +132,7 @@ func (c *helmCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPa
 	settings.SetNamespace(config.Metadata.Name)
 
 	actionConfig := new(action.Configuration)
-	if err := actionConfig.Init(settings.RESTClientGetter(), config.Metadata.Name, "", func(format string, v ...interface{}) {
-		c.logger.Info(fmt.Sprintf(format, v...))
-	}); err != nil {
+	if err := actionConfig.Init(settings.RESTClientGetter(), config.Metadata.Name, os.Getenv("HELM_DRIVER"), c.logger.Debug); err != nil {
 		return fmt.Errorf("failed to initialize helm action config: %w", err)
 	}
 
@@ -235,7 +233,7 @@ func (c *helmCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPa
 // validateKnobs parses each component's knobs into HelmKnobs to catch
 // type mismatches and unknown keys before templates run.
 func (c *helmCasting) validateKnobs(cfg v1alpha1.Casting) error {
-	components := map[string]map[string]any{
+	components := map[string]any{
 		"signoz":          cfg.Spec.Signoz.Spec.Config.Knobs,
 		"ingester":        cfg.Spec.Ingester.Spec.Config.Knobs,
 		"telemetrystore":  cfg.Spec.TelemetryStore.Spec.Config.Knobs,
