@@ -1,0 +1,1 @@
+FROM signoz/signoz:latest

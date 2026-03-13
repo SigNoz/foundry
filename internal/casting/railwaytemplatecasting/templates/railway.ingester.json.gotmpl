@@ -1,0 +1,12 @@
+{
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile"
+  },
+  "deploy": {
+    "numReplicas": {{ max 1 (default 1 $.Spec.Ingester.Spec.Cluster.Replicas) }},
+    "startCommand": "/signoz-otel-collector --config=/etc/otel/config.yaml --manager-config=/etc/otel/manager-config.yaml --copy-path=/var/tmp/collector-config.yaml --feature-gates=-pkg.translator.prometheus.NormalizeName",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 5
+  }
+}

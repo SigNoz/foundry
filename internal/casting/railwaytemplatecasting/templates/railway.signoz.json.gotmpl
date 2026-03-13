@@ -1,0 +1,14 @@
+{
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile"
+  },
+  "deploy": {
+    "numReplicas": {{ max 1 (default 1 $.Spec.Signoz.Spec.Cluster.Replicas) }},
+    "startCommand": "./signoz",
+    "healthcheckPath": "/api/v1/health",
+    "healthcheckTimeout": 300,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 5
+  }
+}
