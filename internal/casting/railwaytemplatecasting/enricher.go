@@ -2,6 +2,7 @@ package railwaytemplatecasting
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/molding"
@@ -11,11 +12,15 @@ import (
 var _ molding.MoldingEnricher = (*railwayTemplateMoldingEnricher)(nil)
 
 type railwayTemplateMoldingEnricher struct {
-	config *v1alpha1.Casting
+	material []types.Material
 }
 
-func newRailwayTemplateMoldingEnricher(config *v1alpha1.Casting) *railwayTemplateMoldingEnricher {
-	return &railwayTemplateMoldingEnricher{config: config}
+func newRailwayTemplateMoldingEnricher(config *v1alpha1.Casting) (*railwayTemplateMoldingEnricher, error) {
+	material, err := getRailwayMaterial(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get compose yaml material: %w", err)
+	}
+	return &railwayTemplateMoldingEnricher{material: material}, nil
 }
 
 // railwayInternalHost returns the Railway private DNS hostname for a service.
@@ -24,7 +29,7 @@ func railwayInternalHost(serviceName string) string {
 	return serviceName + ".railway.internal"
 }
 
-func (e *railwayTemplateMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *v1alpha1.Casting) error {
+func (enricher *railwayTemplateMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *v1alpha1.Casting) error {
 	name := config.Metadata.Name
 	if name == "" {
 		name = "signoz"
@@ -40,6 +45,7 @@ func (e *railwayTemplateMoldingEnricher) EnrichStatus(ctx context.Context, kind 
 			config.Spec.TelemetryStore.Status.Extras = make(map[string]string)
 		}
 		config.Spec.TelemetryStore.Status.Extras["service_names"] = svc
+		config.Spec.TelemetryStore.Status.Extras["_overrides"] = string(enricher.material[1].FmtContents())
 
 	case v1alpha1.MoldingKindSignoz:
 		if !config.Spec.Signoz.Spec.Enabled {
@@ -60,7 +66,7 @@ func (e *railwayTemplateMoldingEnricher) EnrichStatus(ctx context.Context, kind 
 			config.Spec.TelemetryKeeper.Status.Extras = make(map[string]string)
 		}
 		config.Spec.TelemetryKeeper.Status.Extras["service_names"] = svc
-
+		config.Spec.TelemetryKeeper.Status.Extras["_overrides"] = string(enricher.material[0].FmtContents())
 	case v1alpha1.MoldingKindIngester:
 		if !config.Spec.Ingester.Spec.Enabled {
 			return nil

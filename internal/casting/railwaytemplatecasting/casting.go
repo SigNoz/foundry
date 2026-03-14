@@ -34,12 +34,14 @@ func New(logger *slog.Logger) *railwayTemplateCasting {
 			railwayIngesterTemplate,
 			railwaySignozTemplate,
 			railwayTelemetryStoreMigratorTemplate,
+			telemetryKeeperOverrideTemplate,
+			telemetryStoreOverrideTemplate,
 		},
 	}
 }
 
 func (c *railwayTemplateCasting) Enricher(ctx context.Context, config *v1alpha1.Casting) (molding.MoldingEnricher, error) {
-	return newRailwayTemplateMoldingEnricher(config), nil
+	return newRailwayTemplateMoldingEnricher(config)
 }
 
 func (c *railwayTemplateCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPath string) ([]types.Material, error) {
@@ -142,4 +144,29 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config v1alpha1.Cast
 func (c *railwayTemplateCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPath string) error {
 	c.logger.InfoContext(ctx, "Please use the template.")
 	return nil
+}
+
+func getRailwayMaterial(config *v1alpha1.Casting) ([]types.Material, error) {
+	var materials []types.Material
+
+	keeperBuf := bytes.NewBuffer(nil)
+	if err := telemetryKeeperOverrideTemplate.Execute(keeperBuf, config); err != nil {
+		return nil, fmt.Errorf("failed to execute keeper override template: %w", err)
+	}
+	keeperMaterial, err := types.NewYAMLMaterial(keeperBuf.Bytes(), "keeper_overrides.yaml")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create keeper override material: %w", err)
+	}
+	materials = append(materials, keeperMaterial)
+
+	storeBuf := bytes.NewBuffer(nil)
+	if err := telemetryStoreOverrideTemplate.Execute(storeBuf, config); err != nil {
+		return nil, fmt.Errorf("failed to execute keeper override template: %w", err)
+	}
+	storeMaterial, err := types.NewYAMLMaterial(storeBuf.Bytes(), "store_overrides.yaml")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create keeper override material: %w", err)
+	}
+	materials = append(materials, storeMaterial)
+	return materials, nil
 }

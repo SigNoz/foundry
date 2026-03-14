@@ -5,6 +5,7 @@ distributed_ddl:
 format_schema_path: /var/lib/clickhouse/format_schemas/
 http_port: 8123
 interserver_http_port: 9009
+listen: '::'
 listen_host: 0.0.0.0
 logger:
   console: 1
@@ -35,7 +36,7 @@ remote_servers:
   cluster:
     shard:
     - replica:
-        host: signoz-telemetrystore-clickhouse.railway.internal
+        host: localhost
         port: 9000
 tcp_port: 9000
 tmp_path: /var/lib/clickhouse/tmp/

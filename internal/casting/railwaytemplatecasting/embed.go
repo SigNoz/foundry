@@ -21,4 +21,8 @@ var (
 	railwayIngesterTemplate               *types.Template = types.MustNewTemplateFromFS(templates, "templates/railway.ingester.json.gotmpl", types.FormatText)
 	railwaySignozTemplate                 *types.Template = types.MustNewTemplateFromFS(templates, "templates/railway.signoz.json.gotmpl", types.FormatText)
 	railwayTelemetryStoreMigratorTemplate *types.Template = types.MustNewTemplateFromFS(templates, "templates/railway.telemetrystore-migrator.json.gotmpl", types.FormatText)
+
+	// molding overrides.
+	telemetryKeeperOverrideTemplate *types.Template = types.MustNewTemplateFromFS(templates, "templates/telemetrykeeper.yaml.gotmpl", types.FormatYAML)
+	telemetryStoreOverrideTemplate  *types.Template = types.MustNewTemplateFromFS(templates, "templates/telemetrystore.yaml.gotmpl", types.FormatYAML)
 )
