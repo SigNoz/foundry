@@ -6,11 +6,13 @@ RUN mkdir -p /var/lib/clickhouse/user_scripts/ \
     && chown clickhouse:clickhouse /var/lib/clickhouse/user_scripts
 
 ARG VERSION=v0.0.1
-# Download and install histogram-quantile binary
-RUN cat > /tmp/install-histogram-quantile.sh <<'EOF'
 
 ENV CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.yaml
 ENV CLICKHOUSE_SKIP_USER_SETUP=1
+
+# Download and install histogram-quantile binary
+RUN cat > /tmp/install-histogram-quantile.sh <<'EOF'
+
 #!/bin/bash
 set -euo pipefail
 
