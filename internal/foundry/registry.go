@@ -58,8 +58,8 @@ func NewRegistry(logger *slog.Logger) (*Registry, error) {
 				Casting: rendercasting.New(logger),
 			},
 			{
-				Platform:   "aca",
-				Flavor: "arm",
+				Platform: "aca",
+				Flavor:   "arm",
 			}: {
 				Casting: azureacacasting.New(logger),
 				Toolers: []tooler.Tooler{azureclitooler.New()},

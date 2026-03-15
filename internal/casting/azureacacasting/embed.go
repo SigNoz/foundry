@@ -6,7 +6,7 @@ import (
 	"github.com/signoz/foundry/internal/types"
 )
 
-//go:embed templates/*.gotmpl templates/*/*.gotmpl
+//go:embed templates/*/*.gotmpl
 var templates embed.FS
 
 var (
