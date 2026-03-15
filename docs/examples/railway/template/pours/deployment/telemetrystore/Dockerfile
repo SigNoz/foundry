@@ -2,8 +2,8 @@ FROM clickhouse/clickhouse-server:25.5.6
 
 COPY config.d/ /etc/clickhouse-server/
 
-RUN mkdir -p /var/lib/clickhouse/user_scripts/ \
-    && chown clickhouse:clickhouse /var/lib/clickhouse/user_scripts
+RUN mkdir -p /etc/clickhouse-server/user_scripts/ \
+    && chown clickhouse:clickhouse /etc/clickhouse-server/user_scripts
 
 ARG VERSION=v0.0.1
 
@@ -12,7 +12,6 @@ ENV CLICKHOUSE_SKIP_USER_SETUP=1
 
 # Download and install histogram-quantile binary
 RUN cat > /tmp/install-histogram-quantile.sh <<'EOF'
-
 #!/bin/bash
 set -euo pipefail
 
