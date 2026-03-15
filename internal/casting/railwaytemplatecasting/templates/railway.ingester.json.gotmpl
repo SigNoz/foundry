@@ -5,7 +5,7 @@
   },
   "deploy": {
     "numReplicas": {{ max 1 (default 1 $.Spec.Ingester.Spec.Cluster.Replicas) }},
-    "startCommand": "/signoz-otel-collector --config=/etc/otel/config.yaml --manager-config=/etc/otel/manager-config.yaml --copy-path=/var/tmp/collector-config.yaml --feature-gates=-pkg.translator.prometheus.NormalizeName",
+    "startCommand": "/bin/sh -c '/signoz-otel-collector migrate sync check && /signoz-otel-collector migrate bootstrap && /signoz-otel-collector migrate sync up && /signoz-otel-collector migrate async up'",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 5
   }

@@ -8,6 +8,13 @@ RUN mkdir -p /var/lib/clickhouse/user_scripts/ \
 ARG VERSION=v0.0.1
 # Download and install histogram-quantile binary
 RUN cat > /tmp/install-histogram-quantile.sh <<'EOF'
+
+ENV CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.yaml
+ENV CLICKHOUSE_SKIP_USER_SETUP=1
+
+{{- range $key, $value := $.Spec.TelemetryStore.Spec.Env }}
+ENV {{ $key }}={{ $value }}
+{{- end }}
 #!/bin/bash
 set -euo pipefail
 
@@ -21,7 +28,7 @@ wget -O histogram-quantile.tar.gz \
   "https://github.com/SigNoz/signoz/releases/download/histogram-quantile%2F${VERSION}/histogram-quantile_${node_os}_${node_arch}.tar.gz"
 
 tar -xzf histogram-quantile.tar.gz
-mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile
+mv histogram-quantile /etc/clickhouse-server/user_scripts/histogramQuantile
 rm histogram-quantile.tar.gz
 
 echo "histogram-quantile installed successfully"

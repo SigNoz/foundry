@@ -409,8 +409,7 @@ spec:
             format_schema_path: /var/lib/clickhouse/format_schemas/
             http_port: 8123
             interserver_http_port: 9009
-            listen: '::'
-            listen_host: 0.0.0.0
+            listen_host: '::'
             logger:
               console: 1
               count: 10
@@ -449,7 +448,7 @@ spec:
               users_xml:
                 path: users.xml
             user_files_path: /var/lib/clickhouse/user_files/
-            user_scripts_path: /var/lib/clickhouse/user_scripts/
+            user_scripts_path: /etc/clickhouse-server/user_scripts/
             users:
               default:
                 access_management: 1
@@ -496,8 +495,7 @@ spec:
             format_schema_path: /var/lib/clickhouse/format_schemas/
             http_port: 8123
             interserver_http_port: 9009
-            listen: '::'
-            listen_host: 0.0.0.0
+            listen_host: '::'
             logger:
               console: 1
               count: 10
@@ -536,7 +534,7 @@ spec:
               users_xml:
                 path: users.xml
             user_files_path: /var/lib/clickhouse/user_files/
-            user_scripts_path: /var/lib/clickhouse/user_scripts/
+            user_scripts_path: /etc/clickhouse-server/user_scripts/
             users:
               default:
                 access_management: 1
@@ -568,11 +566,12 @@ spec:
               type: executable
       extras:
         _overrides: |
-          listen: '::'
+          listen_host: '::'
           remote_servers:
             cluster:
               shard:
               - replica:
                   host: localhost
                   port: 9000
+          user_scripts_path: /etc/clickhouse-server/user_scripts/
         service_names: signoz-telemetrystore-clickhouse

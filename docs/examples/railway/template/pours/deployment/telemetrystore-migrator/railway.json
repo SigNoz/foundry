@@ -5,7 +5,7 @@
   },
   "deploy": {
     "numReplicas": 1,
-    "startCommand": "/bin/sh -c '/signoz-otel-collector migrate bootstrap --clickhouse-dsn=$CLICKHOUSE_DSN && /signoz-otel-collector migrate sync up --clickhouse-dsn=$CLICKHOUSE_DSN && /signoz-otel-collector migrate async up --clickhouse-dsn=$CLICKHOUSE_DSN'",
+    "startCommand": "/bin/sh -c '/signoz-otel-collector migrate ready && /signoz-otel-collector migrate bootstrap && /signoz-otel-collector migrate sync up && /signoz-otel-collector migrate async up'",
     "restartPolicyType": "NEVER"
   }
 }
