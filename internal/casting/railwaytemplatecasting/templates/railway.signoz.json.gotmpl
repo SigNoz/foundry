@@ -5,7 +5,6 @@
   },
   "deploy": {
     "numReplicas": {{ default 1 $.Spec.Signoz.Spec.Cluster.Replicas }},
-    "startCommand": "./signoz",
     "healthcheckPath": "/api/v1/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",
