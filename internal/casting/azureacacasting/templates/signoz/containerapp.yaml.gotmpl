@@ -1,0 +1,51 @@
+{{- $name := print $.Metadata.Name "-signoz" -}}
+{{- $knobs := $.Spec.Signoz.Spec.Config.Knobs -}}
+type: Microsoft.App/containerApps
+properties:
+  configuration:
+    activeRevisionsMode: Single
+    ingress:
+      external: true
+      targetPort: 8080
+      transport: http
+      additionalPortMappings:
+        - external: false
+          targetPort: 4320
+  template:
+    containers:
+      - name: signoz
+        image: {{ $.Spec.Signoz.Spec.Image }}
+        {{- if $.Spec.Signoz.Spec.Env }}
+        env:
+          {{- range $key, $value := $.Spec.Signoz.Spec.Env }}
+          - name: {{ $key }}
+            value: "{{ $value }}"
+          {{- end }}
+        {{- end }}
+        resources:
+          {{- if and $knobs (hasKey $knobs "resources") }}
+{{ toYaml (index $knobs "resources") | indent 10 }}
+          {{- else }}
+          cpu: 1
+          memory: 2Gi
+          {{- end }}
+        probes:
+          - type: Liveness
+            httpGet:
+              path: /api/v1/health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          - type: Readiness
+            httpGet:
+              path: /api/v1/health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+    scale:
+      {{- if and $knobs (hasKey $knobs "scale") }}
+{{ toYaml (index $knobs "scale") | indent 6 }}
+      {{- else }}
+      minReplicas: 1
+      maxReplicas: 1
+      {{- end }}

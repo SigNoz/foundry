@@ -1,0 +1,88 @@
+{{- $name := print $.Metadata.Name "-clickhouse" -}}
+{{- $knobs := $.Spec.TelemetryStore.Spec.Config.Knobs -}}
+type: Microsoft.App/containerApps
+properties:
+  configuration:
+    activeRevisionsMode: Single
+    ingress:
+      external: false
+      targetPort: 9000
+      transport: tcp
+      additionalPortMappings:
+        - external: false
+          targetPort: 8123
+        - external: false
+          targetPort: 9009
+  template:
+    initContainers:
+      - name: udf-init
+        image: alpine:3.18.2
+        command:
+          - /bin/sh
+          - -c
+          - |
+            wget -O /var/lib/clickhouse/user_scripts/histogramQuantile https://github.com/SigNoz/signoz/releases/download/v0.50.0/histogram-quantile-linux-amd64 && chmod +x /var/lib/clickhouse/user_scripts/histogramQuantile
+        volumeMounts:
+          - volumeName: shared-binary-volume
+            mountPath: /var/lib/clickhouse/user_scripts
+    containers:
+      - name: clickhouse
+        image: {{ $.Spec.TelemetryStore.Spec.Image }}
+        env:
+          - name: CLICKHOUSE_SKIP_USER_SETUP
+            value: "1"
+          {{- range $key, $value := $.Spec.TelemetryStore.Spec.Env }}
+          - name: {{ $key }}
+            value: "{{ $value }}"
+          {{- end }}
+        volumeMounts:
+          - volumeName: shared-binary-volume
+            mountPath: /var/lib/clickhouse/user_scripts
+          - volumeName: signoz
+            mountPath: /etc/clickhouse-server/config.d/
+            subPath: telemetrystore
+          - volumeName: data
+            mountPath: /var/lib/clickhouse
+        resources:
+          {{- if and $knobs (hasKey $knobs "resources") }}
+{{ toYaml (index $knobs "resources") | indent 10 }}
+          {{- else }}
+          cpu: 2
+          memory: 4Gi
+          {{- end }}
+        probes:
+          - type: Liveness
+            httpGet:
+              path: /ping
+              port: 8123
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 10
+          - type: Readiness
+            httpGet:
+              path: /ping
+              port: 8123
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          - type: Startup
+            httpGet:
+              path: /ping
+              port: 8123
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 30
+    volumes:
+      - name: shared-binary-volume
+        storageType: EmptyDir
+      - name: data
+        storageType: EmptyDir
+      - name: signoz
+        storageType: AzureFile
+        storageName: signoz
+    scale:
+      {{- if and $knobs (hasKey $knobs "scale") }}
+{{ toYaml (index $knobs "scale") | indent 6 }}
+      {{- else }}
+      minReplicas: 1
+      maxReplicas: 1
+      {{- end }}

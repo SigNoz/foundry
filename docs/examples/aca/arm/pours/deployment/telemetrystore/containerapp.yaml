@@ -1,0 +1,74 @@
+properties:
+  configuration:
+    activeRevisionsMode: Single
+    ingress:
+      additionalPortMappings:
+      - external: false
+        targetPort: 8123
+      - external: false
+        targetPort: 9009
+      external: false
+      targetPort: 9000
+      transport: tcp
+  template:
+    containers:
+    - env:
+      - name: CLICKHOUSE_SKIP_USER_SETUP
+        value: "1"
+      image: clickhouse/clickhouse-server:25.5.6
+      name: clickhouse
+      probes:
+      - failureThreshold: 10
+        httpGet:
+          path: /ping
+          port: 8123
+        initialDelaySeconds: 60
+        periodSeconds: 10
+        type: Liveness
+      - httpGet:
+          path: /ping
+          port: 8123
+        initialDelaySeconds: 10
+        periodSeconds: 5
+        type: Readiness
+      - failureThreshold: 30
+        httpGet:
+          path: /ping
+          port: 8123
+        initialDelaySeconds: 30
+        periodSeconds: 10
+        type: Startup
+      resources:
+        cpu: 2
+        memory: 4Gi
+      volumeMounts:
+      - mountPath: /var/lib/clickhouse/user_scripts
+        volumeName: shared-binary-volume
+      - mountPath: /etc/clickhouse-server/config.d/
+        subPath: telemetrystore
+        volumeName: signoz
+      - mountPath: /var/lib/clickhouse
+        volumeName: data
+    initContainers:
+    - command:
+      - /bin/sh
+      - -c
+      - |
+        wget -O /var/lib/clickhouse/user_scripts/histogramQuantile https://github.com/SigNoz/signoz/releases/download/v0.50.0/histogram-quantile-linux-amd64 && chmod +x /var/lib/clickhouse/user_scripts/histogramQuantile
+      image: alpine:3.18.2
+      name: udf-init
+      volumeMounts:
+      - mountPath: /var/lib/clickhouse/user_scripts
+        volumeName: shared-binary-volume
+    scale:
+      maxReplicas: 1
+      minReplicas: 1
+    volumes:
+    - name: shared-binary-volume
+      storageType: EmptyDir
+    - name: data
+      storageType: EmptyDir
+    - name: signoz
+      storageName: signoz
+      storageType: AzureFile
+type: Microsoft.App/containerApps

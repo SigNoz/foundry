@@ -1,0 +1,64 @@
+{{- $clickhouseDSN := index $.Spec.TelemetryStore.Status.Addresses.TCP 0 -}}
+type: Microsoft.App/jobs
+properties:
+  configuration:
+    triggerType: Manual
+    replicaTimeout: 1800
+    replicaRetryLimit: 3
+  template:
+    initContainers:
+      - name: ready
+        image: {{ $.Spec.Ingester.Spec.Image }}
+        command:
+          - /signoz-otel-collector
+        args:
+          - migrate
+          - ready
+        env:
+          - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+            value: {{ $clickhouseDSN }}
+        resources:
+          cpu: 0.25
+          memory: 0.5Gi
+      - name: bootstrap
+        image: {{ $.Spec.Ingester.Spec.Image }}
+        command:
+          - /signoz-otel-collector
+        args:
+          - migrate
+          - bootstrap
+        env:
+          - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+            value: {{ $clickhouseDSN }}
+        resources:
+          cpu: 0.25
+          memory: 0.5Gi
+      - name: sync
+        image: {{ $.Spec.Ingester.Spec.Image }}
+        command:
+          - /signoz-otel-collector
+        args:
+          - migrate
+          - sync
+          - up
+        env:
+          - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+            value: {{ $clickhouseDSN }}
+        resources:
+          cpu: 0.25
+          memory: 0.5Gi
+    containers:
+      - name: async
+        image: {{ $.Spec.Ingester.Spec.Image }}
+        command:
+          - /signoz-otel-collector
+        args:
+          - migrate
+          - async
+          - up
+        env:
+          - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+            value: {{ $clickhouseDSN }}
+        resources:
+          cpu: 0.25
+          memory: 0.5Gi

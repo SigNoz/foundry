@@ -1,0 +1,64 @@
+{{- $name := print $.Metadata.Name "-clickhouse-keeper-0" -}}
+{{- $knobs := $.Spec.TelemetryKeeper.Spec.Config.Knobs -}}
+type: Microsoft.App/containerApps
+properties:
+  configuration:
+    activeRevisionsMode: Single
+    ingress:
+      external: false
+      targetPort: 9181
+      transport: tcp
+      additionalPortMappings:
+        - external: false
+          targetPort: 9234
+  template:
+    containers:
+      - name: clickhouse-keeper
+        image: {{ $.Spec.TelemetryKeeper.Spec.Image }}
+        command:
+          - /usr/bin/clickhouse-keeper
+          - --config-file=/etc/clickhouse-keeper/keeper.yaml
+        {{- if $.Spec.TelemetryKeeper.Spec.Env }}
+        env:
+          {{- range $key, $value := $.Spec.TelemetryKeeper.Spec.Env }}
+          - name: {{ $key }}
+            value: "{{ $value }}"
+          {{- end }}
+        {{- end }}
+        volumeMounts:
+          - volumeName: keeper-data
+            mountPath: /var/lib/clickhouse-keeper
+          - volumeName: signoz
+            mountPath: /etc/clickhouse-keeper/keeper.yaml
+            subPath: telemetrykeeper/keeper-0.yaml
+        resources:
+          {{- if and $knobs (hasKey $knobs "resources") }}
+{{ toYaml (index $knobs "resources") | indent 10 }}
+          {{- else }}
+          cpu: 0.5
+          memory: 1Gi
+          {{- end }}
+        probes:
+          - type: Liveness
+            tcpSocket:
+              port: 9181
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          - type: Readiness
+            tcpSocket:
+              port: 9181
+            initialDelaySeconds: 10
+            periodSeconds: 5
+    volumes:
+      - name: keeper-data
+        storageType: EmptyDir
+      - name: signoz
+        storageType: AzureFile
+        storageName: signoz
+    scale:
+      {{- if and $knobs (hasKey $knobs "scale") }}
+{{ toYaml (index $knobs "scale") | indent 6 }}
+      {{- else }}
+      minReplicas: 1
+      maxReplicas: 1
+      {{- end }}

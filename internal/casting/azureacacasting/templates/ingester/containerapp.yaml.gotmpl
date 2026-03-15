@@ -1,0 +1,80 @@
+{{- $name := print $.Metadata.Name "-ingester" -}}
+{{- $knobs := $.Spec.Ingester.Spec.Config.Knobs -}}
+type: Microsoft.App/containerApps
+properties:
+  configuration:
+    activeRevisionsMode: Single
+    ingress:
+      external: true
+      targetPort: 4317
+      transport: tcp
+      additionalPortMappings:
+        - external: true
+          targetPort: 4318
+  template:
+    initContainers:
+      - name: check
+        image: {{ $.Spec.Ingester.Spec.Image }}
+        command:
+          - /signoz-otel-collector
+        args:
+          - migrate
+          - sync
+          - check
+        env:
+          - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+            value: {{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
+        resources:
+          cpu: 0.25
+          memory: 0.5Gi
+    containers:
+      - name: collector
+        image: {{ $.Spec.Ingester.Spec.Image }}
+        command:
+          - /signoz-otel-collector
+        args:
+          - --config=/conf/ingester.yaml
+          - --manager-config=/conf/opamp.yaml
+          - --copy-path=/var/tmp/collector-config.yaml
+        {{- if $.Spec.Ingester.Spec.Env }}
+        env:
+          {{- range $key, $value := $.Spec.Ingester.Spec.Env }}
+          - name: {{ $key }}
+            value: "{{ $value }}"
+          {{- end }}
+        {{- end }}
+        volumeMounts:
+          - volumeName: signoz
+            mountPath: /conf/
+            subPath: ingester
+        resources:
+          {{- if and $knobs (hasKey $knobs "resources") }}
+{{ toYaml (index $knobs "resources") | indent 10 }}
+          {{- else }}
+          cpu: 1
+          memory: 2Gi
+          {{- end }}
+        probes:
+          - type: Liveness
+            httpGet:
+              path: /
+              port: 13133
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          - type: Readiness
+            httpGet:
+              path: /
+              port: 13133
+            initialDelaySeconds: 5
+            periodSeconds: 10
+    volumes:
+      - name: signoz
+        storageType: AzureFile
+        storageName: signoz
+    scale:
+      {{- if and $knobs (hasKey $knobs "scale") }}
+{{ toYaml (index $knobs "scale") | indent 6 }}
+      {{- else }}
+      minReplicas: 1
+      maxReplicas: 1
+      {{- end }}

@@ -1,0 +1,47 @@
+properties:
+  configuration:
+    activeRevisionsMode: Single
+    ingress:
+      additionalPortMappings:
+      - external: false
+        targetPort: 9234
+      external: false
+      targetPort: 9181
+      transport: tcp
+  template:
+    containers:
+    - command:
+      - /usr/bin/clickhouse-keeper
+      - --config-file=/etc/clickhouse-keeper/keeper.yaml
+      image: clickhouse/clickhouse-keeper:25.5.6
+      name: clickhouse-keeper
+      probes:
+      - initialDelaySeconds: 30
+        periodSeconds: 10
+        tcpSocket:
+          port: 9181
+        type: Liveness
+      - initialDelaySeconds: 10
+        periodSeconds: 5
+        tcpSocket:
+          port: 9181
+        type: Readiness
+      resources:
+        cpu: 0.5
+        memory: 1Gi
+      volumeMounts:
+      - mountPath: /var/lib/clickhouse-keeper
+        volumeName: keeper-data
+      - mountPath: /etc/clickhouse-keeper/keeper.yaml
+        subPath: telemetrykeeper/keeper-0.yaml
+        volumeName: signoz
+    scale:
+      maxReplicas: 1
+      minReplicas: 1
+    volumes:
+    - name: keeper-data
+      storageType: EmptyDir
+    - name: signoz
+      storageName: signoz
+      storageType: AzureFile
+type: Microsoft.App/containerApps

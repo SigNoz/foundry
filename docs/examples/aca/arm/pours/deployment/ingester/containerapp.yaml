@@ -1,0 +1,63 @@
+properties:
+  configuration:
+    activeRevisionsMode: Single
+    ingress:
+      additionalPortMappings:
+      - external: true
+        targetPort: 4318
+      external: true
+      targetPort: 4317
+      transport: tcp
+  template:
+    containers:
+    - args:
+      - --config=/conf/ingester.yaml
+      - --manager-config=/conf/opamp.yaml
+      - --copy-path=/var/tmp/collector-config.yaml
+      command:
+      - /signoz-otel-collector
+      image: signoz/signoz-otel-collector:latest
+      name: collector
+      probes:
+      - httpGet:
+          path: /
+          port: 13133
+        initialDelaySeconds: 5
+        periodSeconds: 10
+        type: Liveness
+      - httpGet:
+          path: /
+          port: 13133
+        initialDelaySeconds: 5
+        periodSeconds: 10
+        type: Readiness
+      resources:
+        cpu: 1
+        memory: 2Gi
+      volumeMounts:
+      - mountPath: /conf/
+        subPath: ingester
+        volumeName: signoz
+    initContainers:
+    - args:
+      - migrate
+      - sync
+      - check
+      command:
+      - /signoz-otel-collector
+      env:
+      - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+        value: tcp://signoz-clickhouse:9000
+      image: signoz/signoz-otel-collector:latest
+      name: check
+      resources:
+        cpu: 0.25
+        memory: 0.5Gi
+    scale:
+      maxReplicas: 1
+      minReplicas: 1
+    volumes:
+    - name: signoz
+      storageName: signoz
+      storageType: AzureFile
+type: Microsoft.App/containerApps

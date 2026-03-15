@@ -1,0 +1,41 @@
+properties:
+  configuration:
+    activeRevisionsMode: Single
+    ingress:
+      additionalPortMappings:
+      - external: false
+        targetPort: 4320
+      external: true
+      targetPort: 8080
+      transport: http
+  template:
+    containers:
+    - env:
+      - name: SIGNOZ_SQLSTORE_PROVIDER
+        value: postgres
+      - name: SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN
+        value: tcp://signoz-clickhouse:9000
+      - name: SIGNOZ_TELEMETRYSTORE_PROVIDER
+        value: clickhouse
+      image: signoz/signoz:latest
+      name: signoz
+      probes:
+      - httpGet:
+          path: /api/v1/health
+          port: 8080
+        initialDelaySeconds: 5
+        periodSeconds: 10
+        type: Liveness
+      - httpGet:
+          path: /api/v1/health
+          port: 8080
+        initialDelaySeconds: 5
+        periodSeconds: 10
+        type: Readiness
+      resources:
+        cpu: 1
+        memory: 2Gi
+    scale:
+      maxReplicas: 1
+      minReplicas: 1
+type: Microsoft.App/containerApps

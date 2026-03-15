@@ -1,0 +1,63 @@
+properties:
+  configuration:
+    replicaRetryLimit: 3
+    replicaTimeout: 1800
+    triggerType: Manual
+  template:
+    containers:
+    - args:
+      - migrate
+      - async
+      - up
+      command:
+      - /signoz-otel-collector
+      env:
+      - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+        value: tcp://signoz-clickhouse:9000
+      image: signoz/signoz-otel-collector:latest
+      name: async
+      resources:
+        cpu: 0.25
+        memory: 0.5Gi
+    initContainers:
+    - args:
+      - migrate
+      - ready
+      command:
+      - /signoz-otel-collector
+      env:
+      - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+        value: tcp://signoz-clickhouse:9000
+      image: signoz/signoz-otel-collector:latest
+      name: ready
+      resources:
+        cpu: 0.25
+        memory: 0.5Gi
+    - args:
+      - migrate
+      - bootstrap
+      command:
+      - /signoz-otel-collector
+      env:
+      - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+        value: tcp://signoz-clickhouse:9000
+      image: signoz/signoz-otel-collector:latest
+      name: bootstrap
+      resources:
+        cpu: 0.25
+        memory: 0.5Gi
+    - args:
+      - migrate
+      - sync
+      - up
+      command:
+      - /signoz-otel-collector
+      env:
+      - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+        value: tcp://signoz-clickhouse:9000
+      image: signoz/signoz-otel-collector:latest
+      name: sync
+      resources:
+        cpu: 0.25
+        memory: 0.5Gi
+type: Microsoft.App/jobs
