@@ -146,7 +146,7 @@ services:
         condition: service_healthy
       {{- end }}
       {{- end }}
-      {{ $.Metadata.Name }}-telemetrystore-migrator-sync:
+      {{ $.Metadata.Name }}-telemetrystore-migrator:
         condition: service_completed_successfully
     healthcheck:
       test:
@@ -188,7 +188,7 @@ services:
         condition: service_healthy
       {{- end }}
       {{- end }}
-      {{ $.Metadata.Name }}-telemetrystore-migrator-sync:
+      {{ $.Metadata.Name }}-telemetrystore-migrator:
         condition: service_completed_successfully
       {{ $.Metadata.Name }}-signoz:
         condition: service_healthy
@@ -230,7 +230,7 @@ services:
       options:
         max-size: 50m
         max-file: "3"
-  {{ $.Metadata.Name }}-telemetrystore-migrator-sync:
+  {{ $.Metadata.Name }}-telemetrystore-migrator:
     image: {{ $.Spec.Ingester.Spec.Image }}
     depends_on:
       {{- range $shardIdx := $.Spec.TelemetryStore.Spec.Cluster.Shards }}
@@ -241,31 +241,13 @@ services:
       {{- end }}
     restart: on-failure
     exclude_from_hc: true
+    entrypoint:
+      - "/bin/sh"
+      - "-c"
     command:
-      - sync
-      - --dsn=tcp://{{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0:9000
-      - --up=
-    logging:
-      options:
-        max-size: 50m
-        max-file: "3"
-  {{ $.Metadata.Name }}-telemetrystore-migrator-async:
-    image: {{ $.Spec.Ingester.Spec.Image }}
-    depends_on:
-      {{- range $shardIdx := $.Spec.TelemetryStore.Spec.Cluster.Shards }}
-      {{- range $replicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
-      {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}:
-        condition: service_healthy
-      {{- end }}
-      {{- end }}
-      {{ $.Metadata.Name }}-telemetrystore-migrator-sync:
-        condition: service_completed_successfully
-    restart: on-failure
-    exclude_from_hc: true
-    command:
-      - async
-      - --dsn=tcp://{{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0:9000
-      - --up=
+      - /signoz-otel-collector migrate bootstrap --clickhouse-dsn tcp://{{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0:9000
+      - /signoz-otel-collector migrate sync up --clickhouse-dsn tcp://{{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0:9000
+      - /signoz-otel-collector migrate async up --clickhouse-dsn tcp://{{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0:9000
     logging:
       options:
         max-size: 50m
