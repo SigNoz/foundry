@@ -11,6 +11,12 @@ properties:
       additionalPortMappings:
         - external: true
           targetPort: 4318
+    secrets:
+      {{- range $filename, $content := $.Spec.Ingester.Spec.Config.Data }}
+      - name: {{ $filename | replace "." "-" }}
+        value: |
+{{ $content | indent 10 }}
+      {{- end }}
   template:
     initContainers:
       - name: check
@@ -44,9 +50,8 @@ properties:
           {{- end }}
         {{- end }}
         volumeMounts:
-          - volumeName: signoz
+          - volumeName: collector-config
             mountPath: /conf/
-            subPath: ingester
         resources:
           {{- if and $knobs (hasKey $knobs "resources") }}
 {{ toYaml (index $knobs "resources") | indent 10 }}
@@ -68,9 +73,13 @@ properties:
             initialDelaySeconds: 5
             periodSeconds: 10
     volumes:
-      - name: signoz
-        storageType: AzureFile
-        storageName: signoz
+      - name: collector-config
+        storageType: Secret
+        secrets:
+          {{- range $filename, $content := $.Spec.Ingester.Spec.Config.Data }}
+          - secretRef: {{ $filename | replace "." "-" }}
+            path: {{ $filename }}
+          {{- end }}
     scale:
       {{- if and $knobs (hasKey $knobs "scale") }}
 {{ toYaml (index $knobs "scale") | indent 6 }}

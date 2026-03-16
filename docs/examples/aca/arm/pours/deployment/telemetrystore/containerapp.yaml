@@ -10,6 +10,86 @@ properties:
       external: false
       targetPort: 9000
       transport: tcp
+    secrets:
+    - name: config-yaml
+      value: |
+        path: /var/lib/clickhouse/
+        tmp_path: /var/lib/clickhouse/tmp/
+        user_files_path: /var/lib/clickhouse/user_files/
+        format_schema_path: /var/lib/clickhouse/format_schemas/
+        dictionaries_config: '*_dictionary.xml'
+        display_name: cluster
+        distributed_ddl:
+            path: /clickhouse/task_queue/ddl
+        http_port: 8123
+        interserver_http_port: 9009
+        listen_host: 0.0.0.0
+        logger:
+            console: 1
+            count: 10
+            formatting:
+                type: console
+            level: information
+            size: 1000M
+        macros:
+            replica: "01"
+            shard: "01"
+        profiles:
+            default:
+                load_balancing: random
+                log_queries: 1
+                max_memory_usage: 10000000000
+        quotas:
+            default:
+                interval:
+                    duration: 3600
+                    errors: 0
+                    execution_time: 0
+                    queries: 0
+                    read_rows: 0
+                    result_rows: 0
+        user_directories:
+          users_xml:
+            path: users.xml
+        remote_servers:
+          cluster:
+            shard:
+              - replica:
+                  host: signoz-clickhouse
+                  port: 9000
+        zookeeper:
+          node:
+            - host: signoz-clickhouse-keeper-0
+              port: 9181
+        tcp_port: 9000
+        user_defined_executable_functions_config: '*function.yaml'
+        user_scripts_path: /var/lib/clickhouse/user_scripts/
+        users:
+            default:
+                access_management: 1
+                named_collection_control: 1
+                networks:
+                    ip: ::/0
+                password: ""
+                profile: default
+                quota: default
+                show_named_collection: 1
+                show_named_collection_secrets: 1
+    - name: functions-yaml
+      value: |
+        functions:
+          argument:
+              - name: buckets
+                type: Array(Float64)
+              - name: counts
+                type: Array(Float64)
+              - name: quantile
+                type: Array(Float64)
+          command: ./histogramQuantile
+          format: CSV
+          name: histogramQuantile
+          return_type: Float64
+          type: executable
   template:
     containers:
     - env:
@@ -45,8 +125,7 @@ properties:
       - mountPath: /var/lib/clickhouse/user_scripts
         volumeName: shared-binary-volume
       - mountPath: /etc/clickhouse-server/config.d/
-        subPath: telemetrystore
-        volumeName: signoz
+        volumeName: clickhouse-config
       - mountPath: /var/lib/clickhouse
         volumeName: data
     initContainers:
@@ -68,7 +147,11 @@ properties:
       storageType: EmptyDir
     - name: data
       storageType: EmptyDir
-    - name: signoz
-      storageName: signoz
-      storageType: AzureFile
+    - name: clickhouse-config
+      secrets:
+      - path: config.yaml
+        secretRef: config-yaml
+      - path: functions.yaml
+        secretRef: functions-yaml
+      storageType: Secret
 type: Microsoft.App/containerApps

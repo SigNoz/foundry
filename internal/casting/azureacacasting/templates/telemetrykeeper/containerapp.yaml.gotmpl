@@ -11,6 +11,10 @@ properties:
       additionalPortMappings:
         - external: false
           targetPort: 9234
+    secrets:
+      - name: keeper-config
+        value: |
+{{ index $.Spec.TelemetryKeeper.Spec.Config.Data "keeper-0.yaml" | indent 10 }}
   template:
     containers:
       - name: clickhouse-keeper
@@ -28,9 +32,8 @@ properties:
         volumeMounts:
           - volumeName: keeper-data
             mountPath: /var/lib/clickhouse-keeper
-          - volumeName: signoz
-            mountPath: /etc/clickhouse-keeper/keeper.yaml
-            subPath: telemetrykeeper/keeper-0.yaml
+          - volumeName: keeper-config
+            mountPath: /etc/clickhouse-keeper
         resources:
           {{- if and $knobs (hasKey $knobs "resources") }}
 {{ toYaml (index $knobs "resources") | indent 10 }}
@@ -52,9 +55,11 @@ properties:
     volumes:
       - name: keeper-data
         storageType: EmptyDir
-      - name: signoz
-        storageType: AzureFile
-        storageName: signoz
+      - name: keeper-config
+        storageType: Secret
+        secrets:
+          - secretRef: keeper-config
+            path: keeper.yaml
     scale:
       {{- if and $knobs (hasKey $knobs "scale") }}
 {{ toYaml (index $knobs "scale") | indent 6 }}

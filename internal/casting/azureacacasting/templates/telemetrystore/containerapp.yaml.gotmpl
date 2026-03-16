@@ -13,6 +13,12 @@ properties:
           targetPort: 8123
         - external: false
           targetPort: 9009
+    secrets:
+      {{- range $filename, $content := $.Spec.TelemetryStore.Spec.Config.Data }}
+      - name: {{ $filename | replace "." "-" }}
+        value: |
+{{ $content | indent 10 }}
+      {{- end }}
   template:
     initContainers:
       - name: udf-init
@@ -38,9 +44,8 @@ properties:
         volumeMounts:
           - volumeName: shared-binary-volume
             mountPath: /var/lib/clickhouse/user_scripts
-          - volumeName: signoz
+          - volumeName: clickhouse-config
             mountPath: /etc/clickhouse-server/config.d/
-            subPath: telemetrystore
           - volumeName: data
             mountPath: /var/lib/clickhouse
         resources:
@@ -76,9 +81,13 @@ properties:
         storageType: EmptyDir
       - name: data
         storageType: EmptyDir
-      - name: signoz
-        storageType: AzureFile
-        storageName: signoz
+      - name: clickhouse-config
+        storageType: Secret
+        secrets:
+          {{- range $filename, $content := $.Spec.TelemetryStore.Spec.Config.Data }}
+          - secretRef: {{ $filename | replace "." "-" }}
+            path: {{ $filename }}
+          {{- end }}
     scale:
       {{- if and $knobs (hasKey $knobs "scale") }}
 {{ toYaml (index $knobs "scale") | indent 6 }}

@@ -8,6 +8,135 @@ properties:
       external: true
       targetPort: 4317
       transport: tcp
+    secrets:
+    - name: ingester-yaml
+      value: |
+        connectors:
+          signozmeter:
+            metrics_flush_interval: 1h
+            dimensions:
+              - name: service.name
+              - name: deployment.environment
+              - name: host.name
+        receivers:
+          otlp:
+            protocols:
+              grpc:
+                endpoint: "0.0.0.0:4317"
+              http:
+                endpoint: "0.0.0.0:4318"
+        processors:
+          batch:
+            send_batch_size: 20000
+            send_batch_max_size: 25000
+            timeout: 1s
+          batch/meter:
+            send_batch_size: 20000
+            send_batch_max_size: 25000
+            timeout: 1s
+          signozspanmetrics/delta:
+            metrics_exporter: signozclickhousemetrics
+            metrics_flush_interval: 60s
+            latency_histogram_buckets:
+              - 100us
+              - 1ms
+              - 2ms
+              - 6ms
+              - 10ms
+              - 50ms
+              - 100ms
+              - 250ms
+              - 500ms
+              - 1000ms
+              - 1400ms
+              - 2000ms
+              - 5s
+              - 10s
+              - 20s
+              - 40s
+              - 60s
+            dimensions_cache_size: 100000
+            aggregation_temporality: AGGREGATION_TEMPORALITY_DELTA
+            enable_exp_histogram: true
+            dimensions:
+              - name: service.namespace
+                default: default
+              - name: deployment.environment
+                default: default
+              - name: signoz.collector.id
+              - name: service.version
+        exporters:
+          clickhousetraces:
+            datasource: tcp://signoz-clickhouse:9000/signoz_traces
+            low_cardinal_exception_grouping: ${env:LOW_CARDINAL_EXCEPTION_GROUPING}
+            use_new_schema: true
+            timeout: 45s
+            sending_queue:
+              enabled: false
+          signozclickhousemetrics:
+            dsn: tcp://signoz-clickhouse:9000/signoz_metrics
+            timeout: 45s
+            sending_queue:
+              enabled: false
+          clickhouselogsexporter:
+            dsn: tcp://signoz-clickhouse:9000/signoz_logs
+            use_new_schema: true
+            timeout: 45s
+            sending_queue:
+              enabled: false
+          signozclickhousemeter:
+            dsn: tcp://signoz-clickhouse:9000/signoz_meter
+            timeout: 45s
+            sending_queue:
+              enabled: false
+        extensions:
+          signoz_health_check:
+            endpoint: "0.0.0.0:13133"
+          pprof:
+            endpoint: "0.0.0.0:1777"
+        service:
+          telemetry:
+            logs:
+              encoding: json
+          extensions:
+            - signoz_health_check
+            - pprof
+          pipelines:
+            traces:
+              receivers:
+                - otlp
+              processors:
+                - signozspanmetrics/delta
+                - batch
+              exporters:
+                - clickhousetraces
+                - signozmeter
+            metrics:
+              receivers:
+                - otlp
+              processors:
+                - batch
+              exporters:
+                - signozclickhousemetrics
+                - signozmeter
+            logs:
+              receivers:
+                - otlp
+              processors:
+                - batch
+              exporters:
+                - clickhouselogsexporter
+                - signozmeter
+            metrics/meter:
+              receivers:
+                - signozmeter
+              processors:
+                - batch/meter
+              exporters:
+                - signozclickhousemeter
+    - name: opamp-yaml
+      value: |
+        server_endpoint: ws://signoz-signoz:4320/v1/opamp
   template:
     containers:
     - args:
@@ -36,8 +165,7 @@ properties:
         memory: 2Gi
       volumeMounts:
       - mountPath: /conf/
-        subPath: ingester
-        volumeName: signoz
+        volumeName: collector-config
     initContainers:
     - args:
       - migrate
@@ -57,7 +185,11 @@ properties:
       maxReplicas: 1
       minReplicas: 1
     volumes:
-    - name: signoz
-      storageName: signoz
-      storageType: AzureFile
+    - name: collector-config
+      secrets:
+      - path: ingester.yaml
+        secretRef: ingester-yaml
+      - path: opamp.yaml
+        secretRef: opamp-yaml
+      storageType: Secret
 type: Microsoft.App/containerApps
