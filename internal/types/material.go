@@ -8,6 +8,7 @@ import (
 	"github.com/tidwall/gjson"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
+	kyaml "sigs.k8s.io/yaml"
 )
 
 type Material struct {
@@ -141,11 +142,11 @@ func (m Material) GetStringSlice(path string) ([]string, error) {
 
 func (m Material) ToYaml() ([]byte, error) {
 	if !m.IsMultiDoc() {
-		node, err := yaml.ConvertJSONToYamlNode(string(m.contents))
+		node, err := kyaml.JSONToYAML(m.contents)
 		if err != nil {
 			return nil, err
 		}
-		return []byte(node.MustString()), nil
+		return node, nil
 	}
 
 	var docs []json.RawMessage
