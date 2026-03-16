@@ -13,6 +13,7 @@ const (
 	telemetryStorePort        = 9000
 	telemetryKeeperClientPort = 9181
 	telemetryKeeperRaftPort   = 9234
+	metaStorePostgresPort     = 5432
 	signozOpampPort           = 4320
 )
 
@@ -66,7 +67,8 @@ func (e *acaMoldingEnricher) enrichTelemetryKeeper(config *v1alpha1.Casting) err
 }
 
 func (e *acaMoldingEnricher) enrichMetaStore(config *v1alpha1.Casting) error {
-	// ACA uses SQLite embedded in the SigNoz container, no external metastore needed.
+	name := config.Metadata.Name + "-metastore-postgres"
+	config.Spec.MetaStore.Status.Addresses.DSN = []string{types.FormatAddress("tcp", name, metaStorePostgresPort)}
 	return nil
 }
 

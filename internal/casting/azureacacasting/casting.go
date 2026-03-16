@@ -73,6 +73,7 @@ func New(logger *slog.Logger) *acaCasting {
 		castings: []*types.Template{
 			telemetrykeeperContainerapp,
 			telemetrystoreContainerapp,
+			metastoreContainerapp,
 			signozContainerapp,
 			ingesterContainerapp,
 			telemetrystoreMigratorJob,
@@ -130,6 +131,7 @@ func (c *acaCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPat
 		{name: config.Metadata.Name + "-clickhouse-keeper-0", yamlPath: "telemetrykeeper/containerapp.yaml"},
 		{name: config.Metadata.Name + "-clickhouse", yamlPath: "telemetrystore/containerapp.yaml"},
 		{name: config.Metadata.Name + "-telemetrystore-migrator", yamlPath: "telemetrystore-migrator/job.yaml", isJob: true},
+		{name: config.Metadata.Name + "-metastore-postgres", yamlPath: "metastore/containerapp.yaml"},
 		{name: config.Metadata.Name + "-signoz", yamlPath: "signoz/containerapp.yaml"},
 		{name: config.Metadata.Name + "-ingester", yamlPath: "ingester/containerapp.yaml"},
 	}
@@ -255,6 +257,7 @@ func validateKnobs(cfg v1alpha1.Casting) error {
 		"ingester":        cfg.Spec.Ingester.Spec.Config.Knobs,
 		"telemetrystore":  cfg.Spec.TelemetryStore.Spec.Config.Knobs,
 		"telemetrykeeper": cfg.Spec.TelemetryKeeper.Spec.Config.Knobs,
+		"metastore":       cfg.Spec.MetaStore.Spec.Config.Knobs,
 	}
 
 	for component, knobs := range components {

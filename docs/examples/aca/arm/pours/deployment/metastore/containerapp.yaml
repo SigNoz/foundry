@@ -1,0 +1,42 @@
+properties:
+  configuration:
+    activeRevisionsMode: Single
+    ingress:
+      external: false
+      targetPort: 5432
+      transport: tcp
+  template:
+    containers:
+    - env:
+      - name: POSTGRES_DB
+        value: signoz
+      - name: POSTGRES_PASSWORD
+        value: signoz
+      - name: POSTGRES_USER
+        value: signoz
+      image: postgres:16
+      name: postgres
+      probes:
+      - initialDelaySeconds: 30
+        periodSeconds: 10
+        tcpSocket:
+          port: 5432
+        type: Liveness
+      - initialDelaySeconds: 5
+        periodSeconds: 5
+        tcpSocket:
+          port: 5432
+        type: Readiness
+      resources:
+        cpu: 0.5
+        memory: 1Gi
+      volumeMounts:
+      - mountPath: /var/lib/postgresql/data
+        volumeName: data
+    scale:
+      maxReplicas: 1
+      minReplicas: 1
+    volumes:
+    - name: data
+      storageType: EmptyDir
+type: Microsoft.App/containerApps

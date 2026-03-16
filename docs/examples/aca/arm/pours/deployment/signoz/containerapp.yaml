@@ -11,6 +11,8 @@ properties:
   template:
     containers:
     - env:
+      - name: SIGNOZ_SQLSTORE_POSTGRES_DSN
+        value: postgres://signoz:signoz@signoz-metastore-postgres:5432/signoz?sslmode=disable
       - name: SIGNOZ_SQLSTORE_PROVIDER
         value: postgres
       - name: SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN

@@ -1,0 +1,50 @@
+{{- $name := print $.Metadata.Name "-metastore-postgres" -}}
+{{- $knobs := $.Spec.MetaStore.Spec.Config.Knobs -}}
+type: Microsoft.App/containerApps
+properties:
+  configuration:
+    activeRevisionsMode: Single
+    ingress:
+      external: false
+      targetPort: 5432
+      transport: tcp
+  template:
+    containers:
+      - name: postgres
+        image: {{ $.Spec.MetaStore.Spec.Image }}
+        env:
+          {{- range $key, $value := $.Spec.MetaStore.Spec.Env }}
+          - name: {{ $key }}
+            value: "{{ $value }}"
+          {{- end }}
+        volumeMounts:
+          - volumeName: data
+            mountPath: /var/lib/postgresql/data
+        resources:
+          {{- if and $knobs (hasKey $knobs "resources") }}
+{{ toYaml (index $knobs "resources") | indent 10 }}
+          {{- else }}
+          cpu: 0.5
+          memory: 1Gi
+          {{- end }}
+        probes:
+          - type: Liveness
+            tcpSocket:
+              port: 5432
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          - type: Readiness
+            tcpSocket:
+              port: 5432
+            initialDelaySeconds: 5
+            periodSeconds: 5
+    volumes:
+      - name: data
+        storageType: EmptyDir
+    scale:
+      {{- if and $knobs (hasKey $knobs "scale") }}
+{{ toYaml (index $knobs "scale") | indent 6 }}
+      {{- else }}
+      minReplicas: 1
+      maxReplicas: 1
+      {{- end }}

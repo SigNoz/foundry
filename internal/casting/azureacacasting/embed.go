@@ -16,6 +16,9 @@ var (
 	// telemetrystore.
 	telemetrystoreContainerapp = types.MustNewTemplateFromFS(templates, "templates/telemetrystore/containerapp.yaml.gotmpl", types.FormatYAML)
 
+	// metastore.
+	metastoreContainerapp = types.MustNewTemplateFromFS(templates, "templates/metastore/containerapp.yaml.gotmpl", types.FormatYAML)
+
 	// signoz.
 	signozContainerapp = types.MustNewTemplateFromFS(templates, "templates/signoz/containerapp.yaml.gotmpl", types.FormatYAML)
 
