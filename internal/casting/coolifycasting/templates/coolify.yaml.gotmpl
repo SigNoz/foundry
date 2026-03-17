@@ -160,13 +160,6 @@ services:
       timeout: 5s
       retries: 3
     environment:
-      - SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN=tcp://{{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0:9000
-      - SIGNOZ_SQLSTORE_SQLITE_PATH=/var/lib/signoz/signoz.db
-      - DASHBOARDS_PATH=/root/config/dashboards
-      - STORAGE=clickhouse
-      - GODEBUG=netdns=go
-      - DEPLOYMENT_TYPE=docker-standalone-amd
-      - DOT_METRICS_ENABLED=true
       {{- if $.Spec.Signoz.Spec.Env }}
       {{- range $key, $value := $.Spec.Signoz.Spec.Env }}
       - {{ $key }}={{ $value }}
@@ -234,13 +227,14 @@ services:
       {{- end }}
     restart: on-failure
     exclude_from_hc: true
+    {{- $clickhouseDSN := printf "%s-telemetrystore-%s-0-0" $.Metadata.Name $.Spec.TelemetryStore.Kind }}
     entrypoint:
       - "/bin/sh"
       - "-c"
     command:
-      - /signoz-otel-collector migrate bootstrap --clickhouse-dsn tcp://{{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0:9000
-      - /signoz-otel-collector migrate sync up --clickhouse-dsn tcp://{{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0:9000
-      - /signoz-otel-collector migrate async up --clickhouse-dsn tcp://{{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0:9000
+      - /signoz-otel-collector migrate bootstrap --clickhouse-dsn tcp://{{ $clickhouseDSN }}:9000
+      - /signoz-otel-collector migrate sync up --clickhouse-dsn tcp://{{ $clickhouseDSN }}:9000
+      - /signoz-otel-collector migrate async up --clickhouse-dsn tcp://{{$clickhouseDSN }}:9000
     logging:
       options:
         max-size: 50m
