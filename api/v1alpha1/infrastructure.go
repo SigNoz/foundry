@@ -13,13 +13,13 @@ const (
 type InfrastructureComputeType string
 
 const (
-	// AWS compute types
+	// AWS compute types.
 	InfrastructureComputeTypeEC2 InfrastructureComputeType = "ec2"
 	InfrastructureComputeTypeEKS InfrastructureComputeType = "eks"
-	// GCP compute types
+	// GCP compute types.
 	InfrastructureComputeTypeGCE InfrastructureComputeType = "gce"
 	InfrastructureComputeTypeGKE InfrastructureComputeType = "gke"
-	// Azure compute types
+	// Azure compute types.
 	InfrastructureComputeTypeVM  InfrastructureComputeType = "vm"
 	InfrastructureComputeTypeAKS InfrastructureComputeType = "aks"
 )
