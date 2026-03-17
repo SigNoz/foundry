@@ -41,6 +41,7 @@ services:
   {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts:
     image: {{ $.Spec.TelemetryStore.Spec.Image }}
+    restart: "no"
     command:
       - bash
       - -c
@@ -212,20 +213,12 @@ services:
       {{- end }}
     command:
       - --config=/etc/otel-collector-config.yaml
-      - --manager-config=/etc/manager-config.yaml
-      - --copy-path=/var/tmp/collector-config.yaml
-      - --feature-gates=-pkg.translator.prometheus.NormalizeName
     volumes:
       - type: bind
         source: ./configs/ingester/ingester.yaml
         target: /etc/otel-collector-config.yaml
         content: |
 {{ index $.Spec.Ingester.Spec.Config.Data "ingester.yaml" | indent 10 }}
-      - type: bind
-        source: ./configs/ingester/opamp.yaml
-        target: /etc/manager-config.yaml
-        content: |
-{{ index $.Spec.Ingester.Spec.Config.Data "opamp.yaml" | indent 10 }}
     logging:
       options:
         max-size: 50m
