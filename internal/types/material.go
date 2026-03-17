@@ -102,7 +102,7 @@ func (m Material) IsMultiDoc() bool {
 func (m Material) FmtContents() []byte {
 	switch m.format {
 	case FormatYAML:
-		out, err := m.ToYaml()
+		fmtContents, err := m.ToYaml()
 		if err != nil {
 			return nil
 		}

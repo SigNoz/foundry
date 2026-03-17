@@ -35,6 +35,8 @@ definitions:
     type: object
   V1Alpha1Infrastructure:
     properties:
+      computeType:
+        type: string
       enabled:
         type: boolean
       provider:

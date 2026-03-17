@@ -6,6 +6,7 @@ spec:
     flavor: binary
     mode: systemd
   infrastructure:
+    computeType: ec2
     enabled: false
     provider: aws
   ingester:

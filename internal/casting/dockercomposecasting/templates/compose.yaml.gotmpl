@@ -104,13 +104,6 @@ services:
     image: {{ $.Spec.Ingester.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
-    depends_on:
-      {{- range $shardIdx := $.Spec.TelemetryStore.Spec.Cluster.Shards }}
-      {{- range $replicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
-      {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}:
-        condition: service_healthy
-      {{- end }}
-      {{- end }}
     command:
       - "--config=/etc/otel-collector-config.yaml"
     volumes:
