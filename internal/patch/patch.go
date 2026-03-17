@@ -1,0 +1,29 @@
+package patch
+
+import (
+	"context"
+	"path/filepath"
+
+	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/internal/types"
+)
+
+// Patch applies a single patch entry to generated materials.
+type Patch interface {
+	// Apply applies a single patch entry to matching materials and returns the patched materials.
+	Apply(ctx context.Context, materials []types.Material, patch v1alpha1.PatchEntry) ([]types.Material, error)
+}
+
+// MatchTarget checks if a material path matches a target pattern.
+// It tries matching against the full path first, then against the basename.
+func MatchTarget(pattern, path string) (bool, error) {
+	ok, err := filepath.Match(pattern, path)
+	if err != nil {
+		return false, err
+	}
+	if ok {
+		return true, nil
+	}
+
+	return filepath.Match(pattern, filepath.Base(path))
+}

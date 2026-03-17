@@ -116,6 +116,20 @@ func (m Material) Path() string {
 	return m.path
 }
 
+// IsPatchable returns true if the material's format supports patch operations.
+func (m Material) IsPatchable() bool {
+	return m.format == FormatYAML || m.format == FormatJSON
+}
+
+// WithContents returns a new Material with the given contents, preserving the path and format.
+func (m Material) WithContents(contents []byte) Material {
+	return Material{
+		contents: contents,
+		path:     m.path,
+		format:   m.format,
+	}
+}
+
 func (m Material) GetBytes(path string) ([]byte, error) {
 	result := gjson.GetBytes(m.contents, path)
 	if !result.Exists() {
