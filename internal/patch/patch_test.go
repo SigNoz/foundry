@@ -15,10 +15,12 @@ func TestMatchTarget(t *testing.T) {
 		want    bool
 	}{
 		{"exact match", "test.yaml", "test.yaml", true},
-		{"basename match", "compose.yaml", "deployment/compose.yaml", true},
+		{"full path match", "deployment/compose.yaml", "deployment/compose.yaml", true},
+		{"basename does not match full path", "compose.yaml", "deployment/compose.yaml", false},
 		{"glob match", "*.yaml", "test.yaml", true},
 		{"glob no match", "*.json", "test.yaml", false},
 		{"prefix glob", "clickhouse-*.yaml", "clickhouse-shard-0.yaml", true},
+		{"path glob", "deployment/*.yaml", "deployment/compose.yaml", true},
 		{"no match", "other.yaml", "test.yaml", false},
 	}
 

@@ -15,15 +15,7 @@ type Patch interface {
 }
 
 // MatchTarget checks if a material path matches a target pattern.
-// It tries matching against the full path first, then against the basename.
+// Supports exact paths and glob patterns.
 func MatchTarget(pattern, path string) (bool, error) {
-	ok, err := filepath.Match(pattern, path)
-	if err != nil {
-		return false, err
-	}
-	if ok {
-		return true, nil
-	}
-
-	return filepath.Match(pattern, filepath.Base(path))
+	return filepath.Match(pattern, path)
 }

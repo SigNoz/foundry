@@ -120,12 +120,12 @@ func TestApply_GlobTarget(t *testing.T) {
 	assert.Contains(t, string(contents), "1")
 }
 
-func TestApply_BasenameMatch(t *testing.T) {
+func TestApply_FullPathMatch(t *testing.T) {
 	p := New()
 	mat := newYAMLMaterial(t, `name: test`, "deployment/compose.yaml")
 
 	pe := v1alpha1.PatchEntry{
-		Target: "compose.yaml",
+		Target: "deployment/compose.yaml",
 		Operations: []v1alpha1.PatchOperation{
 			{Op: "replace", Path: "/name", Value: "patched"},
 		},

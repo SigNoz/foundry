@@ -194,9 +194,8 @@ spec:
 
 **Target matching:**
 
-- Exact: `target: "compose.yaml"`
-- Basename: `target: "compose.yaml"` matches `deployment/compose.yaml`
-- Glob: `target: "telemetrystore-*.yaml"` matches multiple files
+- Exact: `target: "deployment/compose.yaml"`
+- Glob: `target: "deployment/telemetrystore-*.yaml"` matches multiple files
 
 > [!TIP]
 > Run `foundryctl forge` first without patches to see the generated file names and structure, then write patches against them.
