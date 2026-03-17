@@ -1,5 +1,4 @@
 {{- $name := print $.Metadata.Name "-telemetrystore-" $.Spec.TelemetryStore.Kind "-operator" -}}
-{{- $knobs := $.Spec.TelemetryStore.Spec.Config.Knobs -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -34,33 +33,8 @@ spec:
         checksum/keeper-templatesd-files: a47abf45edf0f439048648e3d6d1ecede35e560a76f32d8a4aa6055e0fcf58a8
         checksum/keeper-usersd-files: 2fbf34a572990f10fe9bf11c9884c5e847a1a23a02f0728e83bac4f4f9036797
     spec:
-      {{- if and $knobs (index $knobs "imagePullSecrets") }}
-      imagePullSecrets:
-        {{- (index $knobs "imagePullSecrets") | toYaml | nindent 8 }}
-      {{- end }}
-      {{- if and $knobs (index $knobs "tolerations") }}
-      tolerations:
-        {{- (index $knobs "tolerations") | toYaml | nindent 8 }}
-      {{- end }}
-      {{- if and $knobs (index $knobs "nodeSelector") }}
-      nodeSelector:
-        {{- (index $knobs "nodeSelector") | toYaml | nindent 8 }}
-      {{- else }}
       nodeSelector:
         kubernetes.io/os: "linux"
-      {{- end }}
-      {{- if and $knobs (index $knobs "affinity") }}
-      affinity:
-        {{- (index $knobs "affinity") | toYaml | nindent 8 }}
-      {{- end }}
-      {{- if and $knobs (index $knobs "topologySpreadConstraints") }}
-      topologySpreadConstraints:
-        {{- (index $knobs "topologySpreadConstraints") | toYaml | nindent 8 }}
-      {{- end }}
-      {{- if and $knobs (index $knobs "podSecurityContext") }}
-      securityContext:
-        {{- (index $knobs "podSecurityContext") | toYaml | nindent 8 }}
-      {{- end }}
       serviceAccountName: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-operator
       volumes:
         - name: etc-clickhouse-operator-folder
@@ -164,22 +138,12 @@ spec:
           ports:
             - containerPort: 9999
               name: op-metrics
-          {{- if and $knobs (index $knobs "resources") }}
-          resources:
-            {{- (index $knobs "resources") | toYaml | nindent 12 }}
-          {{- else }}
           resources:
             requests:
               cpu: 1000m
               memory: 2Gi
-          {{- end }}
-          {{- if and $knobs (index $knobs "securityContext") }}
-          securityContext:
-            {{- (index $knobs "securityContext") | toYaml | nindent 12 }}
-          {{- else }}
           securityContext:
             {}
-          {{- end }}
         - name: metrics-exporter
           image: altinity/metrics-exporter:0.25.3
           imagePullPolicy: IfNotPresent

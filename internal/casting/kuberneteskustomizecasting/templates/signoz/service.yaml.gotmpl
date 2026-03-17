@@ -1,5 +1,4 @@
 {{- $name := print $.Metadata.Name "-signoz" -}}
-{{- $knobs := $.Spec.Signoz.Spec.Config.Knobs -}}
 apiVersion: v1
 kind: Service
 metadata:
@@ -9,15 +8,8 @@ metadata:
     app.kubernetes.io/instance: {{ $.Metadata.Name }}
     app.kubernetes.io/component: signoz
     app.kubernetes.io/managed-by: kustomize
-  {{- if and $knobs (index $knobs "serviceLabels") }}
-    {{- (index $knobs "serviceLabels") | toYaml | nindent 4 }}
-  {{- end }}
-  {{- if and $knobs (index $knobs "serviceAnnotations") }}
-  annotations:
-    {{- (index $knobs "serviceAnnotations") | toYaml | nindent 4 }}
-  {{- end }}
 spec:
-  type: {{ default "ClusterIP" (index $knobs "serviceType") }}
+  type: ClusterIP
   ports:
     - name: http
       port: 8080

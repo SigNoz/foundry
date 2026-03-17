@@ -1,6 +1,5 @@
 {{- $name := print $.Metadata.Name "-ingester" -}}
 {{- $clickhouseName := print $.Metadata.Name "-clickhouse" -}}
-{{- $knobs := $.Spec.Ingester.Spec.Config.Knobs -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -12,9 +11,6 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 spec:
   replicas: {{ int $.Spec.Ingester.Spec.Cluster.Replicas }}
-  {{- if and $knobs (index $knobs "minReadySeconds") }}
-  minReadySeconds: {{ index $knobs "minReadySeconds" }}
-  {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $name }}
@@ -26,42 +22,7 @@ spec:
         app.kubernetes.io/name: {{ $name }}
         app.kubernetes.io/instance: {{ $.Metadata.Name }}
         app.kubernetes.io/component: ingester
-      {{- if and $knobs (index $knobs "podLabels") }}
-        {{- (index $knobs "podLabels") | toYaml | nindent 8 }}
-      {{- end }}
-      {{- if and $knobs (index $knobs "podAnnotations") }}
-      annotations:
-        {{- (index $knobs "podAnnotations") | toYaml | nindent 8 }}
-      {{- end }}
     spec:
-      {{- if and $knobs (index $knobs "imagePullSecrets") }}
-      imagePullSecrets:
-        {{- (index $knobs "imagePullSecrets") | toYaml | nindent 8 }}
-      {{- end }}
-      {{- if and $knobs (index $knobs "tolerations") }}
-      tolerations:
-        {{- (index $knobs "tolerations") | toYaml | nindent 8 }}
-      {{- end }}
-      {{- if and $knobs (index $knobs "nodeSelector") }}
-      nodeSelector:
-        {{- (index $knobs "nodeSelector") | toYaml | nindent 8 }}
-      {{- end }}
-      {{- if and $knobs (index $knobs "affinity") }}
-      affinity:
-        {{- (index $knobs "affinity") | toYaml | nindent 8 }}
-      {{- end }}
-      {{- if and $knobs (index $knobs "topologySpreadConstraints") }}
-      topologySpreadConstraints:
-        {{- (index $knobs "topologySpreadConstraints") | toYaml | nindent 8 }}
-      {{- end }}
-      {{- if and $knobs (index $knobs "podSecurityContext") }}
-      podSecurityContext:
-        {{- (index $knobs "podSecurityContext") | toYaml | nindent 8 }}
-      {{- end }}
-      {{- if and $knobs (index $knobs "securityContext") }}
-      securityContext:
-        {{- (index $knobs "securityContext") | toYaml | nindent 8 }}
-      {{- end }}
       containers:
         - args:
             - "--config=/conf/config.yaml"
@@ -152,19 +113,10 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 6
             successThreshold: 1
-          {{- if and $knobs (index $knobs "resources") }}
-          resources:
-            {{- (index $knobs "resources") | toYaml | nindent 12 }}
-          {{- else }}
           resources:
             requests:
               cpu: 125m
               memory: 512Mi
-          {{- end }}
-          {{- if and $knobs (index $knobs "securityContext") }}
-          securityContext:
-            {{- (index $knobs "securityContext") | toYaml | nindent 12 }}
-          {{- end }}
           volumeMounts:
             - name: ingester-config-vol
               mountPath: /conf

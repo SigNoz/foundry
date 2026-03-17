@@ -1,6 +1,5 @@
 {{- $name := print $.Metadata.Name "-signoz" -}}
 {{- $clickhouseName := print $.Metadata.Name "-clickhouse" -}}
-{{- $knobs := $.Spec.Signoz.Spec.Config.Knobs -}}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -12,9 +11,6 @@ metadata:
     app.kubernetes.io/name: {{ $name }}
 spec:
   replicas: {{ int $.Spec.Signoz.Spec.Cluster.Replicas }}
-  {{- if and $knobs (index $knobs "minReadySeconds") }}
-  minReadySeconds: {{ index $knobs "minReadySeconds" }}
-  {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $name }}
@@ -27,38 +23,7 @@ spec:
         app.kubernetes.io/component: signoz
         app.kubernetes.io/instance: {{ $.Metadata.Name }}
         app.kubernetes.io/name: {{ $name }}
-      {{- if and $knobs (index $knobs "podLabels") }}
-        {{- (index $knobs "podLabels") | toYaml | nindent 8 }}
-      {{- end }}
-      {{- if and $knobs (index $knobs "podAnnotations") }}
-      annotations:
-        {{- (index $knobs "podAnnotations") | toYaml | nindent 8 }}
-      {{- end }}
     spec:
-      {{- if and $knobs (index $knobs "imagePullSecrets") }}
-      imagePullSecrets:
-        {{- (index $knobs "imagePullSecrets") | toYaml | nindent 8 }}
-      {{- end }}
-      {{- if and $knobs (index $knobs "tolerations") }}
-      tolerations:
-        {{- (index $knobs "tolerations") | toYaml | nindent 8 }}
-      {{- end }}
-      {{- if and $knobs (index $knobs "nodeSelector") }}
-      nodeSelector:
-        {{- (index $knobs "nodeSelector") | toYaml | nindent 8 }}
-      {{- end }}
-      {{- if and $knobs (index $knobs "affinity") }}
-      affinity:
-        {{- (index $knobs "affinity") | toYaml | nindent 8 }}
-      {{- end }}
-      {{- if and $knobs (index $knobs "topologySpreadConstraints") }}
-      topologySpreadConstraints:
-        {{- (index $knobs "topologySpreadConstraints") | toYaml | nindent 8 }}
-      {{- end }}
-      {{- if and $knobs (index $knobs "podSecurityContext") }}
-      securityContext:
-        {{- (index $knobs "podSecurityContext") | toYaml | nindent 8 }}
-      {{- end }}
       containers:
         - env:
             - name: CLICKHOUSE_USER
@@ -111,34 +76,8 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 6
             successThreshold: 1
-          {{- if and $knobs (index $knobs "resources") }}
-          resources:
-            {{- (index $knobs "resources") | toYaml | nindent 12 }}
-          {{- else }}
           resources:
             requests:
               cpu: 100m
               memory: 200Mi
-          {{- end }}
-          {{- if and $knobs (index $knobs "securityContext") }}
-          securityContext:
-            {{- (index $knobs "securityContext") | toYaml | nindent 12 }}
-          {{- end }}
-          volumeMounts:
-            - name: store
-              mountPath: /var/lib/signoz/
       serviceAccountName: {{ $name }}
-  volumeClaimTemplates:
-    - apiVersion: v1
-      kind: PersistentVolumeClaim
-      metadata:
-        name: store
-      spec:
-        accessModes:
-          - ReadWriteOnce
-        {{- if and $knobs (index $knobs "storageClass") }}
-        storageClassName: {{ index $knobs "storageClass" | quote }}
-        {{- end }}
-        resources:
-          requests:
-            storage: {{ if and $knobs (index $knobs "storageSize") }}{{ index $knobs "storageSize" | quote }}{{ else }}1Gi{{ end }}

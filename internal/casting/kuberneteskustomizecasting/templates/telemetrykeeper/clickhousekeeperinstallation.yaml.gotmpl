@@ -1,5 +1,4 @@
 {{- $name := print $.Metadata.Name "-clickhouse-keeper" -}}
-{{- $knobs := $.Spec.TelemetryKeeper.Spec.Config.Knobs -}}
 # Ref: https://github.com/Altinity/clickhouse-operator/blob/master/docs/chk-examples/02-extended-1-node.yaml
 apiVersion: clickhouse-keeper.altinity.com/v1
 kind: ClickHouseKeeperInstallation
@@ -32,58 +31,21 @@ spec:
             app.kubernetes.io/part-of: signoz
             app.kubernetes.io/managed-by: kustomize
         spec:
-          {{- if and $knobs (index $knobs "imagePullSecrets") }}
-          imagePullSecrets:
-            {{- (index $knobs "imagePullSecrets") | toYaml | nindent 12 }}
-          {{- end }}
-          {{- if and $knobs (index $knobs "tolerations") }}
-          tolerations:
-            {{- (index $knobs "tolerations") | toYaml | nindent 12 }}
-          {{- end }}
-          {{- if and $knobs (index $knobs "nodeSelector") }}
-          nodeSelector:
-            {{- (index $knobs "nodeSelector") | toYaml | nindent 12 }}
-          {{- end }}
-          {{- if and $knobs (index $knobs "affinity") }}
-          affinity:
-            {{- (index $knobs "affinity") | toYaml | nindent 12 }}
-          {{- end }}
-          {{- if and $knobs (index $knobs "topologySpreadConstraints") }}
-          topologySpreadConstraints:
-            {{- (index $knobs "topologySpreadConstraints") | toYaml | nindent 12 }}
-          {{- end }}
-          {{- if and $knobs (index $knobs "podSecurityContext") }}
-          securityContext:
-            {{- (index $knobs "podSecurityContext") | toYaml | nindent 12 }}
-          {{- else }}
           securityContext:
             fsGroup: 101
-          {{- end }}
           containers:
             - name: clickhouse-keeper
               imagePullPolicy: IfNotPresent
               image: {{ $.Spec.TelemetryKeeper.Spec.Image }}
-              {{- if and $knobs (index $knobs "resources") }}
-              resources:
-                {{- (index $knobs "resources") | toYaml | nindent 16 }}
-              {{- else }}
               resources:
                 requests:
                   cpu: 1
                   memory: 1Gi
-              {{- end }}
-              {{- if and $knobs (index $knobs "securityContext") }}
-              securityContext:
-                {{- (index $knobs "securityContext") | toYaml | nindent 16 }}
-              {{- end }}
     volumeClaimTemplates:
       - name: default
         spec:
           accessModes:
             - ReadWriteOnce
-          {{- if and $knobs (index $knobs "storageClass") }}
-          storageClassName: {{ index $knobs "storageClass" | quote }}
-          {{- end }}
           resources:
             requests:
-              storage: {{ if and $knobs (index $knobs "storageSize") }}{{ index $knobs "storageSize" | quote }}{{ else }}10Gi{{ end }}
+              storage: 10Gi

@@ -78,18 +78,4 @@ spec:
           requests:
             cpu: 100m
             memory: 200Mi
-        volumeMounts:
-        - mountPath: /var/lib/signoz/
-          name: store
       serviceAccountName: signoz-signoz
-  volumeClaimTemplates:
-  - apiVersion: v1
-    kind: PersistentVolumeClaim
-    metadata:
-      name: store
-    spec:
-      accessModes:
-      - ReadWriteOnce
-      resources:
-        requests:
-          storage: 1Gi

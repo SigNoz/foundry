@@ -1,5 +1,4 @@
 {{- $name := print $.Metadata.Name "-metastore" -}}
-{{- $knobs := $.Spec.MetaStore.Spec.Config.Knobs -}}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -19,10 +18,6 @@ spec:
       app.kubernetes.io/component: metastore
   template:
     metadata:
-{{- if and $knobs (hasKey $knobs "podAnnotations") }}
-      annotations:
-{{ toYaml (index $knobs "podAnnotations") | indent 8 }}
-{{- end }}
       labels:
         app.kubernetes.io/component: metastore
         app.kubernetes.io/instance: {{ $.Metadata.Name }}
@@ -72,24 +67,12 @@ spec:
             successThreshold: 1
             failureThreshold: 6
           resources:
-{{- if and $knobs (hasKey $knobs "resources") }}
-{{ toYaml (index $knobs "resources") | indent 12 }}
-{{- else }}
             requests:
               cpu: 100m
               memory: 128Mi
-{{- end }}
           volumeMounts:
             - name: pgdata
               mountPath: /var/lib/postgresql
-{{- if and $knobs (hasKey $knobs "nodeSelector") }}
-      nodeSelector:
-{{ toYaml (index $knobs "nodeSelector") | indent 8 }}
-{{- end }}
-{{- if and $knobs (hasKey $knobs "tolerations") }}
-      tolerations:
-{{ toYaml (index $knobs "tolerations") | indent 8 }}
-{{- end }}
       serviceAccountName: {{ $name }}
   volumeClaimTemplates:
     - apiVersion: v1
@@ -99,9 +82,6 @@ spec:
       spec:
         accessModes:
           - ReadWriteOnce
-{{- if and $knobs (hasKey $knobs "storageClass") }}
-        storageClassName: {{ index $knobs "storageClass" }}
-{{- end }}
         resources:
           requests:
-            storage: {{ if and $knobs (hasKey $knobs "storageSize") }}{{ index $knobs "storageSize" }}{{ else }}10Gi{{ end }}
+            storage: 10Gi

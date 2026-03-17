@@ -3,7 +3,6 @@ package kuberneteskustomizecasting
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -23,57 +22,6 @@ var _ rootcasting.Casting = (*kustomizeCasting)(nil)
 type kustomizeCasting struct {
 	logger   *slog.Logger
 	castings []*types.Template
-}
-
-// KustomizeKnobs defines the supported knobs for the kustomize casting.
-type KustomizeKnobs struct {
-	// Resources defines CPU and memory requests/limits for the container.
-	Resources map[string]any `json:"resources,omitempty" yaml:"resources,omitempty"`
-
-	// Tolerations defines pod tolerations for scheduling.
-	Tolerations []map[string]any `json:"tolerations,omitempty" yaml:"tolerations,omitempty"`
-
-	// NodeSelector defines node selection constraints.
-	NodeSelector map[string]string `json:"nodeSelector,omitempty" yaml:"nodeSelector,omitempty"`
-
-	// Affinity defines pod affinity and anti-affinity rules.
-	Affinity map[string]any `json:"affinity,omitempty" yaml:"affinity,omitempty"`
-
-	// TopologySpreadConstraints defines how pods are spread across topology domains.
-	TopologySpreadConstraints []map[string]any `json:"topologySpreadConstraints,omitempty" yaml:"topologySpreadConstraints,omitempty"`
-
-	// PodSecurityContext defines the pod-level security context (e.g. runAsUser, fsGroup).
-	PodSecurityContext map[string]any `json:"podSecurityContext,omitempty" yaml:"podSecurityContext,omitempty"`
-
-	// SecurityContext defines the container-level security context (e.g. runAsNonRoot, readOnlyRootFilesystem).
-	SecurityContext map[string]any `json:"securityContext,omitempty" yaml:"securityContext,omitempty"`
-
-	// ImagePullSecrets lists secret names for pulling container images.
-	ImagePullSecrets []map[string]any `json:"imagePullSecrets,omitempty" yaml:"imagePullSecrets,omitempty"`
-
-	// MinReadySeconds is the minimum seconds a pod should be ready before considered available (Deployment/StatefulSet).
-	MinReadySeconds *int `json:"minReadySeconds,omitempty" yaml:"minReadySeconds,omitempty"`
-
-	// StorageSize defines the PVC storage request size (e.g. "10Gi").
-	StorageSize string `json:"storageSize,omitempty" yaml:"storageSize,omitempty"`
-
-	// StorageClass defines the PVC storage class name.
-	StorageClass string `json:"storageClass,omitempty" yaml:"storageClass,omitempty"`
-
-	// ServiceType defines the Kubernetes service type (e.g. "ClusterIP", "LoadBalancer").
-	ServiceType string `json:"serviceType,omitempty" yaml:"serviceType,omitempty"`
-
-	// ServiceAnnotations defines annotations to add to the service.
-	ServiceAnnotations map[string]string `json:"serviceAnnotations,omitempty" yaml:"serviceAnnotations,omitempty"`
-
-	// ServiceLabels defines labels to add to the service.
-	ServiceLabels map[string]string `json:"serviceLabels,omitempty" yaml:"serviceLabels,omitempty"`
-
-	// PodAnnotations defines annotations to add to the pod template.
-	PodAnnotations map[string]string `json:"podAnnotations,omitempty" yaml:"podAnnotations,omitempty"`
-
-	// PodLabels defines extra labels to add to the pod template (podExtraLabels in Kubedeploy, podLabels in Altinity).
-	PodLabels map[string]string `json:"podLabels,omitempty" yaml:"podLabels,omitempty"`
 }
 
 func New(logger *slog.Logger) *kustomizeCasting {
@@ -118,14 +66,6 @@ func (c *kustomizeCasting) Enricher(ctx context.Context, config *v1alpha1.Castin
 }
 
 func (c *kustomizeCasting) Forge(ctx context.Context, cfg v1alpha1.Casting, poursPath string) ([]types.Material, error) {
-	if err := c.validateKnobs(cfg); err != nil {
-		return nil, fmt.Errorf("invalid knobs: %w", err)
-	}
-
-	if err := c.resolvePatchPaths(&cfg, poursPath); err != nil {
-		return nil, fmt.Errorf("failed to resolve patch paths: %w", err)
-	}
-
 	var materials []types.Material
 	for _, tmpl := range c.castings {
 		m, err := c.forgeCasting(tmpl, &cfg, poursPath)
@@ -196,74 +136,6 @@ func (c *kustomizeCasting) applyCRDs(ctx context.Context) error {
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to apply CRD %s: %w", crd, err)
 		}
-	}
-
-	return nil
-}
-
-// validateKnobs parses each component's knobs into KustomizeKnobs to catch
-// type mismatches and unknown keys before templates run.
-func (c *kustomizeCasting) validateKnobs(cfg v1alpha1.Casting) error {
-	components := map[string]map[string]any{
-		"signoz":          cfg.Spec.Signoz.Spec.Config.Knobs,
-		"ingester":        cfg.Spec.Ingester.Spec.Config.Knobs,
-		"telemetrystore":  cfg.Spec.TelemetryStore.Spec.Config.Knobs,
-		"telemetrykeeper": cfg.Spec.TelemetryKeeper.Spec.Config.Knobs,
-		"metastore":       cfg.Spec.MetaStore.Spec.Config.Knobs,
-	}
-
-	for component, knobs := range components {
-		if knobs == nil {
-			continue
-		}
-
-		data, err := json.Marshal(knobs)
-		if err != nil {
-			return fmt.Errorf("component %s: failed to marshal knobs: %w", component, err)
-		}
-
-		var k KustomizeKnobs
-		if err := json.Unmarshal(data, &k); err != nil {
-			return fmt.Errorf("component %s: %w", component, err)
-		}
-	}
-
-	return nil
-}
-
-// resolvePatchPaths converts patch file paths from project-root-relative to
-// kustomization-directory-relative so kustomize can find them without copying.
-func (c *kustomizeCasting) resolvePatchPaths(cfg *v1alpha1.Casting, poursPath string) error {
-	if len(cfg.Patches) == 0 {
-		return nil
-	}
-
-	kustomizeDir := filepath.Join(poursPath, rootcasting.DeploymentDir)
-	absKustomizeDir, err := filepath.Abs(kustomizeDir)
-	if err != nil {
-		return fmt.Errorf("failed to resolve kustomize directory: %w", err)
-	}
-
-	for i, patch := range cfg.Patches {
-		if patch.Path == "" {
-			continue
-		}
-
-		absPatchPath, err := filepath.Abs(patch.Path)
-		if err != nil {
-			return fmt.Errorf("failed to resolve patch path %q: %w", patch.Path, err)
-		}
-
-		if _, err := os.Stat(absPatchPath); err != nil {
-			return fmt.Errorf("patch file %q does not exist: %w", patch.Path, err)
-		}
-
-		relPath, err := filepath.Rel(absKustomizeDir, absPatchPath)
-		if err != nil {
-			return fmt.Errorf("failed to compute relative path for %q: %w", patch.Path, err)
-		}
-
-		cfg.Patches[i].Path = relPath
 	}
 
 	return nil

@@ -24,7 +24,3 @@ resources:
 {{- if $.Spec.Ingester.Spec.Enabled }}
 - ingester
 {{- end }}
-{{- if $.Patches }}
-patches:
-{{ toYaml $.Patches | nindent 2 }}
-{{- end }}
