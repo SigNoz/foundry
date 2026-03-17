@@ -22,14 +22,14 @@ spec:
         - async
         - up
         env:
-        - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
-          value: tcp://admin:27ff0399-0d3a-4bd8-919d-17c2181e6fb9@signoz-clickhouse:9000
         - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER
           value: cluster
         - name: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
           value: 10m
         - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION
           value: "true"
+        - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+          value: tcp://signoz-clickhouse:9000
         image: signoz/signoz-otel-collector:latest
         imagePullPolicy: IfNotPresent
         name: async
@@ -42,14 +42,14 @@ spec:
         - migrate
         - ready
         env:
-        - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
-          value: tcp://admin:27ff0399-0d3a-4bd8-919d-17c2181e6fb9@signoz-clickhouse:9000
         - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER
           value: cluster
         - name: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
           value: 10m
         - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION
           value: "true"
+        - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+          value: tcp://signoz-clickhouse:9000
         image: signoz/signoz-otel-collector:latest
         imagePullPolicy: IfNotPresent
         name: ready
@@ -61,14 +61,14 @@ spec:
         - migrate
         - bootstrap
         env:
-        - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
-          value: tcp://admin:27ff0399-0d3a-4bd8-919d-17c2181e6fb9@signoz-clickhouse:9000
         - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER
           value: cluster
         - name: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
           value: 10m
         - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION
           value: "true"
+        - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+          value: tcp://signoz-clickhouse:9000
         image: signoz/signoz-otel-collector:latest
         imagePullPolicy: IfNotPresent
         name: bootstrap
@@ -81,14 +81,14 @@ spec:
         - sync
         - up
         env:
-        - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
-          value: tcp://admin:27ff0399-0d3a-4bd8-919d-17c2181e6fb9@signoz-clickhouse:9000
         - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER
           value: cluster
         - name: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
           value: 10m
         - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION
           value: "true"
+        - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+          value: tcp://signoz-clickhouse:9000
         image: signoz/signoz-otel-collector:latest
         imagePullPolicy: IfNotPresent
         name: sync

@@ -174,9 +174,9 @@ func getServiceMaterials(config *v1alpha1.Casting) ([]types.Material, error) {
 	if err := metastoreService.Execute(metaStoreServiceBuf, config); err != nil {
 		return nil, fmt.Errorf("failed to execute store installation template: %w", err)
 	}
-	metaStoreServiceMaterial, err := types.NewYAMLMaterial(metaStoreServiceBuf.Bytes(), "clickhouseInstallation.yaml")
+	metaStoreServiceMaterial, err := types.NewYAMLMaterial(metaStoreServiceBuf.Bytes(), "metastoreServie.yaml")
 	if err != nil {
-		return nil, fmt.Errorf("failed to create keeper override material: %w", err)
+		return nil, fmt.Errorf("failed to create metastore service material: %w", err)
 	}
 	materials = append(materials, metaStoreServiceMaterial)
 	return materials, nil

@@ -138,6 +138,8 @@ spec:
           opamp.yaml: |
             server_endpoint: ws://signoz-signoz:4320/v1/opamp
       enabled: true
+      env:
+        SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN: tcp://signoz-clickhouse:9000
       image: signoz/signoz-otel-collector:latest
       version: latest
     status:
@@ -271,6 +273,8 @@ spec:
                     - signozclickhousemeter
           opamp.yaml: |
             server_endpoint: ws://signoz-signoz:4320/v1/opamp
+      env:
+        SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN: tcp://signoz-clickhouse:9000
   metastore:
     kind: postgres
     spec:

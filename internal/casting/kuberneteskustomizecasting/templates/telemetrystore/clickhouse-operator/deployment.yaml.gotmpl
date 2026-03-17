@@ -135,6 +135,10 @@ spec:
                 resourceFieldRef:
                   containerName: operator
                   resource: limits.memory
+            {{- range $key, $val := $.Spec.TelemetryStore.Spec.Env }}
+            - name: {{ $key }}
+              value: {{ $val }}
+            {{- end }}
           ports:
             - containerPort: 9999
               name: op-metrics

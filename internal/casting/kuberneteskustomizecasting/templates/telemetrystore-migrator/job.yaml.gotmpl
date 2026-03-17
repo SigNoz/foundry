@@ -23,14 +23,20 @@ spec:
           image: {{ $.Spec.Ingester.Spec.Image }}
           imagePullPolicy: IfNotPresent
           env:
-            - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
-              value: "tcp://admin:27ff0399-0d3a-4bd8-919d-17c2181e6fb9@{{ $clickhouseName }}:9000"
             - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER
               value: "cluster"
             - name: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
               value: "10m"
             - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION
               value: "true"
+            {{- if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
+            - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+              value: {{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
+            {{ end }} 
+            {{- range $key, $val := $.Spec.Ingester.Spec.Env }}
+            - name: {{ $key }}
+              value: {{ $val }}
+            {{- end }}
           args:
             - "migrate"
             - "ready"
@@ -42,14 +48,20 @@ spec:
           image: {{ $.Spec.Ingester.Spec.Image }}
           imagePullPolicy: IfNotPresent
           env:
-            - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
-              value: "tcp://admin:27ff0399-0d3a-4bd8-919d-17c2181e6fb9@{{ $clickhouseName }}:9000"
             - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER
               value: "cluster"
             - name: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
               value: "10m"
             - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION
               value: "true"
+            {{- if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
+            - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+              value: {{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
+            {{ end }} 
+            {{- range $key, $val := $.Spec.Ingester.Spec.Env }}
+            - name: {{ $key }}
+              value: {{ $val }}
+            {{- end }}
           args:
             - "migrate"
             - "bootstrap"
@@ -61,14 +73,20 @@ spec:
           image: {{ $.Spec.Ingester.Spec.Image }}
           imagePullPolicy: IfNotPresent
           env:
-            - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
-              value: "tcp://admin:27ff0399-0d3a-4bd8-919d-17c2181e6fb9@{{ $clickhouseName }}:9000"
             - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER
               value: "cluster"
             - name: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
               value: "10m"
             - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION
               value: "true"
+            {{- if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
+            - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+              value: {{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
+            {{ end }} 
+            {{- range $key, $val := $.Spec.Ingester.Spec.Env }}
+            - name: {{ $key }}
+              value: {{ $val }}
+            {{- end }}
           args:
             - "migrate"
             - "sync"
@@ -82,14 +100,20 @@ spec:
           image: {{ $.Spec.Ingester.Spec.Image }}
           imagePullPolicy: IfNotPresent
           env:
-            - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
-              value: "tcp://admin:27ff0399-0d3a-4bd8-919d-17c2181e6fb9@{{ $clickhouseName }}:9000"
             - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER
               value: "cluster"
             - name: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
               value: "10m"
             - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION
               value: "true"
+            {{- if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
+            - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+              value: {{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
+            {{ end }} 
+            {{- range $key, $val := $.Spec.Ingester.Spec.Env }}
+            - name: {{ $key }}
+              value: {{ $val }}
+            {{- end }}
           args:
             - "migrate"
             - "async"

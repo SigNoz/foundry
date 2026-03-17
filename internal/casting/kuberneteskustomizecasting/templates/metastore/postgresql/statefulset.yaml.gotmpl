@@ -32,18 +32,16 @@ spec:
               containerPort: 5432
               protocol: TCP
           env:
-            - name: POSTGRES_USER
-              value: {{ index $.Spec.MetaStore.Spec.Env "POSTGRES_USER" }}
-            - name: POSTGRES_PASSWORD
-              value: {{ index $.Spec.MetaStore.Spec.Env "POSTGRES_PASSWORD" }}
-            - name: POSTGRES_DB
-              value: {{ index $.Spec.MetaStore.Spec.Env "POSTGRES_DB" }}
             - name: POSTGRESQL_VOLUME_DIR
               value: "/var/lib/postgresql"
             - name: POSTGRESQL_PORT_NUMBER
               value: "5432"
             - name: PGDATA
               value: "/var/lib/postgresql/data"
+            {{- range $key, $val := $.Spec.MetaStore.Spec.Env }}
+            - name: {{ $key }}
+              value: {{ $val }}
+            {{- end }}
           livenessProbe:
             exec:
               command:

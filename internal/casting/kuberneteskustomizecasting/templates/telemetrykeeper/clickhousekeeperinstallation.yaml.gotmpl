@@ -41,6 +41,13 @@ spec:
                 requests:
                   cpu: 1
                   memory: 1Gi
+              {{- if $.Spec.TelemetryKeeper.Spec.Env}}
+              env:
+              {{- range $key, $val := $.Spec.TelemetryKeeper.Spec.Env }}
+              - name: {{ $key }}
+                value: {{ $val }}
+              {{- end }}
+              {{ end }}
     volumeClaimTemplates:
       - name: default
         spec:

@@ -56,32 +56,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-            - name: CLICKHOUSE_HOST
-              value: {{ $clickhouseName }}
-            - name: CLICKHOUSE_PORT
-              value: "9000"
-            - name: CLICKHOUSE_HTTP_PORT
-              value: "8123"
-            - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER
-              value: "cluster"
-            - name: CLICKHOUSE_DATABASE
-              value: "signoz_metrics"
-            - name: CLICKHOUSE_TRACE_DATABASE
-              value: "signoz_traces"
-            - name: CLICKHOUSE_LOG_DATABASE
-              value: "signoz_logs"
-            - name: CLICKHOUSE_METER_DATABASE
-              value: "signoz_meter"
-            - name: CLICKHOUSE_USER
-              value: "admin"
-            - name: CLICKHOUSE_PASSWORD
-              value: "27ff0399-0d3a-4bd8-919d-17c2181e6fb9"
-            - name: CLICKHOUSE_SECURE
-              value: "false"
-            - name: CLICKHOUSE_VERIFY
-              value: "false"
-            - name: LOW_CARDINAL_EXCEPTION_GROUPING
-              value: "false"
+            {{- range $key, $val := $.Spec.Ingester.Spec.Env }}
+            - name: {{ $key }}
+              value: {{ $val }}
+            {{- end }}
           image: {{ $.Spec.Ingester.Spec.Image }}
           imagePullPolicy: IfNotPresent
           livenessProbe:
@@ -128,14 +106,20 @@ spec:
           command:
             - "/signoz-otel-collector"
           env:
-            - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
-              value: "tcp://admin:27ff0399-0d3a-4bd8-919d-17c2181e6fb9@{{ $clickhouseName }}:9000"
             - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER
               value: "cluster"
             - name: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
               value: "10m"
             - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION
               value: "true"
+            {{- if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
+            - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+              value: {{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
+            {{ end }} 
+            {{- range $key, $val := $.Spec.Ingester.Spec.Env }}
+            - name: {{ $key }}
+              value: {{ $val }}
+            {{- end }}
           image: {{ $.Spec.Ingester.Spec.Image }}
           imagePullPolicy: IfNotPresent
           name: check
