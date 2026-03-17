@@ -24,18 +24,18 @@ spec:
     spec:
       containers:
       - env:
-        - name: POSTGRES_USER
-          value: signoz
-        - name: POSTGRES_PASSWORD
-          value: signoz
-        - name: POSTGRES_DB
-          value: signoz
         - name: POSTGRESQL_VOLUME_DIR
           value: /var/lib/postgresql
         - name: POSTGRESQL_PORT_NUMBER
           value: "5432"
         - name: PGDATA
           value: /var/lib/postgresql/data
+        - name: POSTGRES_DB
+          value: signoz
+        - name: POSTGRES_PASSWORD
+          value: signoz
+        - name: POSTGRES_USER
+          value: signoz
         image: postgres:16
         imagePullPolicy: IfNotPresent
         livenessProbe:

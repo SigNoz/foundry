@@ -24,28 +24,14 @@ spec:
     spec:
       containers:
       - env:
-        - name: CLICKHOUSE_USER
-          value: admin
-        - name: CLICKHOUSE_PASSWORD
-          value: 27ff0399-0d3a-4bd8-919d-17c2181e6fb9
-        - name: ClickHouseUrl
-          value: tcp://signoz-clickhouse:9000/?username=admin&password=27ff0399-0d3a-4bd8-919d-17c2181e6fb9
+        - name: SIGNOZ_SQLSTORE_POSTGRES_DSN
+          value: postgres://signoz:signoz@signoz-metastore:5432/signoz?sslmode=disable
+        - name: SIGNOZ_SQLSTORE_PROVIDER
+          value: postgres
         - name: SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN
           value: tcp://signoz-clickhouse:9000
-        - name: SIGNOZ_SQLSTORE_SQLITE_PATH
-          value: /var/lib/signoz/signoz.db
-        - name: DASHBOARDS_PATH
-          value: /root/config/dashboards
-        - name: ENABLE_QB_V5
-          value: "true"
-        - name: GODEBUG
-          value: netdns=go
-        - name: STORAGE
+        - name: SIGNOZ_TELEMETRYSTORE_PROVIDER
           value: clickhouse
-        - name: TELEMETRY_ENABLED
-          value: "true"
-        - name: DEPLOYMENT_TYPE
-          value: kubernetes-kustomize
         image: signoz/signoz:latest
         imagePullPolicy: IfNotPresent
         livenessProbe:
