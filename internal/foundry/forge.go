@@ -59,6 +59,20 @@ func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, path
 		return err
 	}
 
+	// Apply patch operations from spec.patches
+	for _, pe := range config.Spec.Patches {
+		patcher, ok := foundry.Patchers[pe.PatchType()]
+		if !ok {
+			return fmt.Errorf("unknown patch type %q", pe.PatchType())
+		}
+		foundry.Logger.InfoContext(ctx, "applying patch", slog.String("casting.metadata.name", config.Metadata.Name), slog.String("patch.type", pe.PatchType()), slog.String("patch.target", pe.Target))
+		materials, err = patcher.Apply(ctx, materials, pe)
+		if err != nil {
+			foundry.Logger.ErrorContext(ctx, "failed to apply patch", slog.String("casting.metadata.name", config.Metadata.Name), slog.String("patch.target", pe.Target), foundryerrors.LogAttr(err))
+			return fmt.Errorf("failed to apply patch for target %q: %w", pe.Target, err)
+		}
+	}
+
 	// writing the merged config to the config file
 	foundry.Logger.InfoContext(ctx, "writing lock file", slog.String("casting.metadata.name", config.Metadata.Name))
 

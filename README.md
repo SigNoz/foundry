@@ -45,25 +45,22 @@ To quickly get the correct binary for your architecture via the command line, ru
 **Linux:**
 
 ```bash
-FOUNDRY_VERSION=v0.0.1-rc.2
-curl -L "https://github.com/SigNoz/foundry/releases/download/${FOUNDRY_VERSION}/foundry_linux_$(uname -m | sed 's/x86_64/amd64/g' | sed 's/aarch64/arm64/g').tar.gz" -o foundry.tar.gz
+curl -L "https://github.com/SigNoz/foundry/releases/latest/download/foundry_linux_$(uname -m | sed 's/x86_64/amd64/g' | sed 's/aarch64/arm64/g').tar.gz" -o foundry.tar.gz
 tar -xzf foundry.tar.gz
 ```
 
 **macOS:**
 
 ```bash
-FOUNDRY_VERSION=v0.0.1-rc.2
-curl -L "https://github.com/SigNoz/foundry/releases/download/${FOUNDRY_VERSION}/foundry_darwin_$(uname -m | sed 's/x86_64/amd64/g' | sed 's/arm64/arm64/g').tar.gz" -o foundry.tar.gz
+curl -L "https://github.com/SigNoz/foundry/releases/latest/download/foundry_darwin_$(uname -m | sed 's/x86_64/amd64/g' | sed 's/arm64/arm64/g').tar.gz" -o foundry.tar.gz
 tar -xzf foundry.tar.gz
 ```
 
 **Windows (PowerShell):**
 
 ```bash
-$FOUNDRY_VERSION = "v0.0.1-rc.2"
 $ARCH = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "arm64" } else { "amd64" }
-Invoke-WebRequest -Uri "https://github.com/SigNoz/foundry/releases/download/$FOUNDRY_VERSION/foundry_windows_${ARCH}.tar.gz" -OutFile foundry.tar.gz -UseBasicParsing
+Invoke-WebRequest -Uri "https://github.com/SigNoz/foundry/releases/latest/download/foundry_windows_${ARCH}.tar.gz" -OutFile foundry.tar.gz -UseBasicParsing
 tar -xzf foundry.tar.gz
 ```
 

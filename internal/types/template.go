@@ -7,10 +7,12 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
+	"sigs.k8s.io/yaml"
 )
 
 type Template struct {
 	name   string
+	path   string
 	format Format
 	tmpl   *template.Template
 }
@@ -44,7 +46,7 @@ func NewTemplateFromFS(fs embed.FS, path string, format Format) (*Template, erro
 		return nil, err
 	}
 
-	return &Template{name: name, tmpl: tmpl, format: format}, nil
+	return &Template{name: name, path: path, tmpl: tmpl, format: format}, nil
 }
 
 func MustNewTemplateFromFS(fs embed.FS, path string, format Format) *Template {
@@ -81,4 +83,12 @@ func (t *Template) Execute(w io.Writer, data any) error {
 	}
 
 	return newtmpl.ExecuteTemplate(w, t.name, data)
+}
+
+func (t *Template) GetName() string {
+	return t.name
+}
+
+func (t *Template) GetPath() string {
+	return t.path
 }
