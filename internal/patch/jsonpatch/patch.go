@@ -30,10 +30,6 @@ func (p *jsonPatch) Apply(ctx context.Context, materials []types.Material, pe v1
 
 	matched := false
 	for i, mat := range result {
-		if !mat.IsPatchable() {
-			continue
-		}
-
 		ok, err := patch.MatchTarget(pe.Target, mat.Path())
 		if err != nil {
 			return nil, fmt.Errorf("invalid glob pattern %q: %w", pe.Target, err)

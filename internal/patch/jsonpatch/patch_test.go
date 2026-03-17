@@ -155,22 +155,6 @@ func TestApply_UnmatchedTargetReturnsError(t *testing.T) {
 	assert.Contains(t, err.Error(), "did not match any generated material")
 }
 
-func TestApply_NonPatchableMaterialSkipped(t *testing.T) {
-	p := New()
-	mat := types.NewTextMaterial([]byte("plain text"), "readme.txt")
-
-	pe := v1alpha1.PatchEntry{
-		Target: "readme.txt",
-		Operations: []v1alpha1.PatchOperation{
-			{Op: "replace", Path: "/foo", Value: "bar"},
-		},
-	}
-
-	_, err := p.Apply(context.Background(), []types.Material{mat}, pe)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "did not match any generated material")
-}
-
 func TestApply_InvalidPathReturnsError(t *testing.T) {
 	p := New()
 	mat := newYAMLMaterial(t, `name: test`, "test.yaml")
