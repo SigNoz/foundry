@@ -1,0 +1,31 @@
+apiVersion: v1
+data:
+  custom-functions.xml: |-
+    <functions>
+        <function>
+            <type>executable</type>
+            <name>histogramQuantile</name>
+            <return_type>Float64</return_type>
+            <argument>
+                <type>Float64</type>
+            </argument>
+            <argument>
+                <type>Array(Float64)</type>
+            </argument>
+            <argument>
+                <type>Array(Float64)</type>
+            </argument>
+            <format>TabSeparated</format>
+            <command>/var/lib/clickhouse/user_scripts/histogramQuantile</command>
+            <send_chunk_header>false</send_chunk_header>
+        </function>
+    </functions>
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: telemetrystore
+    app.kubernetes.io/instance: signoz
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-clickhouse
+    app.kubernetes.io/part-of: signoz
+  name: signoz-clickhouse-custom-functions

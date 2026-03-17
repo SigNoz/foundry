@@ -1,0 +1,129 @@
+apiVersion: v1
+data:
+  config.yaml: |-
+    connectors:
+      signozmeter:
+        dimensions:
+        - name: host.name
+        - name: deployment.environment
+        - name: service.name
+        metrics_flush_interval: 1h
+    exporters:
+      clickhouselogsexporter:
+        dsn: tcp://${env:CLICKHOUSE_USER}:${env:CLICKHOUSE_PASSWORD}@${env:CLICKHOUSE_HOST}:${env:CLICKHOUSE_PORT}/${env:CLICKHOUSE_LOG_DATABASE}
+        timeout: 10s
+        use_new_schema: true
+      clickhousetraces:
+        datasource: tcp://${env:CLICKHOUSE_USER}:${env:CLICKHOUSE_PASSWORD}@${env:CLICKHOUSE_HOST}:${env:CLICKHOUSE_PORT}/${env:CLICKHOUSE_TRACE_DATABASE}
+        low_cardinal_exception_grouping: ${env:LOW_CARDINAL_EXCEPTION_GROUPING}
+        use_new_schema: true
+      signozclickhousemeter:
+        dsn: tcp://${env:CLICKHOUSE_USER}:${env:CLICKHOUSE_PASSWORD}@${env:CLICKHOUSE_HOST}:${env:CLICKHOUSE_PORT}/${env:CLICKHOUSE_METER_DATABASE}
+        sending_queue:
+          enabled: false
+        timeout: 45s
+      signozclickhousemetrics:
+        dsn: tcp://${env:CLICKHOUSE_USER}:${env:CLICKHOUSE_PASSWORD}@${env:CLICKHOUSE_HOST}:${env:CLICKHOUSE_PORT}/${env:CLICKHOUSE_DATABASE}
+        timeout: 45s
+    extensions:
+      pprof:
+        endpoint: localhost:1777
+      signoz_health_check:
+        endpoint: 0.0.0.0:13133
+    processors:
+      batch:
+        send_batch_max_size: 25000
+        send_batch_size: 20000
+        timeout: 1s
+      batch/meter:
+        send_batch_max_size: 25000
+        send_batch_size: 20000
+        timeout: 1s
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 1024
+        spike_limit_mib: 128
+      signozspanmetrics/delta:
+        aggregation_temporality: AGGREGATION_TEMPORALITY_DELTA
+        dimensions:
+        - default: default
+          name: deployment.environment
+        - default: default
+          name: service.namespace
+        - name: signoz.collector.id
+        dimensions_cache_size: 100000
+        latency_histogram_buckets:
+        - 100us
+        - 1ms
+        - 2ms
+        - 6ms
+        - 10ms
+        - 50ms
+        - 100ms
+        - 250ms
+        - 500ms
+        - 1000ms
+        - 1400ms
+        - 2000ms
+        - 5s
+        - 10s
+        - 20s
+        - 40s
+        - 60s
+        metrics_exporter: signozclickhousemetrics
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+    service:
+      extensions:
+      - signoz_health_check
+      - pprof
+      pipelines:
+        logs:
+          exporters:
+          - clickhouselogsexporter
+          - signozmeter
+          processors:
+          - batch
+          receivers:
+          - otlp
+        metrics:
+          exporters:
+          - signozclickhousemetrics
+          - signozmeter
+          processors:
+          - batch
+          receivers:
+          - otlp
+        metrics/meter:
+          exporters:
+          - signozclickhousemeter
+          processors:
+          - batch/meter
+          receivers:
+          - signozmeter
+        traces:
+          exporters:
+          - clickhousetraces
+          - signozmeter
+          processors:
+          - signozspanmetrics/delta
+          - batch
+          receivers:
+          - otlp
+      telemetry:
+        logs:
+          encoding: json
+  opamp.yaml: 'server_endpoint: "ws://signoz-signoz:4320/v1/opamp"'
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: ingester
+    app.kubernetes.io/instance: signoz
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-ingester
+  name: signoz-ingester

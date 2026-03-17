@@ -1,0 +1,99 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app.kubernetes.io/component: schema-migrator
+    app.kubernetes.io/instance: signoz
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-telemetrystore-migrator
+  name: signoz-telemetrystore-migrator
+spec:
+  backoffLimit: 6
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: schema-migrator
+        app.kubernetes.io/instance: signoz
+        app.kubernetes.io/name: signoz-telemetrystore-migrator
+    spec:
+      containers:
+      - args:
+        - migrate
+        - async
+        - up
+        env:
+        - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+          value: tcp://admin:27ff0399-0d3a-4bd8-919d-17c2181e6fb9@signoz-clickhouse:9000
+        - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER
+          value: cluster
+        - name: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
+          value: 10m
+        - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION
+          value: "true"
+        image: signoz/signoz-otel-collector:latest
+        imagePullPolicy: IfNotPresent
+        name: async
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+      initContainers:
+      - args:
+        - migrate
+        - ready
+        env:
+        - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+          value: tcp://admin:27ff0399-0d3a-4bd8-919d-17c2181e6fb9@signoz-clickhouse:9000
+        - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER
+          value: cluster
+        - name: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
+          value: 10m
+        - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION
+          value: "true"
+        image: signoz/signoz-otel-collector:latest
+        imagePullPolicy: IfNotPresent
+        name: ready
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+      - args:
+        - migrate
+        - bootstrap
+        env:
+        - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+          value: tcp://admin:27ff0399-0d3a-4bd8-919d-17c2181e6fb9@signoz-clickhouse:9000
+        - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER
+          value: cluster
+        - name: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
+          value: 10m
+        - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION
+          value: "true"
+        image: signoz/signoz-otel-collector:latest
+        imagePullPolicy: IfNotPresent
+        name: bootstrap
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+      - args:
+        - migrate
+        - sync
+        - up
+        env:
+        - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+          value: tcp://admin:27ff0399-0d3a-4bd8-919d-17c2181e6fb9@signoz-clickhouse:9000
+        - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER
+          value: cluster
+        - name: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
+          value: 10m
+        - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION
+          value: "true"
+        image: signoz/signoz-otel-collector:latest
+        imagePullPolicy: IfNotPresent
+        name: sync
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+      restartPolicy: OnFailure
