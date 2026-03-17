@@ -116,6 +116,15 @@ func (m Material) Path() string {
 	return m.path
 }
 
+// WithContents returns a new Material with the given contents, preserving the path and format.
+func (m Material) WithContents(contents []byte) Material {
+	return Material{
+		contents: contents,
+		path:     m.path,
+		format:   m.format,
+	}
+}
+
 func (m Material) GetBytes(path string) ([]byte, error) {
 	result := gjson.GetBytes(m.contents, path)
 	if !result.Exists() {

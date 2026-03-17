@@ -123,85 +123,82 @@ Override a molding by giving it a `spec` block. Whatever you set gets merged wit
 | `cluster.shards`    | Shards (TelemetryStore only) |
 | `env`               | Environment variables (key/value map) |
 | `config.data`       | Config files: **filename → file contents** |
-| `config.knobs`      | Platform-specific knobs (see below) |
 
-#### Knobs (platform-specific overrides)
+#### Patches (platform-specific overrides)
 
-Knobs let you tune platform-specific settings per component without writing raw patches. They live under `<component>.spec.config.knobs`.
+`spec.patches` lets you customize any generated output file using patch operations. Patches are applied during forge, after material generation and before writing to `pours/`. They target output files by name (exact, basename, or glob).
 
-Each casting defines which knobs it supports. For example, the **kustomize** casting supports:
+Foundry uses a two-tier model:
+- **`spec`** is the application domain — Foundry understands, validates, and enriches it
+- **`spec.patches`** is the platform domain — Foundry applies it as-is, no validation
 
-| Knob | Type | Description |
+This means patches give you 100% coverage over the generated output without Foundry needing to model every platform-specific field.
+
+**Patch entry fields:**
+
+| Field | Required | Description |
 |---|---|---|
-| `resources` | `map` | CPU/memory requests and limits |
-| `tolerations` | `list` | Pod tolerations |
-| `nodeSelector` | `map` | Node selection constraints |
-| `affinity` | `map` | Pod affinity/anti-affinity rules |
-| `topologySpreadConstraints` | `list` | Topology spread constraints |
-| `podSecurityContext` | `map` | Pod-level security context |
-| `securityContext` | `map` | Container-level security context |
-| `imagePullSecrets` | `list` | Image pull secrets |
-| `minReadySeconds` | `int` | Min seconds before pod is considered ready |
-| `storageSize` | `string` | PVC storage size (e.g. `"10Gi"`) |
-| `storageClass` | `string` | PVC storage class name |
-| `serviceType` | `string` | Kubernetes service type (e.g. `"LoadBalancer"`) |
-| `serviceAnnotations` | `map` | Service annotations |
-| `serviceLabels` | `map` | Service labels |
-| `podAnnotations` | `map` | Pod annotations |
-| `podLabels` | `map` | Pod labels |
+| `type` | No | Patch driver. Defaults to `jsonpatch`. |
+| `target` | Yes | Output file to patch. Supports exact path, basename, or glob. |
+| `operations` | Yes | List of JSON Patch (RFC 6902) operations (used by `jsonpatch` driver). |
 
-Knobs are validated at forge time — unknown keys and type mismatches are caught before templates run.
+**JSON Patch operations (RFC 6902):**
 
-Example:
+| Operation | Description | Required fields |
+|---|---|---|
+| `add` | Add a value at path. Append to array with `/-`. | `op`, `path`, `value` |
+| `remove` | Remove the value at path. | `op`, `path` |
+| `replace` | Replace the value at path. Path must exist. | `op`, `path`, `value` |
+| `move` | Move a value from one path to another. | `op`, `from`, `path` |
+| `copy` | Copy a value from one path to another. | `op`, `from`, `path` |
+| `test` | Assert a value equals the given value. Fails if not. | `op`, `path`, `value` |
+
+**Docker Compose example:**
 
 ```yaml
 spec:
-  signoz:
-    spec:
-      config:
-        knobs:
-          resources:
-            requests:
-              cpu: "500m"
-              memory: "512Mi"
-            limits:
-              cpu: "1"
-              memory: "1Gi"
-          nodeSelector:
-            node-role: observability
-          serviceType: LoadBalancer
+  deployment:
+    mode: docker
+    flavor: compose
+  patches:
+    - target: "compose.yaml"
+      operations:
+        - op: replace
+          path: /services/clickhouse/mem_limit
+          value: "4G"
+        - op: add
+          path: /services/signoz/environment/-
+          value: "CUSTOM_VAR=value"
 ```
 
-#### Patches (escape hatch)
-
-Patches provide a casting-wide escape hatch for overriding any generated resource. They live at the top level of the casting (not per-component), and the casting's platform engine handles application.
-
-For the **kustomize** casting, patches are rendered into the root `kustomization.yaml` and processed natively by kustomize. Patch files are referenced by path relative to the project root; foundry resolves them to the correct relative path for kustomize at forge time.
+**Systemd example: service unit file:**
 
 ```yaml
-patches:
-  - path: patches/signoz-resources.yaml
-```
-
-Where `patches/signoz-resources.yaml` contains a standard strategic merge patch or JSON patch:
-
-```yaml
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: signoz-prod-signoz
 spec:
-  template:
-    spec:
-      containers:
-        - name: signoz
-          resources:
-            limits:
-              memory: "4Gi"
+  deployment:
+    mode: systemd
+    flavor: binary
+  patches:
+    - target: "signoz-ingester.service"
+      operations:
+        - op: replace
+          path: /Service/Restart
+          value: always
+        - op: add
+          path: /Service/MemoryMax
+          value: "4G"
 ```
 
 > [!NOTE]
-> Patches are an escape hatch for cases that knobs don't cover. Because patches target specific resource kinds and names, they require knowledge of the generated output structure. Prefer knobs for common overrides.
+> Config files (like `otel-collector-config.yaml`, `clickhouse-config.yaml`) don't need patches — use `config.data` in the molding spec instead. Patches are for platform-level generated files (compose files, service units, manifests).
+
+**Target matching:**
+
+- Exact: `target: "deployment/compose.yaml"`
+- Glob: `target: "deployment/telemetrystore-*.yaml"` matches multiple files
+
+> [!TIP]
+> Run `foundryctl forge` first without patches to see the generated file names and structure, then write patches against them.
 
 #### 5. Run it
 
@@ -252,7 +249,7 @@ spec:
         shards: 1
 ```
 
-**Kustomize with knobs and patches:**
+**Docker Compose with patches:**
 
 ```yaml
 apiVersion: v1alpha1
@@ -260,27 +257,22 @@ metadata:
   name: signoz-prod
 spec:
   deployment:
-    mode: kubernetes
-    flavor: kustomize
-  signoz:
+    mode: docker
+    flavor: compose
+  telemetrystore:
     spec:
-      config:
-        knobs:
-          resources:
-            requests:
-              cpu: "500m"
-              memory: "512Mi"
-          serviceType: LoadBalancer
-          storageSize: "50Gi"
-          storageClass: gp3
-  metastore:
-    kind: postgres
-    spec:
-      config:
-        knobs:
-          storageSize: "20Gi"
-          nodeSelector:
-            node-role: database
-patches:
-  - path: patches/ingester-hpa.yaml
+      image: clickhouse/clickhouse-server:25.5.6
+      cluster:
+        replicas: 1
+        shards: 1
+  patches:
+    - target: "compose.yaml"
+      operations:
+        - op: replace
+          path: /services/signoz-telemetrystore-clickhouse-0/mem_limit
+          value: "4G"
+        - op: add
+          path: /networks/monitoring
+          value:
+            driver: bridge
 ```

@@ -4,6 +4,7 @@ go 1.25.3
 
 require (
 	github.com/Masterminds/sprig/v3 v3.3.0
+	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 	github.com/swaggest/jsonschema-go v0.3.79
