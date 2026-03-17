@@ -22,8 +22,13 @@ type kustomizeMoldingEnricher struct {
 	materials []types.Material
 }
 
-func newKustomizeMoldingEnricher(_ *v1alpha1.Casting) *kustomizeMoldingEnricher {
-	return &kustomizeMoldingEnricher{materials: []types.Material{}}
+func newKustomizeMoldingEnricher(config *v1alpha1.Casting) (*kustomizeMoldingEnricher, error) {
+	materials, err := getServiceMaterials(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get service yaml material: %w", err)
+	}
+
+	return &kustomizeMoldingEnricher{materials: materials}, nil
 }
 
 func (e *kustomizeMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *v1alpha1.Casting) error {
@@ -43,8 +48,11 @@ func (e *kustomizeMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alph
 }
 
 func (e *kustomizeMoldingEnricher) enrichTelemetryStore(config *v1alpha1.Casting) error {
-	name := config.Metadata.Name + "-clickhouse"
-	config.Spec.TelemetryStore.Status.Addresses.TCP = []string{types.FormatAddress("tcp", name, telemetryStorePort)}
+	name, err := e.materials[0].GetBytes("spec.templates.serviceTemplates.0.generateName")
+	if err != nil {
+		return fmt.Errorf("failed to get telemetrystore service names: %w", err)
+	}
+	config.Spec.TelemetryStore.Status.Addresses.TCP = []string{types.FormatAddress("tcp", string(name), telemetryStorePort)}
 	return nil
 }
 
@@ -57,6 +65,8 @@ func (e *kustomizeMoldingEnricher) enrichTelemetryKeeper(config *v1alpha1.Castin
 	if replicas < 1 {
 		replicas = 1
 	}
+	// Dummy Variables, To pass validation in molding
+	// TODO: Take the logic out of molding as operator handles it already
 	base := config.Metadata.Name + "-clickhouse-keeper"
 	var client, raft []string
 	for i := 0; i < replicas; i++ {
@@ -69,7 +79,10 @@ func (e *kustomizeMoldingEnricher) enrichTelemetryKeeper(config *v1alpha1.Castin
 }
 
 func (e *kustomizeMoldingEnricher) enrichMetaStore(config *v1alpha1.Casting) error {
-	name := config.Metadata.Name + "-metastore"
+	name, err := e.materials[1].GetBytes("metadata.name")
+	if err != nil {
+		return fmt.Errorf("failed to get metastore service names: %w", err)
+	}
 	config.Spec.MetaStore.Status.Addresses.DSN = []string{
 		fmt.Sprintf("postgres://%s:5432", name),
 	}
@@ -78,7 +91,7 @@ func (e *kustomizeMoldingEnricher) enrichMetaStore(config *v1alpha1.Casting) err
 
 func (e *kustomizeMoldingEnricher) enrichSignoz(config *v1alpha1.Casting) error {
 	name := config.Metadata.Name + "-signoz"
-	config.Spec.Signoz.Status.Addresses.Opamp = []string{types.FormatAddress("tcp", name, signozOpampPort)}
+	config.Spec.Signoz.Status.Addresses.Opamp = []string{types.FormatAddress("ws", name, signozOpampPort)}
 	return nil
 }
 

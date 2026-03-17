@@ -26,28 +26,10 @@ spec:
     spec:
       containers:
         - env:
-            - name: CLICKHOUSE_USER
-              value: "admin"
-            - name: CLICKHOUSE_PASSWORD
-              value: "27ff0399-0d3a-4bd8-919d-17c2181e6fb9"
-            - name: ClickHouseUrl
-              value: tcp://{{ $clickhouseName }}:9000/?username=admin&password=27ff0399-0d3a-4bd8-919d-17c2181e6fb9
-            - name: SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN
-              value: tcp://{{ $clickhouseName }}:9000
-            - name: SIGNOZ_SQLSTORE_SQLITE_PATH
-              value: /var/lib/signoz/signoz.db
-            - name: DASHBOARDS_PATH
-              value: /root/config/dashboards
-            - name: ENABLE_QB_V5
-              value: "true"
-            - name: GODEBUG
-              value: netdns=go
-            - name: STORAGE
-              value: clickhouse
-            - name: TELEMETRY_ENABLED
-              value: "true"
-            - name: DEPLOYMENT_TYPE
-              value: kubernetes-kustomize
+          {{- range $key, $val := $.Spec.Signoz.Spec.Env }}
+            - name: {{ $key }}
+              value: {{ $val }}
+          {{- end }}
           image: {{ $.Spec.Signoz.Spec.Image }}
           imagePullPolicy: IfNotPresent
           livenessProbe:

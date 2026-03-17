@@ -62,7 +62,7 @@ func New(logger *slog.Logger) *kustomizeCasting {
 }
 
 func (c *kustomizeCasting) Enricher(ctx context.Context, config *v1alpha1.Casting) (molding.MoldingEnricher, error) {
-	return newKustomizeMoldingEnricher(config), nil
+	return newKustomizeMoldingEnricher(config)
 }
 
 func (c *kustomizeCasting) Forge(ctx context.Context, cfg v1alpha1.Casting, poursPath string) ([]types.Material, error) {
@@ -155,4 +155,29 @@ func (c *kustomizeCasting) forgeCasting(tmpl *types.Template, cfg *v1alpha1.Cast
 		return nil, fmt.Errorf("create material %s: %w", templatePath, err)
 	}
 	return []types.Material{material}, nil
+}
+
+func getServiceMaterials(config *v1alpha1.Casting) ([]types.Material, error) {
+	var materials []types.Material
+
+	telemetryStoreInstallationBuf := bytes.NewBuffer(nil)
+	if err := clickhouseInstanceInstallation.Execute(telemetryStoreInstallationBuf, config); err != nil {
+		return nil, fmt.Errorf("failed to execute store installation template: %w", err)
+	}
+	telemetryStoreInstallationMaterial, err := types.NewYAMLMaterial(telemetryStoreInstallationBuf.Bytes(), "clickhouseInstallation.yaml")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create keeper override material: %w", err)
+	}
+	materials = append(materials, telemetryStoreInstallationMaterial)
+
+	metaStoreServiceBuf := bytes.NewBuffer(nil)
+	if err := metastoreService.Execute(metaStoreServiceBuf, config); err != nil {
+		return nil, fmt.Errorf("failed to execute store installation template: %w", err)
+	}
+	metaStoreServiceMaterial, err := types.NewYAMLMaterial(metaStoreServiceBuf.Bytes(), "clickhouseInstallation.yaml")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create keeper override material: %w", err)
+	}
+	materials = append(materials, metaStoreServiceMaterial)
+	return materials, nil
 }
