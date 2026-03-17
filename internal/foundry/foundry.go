@@ -12,11 +12,16 @@ import (
 	"github.com/signoz/foundry/internal/molding/signozmolding"
 	"github.com/signoz/foundry/internal/molding/telemetrykeepermolding"
 	"github.com/signoz/foundry/internal/molding/telemetrystoremolding"
+	"github.com/signoz/foundry/internal/patch"
+	"github.com/signoz/foundry/internal/patch/jsonpatch"
 )
 
 type Foundry struct {
 	// Config for loading the casting configuration.
 	Config config.Config
+
+	// Patchers for applying patches to generated materials, keyed by patch type.
+	Patchers map[string]patch.Patch
 
 	// Logger for logging.
 	Logger *slog.Logger
@@ -37,7 +42,10 @@ func New(logger *slog.Logger) (*Foundry, error) {
 	}
 
 	return &Foundry{
-		Config:   yamlConfig,
+		Config: yamlConfig,
+		Patchers: map[string]patch.Patch{
+			v1alpha1.PatchTypeJSONPatch: jsonpatch.New(),
+		},
 		Logger:   logger,
 		Registry: registry,
 		Moldings: map[v1alpha1.MoldingKind]molding.Molding{

@@ -47,6 +47,7 @@ Pick one row:
 | ---------------------- | ---------- | ----------- | --------- |
 | **Docker Compose**      | `docker`   | `compose`   | (none)    |
 | **Linux (systemd)**    | `systemd`  | `binary`    | (none)    |
+| **Kubernetes (Kustomize)** | `kubernetes` | `kustomize` | (none)  |
 | **[Render](https://render.com)** | (none) | `blueprint` | `render`  |
 
 > [!NOTE] 
@@ -123,6 +124,82 @@ Override a molding by giving it a `spec` block. Whatever you set gets merged wit
 | `env`               | Environment variables (key/value map) |
 | `config.data`       | Config files: **filename → file contents** |
 
+#### Patches (platform-specific overrides)
+
+`spec.patches` lets you customize any generated output file using patch operations. Patches are applied during forge, after material generation and before writing to `pours/`. They target output files by name (exact, basename, or glob).
+
+Foundry uses a two-tier model:
+- **`spec`** is the application domain — Foundry understands, validates, and enriches it
+- **`spec.patches`** is the platform domain — Foundry applies it as-is, no validation
+
+This means patches give you 100% coverage over the generated output without Foundry needing to model every platform-specific field.
+
+**Patch entry fields:**
+
+| Field | Required | Description |
+|---|---|---|
+| `type` | No | Patch driver. Defaults to `jsonpatch`. |
+| `target` | Yes | Output file to patch. Supports exact path, basename, or glob. |
+| `operations` | Yes | List of JSON Patch (RFC 6902) operations (used by `jsonpatch` driver). |
+
+**JSON Patch operations (RFC 6902):**
+
+| Operation | Description | Required fields |
+|---|---|---|
+| `add` | Add a value at path. Append to array with `/-`. | `op`, `path`, `value` |
+| `remove` | Remove the value at path. | `op`, `path` |
+| `replace` | Replace the value at path. Path must exist. | `op`, `path`, `value` |
+| `move` | Move a value from one path to another. | `op`, `from`, `path` |
+| `copy` | Copy a value from one path to another. | `op`, `from`, `path` |
+| `test` | Assert a value equals the given value. Fails if not. | `op`, `path`, `value` |
+
+**Docker Compose example:**
+
+```yaml
+spec:
+  deployment:
+    mode: docker
+    flavor: compose
+  patches:
+    - target: "compose.yaml"
+      operations:
+        - op: replace
+          path: /services/clickhouse/mem_limit
+          value: "4G"
+        - op: add
+          path: /services/signoz/environment/-
+          value: "CUSTOM_VAR=value"
+```
+
+**Systemd example: service unit file:**
+
+```yaml
+spec:
+  deployment:
+    mode: systemd
+    flavor: binary
+  patches:
+    - target: "signoz-ingester.service"
+      operations:
+        - op: replace
+          path: /Service/Restart
+          value: always
+        - op: add
+          path: /Service/MemoryMax
+          value: "4G"
+```
+
+> [!NOTE]
+> Config files (like `otel-collector-config.yaml`, `clickhouse-config.yaml`) don't need patches — use `config.data` in the molding spec instead. Patches are for platform-level generated files (compose files, service units, manifests).
+
+**Target matching:**
+
+- Exact: `target: "deployment/compose.yaml"`
+- Glob: `target: "deployment/telemetrystore-*.yaml"` matches multiple files
+
+> [!TIP]
+> Run `foundryctl forge` first without patches to see the generated file names and structure, then write patches against them.
+
 #### 5. Run it
 
 When the file's done:
@@ -170,4 +247,32 @@ spec:
       cluster:
         replicas: 1
         shards: 1
+```
+
+**Docker Compose with patches:**
+
+```yaml
+apiVersion: v1alpha1
+metadata:
+  name: signoz-prod
+spec:
+  deployment:
+    mode: docker
+    flavor: compose
+  telemetrystore:
+    spec:
+      image: clickhouse/clickhouse-server:25.5.6
+      cluster:
+        replicas: 1
+        shards: 1
+  patches:
+    - target: "compose.yaml"
+      operations:
+        - op: replace
+          path: /services/signoz-telemetrystore-clickhouse-0/mem_limit
+          value: "4G"
+        - op: add
+          path: /networks/monitoring
+          value:
+            driver: bridge
 ```
