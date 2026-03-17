@@ -10,6 +10,11 @@ definitions:
       metastore:
         $ref: '#/definitions/V1Alpha1MetaStore'
         description: The configuration for the meta store molding
+      patches:
+        description: Patch operations to apply to generated materials
+        items:
+          $ref: '#/definitions/V1Alpha1PatchEntry'
+        type: array
       signoz:
         $ref: '#/definitions/V1Alpha1SigNoz'
         description: The configuration for the SigNoz molding
@@ -132,11 +137,53 @@ definitions:
         - latest
         type: string
     type: object
-  V1Alpha1Patch:
+  V1Alpha1PatchEntry:
     properties:
-      path:
-        description: Path to the patch file
+      operations:
+        description: JSON Patch (RFC 6902) operations to apply. Used by the jsonpatch
+          driver.
+        items:
+          $ref: '#/definitions/V1Alpha1PatchOperation'
+        type: array
+      target:
+        description: Target output file to patch
+        examples:
+        - compose.yaml
+        - signoz/deployment.yaml
+        - values.yaml
+        - telemetrystore/telemtrystore-clickhouse-0-*.yaml
         type: string
+      type:
+        default: jsonpatch
+        description: Patch driver type. Defaults to jsonpatch.
+        examples:
+        - jsonpatch
+        type: string
+    type: object
+  V1Alpha1PatchOperation:
+    properties:
+      from:
+        description: Source JSON Pointer for move and copy operations
+        examples:
+        - /services/clickhouse/old_field
+        type: string
+      op:
+        description: JSON Patch (RFC 6902) operation type
+        examples:
+        - add
+        - remove
+        - replace
+        - move
+        - copy
+        - test
+        type: string
+      path:
+        description: JSON Pointer (RFC 6901) to the target location
+        examples:
+        - /services/clickhouse/mem_limit
+        type: string
+      value:
+        description: Value for add, replace, or test operations
     type: object
   V1Alpha1SigNoz:
     properties:
@@ -295,11 +342,6 @@ definitions:
           type: string
         description: Configuration data as key-value pairs
         type: object
-      knobs:
-        additionalProperties: {}
-        description: Configuration knobs such as tolerations, resources as key-value
-          pairs for a casting
-        type: object
     type: object
   V1Alpha1TypeDeployment:
     properties:
@@ -361,11 +403,6 @@ properties:
   metadata:
     $ref: '#/definitions/V1Alpha1TypeMetadata'
     description: Metadata of the casting configuration
-  patches:
-    description: Patches for the casting.
-    items:
-      $ref: '#/definitions/V1Alpha1Patch'
-    type: array
   spec:
     $ref: '#/definitions/V1Alpha1CastingSpec'
     description: Specification for the casting
