@@ -1,0 +1,576 @@
+apiVersion: v1
+data: null
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: signoz-telemetrystore-clickhouse-operator
+    app.kubernetes.io/name: signoz-telemetrystore-clickhouse-operator
+    app.kubernetes.io/version: 0.25.3
+  name: signoz-telemetrystore-clickhouse-operator-etc-confd-files
+---
+apiVersion: v1
+data:
+  01-clickhouse-01-listen.xml: |
+    <clickhouse>
+        <!-- Listen wildcard address to allow accepting connections from other containers and host network. -->
+        <listen_host>::</listen_host>
+        <listen_host>0.0.0.0</listen_host>
+        <listen_try>1</listen_try>
+    </clickhouse>
+  01-clickhouse-02-logger.xml: |
+    <clickhouse>
+        <logger>
+            <!-- Possible levels: https://github.com/pocoproject/poco/blob/devel/Foundation/include/Poco/Logger.h#L105 -->
+            <level>warning</level>
+            <formatting>
+              <type>json</type>
+            </formatting>
+            <log>/var/log/clickhouse-server/clickhouse-server.log</log>
+            <errorlog>/var/log/clickhouse-server/clickhouse-server.err.log</errorlog>
+            <size>1000M</size>
+            <count>10</count>
+            <!-- Default behavior is autodetection (log to console if not daemon mode and is tty) -->
+            <console>1</console>
+        </logger>
+    </clickhouse>
+  01-clickhouse-03-query_log.xml: |
+    <clickhouse>
+        <query_log replace="1">
+            <database>system</database>
+            <table>query_log</table>
+            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 7 day</engine>
+            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+        </query_log>
+    </clickhouse>
+  01-clickhouse-04-part_log.xml: |
+    <clickhouse>
+        <part_log replace="1">
+            <database>system</database>
+            <table>part_log</table>
+            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 7 day</engine>
+            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+        </part_log>
+    </clickhouse>
+  01-clickhouse-05-trace_log.xml: |-
+    <clickhouse>
+        <trace_log replace="1">
+            <database>system</database>
+            <table>trace_log</table>
+            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 3 day</engine>
+            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+        </trace_log>
+    </clickhouse>
+  01-clickhouse-06-asynchronous_insert_log.xml: |
+    <clickhouse>
+        <asynchronous_insert_log replace="1">
+            <database>system</database>
+            <table>asynchronous_insert_log</table>
+            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 3 day</engine>
+            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+        </asynchronous_insert_log>
+    </clickhouse>
+  01-clickhouse-07-asynchronous_metric_log.xml: |
+    <clickhouse>
+        <asynchronous_metric_log replace="1">
+            <database>system</database>
+            <table>asynchronous_metric_log</table>
+            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 7 day</engine>
+            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+        </asynchronous_metric_log>
+    </clickhouse>
+  01-clickhouse-08-backup_log.xml: |
+    <clickhouse>
+        <backup_log replace="1">
+            <database>system</database>
+            <table>backup_log</table>
+            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 3 day</engine>
+            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+        </backup_log>
+    </clickhouse>
+  01-clickhouse-09-blob_storage_log.xml: |
+    <clickhouse>
+        <blob_storage_log replace="1">
+            <database>system</database>
+            <table>blob_storage_log</table>
+            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 3 day</engine>
+            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+        </blob_storage_log>
+    </clickhouse>
+  01-clickhouse-10-crash_log.xml: |
+    <clickhouse>
+        <crash_log replace="1">
+            <database>system</database>
+            <table>crash_log</table>
+            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 14 day</engine>
+            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+        </crash_log>
+    </clickhouse>
+  01-clickhouse-11-metric_log.xml: |
+    <clickhouse>
+        <metric_log replace="1">
+            <database>system</database>
+            <table>metric_log</table>
+            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 7 day</engine>
+            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+        </metric_log>
+    </clickhouse>
+  01-clickhouse-12-query_thread_log.xml: |
+    <clickhouse>
+        <query_thread_log replace="1">
+            <database>system</database>
+            <table>query_thread_log</table>
+            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 7 day</engine>
+            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+        </query_thread_log>
+    </clickhouse>
+  01-clickhouse-13-query_views_log.xml: |
+    <clickhouse>
+        <query_views_log replace="1">
+            <database>system</database>
+            <table>query_views_log</table>
+            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 3 day</engine>
+            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+        </query_views_log>
+    </clickhouse>
+  01-clickhouse-14-session_log.xml: |
+    <clickhouse>
+        <session_log replace="1">
+            <database>system</database>
+            <table>session_log</table>
+            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 3 day</engine>
+            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+        </session_log>
+    </clickhouse>
+  01-clickhouse-15-zookeeper_log.xml: |
+    <clickhouse>
+        <zookeeper_log replace="1">
+            <database>system</database>
+            <table>zookeeper_log</table>
+            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 3 day</engine>
+            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+        </zookeeper_log>
+    </clickhouse>
+  01-clickhouse-16-processors_profile_log.xml: |
+    <clickhouse>
+        <processors_profile_log replace="1">
+            <database>system</database>
+            <table>processors_profile_log</table>
+            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 7 day</engine>
+            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+        </processors_profile_log>
+    </clickhouse>
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: signoz-telemetrystore-clickhouse-operator
+    app.kubernetes.io/name: signoz-telemetrystore-clickhouse-operator
+    app.kubernetes.io/version: 0.25.3
+  name: signoz-telemetrystore-clickhouse-operator-etc-configd-files
+---
+apiVersion: v1
+data:
+  config.yaml: |-
+    annotation:
+      exclude:
+      - argocd.argoproj.io/tracking-id
+      include: []
+    clickhouse:
+      access:
+        password: ""
+        port: 8123
+        rootCA: ""
+        scheme: auto
+        secret:
+          name: "clickhouse-operator"
+          namespace: "signoz"
+        timeouts:
+          connect: 1
+          query: 4
+        username: ""
+      addons:
+        rules:
+        - spec:
+            configuration:
+              files: null
+              profiles: null
+              quotas: null
+              settings: null
+              users: null
+          version: '*'
+        - spec:
+            configuration:
+              files: null
+              profiles: null
+              quotas: null
+              settings: null
+              users:
+                '{clickhouseOperatorUser}/access_management': 1
+                '{clickhouseOperatorUser}/named_collection_control': 1
+                '{clickhouseOperatorUser}/show_named_collections': 1
+                '{clickhouseOperatorUser}/show_named_collections_secrets': 1
+          version: '>= 23.3'
+        - spec:
+            configuration:
+              files: null
+              profiles:
+                clickhouse_operator/format_display_secrets_in_show_and_select: 1
+              quotas: null
+              settings:
+                display_secrets_in_show_and_select: 1
+              users: null
+          version: '>= 23.5'
+      configuration:
+        file:
+          path:
+            common: chi/config.d
+            host: chi/conf.d
+            user: chi/users.d
+        network:
+          hostRegexpTemplate: (chi-{chi}-[^.]+\d+-\d+|clickhouse\-{chi})\.{namespace}\.svc\.cluster\.local$
+        user:
+          default:
+            networksIP:
+            - ::1
+            - 127.0.0.1
+            password: default
+            profile: default
+            quota: default
+      configurationRestartPolicy:
+        rules:
+        - rules:
+          - settings/*: "yes"
+          - settings/access_control_path: "no"
+          - settings/dictionaries_config: "no"
+          - settings/max_server_memory_*: "no"
+          - settings/max_*_to_drop: "no"
+          - settings/max_concurrent_queries: "no"
+          - settings/models_config: "no"
+          - settings/user_defined_executable_functions_config: "no"
+          - settings/logger/*: "no"
+          - settings/macros/*: "no"
+          - settings/remote_servers/*: "no"
+          - settings/user_directories/*: "no"
+          - settings/display_secrets_in_show_and_select: "no"
+          - zookeeper/*: "yes"
+          - files/*.xml: "yes"
+          - files/config.d/*.xml: "yes"
+          - files/config.d/*dict*.xml: "no"
+          - files/config.d/*no_restart*: "no"
+          - profiles/default/background_*_pool_size: "yes"
+          - profiles/default/max_*_for_server: "yes"
+          version: '*'
+        - rules:
+          - settings/logger: "yes"
+          version: 21.*
+      metrics:
+        timeouts:
+          collect: 9
+    keeper:
+      configuration:
+        file:
+          path:
+            common: chk/keeper_config.d
+            host: chk/conf.d
+            user: chk/users.d
+    label:
+      appendScope: "no"
+      exclude: []
+      include: []
+    logger:
+      alsologtostderr: "false"
+      log_backtrace_at: ""
+      logtostderr: "true"
+      stderrthreshold: ""
+      v: "1"
+      vmodule: ""
+    metrics:
+      labels:
+        exclude: []
+    pod:
+      terminationGracePeriod: 30
+    reconcile:
+      host:
+        wait:
+          exclude: true
+          include: false
+          queries: true
+          replicas:
+            all: false
+            delay: 10
+            new: true
+      runtime:
+        reconcileCHIsThreadsNumber: 10
+        reconcileShardsMaxConcurrencyPercent: 50
+        reconcileShardsThreadsNumber: 5
+      statefulSet:
+        create:
+          onFailure: ignore
+        update:
+          onFailure: abort
+          pollInterval: 5
+          timeout: 300
+    statefulSet:
+      revisionHistoryLimit: 0
+    status:
+      fields:
+        action: false
+        actions: false
+        error: false
+        errors: false
+    template:
+      chi:
+        path: chi/templates.d
+        policy: ApplyOnNextReconcile
+      chk:
+        path: chk/templates.d
+        policy: ApplyOnNextReconcile
+    watch:
+      namespaces:
+        - ".*"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: signoz-telemetrystore-clickhouse-operator
+    app.kubernetes.io/name: signoz-telemetrystore-clickhouse-operator
+    app.kubernetes.io/version: 0.25.3
+  name: signoz-telemetrystore-clickhouse-operator-etc-files
+---
+apiVersion: v1
+data:
+  001-templates.json.example: |
+    {
+      "apiVersion": "clickhouse.altinity.com/v1",
+      "kind": "ClickHouseInstallationTemplate",
+      "metadata": {
+        "name": "01-default-volumeclaimtemplate"
+      },
+      "spec": {
+        "templates": {
+          "volumeClaimTemplates": [
+            {
+              "name": "chi-default-volume-claim-template",
+              "spec": {
+                "accessModes": [
+                  "ReadWriteOnce"
+                ],
+                "resources": {
+                  "requests": {
+                    "storage": "2Gi"
+                  }
+                }
+              }
+            }
+          ],
+          "podTemplates": [
+            {
+              "name": "chi-default-oneperhost-pod-template",
+              "distribution": "OnePerHost",
+              "spec": {
+                "containers" : [
+                  {
+                    "name": "clickhouse",
+                    "image": "clickhouse/clickhouse-server:23.8",
+                    "ports": [
+                      {
+                        "name": "http",
+                        "containerPort": 8123
+                      },
+                      {
+                        "name": "client",
+                        "containerPort": 9000
+                      },
+                      {
+                        "name": "interserver",
+                        "containerPort": 9009
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  default-pod-template.yaml.example: |
+    apiVersion: "clickhouse.altinity.com/v1"
+    kind: "ClickHouseInstallationTemplate"
+    metadata:
+      name: "default-oneperhost-pod-template"
+    spec:
+      templates:
+        podTemplates:
+          - name: default-oneperhost-pod-template
+            distribution: "OnePerHost"
+  default-storage-template.yaml.example: |
+    apiVersion: "clickhouse.altinity.com/v1"
+    kind: "ClickHouseInstallationTemplate"
+    metadata:
+      name: "default-storage-template-2Gi"
+    spec:
+      templates:
+        volumeClaimTemplates:
+          - name: default-storage-template-2Gi
+            spec:
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 2Gi
+  readme: Templates in this folder are packaged with an operator and available via 'useTemplate'
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: signoz-telemetrystore-clickhouse-operator
+    app.kubernetes.io/name: signoz-telemetrystore-clickhouse-operator
+    app.kubernetes.io/version: 0.25.3
+  name: signoz-telemetrystore-clickhouse-operator-etc-templatesd-files
+---
+apiVersion: v1
+data:
+  01-clickhouse-user.xml: |
+    <yandex>
+        <users>
+            <clickhouse_operator>
+                <networks>
+                    <ip>127.0.0.1</ip>
+                </networks>
+                <password_sha256_hex></password_sha256_hex>
+                <profile>clickhouse_operator</profile>
+                <quota>default</quota>
+            </clickhouse_operator>
+        </users>
+        <profiles>
+            <clickhouse_operator>
+                <log_queries>0</log_queries>
+                <skip_unavailable_shards>1</skip_unavailable_shards>
+                <http_connection_timeout>10</http_connection_timeout>
+            </clickhouse_operator>
+        </profiles>
+    </yandex>
+  02-clickhouse-default-profile.xml: |
+    <yandex>
+      <profiles>
+        <default>
+          <log_queries>1</log_queries>
+          <connect_timeout_with_failover_ms>1000</connect_timeout_with_failover_ms>
+          <distributed_aggregation_memory_efficient>1</distributed_aggregation_memory_efficient>
+          <parallel_view_processing>1</parallel_view_processing>
+        </default>
+      </profiles>
+    </yandex>
+  03-database-ordinary.xml: |
+    <yandex>
+        <profiles>
+            <default>
+                <default_database_engine>Ordinary</default_database_engine>
+            </default>
+        </profiles>
+    </yandex>
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: signoz-telemetrystore-clickhouse-operator
+    app.kubernetes.io/name: signoz-telemetrystore-clickhouse-operator
+    app.kubernetes.io/version: 0.25.3
+  name: signoz-telemetrystore-clickhouse-operator-etc-usersd-files
+---
+apiVersion: v1
+data: null
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: signoz-telemetrystore-clickhouse-operator
+    app.kubernetes.io/name: signoz-telemetrystore-clickhouse-operator
+    app.kubernetes.io/version: 0.25.3
+  name: signoz-telemetrystore-clickhouse-operator-keeper-etc-confd-files
+---
+apiVersion: v1
+data:
+  01-keeper-01-default-config.xml: |
+    <!-- IMPORTANT -->
+    <!-- This file is auto-generated -->
+    <!-- Do not edit this file - all changes would be lost -->
+    <!-- Edit appropriate template in the following folder: -->
+    <!-- deploy/builder/templates-config -->
+    <!-- IMPORTANT -->
+    <clickhouse>
+        <keeper_server>
+            <coordination_settings>
+                <min_session_timeout_ms>10000</min_session_timeout_ms>
+                <operation_timeout_ms>10000</operation_timeout_ms>
+                <raft_logs_level>information</raft_logs_level>
+                <session_timeout_ms>100000</session_timeout_ms>
+            </coordination_settings>
+            <hostname_checks_enabled>true</hostname_checks_enabled>
+            <log_storage_path>/var/lib/clickhouse-keeper/coordination/logs</log_storage_path>
+            <snapshot_storage_path>/var/lib/clickhouse-keeper/coordination/snapshots</snapshot_storage_path>
+            <storage_path>/var/lib/clickhouse-keeper</storage_path>
+            <tcp_port>2181</tcp_port>
+        </keeper_server>
+        <listen_host>::</listen_host>
+        <listen_host>0.0.0.0</listen_host>
+        <listen_try>1</listen_try>
+        <logger>
+            <console>1</console>
+            <level>information</level>
+        </logger>
+        <max_connections>4096</max_connections>
+    </clickhouse>
+  01-keeper-02-readiness.xml: |
+    <!-- IMPORTANT -->
+    <!-- This file is auto-generated -->
+    <!-- Do not edit this file - all changes would be lost -->
+    <!-- Edit appropriate template in the following folder: -->
+    <!-- deploy/builder/templates-config -->
+    <!-- IMPORTANT -->
+    <clickhouse>
+        <keeper_server>
+            <http_control>
+                <port>9182</port>
+                <readiness>
+                    <endpoint>/ready</endpoint>
+                </readiness>
+            </http_control>
+        </keeper_server>
+    </clickhouse>
+  01-keeper-03-enable-reconfig.xml: |-
+    <!-- IMPORTANT -->
+    <!-- This file is auto-generated -->
+    <!-- Do not edit this file - all changes would be lost -->
+    <!-- Edit appropriate template in the following folder: -->
+    <!-- deploy/builder/templates-config -->
+    <!-- IMPORTANT -->
+    <clickhouse>
+        <keeper_server>
+            <enable_reconfiguration>false</enable_reconfiguration>
+        </keeper_server>
+    </clickhouse>
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: signoz-telemetrystore-clickhouse-operator
+    app.kubernetes.io/name: signoz-telemetrystore-clickhouse-operator
+    app.kubernetes.io/version: 0.25.3
+  name: signoz-telemetrystore-clickhouse-operator-keeper-etc-configd-files
+---
+apiVersion: v1
+data:
+  readme: Templates in this folder are packaged with an operator and available via 'useTemplate'
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: signoz-telemetrystore-clickhouse-operator
+    app.kubernetes.io/name: signoz-telemetrystore-clickhouse-operator
+    app.kubernetes.io/version: 0.25.3
+  name: signoz-telemetrystore-clickhouse-operator-keeper-etc-templatesd-files
+---
+apiVersion: v1
+data: null
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: signoz-telemetrystore-clickhouse-operator
+    app.kubernetes.io/name: signoz-telemetrystore-clickhouse-operator
+    app.kubernetes.io/version: 0.25.3
+  name: signoz-telemetrystore-clickhouse-operator-keeper-etc-usersd-files

@@ -1,0 +1,58 @@
+{{- $name := print $.Metadata.Name "-clickhouse-keeper" -}}
+# Ref: https://github.com/Altinity/clickhouse-operator/blob/master/docs/chk-examples/02-extended-1-node.yaml
+apiVersion: clickhouse-keeper.altinity.com/v1
+kind: ClickHouseKeeperInstallation
+metadata:
+  name: {{ $name }}
+spec:
+  configuration:
+    clusters:
+      - name: "cluster"
+        layout:
+          replicasCount: {{ int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas }}
+    settings:
+      logger/level: "trace"
+      logger/console: "true"
+      listen_host: "0.0.0.0"
+      keeper_server/four_letter_word_white_list: "*"
+      keeper_server/coordination_settings/raft_logs_level: "information"
+  defaults:
+    templates:
+      podTemplate: default
+      dataVolumeClaimTemplate: default
+  templates:
+    podTemplates:
+      - name: default
+        metadata:
+          labels:
+            app.kubernetes.io/name: {{ $name }}
+            app.kubernetes.io/instance: {{ $.Metadata.Name }}
+            app.kubernetes.io/component: telemetrykeeper
+            app.kubernetes.io/part-of: signoz
+            app.kubernetes.io/managed-by: kustomize
+        spec:
+          securityContext:
+            fsGroup: 101
+          containers:
+            - name: clickhouse-keeper
+              imagePullPolicy: IfNotPresent
+              image: {{ $.Spec.TelemetryKeeper.Spec.Image }}
+              resources:
+                requests:
+                  cpu: 1
+                  memory: 1Gi
+              {{- if $.Spec.TelemetryKeeper.Spec.Env}}
+              env:
+              {{- range $key, $val := $.Spec.TelemetryKeeper.Spec.Env }}
+              - name: {{ $key }}
+                value: {{ $val }}
+              {{- end }}
+              {{ end }}
+    volumeClaimTemplates:
+      - name: default
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi

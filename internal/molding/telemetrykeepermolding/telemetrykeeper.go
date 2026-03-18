@@ -9,6 +9,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
+	"github.com/signoz/foundry/internal/types"
 )
 
 var _ molding.Molding = (*telemetrykeeper)(nil)
@@ -34,6 +35,9 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *v1alph
 		return err
 	}
 
+	// Extract enricher config overrides (applies to all keeper nodes).
+	overrides := config.Spec.TelemetryKeeper.Status.Extras["_overrides"]
+
 	// Generate per-server configs (each keeper node needs its own server_id)
 	configs := make(map[string]string, data.ServerCount)
 	for i := 0; i < data.ServerCount; i++ {
@@ -42,7 +46,19 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *v1alph
 		if err := KeeperClickhousev2556YAML.Execute(configBuf, data); err != nil {
 			return fmt.Errorf("failed to execute keeper template for server %d: %w", data.ServerID, err)
 		}
-		configs[fmt.Sprintf("keeper-%d.yaml", i)] = configBuf.String()
+
+		key := fmt.Sprintf("keeper-%d.yaml", i)
+		base := configBuf.String()
+
+		if overrides != "" {
+			merged, err := types.MergeYAML(base, overrides)
+			if err != nil {
+				return fmt.Errorf("failed to merge config overrides for %s: %w", key, err)
+			}
+			base = merged
+		}
+
+		configs[key] = base
 	}
 
 	config.Spec.TelemetryKeeper.Status.Config.Data = configs

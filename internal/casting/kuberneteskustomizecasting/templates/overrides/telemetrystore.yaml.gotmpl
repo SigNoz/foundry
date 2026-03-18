@@ -1,0 +1,70 @@
+async_load_databases: false
+format_schema_path: /etc/clickhouse-server/config.d/
+user_defined_executable_functions_config: /etc/clickhouse-server/functions/custom-functions.xml
+logger:
+    formatting:
+        type: json
+        names:
+            date_time: date_time
+            thread_name: thread_name
+            thread_id: thread_id
+            level: level
+            query_id: query_id
+            logger_name: logger_name
+            message: message
+            source_file: source_file
+            source_line: source_line
+merge_tree:
+  storage_policy: data
+profiles:
+  default:
+    allow_experimental_window_functions: "1"
+    allow_nondeterministic_mutations: "1"
+    max_threads: 16
+    query_plan_max_limit_for_lazy_materialization: "0"
+    secondary_indices_enable_bulk_filtering: "0"
+  admin:
+    max_threads: 16
+    query_plan_max_limit_for_lazy_materialization: "0"
+    secondary_indices_enable_bulk_filtering: "0"
+prometheus:
+    endpoint: /metrics
+    port: 9363
+send_crash_reports:
+    enabled: false
+storage_configuration:
+  disks:
+    default: {}
+    data0:
+      path: /mnt/data-0/
+      keep_free_space_bytes: 10485760
+  policies:
+    default:
+      volumes:
+        default:
+          disk: default
+    data:
+      volumes:
+        data0:
+          disk: data0
+text_log:
+    ttl: event_date + INTERVAL 3 DAY DELETE
+latency_log:
+    ttl: event_date + INTERVAL 3 DAY DELETE
+error_log:
+    ttl: event_date + INTERVAL 7 DAY DELETE
+query_metric_log:
+    ttl: event_date + INTERVAL 3 DAY DELETE
+users:
+  admin:
+    password: 27ff0399-0d3a-4bd8-919d-17c2181e6fb9
+    networks:
+      ip:
+        - 10.0.0.0/8
+        - 100.64.0.0/10
+        - 172.16.0.0/12
+        - 192.0.0.0/24
+        - 198.18.0.0/15
+        - 192.168.0.0/16
+    profile: default
+    quota: default

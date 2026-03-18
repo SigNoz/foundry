@@ -1,0 +1,79 @@
+package railwaytemplatecasting
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/internal/molding"
+	"github.com/signoz/foundry/internal/types"
+)
+
+var _ molding.MoldingEnricher = (*railwayTemplateMoldingEnricher)(nil)
+
+type railwayTemplateMoldingEnricher struct {
+	material []types.Material
+}
+
+func newRailwayTemplateMoldingEnricher(config *v1alpha1.Casting) (*railwayTemplateMoldingEnricher, error) {
+	material, err := getRailwayMaterial(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get compose yaml material: %w", err)
+	}
+	return &railwayTemplateMoldingEnricher{material: material}, nil
+}
+
+// railwayInternalHost returns the Railway private DNS hostname for a service.
+// Railway services communicate via SERVICE_NAME.railway.internal within the same project.
+func railwayInternalHost(serviceName string) string {
+	return serviceName + ".railway.internal"
+}
+
+func (enricher *railwayTemplateMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *v1alpha1.Casting) error {
+	name := config.Metadata.Name
+	if name == "" {
+		name = "signoz"
+	}
+	switch kind {
+	case v1alpha1.MoldingKindTelemetryStore:
+		if !config.Spec.TelemetryStore.Spec.Enabled {
+			return nil
+		}
+		svc := name + "-telemetrystore-" + config.Spec.TelemetryStore.Kind.String()
+		config.Spec.TelemetryStore.Status.Addresses.TCP = []string{types.FormatAddress("tcp", railwayInternalHost(svc), 9000)}
+		if config.Spec.TelemetryStore.Status.Extras == nil {
+			config.Spec.TelemetryStore.Status.Extras = make(map[string]string)
+		}
+		config.Spec.TelemetryStore.Status.Extras["service_names"] = svc
+		config.Spec.TelemetryStore.Status.Extras["_overrides"] = string(enricher.material[1].FmtContents())
+
+	case v1alpha1.MoldingKindSignoz:
+		if !config.Spec.Signoz.Spec.Enabled {
+			return nil
+		}
+		svc := name + "-signoz"
+		config.Spec.Signoz.Status.Addresses.APIServer = []string{types.FormatAddress("tcp", railwayInternalHost(svc), 8080)}
+		config.Spec.Signoz.Status.Addresses.Opamp = []string{types.FormatAddress("ws", railwayInternalHost(svc), 4320)}
+
+	case v1alpha1.MoldingKindTelemetryKeeper:
+		if !config.Spec.TelemetryKeeper.Spec.Enabled {
+			return nil
+		}
+		svc := name + "-telemetrykeeper-" + config.Spec.TelemetryKeeper.Kind.String()
+		config.Spec.TelemetryKeeper.Status.Addresses.Client = []string{types.FormatAddress("tcp", railwayInternalHost(svc), 9181)}
+		config.Spec.TelemetryKeeper.Status.Addresses.Raft = []string{types.FormatAddress("tcp", railwayInternalHost(svc), 9234)}
+		if config.Spec.TelemetryKeeper.Status.Extras == nil {
+			config.Spec.TelemetryKeeper.Status.Extras = make(map[string]string)
+		}
+		config.Spec.TelemetryKeeper.Status.Extras["service_names"] = svc
+		config.Spec.TelemetryKeeper.Status.Extras["_overrides"] = string(enricher.material[0].FmtContents())
+	case v1alpha1.MoldingKindIngester:
+		if !config.Spec.Ingester.Spec.Enabled {
+			return nil
+		}
+		svc := name + "-ingester"
+		config.Spec.Ingester.Status.Addresses.OTLP = []string{types.FormatAddress("tcp", railwayInternalHost(svc), 4318)}
+	}
+
+	return nil
+}

@@ -36,6 +36,31 @@ func customFuncMap() template.FuncMap {
 	}
 
 	return funcMap
+	fm["fromYaml"] = func(s string) (map[string]any, error) {
+		var m map[string]any
+		err := yaml.Unmarshal([]byte(s), &m)
+		return m, err
+	}
+	fm["flattenKeys"] = func(m map[string]any) map[string]any {
+		result := make(map[string]any)
+		flattenMapKeys("", m, result)
+		return result
+	}
+	return fm
+}
+
+func flattenMapKeys(prefix string, m map[string]any, result map[string]any) {
+	for k, v := range m {
+		key := k
+		if prefix != "" {
+			key = prefix + "/" + k
+		}
+		if nested, ok := v.(map[string]any); ok {
+			flattenMapKeys(key, nested, result)
+		} else {
+			result[key] = v
+		}
+	}
 }
 
 func NewTemplateFromFS(fs embed.FS, path string, format Format) (*Template, error) {

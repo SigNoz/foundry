@@ -1,0 +1,62 @@
+dictionaries_config: '*_dictionary.xml'
+display_name: cluster
+distributed_ddl:
+  path: /clickhouse/task_queue/ddl
+format_schema_path: /var/lib/clickhouse/format_schemas/
+http_port: 8123
+interserver_http_port: 9009
+listen_host: 0.0.0.0
+logger:
+  console: 1
+  count: 10
+  formatting:
+    type: console
+  level: information
+  size: 1000M
+macros:
+  replica: "01"
+  shard: "01"
+path: /var/lib/clickhouse/
+profiles:
+  default:
+    load_balancing: random
+    log_queries: 1
+    max_memory_usage: 10000000000
+quotas:
+  default:
+    interval:
+      duration: 3600
+      errors: 0
+      execution_time: 0
+      queries: 0
+      read_rows: 0
+      result_rows: 0
+remote_servers:
+  cluster:
+    shard:
+    - replica:
+        host: signoz-telemetrystore-clickhouse-0-0
+        port: 9000
+tcp_port: 9000
+tmp_path: /var/lib/clickhouse/tmp/
+user_defined_executable_functions_config: '*function.yaml'
+user_directories:
+  users_xml:
+    path: users.xml
+user_files_path: /var/lib/clickhouse/user_files/
+user_scripts_path: /var/lib/clickhouse/user_scripts/
+users:
+  default:
+    access_management: 1
+    named_collection_control: 1
+    networks:
+      ip: ::/0
+    password: ""
+    profile: default
+    quota: default
+    show_named_collection: 1
+    show_named_collection_secrets: 1
+zookeeper:
+  node:
+  - host: signoz-telemetrykeeper-clickhousekeeper-0
+    port: 9181
