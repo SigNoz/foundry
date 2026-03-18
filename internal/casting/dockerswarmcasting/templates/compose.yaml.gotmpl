@@ -1,0 +1,233 @@
+version: "3"
+services:
+  {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}:
+    image: {{ $.Spec.TelemetryKeeper.Spec.Image }}
+    networks:
+      - {{ $.Metadata.Name }}-network
+    {{- if $.Spec.TelemetryKeeper.Spec.Env }}
+    environment:
+      {{- range $key, $value := $.Spec.TelemetryKeeper.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    {{- end }}
+    volumes:
+      - {{ $.Metadata.Name }}-telemetrykeeper-{{ $replicaIdx }}-data:/var/lib/clickhouse-keeper
+    configs:
+      - source: telemetrykeeper-{{ $replicaIdx }}
+        target: /etc/clickhouse-keeper/keeper.yaml
+    entrypoint:
+      - /usr/bin/clickhouse-keeper
+      - --config-file=/etc/clickhouse-keeper/keeper.yaml
+    deploy:
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test:
+      - "CMD"
+      - "clickhouse-keeper-client"
+      - "-h"
+      - "localhost"
+      - "-p"
+      - "9181"
+      - "-q"
+      - "ls"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+  {{- end }}
+  {{- range $shardIdx := until (int .Spec.TelemetryStore.Spec.Cluster.Shards) }}
+  {{- range $replicaIdx := until (int (add1 (int $.Spec.TelemetryStore.Spec.Cluster.Replicas))) }}
+  {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}:
+    image: {{ $.Spec.TelemetryStore.Spec.Image }}
+    hostname: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}
+    networks:
+      - {{ $.Metadata.Name }}-network
+    environment:
+      - CLICKHOUSE_SKIP_USER_SETUP=1
+      - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.yaml
+    {{- if $.Spec.TelemetryStore.Spec.Env }}
+      {{- range $key, $value := $.Spec.TelemetryStore.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    {{- end }}
+    volumes:
+      - {{ $.Metadata.Name }}-telemetrystore-{{ $shardIdx }}-{{ $replicaIdx }}-data:/var/lib/clickhouse
+      - {{ $.Metadata.Name }}-telemetrystore-user-scripts:/var/lib/clickhouse/user_scripts:ro
+    configs:
+      - source: telemetrystore-config
+        target: /etc/clickhouse-server/config.yaml
+      - source: telemetrystore-functions
+        target: /etc/clickhouse-server/functions.yaml
+    deploy:
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test:
+       - "CMD"
+       - "wget"
+       - "--spider"
+       - "-q"
+       - "http://localhost:8123/ping"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+  {{- end }}
+  {{- end }}
+  {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts:
+    image: {{ $.Spec.TelemetryStore.Spec.Image }}
+    networks:
+      - {{ $.Metadata.Name }}-network
+    volumes:
+      - {{ $.Metadata.Name }}-telemetrystore-user-scripts:/var/lib/clickhouse/user_scripts
+    command:
+    - bash
+    - -c
+    - |-
+      version="v0.0.1"
+      node_os=$$(uname -s | tr '[:upper:]' '[:lower:]')
+      node_arch=$$(uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/)
+      echo "Fetching histogram-binary for $${node_os}/$${node_arch}"
+      cd /tmp
+      wget -O histogram-quantile.tar.gz "https://github.com/SigNoz/signoz/releases/download/histogram-quantile%2F$${version}/histogram-quantile_$${node_os}_$${node_arch}.tar.gz"
+      tar -xvzf histogram-quantile.tar.gz
+      mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile
+    deploy:
+      mode: global
+      restart_policy:
+        condition: none
+  {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}:
+    image: docker.io/{{ $.Spec.MetaStore.Kind }}:{{ $.Spec.MetaStore.Spec.Version }}
+    networks:
+      - {{ $.Metadata.Name }}-network
+    {{- if $.Spec.MetaStore.Spec.Env }}
+    environment:
+      {{- range $key, $value := $.Spec.MetaStore.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    {{- end }}
+    volumes:
+      - {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data:/var/lib/postgresql/data
+    deploy:
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test:
+      - "CMD-SHELL"
+      - "pg_isready -U signoz -d signoz"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+  {{- end }}
+  {{ $.Metadata.Name }}-ingester:
+    image: {{ $.Spec.Ingester.Spec.Image }}
+    networks:
+      - {{ $.Metadata.Name }}-network
+    entrypoint:
+      - /bin/sh
+    command:
+      - -c
+      - |
+        /signoz-otel-collector migrate sync check &&
+        /signoz-otel-collector --config=/etc/otel-collector-config.yaml --manager-config=/etc/opamp-config.yaml --copy-path=/var/tmp/collector-config.yaml
+    configs:
+      - source: ingester-config
+        target: /etc/otel-collector-config.yaml
+      - source: manager-config
+        target: /etc/opamp-config.yaml
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    environment:
+{{ if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
+      - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN={{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
+{{ end }}
+    {{- if $.Spec.Ingester.Spec.Env }}
+      {{- range $key, $value := $.Spec.Ingester.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    {{- end }}
+  {{ $.Metadata.Name }}-signoz:
+    image: {{ $.Spec.Signoz.Spec.Image }}
+    networks:
+      - {{ $.Metadata.Name }}-network
+    {{- if $.Spec.Signoz.Spec.Env }}
+    environment:
+      {{- range $key, $value := $.Spec.Signoz.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    {{- end }}
+    ports:
+      - "8080:8080"
+    deploy:
+      replicas: {{ int $.Spec.Signoz.Spec.Cluster.Replicas }}
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test:
+      - "CMD"
+      - "wget"
+      - "--spider"
+      - "-q"
+      - "http://localhost:8080/api/v1/health"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+  {{ $.Metadata.Name }}-telemetrystore-migrator:
+    image: {{ $.Spec.Ingester.Spec.Image }}
+    networks:
+      - {{ $.Metadata.Name }}-network
+    entrypoint:
+      - /bin/sh
+    command:
+      - -c
+      - |
+        /signoz-otel-collector migrate ready &&
+        /signoz-otel-collector migrate bootstrap &&
+        /signoz-otel-collector migrate sync up &&
+        /signoz-otel-collector migrate async up
+    environment:
+{{ if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
+      - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN={{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
+{{ end }}
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+networks:
+  {{ $.Metadata.Name }}-network:
+    name: {{ $.Metadata.Name }}-network
+    driver: overlay
+    attachable: true
+volumes:
+  {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-telemetrykeeper-{{ $replicaIdx  }}-data:
+  {{- end }}
+  {{- range $shardIdx := until (int $.Spec.TelemetryStore.Spec.Cluster.Shards) }}
+  {{- range $replicaIdx := until (int (add1 (int $.Spec.TelemetryStore.Spec.Cluster.Replicas))) }}
+  {{ $.Metadata.Name }}-telemetrystore-{{ $shardIdx }}-{{ $replicaIdx }}-data:
+  {{- end }}
+  {{- end }}
+  {{ $.Metadata.Name }}-telemetrystore-user-scripts:
+  {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data:
+  {{- end }}
+configs:
+  {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
+  telemetrykeeper-{{ $replicaIdx }}:
+    file: telemetrykeeper/{{ $.Spec.TelemetryKeeper.Kind }}/keeper-{{ $replicaIdx }}.yaml
+  {{- end }}
+  telemetrystore-config:
+    file: telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/config.yaml
+  telemetrystore-functions:
+    file: telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/functions.yaml
+  ingester-config:
+    file: ingester/ingester.yaml
+  manager-config:
+    file: ingester/opamp.yaml

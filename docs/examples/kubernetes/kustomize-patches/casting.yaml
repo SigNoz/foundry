@@ -1,0 +1,96 @@
+apiVersion: v1alpha1
+metadata:
+  name: signoz
+spec:
+  deployment:
+    flavor: kustomize
+    mode: kubernetes
+  patches:
+    # 1. Set storage class and size on ClickHouse data volumes
+    #    Required for cloud providers (gp3 on AWS, pd-ssd on GCP, managed-premium on Azure)
+    - target: "deployment/telemetrystore/clickhouse/clickhouseinstallation.yaml"
+      operations:
+        - op: add
+          path: /spec/templates/volumeClaimTemplates/0/spec/storageClassName
+          value: gp3
+        - op: replace
+          path: /spec/templates/volumeClaimTemplates/0/spec/resources/requests/storage
+          value: 100Gi
+        - op: add
+          path: /spec/templates/volumeClaimTemplates/1/spec/storageClassName
+          value: gp3
+
+    # 2. Set resource limits on ClickHouse for production sizing
+    - target: "deployment/telemetrystore/clickhouse/clickhouseinstallation.yaml"
+      operations:
+        - op: replace
+          path: /spec/templates/podTemplates/0/spec/containers/0/resources
+          value:
+            requests:
+              cpu: "2"
+              memory: "4Gi"
+            limits:
+              cpu: "4"
+              memory: "8Gi"
+
+    # 3. Set resource limits and requests on SigNoz
+    - target: "deployment/signoz/statefulset.yaml"
+      operations:
+        - op: replace
+          path: /spec/template/spec/containers/0/resources
+          value:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "1"
+
+    # 4. Add tolerations and nodeSelector for dedicated observability nodes
+    - target: "deployment/signoz/statefulset.yaml"
+      operations:
+        - op: add
+          path: /spec/template/spec/tolerations
+          value:
+            - key: "dedicated"
+              operator: "Equal"
+              value: "signoz"
+              effect: "NoSchedule"
+        - op: add
+          path: /spec/template/spec/nodeSelector
+          value:
+            node-role.kubernetes.io/observability: ""
+
+    # 5. Change SigNoz service to LoadBalancer with AWS NLB
+    - target: "deployment/signoz/service.yaml"
+      operations:
+        - op: replace
+          path: /spec/type
+          value: LoadBalancer
+        - op: add
+          path: /metadata/annotations
+          value:
+            service.beta.kubernetes.io/aws-load-balancer-type: nlb
+
+    # 6. Set resource limits on ingester
+    - target: "deployment/ingester/deployment.yaml"
+      operations:
+        - op: replace
+          path: /spec/template/spec/containers/0/resources
+          value:
+            requests:
+              cpu: "1"
+              memory: "2Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+
+    # 7. Set storage class on PostgreSQL metastore
+    - target: "deployment/metastore/postgres/statefulset.yaml"
+      operations:
+        - op: add
+          path: /spec/volumeClaimTemplates/0/spec/storageClassName
+          value: gp3
+        - op: replace
+          path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+          value: 20Gi

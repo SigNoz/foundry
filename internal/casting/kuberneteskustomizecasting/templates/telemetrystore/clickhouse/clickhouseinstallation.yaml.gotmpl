@@ -1,0 +1,213 @@
+{{- $name := print $.Metadata.Name "-clickhouse" -}}
+{{- $keeperName := print $.Metadata.Name "-clickhouse-keeper" -}}
+apiVersion: clickhouse.altinity.com/v1
+kind: ClickHouseInstallation
+metadata:
+  name: {{ $name }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $.Metadata.Name }}
+    app.kubernetes.io/version: {{ $.Spec.TelemetryStore.Spec.Version | quote }}
+    app.kubernetes.io/component: telemetrystore
+    app.kubernetes.io/part-of: signoz
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  configuration:
+    files:
+{{- $configData := $.Spec.TelemetryStore.Status.Config.Data }}
+{{- $config := index $configData "config.yaml" | fromYaml }}
+{{- if $config }}
+{{- $files := omit $config "profiles" "users" "quotas" "remote_servers" "zookeeper" "macros" "tcp_port" "http_port" "interserver_http_port" "listen_host" "display_name" "distributed_ddl" }}
+      config.d/crash.yaml: |
+{{ pick $files "send_crash_reports" | toYaml | indent 8 }}
+{{- $files = omit $files "send_crash_reports" }}
+      config.d/formatting.yaml: |
+{{ pick $files "logger" | toYaml | indent 8 }}
+{{- $files = omit $files "logger" }}
+      config.d/load.yaml: |
+{{ pick $files "async_load_databases" | toYaml | indent 8 }}
+{{- $files = omit $files "async_load_databases" }}
+      config.d/path.yaml: |
+{{ pick $files "path" "merge_tree" | toYaml | indent 8 }}
+{{- $files = omit $files "path" "merge_tree" }}
+      config.d/storage.yaml: |
+{{ pick $files "storage_configuration" | toYaml | indent 8 }}
+{{- $files = omit $files "storage_configuration" }}
+      config.d/system_log.yaml: |
+{{ pick $files "text_log" "latency_log" "error_log" "query_metric_log" | toYaml | indent 8 }}
+{{- $files = omit $files "text_log" "latency_log" "error_log" "query_metric_log" }}
+      config.d/extra.yaml: |
+{{ $files | toYaml | indent 8 }}
+{{- end }}
+      events.proto: |
+        syntax = "proto3";
+        message Event {
+          string uuid = 1;
+          string event = 2;
+          string properties = 3;
+          string timestamp = 4;
+          uint64 team_id = 5;
+          string distinct_id = 6;
+          string created_at = 7;
+          string elements_chain = 8;
+        }
+{{- if $config }}
+    profiles:
+{{ index $config "profiles" | flattenKeys | toYaml | indent 6 }}
+    users:
+{{ index $config "users" | flattenKeys | toYaml | indent 6 }}
+    quotas:
+{{ index $config "quotas" | flattenKeys | toYaml | indent 6 }}
+{{- end }}
+    clusters:
+    - name: cluster
+      layout:
+        replicasCount: {{ int $.Spec.TelemetryStore.Spec.Cluster.Replicas }}
+        shardsCount: {{ int $.Spec.TelemetryStore.Spec.Cluster.Shards }}
+    zookeeper:
+      nodes:
+        - host: keeper-{{ $keeperName }}
+          port: 2181
+  defaults:
+    templates:
+      podTemplate: default
+      serviceTemplate: default
+  templates:
+    podTemplates:
+    - name: default
+      metadata:
+        labels:
+          app.kubernetes.io/component: telemetrystore
+          app.kubernetes.io/name: {{ $name }}
+          app.kubernetes.io/instance: {{ $.Metadata.Name }}
+          app.kubernetes.io/version: {{ $.Spec.TelemetryStore.Spec.Version | quote }}
+      spec:
+        containers:
+        - command:
+          - /bin/bash
+          - -c
+          - /usr/bin/clickhouse-server --config-file=/etc/clickhouse-server/config.xml
+          image: {{ $.Spec.TelemetryStore.Spec.Image }}
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 10
+            httpGet:
+              path: /ping
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 3
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: clickhouse
+          ports:
+          - containerPort: 8123
+            name: http
+          - containerPort: 9000
+            name: client
+          - containerPort: 9009
+            name: interserver
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ping
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 3
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+          startupProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /ping
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          volumeMounts:
+          - mountPath: /var/lib/clickhouse/user_scripts
+            name: shared-binary-volume
+          - mountPath: /etc/clickhouse-server/functions
+            name: custom-functions-volume
+          - mountPath: /var/lib/clickhouse
+            name: default
+          - mountPath: /mnt/data-0
+            name: data-0
+          {{- if $.Spec.TelemetryStore.Spec.Env }}
+          env:
+          {{- range $key, $val := $.Spec.TelemetryStore.Spec.Env }}
+            - name: {{ $key }}
+              value: {{ $val }}
+          {{- end }}
+          {{ end }}
+        initContainers:
+        - name: histogram
+          command:
+          - sh
+          - -c
+          - |
+            set -e
+            version="v0.0.1"
+            node_os=$(uname -s | tr '[:upper:]' '[:lower:]')
+            node_arch=$(uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/)
+            echo "Fetching histogram-binary for ${node_os}/${node_arch}"
+            cd /tmp
+            wget -O histogram-quantile.tar.gz "https://github.com/SigNoz/signoz/releases/download/histogram-quantile%2F${version}/histogram-quantile_${node_os}_${node_arch}.tar.gz"
+            tar -xzf histogram-quantile.tar.gz
+            chmod +x histogram-quantile
+            mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile
+            echo "histogram-quantile installed successfully"
+          image: docker.io/alpine:3.18.2
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+          - mountPath: /var/lib/clickhouse/user_scripts
+            name: shared-binary-volume
+        securityContext:
+          fsGroup: 101
+          fsGroupChangePolicy: OnRootMismatch
+          runAsGroup: 101
+          runAsUser: 101
+        volumes:
+        - emptyDir: {}
+          name: shared-binary-volume
+        - configMap:
+            name: {{ $name }}-custom-functions
+          name: custom-functions-volume
+    serviceTemplates:
+    - name: default
+      generateName: {{ $name }}
+      metadata:
+        labels:
+          app.kubernetes.io/name: {{ $name }}
+          app.kubernetes.io/instance: {{ $.Metadata.Name }}
+          app.kubernetes.io/component: telemetrystore
+          app.kubernetes.io/part-of: signoz
+          app.kubernetes.io/managed-by: kustomize
+      spec:
+        ports:
+        - name: http
+          port: 8123
+        - name: tcp
+          port: 9000
+        type: ClusterIP
+    volumeClaimTemplates:
+    - name: data-0
+      reclaimPolicy: Retain
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 25Gi
+    - name: default
+      reclaimPolicy: Retain
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi

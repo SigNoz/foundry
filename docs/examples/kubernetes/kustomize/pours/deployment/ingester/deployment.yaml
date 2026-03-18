@@ -1,0 +1,118 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: ingester
+    app.kubernetes.io/instance: signoz
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-ingester
+  name: signoz-ingester
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: ingester
+      app.kubernetes.io/instance: signoz
+      app.kubernetes.io/name: signoz-ingester
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: ingester
+        app.kubernetes.io/instance: signoz
+        app.kubernetes.io/name: signoz-ingester
+    spec:
+      containers:
+      - args:
+        - --config=/conf/ingester.yaml
+        - --manager-config=/conf/opamp.yaml
+        - --copy-path=/var/tmp/collector-config.yaml
+        command:
+        - /signoz-otel-collector
+        env:
+        - name: K8S_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: K8S_POD_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        - name: K8S_HOST_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: K8S_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: K8S_POD_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: K8S_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: signoz/signoz-otel-collector:latest
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 6
+          httpGet:
+            path: /
+            port: 13133
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        name: collector
+        ports:
+        - containerPort: 4317
+          name: otlp-grpc
+          protocol: TCP
+        - containerPort: 4318
+          name: otlp-http
+          protocol: TCP
+        - containerPort: 13133
+          name: health
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 6
+          httpGet:
+            path: /
+            port: 13133
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        resources:
+          requests:
+            cpu: 125m
+            memory: 512Mi
+        volumeMounts:
+        - mountPath: /conf
+          name: ingester-config-vol
+      initContainers:
+      - args:
+        - migrate
+        - sync
+        - check
+        command:
+        - /signoz-otel-collector
+        env:
+        - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER
+          value: cluster
+        - name: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
+          value: 10m
+        - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION
+          value: "true"
+        - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
+          value: tcp://signoz-clickhouse:9000
+        image: signoz/signoz-otel-collector:latest
+        imagePullPolicy: IfNotPresent
+        name: check
+      serviceAccountName: signoz-ingester
+      volumes:
+      - configMap:
+          name: signoz-ingester
+        name: ingester-config-vol

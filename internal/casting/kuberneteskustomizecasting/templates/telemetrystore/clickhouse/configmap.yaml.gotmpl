@@ -1,0 +1,14 @@
+{{- $name := print $.Metadata.Name "-clickhouse" -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-custom-functions
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $.Metadata.Name }}
+    app.kubernetes.io/component: telemetrystore
+    app.kubernetes.io/part-of: signoz
+    app.kubernetes.io/managed-by: kustomize
+data:
+  custom-functions.xml: |
+{{ index $.Spec.TelemetryStore.Spec.Config.Data "functions.yaml" | indent 4 }}

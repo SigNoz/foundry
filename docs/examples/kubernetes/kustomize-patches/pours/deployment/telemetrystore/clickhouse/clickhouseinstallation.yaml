@@ -1,0 +1,279 @@
+apiVersion: clickhouse.altinity.com/v1
+kind: ClickHouseInstallation
+metadata:
+  labels:
+    app.kubernetes.io/component: telemetrystore
+    app.kubernetes.io/instance: signoz
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-clickhouse
+    app.kubernetes.io/part-of: signoz
+    app.kubernetes.io/version: 25.5.6
+  name: signoz-clickhouse
+spec:
+  configuration:
+    clusters:
+    - layout:
+        replicasCount: 0
+        shardsCount: 1
+      name: cluster
+    files:
+      config.d/crash.yaml: |
+        send_crash_reports:
+          enabled: false
+      config.d/extra.yaml: |
+        dictionaries_config: '*_dictionary.xml'
+        format_schema_path: /etc/clickhouse-server/config.d/
+        prometheus:
+          endpoint: /metrics
+          port: 9363
+        tmp_path: /var/lib/clickhouse/tmp/
+        user_defined_executable_functions_config: /etc/clickhouse-server/functions/custom-functions.xml
+        user_directories:
+          users_xml:
+            path: users.xml
+        user_files_path: /var/lib/clickhouse/user_files/
+        user_scripts_path: /var/lib/clickhouse/user_scripts/
+      config.d/formatting.yaml: |
+        logger:
+          console: 1
+          count: 10
+          formatting:
+            names:
+              date_time: date_time
+              level: level
+              logger_name: logger_name
+              message: message
+              query_id: query_id
+              source_file: source_file
+              source_line: source_line
+              thread_id: thread_id
+              thread_name: thread_name
+            type: json
+          level: information
+          size: 1000M
+      config.d/load.yaml: |
+        async_load_databases: false
+      config.d/path.yaml: |
+        merge_tree:
+          storage_policy: data
+        path: /var/lib/clickhouse/
+      config.d/storage.yaml: |
+        storage_configuration:
+          disks:
+            data0:
+              keep_free_space_bytes: 10485760
+              path: /mnt/data-0/
+            default: {}
+          policies:
+            data:
+              volumes:
+                data0:
+                  disk: data0
+            default:
+              volumes:
+                default:
+                  disk: default
+      config.d/system_log.yaml: |
+        error_log:
+          ttl: event_date + INTERVAL 7 DAY DELETE
+        latency_log:
+          ttl: event_date + INTERVAL 3 DAY DELETE
+        query_metric_log:
+          ttl: event_date + INTERVAL 3 DAY DELETE
+        text_log:
+          ttl: event_date + INTERVAL 3 DAY DELETE
+      events.proto: |
+        syntax = "proto3";
+        message Event {
+          string uuid = 1;
+          string event = 2;
+          string properties = 3;
+          string timestamp = 4;
+          uint64 team_id = 5;
+          string distinct_id = 6;
+          string created_at = 7;
+          string elements_chain = 8;
+        }
+    profiles:
+      admin/max_threads: 16
+      admin/query_plan_max_limit_for_lazy_materialization: "0"
+      admin/secondary_indices_enable_bulk_filtering: "0"
+      default/allow_experimental_window_functions: "1"
+      default/allow_nondeterministic_mutations: "1"
+      default/load_balancing: random
+      default/log_queries: 1
+      default/max_memory_usage: 10000000000
+      default/max_threads: 16
+      default/query_plan_max_limit_for_lazy_materialization: "0"
+      default/secondary_indices_enable_bulk_filtering: "0"
+    quotas:
+      default/interval/duration: 3600
+      default/interval/errors: 0
+      default/interval/execution_time: 0
+      default/interval/queries: 0
+      default/interval/read_rows: 0
+      default/interval/result_rows: 0
+    users:
+      admin/networks/ip:
+      - 10.0.0.0/8
+      - 100.64.0.0/10
+      - 172.16.0.0/12
+      - 192.0.0.0/24
+      - 198.18.0.0/15
+      - 192.168.0.0/16
+      admin/password: 27ff0399-0d3a-4bd8-919d-17c2181e6fb9
+      admin/profile: default
+      admin/quota: default
+      default/access_management: 1
+      default/named_collection_control: 1
+      default/networks/ip: ::/0
+      default/password: ""
+      default/profile: default
+      default/quota: default
+      default/show_named_collection: 1
+      default/show_named_collection_secrets: 1
+    zookeeper:
+      nodes:
+      - host: keeper-signoz-clickhouse-keeper
+        port: 2181
+  defaults:
+    templates:
+      podTemplate: default
+      serviceTemplate: default
+  templates:
+    podTemplates:
+    - metadata:
+        labels:
+          app.kubernetes.io/component: telemetrystore
+          app.kubernetes.io/instance: signoz
+          app.kubernetes.io/name: signoz-clickhouse
+          app.kubernetes.io/version: 25.5.6
+      name: default
+      spec:
+        containers:
+        - command:
+          - /bin/bash
+          - -c
+          - /usr/bin/clickhouse-server --config-file=/etc/clickhouse-server/config.xml
+          image: clickhouse/clickhouse-server:25.5.6
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 10
+            httpGet:
+              path: /ping
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 3
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: clickhouse
+          ports:
+          - containerPort: 8123
+            name: http
+          - containerPort: 9000
+            name: client
+          - containerPort: 9009
+            name: interserver
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ping
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 3
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: "4"
+              memory: 8Gi
+            requests:
+              cpu: "2"
+              memory: 4Gi
+          startupProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /ping
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          volumeMounts:
+          - mountPath: /var/lib/clickhouse/user_scripts
+            name: shared-binary-volume
+          - mountPath: /etc/clickhouse-server/functions
+            name: custom-functions-volume
+          - mountPath: /var/lib/clickhouse
+            name: default
+          - mountPath: /mnt/data-0
+            name: data-0
+        initContainers:
+        - command:
+          - sh
+          - -c
+          - |
+            set -e
+            version="v0.0.1"
+            node_os=$(uname -s | tr '[:upper:]' '[:lower:]')
+            node_arch=$(uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/)
+            echo "Fetching histogram-binary for ${node_os}/${node_arch}"
+            cd /tmp
+            wget -O histogram-quantile.tar.gz "https://github.com/SigNoz/signoz/releases/download/histogram-quantile%2F${version}/histogram-quantile_${node_os}_${node_arch}.tar.gz"
+            tar -xzf histogram-quantile.tar.gz
+            chmod +x histogram-quantile
+            mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile
+            echo "histogram-quantile installed successfully"
+          image: docker.io/alpine:3.18.2
+          imagePullPolicy: IfNotPresent
+          name: histogram
+          volumeMounts:
+          - mountPath: /var/lib/clickhouse/user_scripts
+            name: shared-binary-volume
+        securityContext:
+          fsGroup: 101
+          fsGroupChangePolicy: OnRootMismatch
+          runAsGroup: 101
+          runAsUser: 101
+        volumes:
+        - emptyDir: {}
+          name: shared-binary-volume
+        - configMap:
+            name: signoz-clickhouse-custom-functions
+          name: custom-functions-volume
+    serviceTemplates:
+    - generateName: signoz-clickhouse
+      metadata:
+        labels:
+          app.kubernetes.io/component: telemetrystore
+          app.kubernetes.io/instance: signoz
+          app.kubernetes.io/managed-by: kustomize
+          app.kubernetes.io/name: signoz-clickhouse
+          app.kubernetes.io/part-of: signoz
+      name: default
+      spec:
+        ports:
+        - name: http
+          port: 8123
+        - name: tcp
+          port: 9000
+        type: ClusterIP
+    volumeClaimTemplates:
+    - name: data-0
+      reclaimPolicy: Retain
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 100Gi
+        storageClassName: gp3
+    - name: default
+      reclaimPolicy: Retain
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
+        storageClassName: gp3

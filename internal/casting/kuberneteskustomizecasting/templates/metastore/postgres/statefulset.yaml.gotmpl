@@ -1,0 +1,85 @@
+{{- $name := print $.Metadata.Name "-metastore" -}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  labels:
+    app.kubernetes.io/component: metastore
+    app.kubernetes.io/instance: {{ $.Metadata.Name }}
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: {{ $name }}
+spec:
+  serviceName: {{ $name }}
+  replicas: {{ int $.Spec.MetaStore.Spec.Cluster.Replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+      app.kubernetes.io/instance: {{ $.Metadata.Name }}
+      app.kubernetes.io/component: metastore
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: metastore
+        app.kubernetes.io/instance: {{ $.Metadata.Name }}
+        app.kubernetes.io/name: {{ $name }}
+    spec:
+      containers:
+        - name: postgres
+          image: {{ $.Spec.MetaStore.Spec.Image }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: tcp-postgresql
+              containerPort: 5432
+              protocol: TCP
+          env:
+            - name: POSTGRESQL_VOLUME_DIR
+              value: "/var/lib/postgresql"
+            - name: POSTGRESQL_PORT_NUMBER
+              value: "5432"
+            - name: PGDATA
+              value: "/var/lib/postgresql/data"
+            {{- range $key, $val := $.Spec.MetaStore.Spec.Env }}
+            - name: {{ $key }}
+              value: {{ $val }}
+            {{- end }}
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - exec pg_isready -U "$POSTGRES_USER" -h 127.0.0.1 -p 5432
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 6
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - exec pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h 127.0.0.1 -p 5432
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql
+      serviceAccountName: {{ $name }}
+  volumeClaimTemplates:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: pgdata
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi

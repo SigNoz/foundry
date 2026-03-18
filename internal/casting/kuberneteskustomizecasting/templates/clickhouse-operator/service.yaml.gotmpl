@@ -1,0 +1,18 @@
+{{- $name := print $.Metadata.Name "-telemetrystore-" $.Spec.TelemetryStore.Kind "-operator" -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-metrics
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $name }}
+    app.kubernetes.io/version: "0.25.3"
+spec:
+  ports:
+    - port: 8888
+      name: ch-metrics
+    - port: 9999
+      name: op-metrics
+  selector:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $name }}
