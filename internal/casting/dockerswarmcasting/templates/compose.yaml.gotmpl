@@ -143,7 +143,6 @@ services:
       - "4317:4317"
       - "4318:4318"
     environment:
-      - OTEL_RESOURCE_ATTRIBUTES=host.name={{"{{"}} .Node.Hostname {{"}}"}},os.type={{"{{"}} .Node.Platform.OS {{"}}"}}
 {{ if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
       - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN={{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
 {{ end }}

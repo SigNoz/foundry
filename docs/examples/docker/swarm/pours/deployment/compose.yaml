@@ -29,8 +29,6 @@ services:
     entrypoint:
     - /bin/sh
     environment:
-    - OTEL_RESOURCE_ATTRIBUTES=host.name={{ .Node.Hostname }},os.type={{ .Node.Platform.OS
-      }}
     - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://signoz-telemetrystore-clickhouse-0-0:9000
     image: signoz/signoz-otel-collector:latest
     networks:
