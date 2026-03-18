@@ -35,6 +35,9 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *v1alpha
 		return err
 	}
 
+	// Extract enricher config overrides (applies to all nodes).
+	overrides := config.Spec.TelemetryStore.Status.Extras["_overrides"]
+
 	configBuf := bytes.NewBuffer(nil)
 	if err := ConfigClickhousev2556YAML.Execute(configBuf, data); err != nil {
 		return fmt.Errorf("failed to execute config template: %w", err)
@@ -44,8 +47,19 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *v1alpha
 	if err := FunctionsClickhousev2556YAML.Execute(functionBuf, data); err != nil {
 		return fmt.Errorf("failed to execute config template: %w", err)
 	}
+
+	base := configBuf.String()
+
+	if overrides != "" {
+		merged, err := types.MergeYAML(base, overrides)
+		if err != nil {
+			return fmt.Errorf("failed to merge config overrides for config.yaml: %w", err)
+		}
+		base = merged
+	}
+
 	config.Spec.TelemetryStore.Status.Config.Data = map[string]string{
-		"config.yaml":    configBuf.String(),
+		"config.yaml":    base,
 		"functions.yaml": functionBuf.String(),
 	}
 

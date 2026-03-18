@@ -1,0 +1,11 @@
+{
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile"
+  },
+  "deploy": {
+    "numReplicas": 1,
+    "startCommand": "/bin/sh -c '/signoz-otel-collector migrate ready && /signoz-otel-collector migrate bootstrap && /signoz-otel-collector migrate sync up && /signoz-otel-collector migrate async up'",
+    "restartPolicyType": "NEVER"
+  }
+}

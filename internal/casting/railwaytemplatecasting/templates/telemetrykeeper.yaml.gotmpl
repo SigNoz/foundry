@@ -1,0 +1,10 @@
+listen_host: "::"
+keeper_server:
+  raft_configuration:
+    server:
+    - hostname: localhost
+      port: 9234
+      id: 0
+  http_control:
+    port: 9182
+    endpoint: /ready

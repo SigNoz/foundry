@@ -1,0 +1,5 @@
+FROM {{ $.Spec.Ingester.Spec.Image }}
+
+{{ if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
+ENV SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN={{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
+{{ end }} 

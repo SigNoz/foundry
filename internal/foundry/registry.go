@@ -8,6 +8,7 @@ import (
 	"github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/casting/dockercomposecasting"
 	"github.com/signoz/foundry/internal/casting/kuberneteskustomizecasting"
+	"github.com/signoz/foundry/internal/casting/railwaytemplatecasting"
 	"github.com/signoz/foundry/internal/casting/rendercasting"
 	"github.com/signoz/foundry/internal/casting/systemdcasting"
 	"github.com/signoz/foundry/internal/tooler"
@@ -63,6 +64,12 @@ func NewRegistry(logger *slog.Logger) (*Registry, error) {
 				Flavor:   "blueprint",
 			}: {
 				Casting: rendercasting.New(logger),
+			},
+			{
+				Platform: "railway",
+				Flavor:   "template",
+			}: {
+				Casting: railwaytemplatecasting.New(logger),
 			},
 		},
 	}, nil

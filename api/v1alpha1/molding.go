@@ -42,11 +42,14 @@ func (spec *MoldingSpec) MergeStatus(status MoldingStatus) error {
 		status.Env = make(map[string]string)
 	}
 
-	maps.Copy(spec.Env, status.Env)
+	maps.Copy(status.Env, spec.Env)
+	spec.Env = status.Env
 
-	if err := Merge(&spec.Config, status.Config); err != nil {
+	if err := Merge(&status.Config, spec.Config); err != nil {
 		return err
 	}
+
+	spec.Config = status.Config
 
 	return nil
 }
