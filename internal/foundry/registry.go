@@ -8,6 +8,7 @@ import (
 	"github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/casting/dockercomposecasting"
 	"github.com/signoz/foundry/internal/casting/dockerswarmcasting"
+	"github.com/signoz/foundry/internal/casting/ecstaskdefcasting"
 	"github.com/signoz/foundry/internal/casting/kuberneteskustomizecasting"
 	"github.com/signoz/foundry/internal/casting/railwaytemplatecasting"
 	"github.com/signoz/foundry/internal/casting/rendercasting"
@@ -79,6 +80,13 @@ func NewRegistry(logger *slog.Logger) (*Registry, error) {
 				Flavor:   "template",
 			}: {
 				Casting: railwaytemplatecasting.New(logger),
+			},
+			{
+				Platform: "ecs",
+				Flavor:   "taskdef",
+				Mode:     "ec2",
+			}: {
+				Casting: ecstaskdefcasting.New(logger),
 			},
 		},
 	}, nil

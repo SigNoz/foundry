@@ -1,0 +1,39 @@
+{{- $name := $.Metadata.Name -}}
+{{- $region := index $.Metadata.Annotations "foundry.signoz.io/ecs-region" -}}
+{{- $taskRoleArn := index $.Metadata.Annotations "foundry.signoz.io/ecs-task-role-arn" -}}
+{{- $taskExecutionRoleArn := index $.Metadata.Annotations "foundry.signoz.io/ecs-task-execution-role-arn" -}}
+
+{
+  "family": "{{ $name }}-telemetrystore-migrator",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["EC2"],
+  "taskRoleArn": "{{ $taskRoleArn }}",
+  "executionRoleArn": "{{ $taskExecutionRoleArn }}",
+  "containerDefinitions": [
+    {
+      "name": "telemetrystore-migrator",
+      "image": "{{ $.Spec.Ingester.Spec.Image }}",
+      "essential": true,
+      "entryPoint": ["/bin/sh", "-c"],
+      "command": ["/signoz-otel-collector migrate ready && /signoz-otel-collector migrate bootstrap && /signoz-otel-collector migrate sync up && /signoz-otel-collector migrate async up"],
+      "environment": [
+{{ if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
+        {"name": "SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN", "value": "{{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}"}
+{{ end }}
+      ],
+      "cpu": 128,
+      "memory": 256,
+      "memoryReservation": 128,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/{{ $name }}",
+          "awslogs-region": "{{ $region }}",
+          "awslogs-stream-prefix": "telemetrystore-migrator",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ],
+  "volumes": []
+}

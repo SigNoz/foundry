@@ -1,0 +1,59 @@
+{
+  "family": "signoz-metastore",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["EC2"],
+  "taskRoleArn": "",
+  "executionRoleArn": "",
+  "containerDefinitions": [
+    {
+      "name": "metastore-postgres",
+      "image": "postgres:16",
+      "essential": true,
+      "environment": [
+        {
+          "name": "POSTGRES_DB",
+          "value": "signoz"
+        },
+        {
+          "name": "POSTGRES_PASSWORD",
+          "value": "signoz"
+        },
+        {
+          "name": "POSTGRES_USER",
+          "value": "signoz"
+        }
+      ],
+      "portMappings": [
+        {"name": "postgres", "containerPort": 5432, "protocol": "tcp"}
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "postgres-data",
+          "containerPath": "/var/lib/postgresql/data"
+        }
+      ],
+      "cpu": 256,
+      "memory": 256,
+      "memoryReservation": 256,
+      "healthCheck": {
+        "command": ["CMD-SHELL", "pg_isready -U postgres || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 30
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/signoz",
+          "awslogs-region": "",
+          "awslogs-stream-prefix": "metastore-postgres",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ],
+  "volumes": [
+    {"name": "postgres-data", "dockerVolumeConfiguration": {"scope": "task", "driver": "local"}}
+  ]
+}

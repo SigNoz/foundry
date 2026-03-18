@@ -1,0 +1,95 @@
+{{- $name := $.Metadata.Name -}}
+{{- $region := index $.Metadata.Annotations "foundry.signoz.io/ecs-region" -}}
+{{- $configBucket := index $.Metadata.Annotations "foundry.signoz.io/ecs-config-bucket" -}}
+{{- $taskRoleArn := index $.Metadata.Annotations "foundry.signoz.io/ecs-task-role-arn" -}}
+{{- $taskExecutionRoleArn := index $.Metadata.Annotations "foundry.signoz.io/ecs-task-execution-role-arn" -}}
+
+{
+  "family": "{{ $name }}-ingester",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["EC2"],
+  "taskRoleArn": "{{ $taskRoleArn }}",
+  "executionRoleArn": "{{ $taskExecutionRoleArn }}",
+  "containerDefinitions": [
+    {
+      "name": "config-fetcher",
+      "image": "amazon/aws-cli:2.27.32",
+      "essential": false,
+      "entryPoint": ["/bin/sh", "-c"],
+      "command": ["aws s3 cp s3://{{ $configBucket }}/{{ $name }}/ingester/ /configs/ingester/ --recursive"],
+      "mountPoints": [
+        {
+          "sourceVolume": "ingester-config",
+          "containerPath": "/configs/ingester"
+        }
+      ],
+      "cpu": 10,
+      "memory": 102,
+      "memoryReservation": 102,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/{{ $name }}",
+          "awslogs-region": "{{ $region }}",
+          "awslogs-stream-prefix": "ingester-config-fetcher",
+          "awslogs-create-group": "true"
+        }
+      }
+    },
+    {
+      "name": "otel-collector",
+      "image": "{{ $.Spec.Ingester.Spec.Image }}",
+      "essential": true,
+      "entryPoint": ["/bin/sh", "-c"],
+      "command": ["/signoz-otel-collector migrate sync check && /signoz-otel-collector --config=/conf/ingester.yaml --manager-config=/conf/opamp.yaml --copy-path=/var/tmp/collector-config.yaml"],
+      "environment": [
+{{ if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
+        {"name": "SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN", "value": "{{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}"}
+{{ end }}
+        {{- if $.Spec.Ingester.Spec.Env }}
+        {{- range $key, $value := $.Spec.Ingester.Spec.Env }},
+        {
+          "name": {{ $key | toJson }},
+          "value": {{ $value | toJson }}
+        }
+        {{- end }}
+        {{- end }}
+      ],
+      "portMappings": [
+        {"name": "otel-grpc", "containerPort": 4317, "protocol": "tcp"},
+        {"name": "otel-http", "containerPort": 4318, "protocol": "tcp"}
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "ingester-config",
+          "containerPath": "/conf"
+        }
+      ],
+      "dependsOn": [
+        {"containerName": "config-fetcher", "condition": "SUCCESS"}
+      ],
+      "cpu": 512,
+      "memory": 512,
+      "memoryReservation": 256,
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget --spider -q localhost:13133 || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 30
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/{{ $name }}",
+          "awslogs-region": "{{ $region }}",
+          "awslogs-stream-prefix": "otel-collector",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ],
+  "volumes": [
+    {"name": "ingester-config", "dockerVolumeConfiguration": {"scope": "task", "driver": "local"}}
+  ]
+}

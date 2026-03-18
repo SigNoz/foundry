@@ -1,0 +1,34 @@
+{
+  "family": "signoz-telemetrystore-migrator",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["EC2"],
+  "taskRoleArn": "",
+  "executionRoleArn": "",
+  "containerDefinitions": [
+    {
+      "name": "telemetrystore-migrator",
+      "image": "signoz/signoz-otel-collector:latest",
+      "essential": true,
+      "entryPoint": ["/bin/sh", "-c"],
+      "command": ["/signoz-otel-collector migrate ready && /signoz-otel-collector migrate bootstrap && /signoz-otel-collector migrate sync up && /signoz-otel-collector migrate async up"],
+      "environment": [
+
+        {"name": "SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN", "value": "tcp://telemetrystore:9000"}
+
+      ],
+      "cpu": 128,
+      "memory": 256,
+      "memoryReservation": 128,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/signoz",
+          "awslogs-region": "",
+          "awslogs-stream-prefix": "telemetrystore-migrator",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ],
+  "volumes": []
+}

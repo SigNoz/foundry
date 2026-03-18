@@ -1,0 +1,56 @@
+{{- $name := $.Metadata.Name -}}
+{{- $region := index $.Metadata.Annotations "foundry.signoz.io/ecs-region" -}}
+{{- $taskRoleArn := index $.Metadata.Annotations "foundry.signoz.io/ecs-task-role-arn" -}}
+{{- $taskExecutionRoleArn := index $.Metadata.Annotations "foundry.signoz.io/ecs-task-execution-role-arn" -}}
+
+{
+  "family": "{{ $name }}-signoz",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["EC2"],
+  "taskRoleArn": "{{ $taskRoleArn }}",
+  "executionRoleArn": "{{ $taskExecutionRoleArn }}",
+  "containerDefinitions": [
+    {
+      "name": "signoz",
+      "image": "{{ $.Spec.Signoz.Spec.Image }}",
+      "essential": true,
+      {{- if $.Spec.Signoz.Spec.Env }}
+      "environment": [
+        {{- $first := true }}
+        {{- range $key, $value := $.Spec.Signoz.Spec.Env }}
+        {{- if not $first }},{{ end }}
+        {
+          "name": {{ $key | toJson }},
+          "value": {{ $value | toJson }}
+        }
+        {{- $first = false }}
+        {{- end }}
+      ],
+      {{- end }}
+      "portMappings": [
+        {"name": "signoz-http", "containerPort": 8080, "protocol": "tcp"},
+        {"name": "signoz-opamp", "containerPort": 4320, "protocol": "tcp"}
+      ],
+      "cpu": 512,
+      "memory": 512,
+      "memoryReservation": 256,
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget --spider -q localhost:8080/api/v1/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 30
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/{{ $name }}",
+          "awslogs-region": "{{ $region }}",
+          "awslogs-stream-prefix": "signoz",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ],
+  "volumes": []
+}

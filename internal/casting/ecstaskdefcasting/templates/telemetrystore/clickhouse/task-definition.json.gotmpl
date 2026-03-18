@@ -1,0 +1,125 @@
+{{- $name := $.Metadata.Name -}}
+{{- $region := index $.Metadata.Annotations "foundry.signoz.io/ecs-region" -}}
+{{- $configBucket := index $.Metadata.Annotations "foundry.signoz.io/ecs-config-bucket" -}}
+{{- $taskRoleArn := index $.Metadata.Annotations "foundry.signoz.io/ecs-task-role-arn" -}}
+{{- $taskExecutionRoleArn := index $.Metadata.Annotations "foundry.signoz.io/ecs-task-execution-role-arn" -}}
+
+{
+  "family": "{{ $name }}-telemetrystore",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["EC2"],
+  "taskRoleArn": "{{ $taskRoleArn }}",
+  "executionRoleArn": "{{ $taskExecutionRoleArn }}",
+  "containerDefinitions": [
+    {
+      "name": "init-clickhouse",
+      "image": "alpine:3.18.2",
+      "essential": false,
+      "command": ["/bin/sh", "-c", "wget -O /var/lib/clickhouse/user_scripts/histogramQuantile https://github.com/SigNoz/signoz/releases/download/v0.50.0/histogram-quantile-linux-amd64 && chmod +x /var/lib/clickhouse/user_scripts/histogramQuantile"],
+      "mountPoints": [
+        {
+          "sourceVolume": "shared-binary-volume",
+          "containerPath": "/var/lib/clickhouse/user_scripts"
+        }
+      ],
+      "cpu": 256,
+      "memory": 256,
+      "memoryReservation": 256,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/{{ $name }}",
+          "awslogs-region": "{{ $region }}",
+          "awslogs-stream-prefix": "init-clickhouse",
+          "awslogs-create-group": "true"
+        }
+      }
+    },
+    {
+      "name": "config-fetcher",
+      "image": "amazon/aws-cli:2.27.32",
+      "essential": false,
+      "entryPoint": ["/bin/sh", "-c"],
+      "command": ["aws s3 cp s3://{{ $configBucket }}/{{ $name }}/telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/ /configs/telemetrystore/ --recursive"],
+      "mountPoints": [
+        {
+          "sourceVolume": "clickhouse-config",
+          "containerPath": "/configs/telemetrystore"
+        }
+      ],
+      "cpu": 10,
+      "memory": 102,
+      "memoryReservation": 102,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/{{ $name }}",
+          "awslogs-region": "{{ $region }}",
+          "awslogs-stream-prefix": "telemetrystore-config-fetcher",
+          "awslogs-create-group": "true"
+        }
+      }
+    },
+    {
+      "name": "clickhouse",
+      "image": "{{ $.Spec.TelemetryStore.Spec.Image }}",
+      "essential": true,
+      "environment": [
+        {"name": "CLICKHOUSE_SKIP_USER_SETUP", "value": "1"}
+        {{- range $key, $value := $.Spec.TelemetryStore.Spec.Env }},
+        {
+          "name": {{ $key | toJson }},
+          "value": {{ $value | toJson }}
+        }
+        {{- end }}
+      ],
+      "portMappings": [
+        {"name": "clickhouse-client", "containerPort": 9000, "protocol": "tcp"},
+        {"name": "clickhouse-http", "containerPort": 8123, "protocol": "tcp"},
+        {"name": "clickhouse-prometheus", "containerPort": 9363, "protocol": "tcp"}
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "shared-binary-volume",
+          "containerPath": "/var/lib/clickhouse/user_scripts"
+        },
+        {
+          "sourceVolume": "clickhouse-config",
+          "containerPath": "/etc/clickhouse-server/config.d"
+        },
+        {
+          "sourceVolume": "clickhouse-data",
+          "containerPath": "/var/lib/clickhouse"
+        }
+      ],
+      "dependsOn": [
+        {"containerName": "init-clickhouse", "condition": "SUCCESS"},
+        {"containerName": "config-fetcher", "condition": "SUCCESS"}
+      ],
+      "cpu": 1024,
+      "memory": 512,
+      "memoryReservation": 512,
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget --spider -q 0.0.0.0:8123/ping || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 30
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/{{ $name }}",
+          "awslogs-region": "{{ $region }}",
+          "awslogs-stream-prefix": "clickhouse",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ],
+  "volumes": [
+    {"name": "shared-binary-volume", "dockerVolumeConfiguration": {"scope": "task", "driver": "local"}},
+    {"name": "clickhouse-config", "dockerVolumeConfiguration": {"scope": "task", "driver": "local"}},
+    {"name": "clickhouse-data", "dockerVolumeConfiguration": {"scope": "task", "driver": "local"}}
+  ]
+}

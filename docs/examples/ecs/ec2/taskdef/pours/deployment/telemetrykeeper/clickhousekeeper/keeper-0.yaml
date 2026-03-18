@@ -1,0 +1,19 @@
+listen_host: 0.0.0.0
+logger:
+  level: information
+  console: true
+keeper_server:
+  four_letter_word_white_list: "*"
+  coordination_settings:
+    operation_timeout_ms: 10000
+    raft_logs_level: warning
+    session_timeout_ms: 30000
+  log_storage_path: /var/lib/clickhouse/coordination/log
+  raft_configuration:
+    server:
+    - hostname: telemetrykeeper
+      port: 9234
+      id: 0
+  server_id: 0
+  snapshot_storage_path: /var/lib/clickhouse/coordination/snapshots
+  tcp_port: 9181

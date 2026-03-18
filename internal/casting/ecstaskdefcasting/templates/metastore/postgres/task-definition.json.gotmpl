@@ -1,0 +1,61 @@
+{{- $name := $.Metadata.Name -}}
+{{- $region := index $.Metadata.Annotations "foundry.signoz.io/ecs-region" -}}
+{{- $taskRoleArn := index $.Metadata.Annotations "foundry.signoz.io/ecs-task-role-arn" -}}
+{{- $taskExecutionRoleArn := index $.Metadata.Annotations "foundry.signoz.io/ecs-task-execution-role-arn" -}}
+
+{
+  "family": "{{ $name }}-metastore",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["EC2"],
+  "taskRoleArn": "{{ $taskRoleArn }}",
+  "executionRoleArn": "{{ $taskExecutionRoleArn }}",
+  "containerDefinitions": [
+    {
+      "name": "metastore-postgres",
+      "image": "{{ $.Spec.MetaStore.Spec.Image }}",
+      "essential": true,
+      "environment": [
+        {{- $first := true }}
+        {{- range $key, $value := $.Spec.MetaStore.Spec.Env }}
+        {{- if not $first }},{{ end }}
+        {
+          "name": {{ $key | toJson }},
+          "value": {{ $value | toJson }}
+        }
+        {{- $first = false }}
+        {{- end }}
+      ],
+      "portMappings": [
+        {"name": "postgres", "containerPort": 5432, "protocol": "tcp"}
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "postgres-data",
+          "containerPath": "/var/lib/postgresql/data"
+        }
+      ],
+      "cpu": 256,
+      "memory": 256,
+      "memoryReservation": 256,
+      "healthCheck": {
+        "command": ["CMD-SHELL", "pg_isready -U postgres || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 30
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/{{ $name }}",
+          "awslogs-region": "{{ $region }}",
+          "awslogs-stream-prefix": "metastore-postgres",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ],
+  "volumes": [
+    {"name": "postgres-data", "dockerVolumeConfiguration": {"scope": "task", "driver": "local"}}
+  ]
+}
