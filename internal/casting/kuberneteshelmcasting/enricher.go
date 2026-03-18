@@ -36,8 +36,7 @@ func (e *helmMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.Mo
 }
 
 func (e *helmMoldingEnricher) enrichTelemetryStore(config *v1alpha1.Casting) error {
-	name := config.Metadata.Name + "-clickhouse"
-
+	name := fmt.Sprintf("%s-telemetrystore-%s", config.Metadata.Name, config.Spec.TelemetryStore.Kind)
 	config.Spec.TelemetryStore.Status.Addresses.TCP = []string{types.FormatAddress("tcp", name, 9000)}
 	return nil
 }
@@ -51,7 +50,8 @@ func (e *helmMoldingEnricher) enrichTelemetryKeeper(config *v1alpha1.Casting) er
 	if replicas < 1 {
 		replicas = 1
 	}
-	base := config.Metadata.Name + "-clickhouse-keeper"
+	// Hardcoded to "zookeeper" because the chart deploys zookeeper, not clickhousekeeper.
+	base := fmt.Sprintf("%s-telemetrykeeper-zookeeper", config.Metadata.Name)
 	var client, raft []string
 	for i := 0; i < replicas; i++ {
 		client = append(client, types.FormatAddress("tcp", fmt.Sprintf("%s-%d", base, i), 9181))
@@ -63,7 +63,7 @@ func (e *helmMoldingEnricher) enrichTelemetryKeeper(config *v1alpha1.Casting) er
 }
 
 func (e *helmMoldingEnricher) enrichMetaStore(config *v1alpha1.Casting) error {
-	name := config.Metadata.Name + "-metastore"
+	name := fmt.Sprintf("%s-metastore-%s", config.Metadata.Name, config.Spec.MetaStore.Kind)
 	config.Spec.MetaStore.Status.Addresses.DSN = []string{
 		fmt.Sprintf("postgres://%s:5432", name),
 	}
@@ -71,7 +71,8 @@ func (e *helmMoldingEnricher) enrichMetaStore(config *v1alpha1.Casting) error {
 }
 
 func (e *helmMoldingEnricher) enrichSignoz(config *v1alpha1.Casting) error {
-	name := config.Metadata.Name + "-signoz"
+	// Chart uses signoz.fullname which resolves to fullnameOverride directly.
+	name := config.Metadata.Name
 	config.Spec.Signoz.Status.Addresses.Opamp = []string{types.FormatAddress("tcp", name, 4320)}
 	return nil
 }

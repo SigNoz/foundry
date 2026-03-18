@@ -293,6 +293,61 @@ spec:
         POSTGRES_DB: signoz
         POSTGRES_PASSWORD: signoz
         POSTGRES_USER: signoz
+  patches:
+  - operations:
+    - op: add
+      path: /clickhouse/resources
+      value:
+        limits:
+          cpu: "4"
+          memory: 8Gi
+        requests:
+          cpu: "2"
+          memory: 4Gi
+    target: deployment/values.yaml
+  - operations:
+    - op: add
+      path: /signoz/resources
+      value:
+        limits:
+          cpu: "1"
+          memory: 2Gi
+        requests:
+          cpu: 500m
+          memory: 1Gi
+    target: deployment/values.yaml
+  - operations:
+    - op: add
+      path: /signoz/tolerations
+      value:
+      - effect: NoSchedule
+        key: dedicated
+        operator: Equal
+        value: signoz
+    - op: add
+      path: /signoz/nodeSelector
+      value:
+        node-role.kubernetes.io/observability: ""
+    target: deployment/values.yaml
+  - operations:
+    - op: add
+      path: /otelCollector/resources
+      value:
+        limits:
+          cpu: "2"
+          memory: 4Gi
+        requests:
+          cpu: "1"
+          memory: 2Gi
+    target: deployment/values.yaml
+  - operations:
+    - op: add
+      path: /clickhouse/persistence
+      value:
+        enabled: true
+        size: 100Gi
+        storageClass: gp3
+    target: deployment/values.yaml
   signoz:
     spec:
       cluster:

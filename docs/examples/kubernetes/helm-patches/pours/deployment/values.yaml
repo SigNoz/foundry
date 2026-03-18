@@ -7,6 +7,17 @@ clickhouse:
   layout:
     replicasCount: 0
     shardsCount: 1
+  persistence:
+    enabled: true
+    size: 100Gi
+    storageClass: gp3
+  resources:
+    limits:
+      cpu: "4"
+      memory: 8Gi
+    requests:
+      cpu: "2"
+      memory: 4Gi
   zookeeper:
     enabled: true
     fullnameOverride: signoz-telemetrykeeper-zookeeper
@@ -33,6 +44,13 @@ otelCollector:
       protocol: TCP
       servicePort: 4318
   replicaCount: 1
+  resources:
+    limits:
+      cpu: "2"
+      memory: 4Gi
+    requests:
+      cpu: "1"
+      memory: 2Gi
 postgresql:
   auth:
     database: signoz
@@ -53,12 +71,26 @@ signoz:
     repository: signoz/signoz
     tag: latest
   name: signoz
+  nodeSelector:
+    node-role.kubernetes.io/observability: ""
   replicaCount: 1
+  resources:
+    limits:
+      cpu: "1"
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
   service:
     internalPort: 8085
     opampPort: 4320
     port: 8080
     type: ClusterIP
+  tolerations:
+  - effect: NoSchedule
+    key: dedicated
+    operator: Equal
+    value: signoz
 telemetryStoreMigrator:
   enabled: true
   name: signoz-telemetrystore-migrator

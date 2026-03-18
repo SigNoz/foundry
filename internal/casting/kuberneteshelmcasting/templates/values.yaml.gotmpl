@@ -1,5 +1,7 @@
+fullnameOverride: {{ $.Metadata.Name }}
 clickhouse:
   enabled: {{ $.Spec.TelemetryStore.Spec.Enabled }}
+  fullnameOverride: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}
   {{- with $.Spec.TelemetryStore.Spec.Image }}
   {{- $parts := splitn ":" 2 . }}
   image:
@@ -8,25 +10,22 @@ clickhouse:
   {{- end }}
   {{- if or $.Spec.TelemetryStore.Spec.Cluster.Shards $.Spec.TelemetryStore.Spec.Cluster.Replicas }}
   layout:
-    shardsCount: {{ $.Spec.TelemetryStore.Spec.Cluster.Shards  }}
+    shardsCount: {{ $.Spec.TelemetryStore.Spec.Cluster.Shards }}
     replicasCount: {{ $.Spec.TelemetryStore.Spec.Cluster.Replicas }}
   {{- end }}
-  {{- with $.Spec.TelemetryStore.Spec.Config.Knobs }}
-{{ toYaml . | indent 2 }}
-  {{- end }}
-  keeper:
+  zookeeper:
     enabled: {{ $.Spec.TelemetryKeeper.Spec.Enabled }}
+    fullnameOverride: {{ $.Metadata.Name }}-telemetrykeeper-zookeeper
     {{- with $.Spec.TelemetryKeeper.Spec.Image }}
     {{- $parts := splitn ":" 2 . }}
     image:
-      repository: {{ $parts._0 }}
-      tag: {{ $parts._1 | default "latest" }}
+      {{/* Currently charts does not support clickhousekeeper, we will render the keeper image here once we support clickhousekeeper in charts */}}
+      repository: signoz/zookeeper
+      tag: 3.7.1
     {{- end }}
     replicaCount: {{ $.Spec.TelemetryKeeper.Spec.Cluster.Replicas }}
-    {{- with $.Spec.TelemetryKeeper.Spec.Config.Knobs }}
-{{ toYaml . | indent 4 }}
-    {{- end }}
 signoz:
+  name: signoz
   {{- with $.Spec.Signoz.Spec.Image }}
   {{- $parts := splitn ":" 2 . }}
   image:
@@ -36,17 +35,20 @@ signoz:
   {{- with $.Spec.Signoz.Spec.Cluster.Replicas }}
   replicaCount: {{ . }}
   {{- end }}
+  service:
+    type: ClusterIP
+    port: 8080
+    internalPort: 8085
+    opampPort: 4320
   {{- if $.Spec.Signoz.Spec.Env }}
   env:
-    {{- with $.Spec.Signoz.Spec.Env}}
+    {{- with $.Spec.Signoz.Spec.Env }}
 {{ toYaml . | indent 4 }}
     {{- end }}
   {{- end }}
-  {{- with $.Spec.Signoz.Spec.Config.Knobs }}
-{{ toYaml . | indent 2 }}
-  {{- end }}
 otelCollector:
   enabled: {{ $.Spec.Ingester.Spec.Enabled }}
+  name: ingester
   {{- with $.Spec.Ingester.Spec.Image }}
   {{- $parts := splitn ":" 2 . }}
   image:
@@ -56,17 +58,26 @@ otelCollector:
   {{- with $.Spec.Ingester.Spec.Cluster.Replicas }}
   replicaCount: {{ . }}
   {{- end }}
+  ports:
+    otlp:
+      enabled: true
+      containerPort: 4317
+      servicePort: 4317
+      protocol: TCP
+    otlp-http:
+      enabled: true
+      containerPort: 4318
+      servicePort: 4318
+      protocol: TCP
   {{- if $.Spec.Ingester.Spec.Env }}
   env:
-    {{- with $.Spec.Ingester.Spec.Env}}
+    {{- with $.Spec.Ingester.Spec.Env }}
 {{ toYaml . | indent 4 }}
     {{- end }}
   {{- end }}
-  {{- with $.Spec.Ingester.Spec.Config.Knobs }}
-{{ toYaml . | indent 2 }}
-  {{- end }}
 postgresql:
   enabled: {{ $.Spec.MetaStore.Spec.Enabled }}
+  fullnameOverride: {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}
   {{- with $.Spec.MetaStore.Spec.Image }}
   {{- $parts := splitn ":" 2 . }}
   image:
@@ -85,6 +96,6 @@ postgresql:
     password: {{ . }}
     {{- end }}
   {{- end }}
-  {{- with $.Spec.MetaStore.Spec.Config.Knobs }}
-{{ toYaml . | indent 2 }}
-  {{- end }}
+telemetryStoreMigrator:
+  enabled: true
+  name: {{ $.Metadata.Name }}-telemetrystore-migrator

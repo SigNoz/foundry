@@ -1,8 +1,0 @@
-clickhouse:
-  serviceMonitor:
-    enabled: true
-    interval: 30s
-otelCollector:
-  serviceMonitor:
-    enabled: true
-    interval: 15s

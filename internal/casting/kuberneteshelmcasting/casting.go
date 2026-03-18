@@ -3,7 +3,6 @@ package kuberneteshelmcasting
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -16,7 +15,6 @@ import (
 	"github.com/signoz/foundry/internal/types"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
-	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/repo"
@@ -37,46 +35,6 @@ const (
 
 var _ rootcasting.Casting = (*helmCasting)(nil)
 
-// HelmKnobs defines the supported knobs for the helm casting.
-// Knobs map directly to SigNoz Helm chart values.
-type HelmKnobs struct {
-	// Resources defines CPU and memory requests/limits.
-	Resources map[string]any `json:"resources,omitempty" yaml:"resources,omitempty"`
-
-	// Tolerations defines pod tolerations for scheduling.
-	Tolerations []map[string]any `json:"tolerations,omitempty" yaml:"tolerations,omitempty"`
-
-	// NodeSelector defines node selection constraints.
-	NodeSelector map[string]string `json:"nodeSelector,omitempty" yaml:"nodeSelector,omitempty"`
-
-	// Affinity defines pod affinity and anti-affinity rules.
-	Affinity map[string]any `json:"affinity,omitempty" yaml:"affinity,omitempty"`
-
-	// TopologySpreadConstraints defines how pods are spread across topology domains.
-	TopologySpreadConstraints []map[string]any `json:"topologySpreadConstraints,omitempty" yaml:"topologySpreadConstraints,omitempty"`
-
-	// PodSecurityContext defines the pod-level security context.
-	PodSecurityContext map[string]any `json:"podSecurityContext,omitempty" yaml:"podSecurityContext,omitempty"`
-
-	// SecurityContext defines the container-level security context.
-	SecurityContext map[string]any `json:"securityContext,omitempty" yaml:"securityContext,omitempty"`
-
-	// ImagePullSecrets lists secret names for pulling container images.
-	ImagePullSecrets []map[string]any `json:"imagePullSecrets,omitempty" yaml:"imagePullSecrets,omitempty"`
-
-	// PodAnnotations defines annotations to add to the pod template.
-	PodAnnotations map[string]string `json:"podAnnotations,omitempty" yaml:"podAnnotations,omitempty"`
-
-	// PodLabels defines extra labels to add to the pod template.
-	PodLabels map[string]string `json:"podLabels,omitempty" yaml:"podLabels,omitempty"`
-
-	// Persistence defines storage configuration (size, storageClass).
-	Persistence map[string]any `json:"persistence,omitempty" yaml:"persistence,omitempty"`
-
-	// Service defines service configuration (type, annotations, labels).
-	Service map[string]any `json:"service,omitempty" yaml:"service,omitempty"`
-}
-
 type helmCasting struct {
 	logger  *slog.Logger
 	casting *types.Template
@@ -94,10 +52,6 @@ func (c *helmCasting) Enricher(ctx context.Context, config *v1alpha1.Casting) (m
 }
 
 func (c *helmCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPath string) ([]types.Material, error) {
-	if err := c.validateKnobs(config); err != nil {
-		return nil, fmt.Errorf("invalid knobs: %w", err)
-	}
-
 	buf := bytes.NewBuffer(nil)
 	err := valuesYAMLTemplate.Execute(buf, config)
 	if err != nil {
@@ -105,38 +59,6 @@ func (c *helmCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursP
 	}
 
 	valuesBytes := buf.Bytes()
-
-	// Merge patches into base values. Each patch is a partial values YAML
-	// that overrides base values via CoalesceTables (patch wins, base fills gaps).
-	if len(config.Patches) > 0 {
-		baseVals := map[string]any{}
-		if err := yaml.Unmarshal(valuesBytes, &baseVals); err != nil {
-			return nil, fmt.Errorf("failed to parse base values: %w", err)
-		}
-
-		for _, patch := range config.Patches {
-			if patch.Path == "" {
-				continue
-			}
-
-			patchBytes, err := os.ReadFile(patch.Path)
-			if err != nil {
-				return nil, fmt.Errorf("failed to read patch file %q: %w", patch.Path, err)
-			}
-
-			patchVals := map[string]any{}
-			if err := yaml.Unmarshal(patchBytes, &patchVals); err != nil {
-				return nil, fmt.Errorf("failed to parse patch file %q: %w", patch.Path, err)
-			}
-
-			baseVals = chartutil.CoalesceTables(patchVals, baseVals)
-		}
-
-		valuesBytes, err = yaml.Marshal(baseVals)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal merged values: %w", err)
-		}
-	}
 
 	valuesMaterial, err := types.NewYAMLMaterial(valuesBytes, filepath.Join(rootcasting.DeploymentDir, "values.yaml"))
 	if err != nil {
@@ -264,36 +186,6 @@ func (c *helmCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPa
 		slog.String("release", config.Metadata.Name),
 		slog.String("namespace", config.Metadata.Name),
 	)
-	return nil
-}
-
-// validateKnobs parses each component's knobs into HelmKnobs to catch
-// type mismatches and unknown keys before templates run.
-func (c *helmCasting) validateKnobs(cfg v1alpha1.Casting) error {
-	components := map[string]any{
-		"signoz":          cfg.Spec.Signoz.Spec.Config.Knobs,
-		"ingester":        cfg.Spec.Ingester.Spec.Config.Knobs,
-		"telemetrystore":  cfg.Spec.TelemetryStore.Spec.Config.Knobs,
-		"telemetrykeeper": cfg.Spec.TelemetryKeeper.Spec.Config.Knobs,
-		"metastore":       cfg.Spec.MetaStore.Spec.Config.Knobs,
-	}
-
-	for component, knobs := range components {
-		if knobs == nil {
-			continue
-		}
-
-		data, err := json.Marshal(knobs)
-		if err != nil {
-			return fmt.Errorf("component %s: failed to marshal knobs: %w", component, err)
-		}
-
-		var k HelmKnobs
-		if err := json.Unmarshal(data, &k); err != nil {
-			return fmt.Errorf("component %s: %w", component, err)
-		}
-	}
-
 	return nil
 }
 
