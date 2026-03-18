@@ -221,13 +221,13 @@ volumes:
 configs:
   {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
   telemetrykeeper-{{ $replicaIdx }}:
-    file: ./configs/telemetrykeeper/keeper-{{ $replicaIdx }}.yaml
+    file: telemetrykeeper/{{ $.Spec.TelemetryKeeper.Kind }}/keeper-{{ $replicaIdx }}.yaml
   {{- end }}
   telemetrystore-config:
-    file: ./configs/telemetrystore/config.yaml
+    file: telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/config.yaml
   telemetrystore-functions:
-    file: ./configs/telemetrystore/functions.yaml
+    file: telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/functions.yaml
   ingester-config:
-    file: ./configs/ingester/ingester.yaml
+    file: ingester/ingester.yaml
   manager-config:
-    file: ./configs/ingester/opamp.yaml
+    file: ingester/opamp.yaml

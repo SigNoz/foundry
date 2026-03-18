@@ -1,14 +1,14 @@
 configs:
   ingester-config:
-    file: ./configs/ingester/ingester.yaml
+    file: ingester/ingester.yaml
   manager-config:
-    file: ./configs/ingester/opamp.yaml
+    file: ingester/opamp.yaml
   telemetrykeeper-0:
-    file: ./configs/telemetrykeeper/keeper-0.yaml
+    file: telemetrykeeper/clickhousekeeper/keeper-0.yaml
   telemetrystore-config:
-    file: ./configs/telemetrystore/config.yaml
+    file: telemetrystore/clickhouse/config.yaml
   telemetrystore-functions:
-    file: ./configs/telemetrystore/functions.yaml
+    file: telemetrystore/clickhouse/functions.yaml
 networks:
   signoz-network:
     attachable: true
