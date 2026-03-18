@@ -37,7 +37,7 @@
       }
     },
     {
-      "name": "otel-collector",
+      "name": "ingester",
       "image": "{{ $.Spec.Ingester.Spec.Image }}",
       "essential": true,
       "entryPoint": ["/bin/sh", "-c"],

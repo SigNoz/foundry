@@ -43,7 +43,7 @@
       "command": ["aws s3 cp s3://{{ $configBucket }}/{{ $name }}/telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/ /configs/telemetrystore/ --recursive"],
       "mountPoints": [
         {
-          "sourceVolume": "clickhouse-config",
+          "sourceVolume": "telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-config",
           "containerPath": "/configs/telemetrystore"
         }
       ],
@@ -55,13 +55,13 @@
         "options": {
           "awslogs-group": "/ecs/{{ $name }}",
           "awslogs-region": "{{ $region }}",
-          "awslogs-stream-prefix": "telemetrystore-config-fetcher",
+          "awslogs-stream-prefix": "telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-config-fetcher",
           "awslogs-create-group": "true"
         }
       }
     },
     {
-      "name": "clickhouse",
+      "name": "telemetrystore-{{ $.Spec.TelemetryStore.Kind }}",
       "image": "{{ $.Spec.TelemetryStore.Spec.Image }}",
       "essential": true,
       "environment": [
@@ -74,9 +74,9 @@
         {{- end }}
       ],
       "portMappings": [
-        {"name": "clickhouse-client", "containerPort": 9000, "protocol": "tcp"},
-        {"name": "clickhouse-http", "containerPort": 8123, "protocol": "tcp"},
-        {"name": "clickhouse-prometheus", "containerPort": 9363, "protocol": "tcp"}
+        {"name": "client", "containerPort": 9000, "protocol": "tcp"},
+        {"name": "http", "containerPort": 8123, "protocol": "tcp"},
+        {"name": "prometheus", "containerPort": 9363, "protocol": "tcp"}
       ],
       "mountPoints": [
         {
@@ -84,7 +84,7 @@
           "containerPath": "/var/lib/clickhouse/user_scripts"
         },
         {
-          "sourceVolume": "clickhouse-config",
+          "sourceVolume": "{{ $.Spec.TelemetryStore.Kind }}-config",
           "containerPath": "/etc/clickhouse-server/config.d"
         },
         {

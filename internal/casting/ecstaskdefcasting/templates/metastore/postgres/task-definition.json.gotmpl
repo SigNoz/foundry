@@ -11,7 +11,7 @@
   "executionRoleArn": "{{ $taskExecutionRoleArn }}",
   "containerDefinitions": [
     {
-      "name": "metastore-postgres",
+      "name": "metastore-{{ $.Spec.MetaStore.Kind }}",
       "image": "{{ $.Spec.MetaStore.Spec.Image }}",
       "essential": true,
       "environment": [

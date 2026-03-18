@@ -37,7 +37,7 @@
       }
     },
     {
-      "name": "clickhouse-keeper",
+      "name": "telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}",
       "image": "{{ $.Spec.TelemetryKeeper.Spec.Image }}",
       "essential": true,
       "command": ["/usr/bin/clickhouse-keeper", "--config-file=/etc/clickhouse-keeper/keeper.yaml"],
