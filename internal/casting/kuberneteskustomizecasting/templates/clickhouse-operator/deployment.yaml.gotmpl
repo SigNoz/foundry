@@ -1,0 +1,230 @@
+{{- $name := print $.Metadata.Name "-telemetrystore-" $.Spec.TelemetryStore.Kind "-operator" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-operator
+  labels:
+    app.kubernetes.io/name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-operator
+    app.kubernetes.io/instance: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-operator
+    app.kubernetes.io/version: "0.25.3"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-operator
+      app.kubernetes.io/instance: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-operator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-operator
+        app.kubernetes.io/instance: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-operator
+        app.kubernetes.io/version: "0.25.3"
+        app.kubernetes.io/managed-by: kustomize
+      annotations:
+        clickhouse-operator-metrics/port: "9999"
+        clickhouse-operator-metrics/scrape: "true"
+        checksum/files: 420251c3f150460f0b1b15211b9c0b965c16342055c2f3a5a57768d229b2ddd0
+        checksum/confd-files: 6a503b551565d380d3b4ea4b4c48a66629379558aa6cf0919d55f88f3cb4f56b
+        checksum/configd-files: a8b2e79da1b016cb2fa1e1b3d61f1edd8872af054a7419040c28b15a236bdc24
+        checksum/templatesd-files: bfbe2e3230fe68164813fcaf74c5cc06b11878c26c764476399ac8803c8bde1c
+        checksum/usersd-files: c609c91ce94021945657aae781f199517cbc6f2c1f603238c88004f8acf84f95
+        checksum/keeper-confd-files: c17fcdc4ce46db171e44a8e5036cafb7173a9806470fafdef717cc3c01318470
+        checksum/keeper-configd-files: beed860cfbb0c9e2a0b266f65dee8cbaf22990dc3e200c93b74e697b3cf4c9df
+        checksum/keeper-templatesd-files: a47abf45edf0f439048648e3d6d1ecede35e560a76f32d8a4aa6055e0fcf58a8
+        checksum/keeper-usersd-files: 2fbf34a572990f10fe9bf11c9884c5e847a1a23a02f0728e83bac4f4f9036797
+    spec:
+      nodeSelector:
+        kubernetes.io/os: "linux"
+      serviceAccountName: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-operator
+      volumes:
+        - name: etc-clickhouse-operator-folder
+          configMap:
+            name: {{ $name }}-etc-files
+        - name: etc-clickhouse-operator-confd-folder
+          configMap:
+            name: {{ $name }}-etc-confd-files
+        - name: etc-clickhouse-operator-configd-folder
+          configMap:
+            name: {{ $name }}-etc-configd-files
+        - name: etc-clickhouse-operator-templatesd-folder
+          configMap:
+            name: {{ $name }}-etc-templatesd-files
+        - name: etc-clickhouse-operator-usersd-folder
+          configMap:
+            name: {{ $name }}-etc-usersd-files
+        - name: etc-keeper-operator-confd-folder
+          configMap:
+            name: {{ $name }}-keeper-etc-confd-files
+        - name: etc-keeper-operator-configd-folder
+          configMap:
+            name: {{ $name }}-keeper-etc-configd-files
+        - name: etc-keeper-operator-templatesd-folder
+          configMap:
+            name: {{ $name }}-keeper-etc-templatesd-files
+        - name: etc-keeper-operator-usersd-folder
+          configMap:
+            name: {{ $name }}-keeper-etc-usersd-files
+      containers:
+        - name: operator
+          image: altinity/clickhouse-operator:0.25.3
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: etc-clickhouse-operator-folder
+              mountPath: /etc/clickhouse-operator
+            - name: etc-clickhouse-operator-confd-folder
+              mountPath: /etc/clickhouse-operator/chi/conf.d
+            - name: etc-clickhouse-operator-configd-folder
+              mountPath: /etc/clickhouse-operator/chi/config.d
+            - name: etc-clickhouse-operator-templatesd-folder
+              mountPath: /etc/clickhouse-operator/chi/templates.d
+            - name: etc-clickhouse-operator-usersd-folder
+              mountPath: /etc/clickhouse-operator/chi/users.d
+            - name: etc-keeper-operator-confd-folder
+              mountPath: /etc/clickhouse-operator/chk/conf.d
+            - name: etc-keeper-operator-configd-folder
+              mountPath: /etc/clickhouse-operator/chk/keeper_config.d
+            - name: etc-keeper-operator-templatesd-folder
+              mountPath: /etc/clickhouse-operator/chk/templates.d
+            - name: etc-keeper-operator-usersd-folder
+              mountPath: /etc/clickhouse-operator/chk/users.d
+          env:
+            # Pod-specific
+            # spec.nodeName: ip-172-20-52-62.ec2.internal
+            - name: OPERATOR_POD_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            # metadata.name: clickhouse-operator-6f87589dbb-ftcsf
+            - name: OPERATOR_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            # status.podIP: 100.96.3.2
+            - name: OPERATOR_POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            # spec.serviceAccount: clickhouse-operator
+            # spec.serviceAccountName: clickhouse-operator
+            - name: OPERATOR_POD_SERVICE_ACCOUNT
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.serviceAccountName
+            # Container-specific
+            - name: OPERATOR_CONTAINER_CPU_REQUEST
+              valueFrom:
+                resourceFieldRef:
+                  containerName: operator
+                  resource: requests.cpu
+            - name: OPERATOR_CONTAINER_CPU_LIMIT
+              valueFrom:
+                resourceFieldRef:
+                  containerName: operator
+                  resource: limits.cpu
+            - name: OPERATOR_CONTAINER_MEM_REQUEST
+              valueFrom:
+                resourceFieldRef:
+                  containerName: operator
+                  resource: requests.memory
+            - name: OPERATOR_CONTAINER_MEM_LIMIT
+              valueFrom:
+                resourceFieldRef:
+                  containerName: operator
+                  resource: limits.memory
+            {{- range $key, $val := $.Spec.TelemetryStore.Spec.Env }}
+            - name: {{ $key }}
+              value: {{ $val }}
+            {{- end }}
+          ports:
+            - containerPort: 9999
+              name: op-metrics
+          resources:
+            requests:
+              cpu: 1000m
+              memory: 2Gi
+          securityContext:
+            {}
+        - name: metrics-exporter
+          image: altinity/metrics-exporter:0.25.3
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: etc-clickhouse-operator-folder
+              mountPath: /etc/clickhouse-operator
+            - name: etc-clickhouse-operator-confd-folder
+              mountPath: /etc/clickhouse-operator/chi/conf.d
+            - name: etc-clickhouse-operator-configd-folder
+              mountPath: /etc/clickhouse-operator/chi/config.d
+            - name: etc-clickhouse-operator-templatesd-folder
+              mountPath: /etc/clickhouse-operator/chi/templates.d
+            - name: etc-clickhouse-operator-usersd-folder
+              mountPath: /etc/clickhouse-operator/chi/users.d
+            - name: etc-keeper-operator-confd-folder
+              mountPath: /etc/clickhouse-operator/chk/conf.d
+            - name: etc-keeper-operator-configd-folder
+              mountPath: /etc/clickhouse-operator/chk/keeper_config.d
+            - name: etc-keeper-operator-templatesd-folder
+              mountPath: /etc/clickhouse-operator/chk/templates.d
+            - name: etc-keeper-operator-usersd-folder
+              mountPath: /etc/clickhouse-operator/chk/users.d
+          env:
+            # Pod-specific
+            # spec.nodeName: ip-172-20-52-62.ec2.internal
+            - name: OPERATOR_POD_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            # metadata.name: clickhouse-operator-6f87589dbb-ftcsf
+            - name: OPERATOR_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            # metadata.namespace: kube-system
+            - name: OPERATOR_POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            # status.podIP: 100.96.3.2
+            - name: OPERATOR_POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            # spec.serviceAccount: clickhouse-operator
+            # spec.serviceAccountName: clickhouse-operator
+            - name: OPERATOR_POD_SERVICE_ACCOUNT
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.serviceAccountName
+            # Container-specific
+            - name: OPERATOR_CONTAINER_CPU_REQUEST
+              valueFrom:
+                resourceFieldRef:
+                  containerName: operator
+                  resource: requests.cpu
+            - name: OPERATOR_CONTAINER_CPU_LIMIT
+              valueFrom:
+                resourceFieldRef:
+                  containerName: operator
+                  resource: limits.cpu
+            - name: OPERATOR_CONTAINER_MEM_REQUEST
+              valueFrom:
+                resourceFieldRef:
+                  containerName: operator
+                  resource: requests.memory
+            - name: OPERATOR_CONTAINER_MEM_LIMIT
+              valueFrom:
+                resourceFieldRef:
+                  containerName: operator
+                  resource: limits.memory
+          ports:
+            - containerPort: 8888
+              name: ch-metrics
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          securityContext:
+            {}

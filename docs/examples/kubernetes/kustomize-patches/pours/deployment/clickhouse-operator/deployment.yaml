@@ -1,0 +1,208 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/instance: signoz-telemetrystore-clickhouse-operator
+    app.kubernetes.io/name: signoz-telemetrystore-clickhouse-operator
+    app.kubernetes.io/version: 0.25.3
+  name: signoz-telemetrystore-clickhouse-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: signoz-telemetrystore-clickhouse-operator
+      app.kubernetes.io/name: signoz-telemetrystore-clickhouse-operator
+  template:
+    metadata:
+      annotations:
+        checksum/confd-files: 6a503b551565d380d3b4ea4b4c48a66629379558aa6cf0919d55f88f3cb4f56b
+        checksum/configd-files: a8b2e79da1b016cb2fa1e1b3d61f1edd8872af054a7419040c28b15a236bdc24
+        checksum/files: 420251c3f150460f0b1b15211b9c0b965c16342055c2f3a5a57768d229b2ddd0
+        checksum/keeper-confd-files: c17fcdc4ce46db171e44a8e5036cafb7173a9806470fafdef717cc3c01318470
+        checksum/keeper-configd-files: beed860cfbb0c9e2a0b266f65dee8cbaf22990dc3e200c93b74e697b3cf4c9df
+        checksum/keeper-templatesd-files: a47abf45edf0f439048648e3d6d1ecede35e560a76f32d8a4aa6055e0fcf58a8
+        checksum/keeper-usersd-files: 2fbf34a572990f10fe9bf11c9884c5e847a1a23a02f0728e83bac4f4f9036797
+        checksum/templatesd-files: bfbe2e3230fe68164813fcaf74c5cc06b11878c26c764476399ac8803c8bde1c
+        checksum/usersd-files: c609c91ce94021945657aae781f199517cbc6f2c1f603238c88004f8acf84f95
+        clickhouse-operator-metrics/port: "9999"
+        clickhouse-operator-metrics/scrape: "true"
+      labels:
+        app.kubernetes.io/instance: signoz-telemetrystore-clickhouse-operator
+        app.kubernetes.io/managed-by: kustomize
+        app.kubernetes.io/name: signoz-telemetrystore-clickhouse-operator
+        app.kubernetes.io/version: 0.25.3
+    spec:
+      containers:
+      - env:
+        - name: OPERATOR_POD_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: OPERATOR_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: OPERATOR_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: OPERATOR_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: OPERATOR_POD_SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
+        - name: OPERATOR_CONTAINER_CPU_REQUEST
+          valueFrom:
+            resourceFieldRef:
+              containerName: operator
+              resource: requests.cpu
+        - name: OPERATOR_CONTAINER_CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              containerName: operator
+              resource: limits.cpu
+        - name: OPERATOR_CONTAINER_MEM_REQUEST
+          valueFrom:
+            resourceFieldRef:
+              containerName: operator
+              resource: requests.memory
+        - name: OPERATOR_CONTAINER_MEM_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              containerName: operator
+              resource: limits.memory
+        image: altinity/clickhouse-operator:0.25.3
+        imagePullPolicy: IfNotPresent
+        name: operator
+        ports:
+        - containerPort: 9999
+          name: op-metrics
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 2Gi
+        securityContext: {}
+        volumeMounts:
+        - mountPath: /etc/clickhouse-operator
+          name: etc-clickhouse-operator-folder
+        - mountPath: /etc/clickhouse-operator/chi/conf.d
+          name: etc-clickhouse-operator-confd-folder
+        - mountPath: /etc/clickhouse-operator/chi/config.d
+          name: etc-clickhouse-operator-configd-folder
+        - mountPath: /etc/clickhouse-operator/chi/templates.d
+          name: etc-clickhouse-operator-templatesd-folder
+        - mountPath: /etc/clickhouse-operator/chi/users.d
+          name: etc-clickhouse-operator-usersd-folder
+        - mountPath: /etc/clickhouse-operator/chk/conf.d
+          name: etc-keeper-operator-confd-folder
+        - mountPath: /etc/clickhouse-operator/chk/keeper_config.d
+          name: etc-keeper-operator-configd-folder
+        - mountPath: /etc/clickhouse-operator/chk/templates.d
+          name: etc-keeper-operator-templatesd-folder
+        - mountPath: /etc/clickhouse-operator/chk/users.d
+          name: etc-keeper-operator-usersd-folder
+      - env:
+        - name: OPERATOR_POD_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: OPERATOR_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: OPERATOR_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: OPERATOR_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: OPERATOR_POD_SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
+        - name: OPERATOR_CONTAINER_CPU_REQUEST
+          valueFrom:
+            resourceFieldRef:
+              containerName: operator
+              resource: requests.cpu
+        - name: OPERATOR_CONTAINER_CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              containerName: operator
+              resource: limits.cpu
+        - name: OPERATOR_CONTAINER_MEM_REQUEST
+          valueFrom:
+            resourceFieldRef:
+              containerName: operator
+              resource: requests.memory
+        - name: OPERATOR_CONTAINER_MEM_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              containerName: operator
+              resource: limits.memory
+        image: altinity/metrics-exporter:0.25.3
+        imagePullPolicy: IfNotPresent
+        name: metrics-exporter
+        ports:
+        - containerPort: 8888
+          name: ch-metrics
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        securityContext: {}
+        volumeMounts:
+        - mountPath: /etc/clickhouse-operator
+          name: etc-clickhouse-operator-folder
+        - mountPath: /etc/clickhouse-operator/chi/conf.d
+          name: etc-clickhouse-operator-confd-folder
+        - mountPath: /etc/clickhouse-operator/chi/config.d
+          name: etc-clickhouse-operator-configd-folder
+        - mountPath: /etc/clickhouse-operator/chi/templates.d
+          name: etc-clickhouse-operator-templatesd-folder
+        - mountPath: /etc/clickhouse-operator/chi/users.d
+          name: etc-clickhouse-operator-usersd-folder
+        - mountPath: /etc/clickhouse-operator/chk/conf.d
+          name: etc-keeper-operator-confd-folder
+        - mountPath: /etc/clickhouse-operator/chk/keeper_config.d
+          name: etc-keeper-operator-configd-folder
+        - mountPath: /etc/clickhouse-operator/chk/templates.d
+          name: etc-keeper-operator-templatesd-folder
+        - mountPath: /etc/clickhouse-operator/chk/users.d
+          name: etc-keeper-operator-usersd-folder
+      nodeSelector:
+        kubernetes.io/os: linux
+      serviceAccountName: signoz-telemetrystore-clickhouse-operator
+      volumes:
+      - configMap:
+          name: signoz-telemetrystore-clickhouse-operator-etc-files
+        name: etc-clickhouse-operator-folder
+      - configMap:
+          name: signoz-telemetrystore-clickhouse-operator-etc-confd-files
+        name: etc-clickhouse-operator-confd-folder
+      - configMap:
+          name: signoz-telemetrystore-clickhouse-operator-etc-configd-files
+        name: etc-clickhouse-operator-configd-folder
+      - configMap:
+          name: signoz-telemetrystore-clickhouse-operator-etc-templatesd-files
+        name: etc-clickhouse-operator-templatesd-folder
+      - configMap:
+          name: signoz-telemetrystore-clickhouse-operator-etc-usersd-files
+        name: etc-clickhouse-operator-usersd-folder
+      - configMap:
+          name: signoz-telemetrystore-clickhouse-operator-keeper-etc-confd-files
+        name: etc-keeper-operator-confd-folder
+      - configMap:
+          name: signoz-telemetrystore-clickhouse-operator-keeper-etc-configd-files
+        name: etc-keeper-operator-configd-folder
+      - configMap:
+          name: signoz-telemetrystore-clickhouse-operator-keeper-etc-templatesd-files
+        name: etc-keeper-operator-templatesd-folder
+      - configMap:
+          name: signoz-telemetrystore-clickhouse-operator-keeper-etc-usersd-files
+        name: etc-keeper-operator-usersd-folder

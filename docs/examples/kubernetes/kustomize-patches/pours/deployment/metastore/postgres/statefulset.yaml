@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app.kubernetes.io/component: metastore
+    app.kubernetes.io/instance: signoz
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-metastore
+  name: signoz-metastore
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: metastore
+      app.kubernetes.io/instance: signoz
+      app.kubernetes.io/name: signoz-metastore
+  serviceName: signoz-metastore
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: metastore
+        app.kubernetes.io/instance: signoz
+        app.kubernetes.io/name: signoz-metastore
+    spec:
+      containers:
+      - env:
+        - name: POSTGRESQL_VOLUME_DIR
+          value: /var/lib/postgresql
+        - name: POSTGRESQL_PORT_NUMBER
+          value: "5432"
+        - name: PGDATA
+          value: /var/lib/postgresql/data
+        - name: POSTGRES_DB
+          value: signoz
+        - name: POSTGRES_PASSWORD
+          value: signoz
+        - name: POSTGRES_USER
+          value: signoz
+        image: postgres:16
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - exec pg_isready -U "$POSTGRES_USER" -h 127.0.0.1 -p 5432
+          failureThreshold: 6
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        name: postgres
+        ports:
+        - containerPort: 5432
+          name: tcp-postgresql
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - exec pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h 127.0.0.1 -p
+              5432
+          failureThreshold: 6
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 3
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+        - mountPath: /var/lib/postgresql
+          name: pgdata
+      serviceAccountName: signoz-metastore
+  volumeClaimTemplates:
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: pgdata
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 20Gi
+      storageClassName: gp3

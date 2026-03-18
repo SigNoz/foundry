@@ -53,7 +53,7 @@ func (casting *dockerSwarmCasting) Forge(ctx context.Context, config v1alpha1.Ca
 	materials := []types.Material{composeMaterial}
 
 	for filename, content := range config.Spec.TelemetryKeeper.Spec.Config.Data {
-		material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "telemetrykeeper",config.Spec.TelemetryKeeper.Kind.String(), filename))
+		material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "telemetrykeeper", config.Spec.TelemetryKeeper.Kind.String(), filename))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create telemetrykeeper config material: %w", err)
 		}
@@ -61,7 +61,7 @@ func (casting *dockerSwarmCasting) Forge(ctx context.Context, config v1alpha1.Ca
 	}
 
 	for filename, content := range config.Spec.TelemetryStore.Spec.Config.Data {
-		material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "telemetrystore",config.Spec.TelemetryStore.Kind.String(),  filename))
+		material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "telemetrystore", config.Spec.TelemetryStore.Kind.String(), filename))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create telemetrystore config material: %w", err)
 		}
@@ -69,7 +69,7 @@ func (casting *dockerSwarmCasting) Forge(ctx context.Context, config v1alpha1.Ca
 	}
 
 	for filename, content := range config.Spec.MetaStore.Spec.Config.Data {
-		material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "metastore",config.Spec.MetaStore.Kind.String(), filename))
+		material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "metastore", config.Spec.MetaStore.Kind.String(), filename))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create metastore config material: %w", err)
 		}

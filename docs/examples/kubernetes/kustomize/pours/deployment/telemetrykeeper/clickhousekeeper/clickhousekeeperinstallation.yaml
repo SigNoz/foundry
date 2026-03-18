@@ -1,0 +1,49 @@
+apiVersion: clickhouse-keeper.altinity.com/v1
+kind: ClickHouseKeeperInstallation
+metadata:
+  name: signoz-clickhouse-keeper
+spec:
+  configuration:
+    clusters:
+    - layout:
+        replicasCount: 1
+      name: cluster
+    settings:
+      keeper_server/coordination_settings/raft_logs_level: information
+      keeper_server/four_letter_word_white_list: '*'
+      listen_host: 0.0.0.0
+      logger/console: "true"
+      logger/level: trace
+  defaults:
+    templates:
+      dataVolumeClaimTemplate: default
+      podTemplate: default
+  templates:
+    podTemplates:
+    - metadata:
+        labels:
+          app.kubernetes.io/component: telemetrykeeper
+          app.kubernetes.io/instance: signoz
+          app.kubernetes.io/managed-by: kustomize
+          app.kubernetes.io/name: signoz-clickhouse-keeper
+          app.kubernetes.io/part-of: signoz
+      name: default
+      spec:
+        containers:
+        - image: clickhouse/clickhouse-keeper:25.5.6
+          imagePullPolicy: IfNotPresent
+          name: clickhouse-keeper
+          resources:
+            requests:
+              cpu: 1
+              memory: 1Gi
+        securityContext:
+          fsGroup: 101
+    volumeClaimTemplates:
+    - name: default
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi

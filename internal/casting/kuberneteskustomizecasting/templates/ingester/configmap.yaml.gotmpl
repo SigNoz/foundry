@@ -1,0 +1,15 @@
+{{- $name := print $.Metadata.Name "-ingester" -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $.Metadata.Name }}
+    app.kubernetes.io/component: ingester
+    app.kubernetes.io/managed-by: kustomize
+data:
+{{- range $filename, $content := $.Spec.Ingester.Spec.Config.Data }}
+  {{ $filename }}: |-
+{{ $content | indent 4 }}
+{{- end }}
