@@ -3,10 +3,10 @@ kind: Kustomization
 namespace: signoz
 resources:
 - namespace.yaml
-- telemetrystore/clickhouse-operator
-- telemetrystore/clickhouse-instance
-- telemetrykeeper
+- clickhouse-operator
+- telemetrystore/clickhouse
+- telemetrykeeper/clickhousekeeper
 - telemetrystore-migrator
-- metastore/postgresql
+- metastore/postgres
 - signoz
 - ingester

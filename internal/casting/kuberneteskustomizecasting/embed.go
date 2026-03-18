@@ -11,22 +11,22 @@ var templates embed.FS
 
 var (
 	// telemetrystore/clickhouse-operator.
-	clickhouseOperatorClusterrole        = types.MustNewTemplateFromFS(templates, "templates/telemetrystore/clickhouse-operator/clusterrole.yaml.gotmpl", types.FormatYAML)
-	clickhouseOperatorClusterrolebinding = types.MustNewTemplateFromFS(templates, "templates/telemetrystore/clickhouse-operator/clusterrolebinding.yaml.gotmpl", types.FormatYAML)
-	clickhouseOperatorConfigmap          = types.MustNewTemplateFromFS(templates, "templates/telemetrystore/clickhouse-operator/configmap.yaml.gotmpl", types.FormatYAML)
-	clickhouseOperatorDeployment         = types.MustNewTemplateFromFS(templates, "templates/telemetrystore/clickhouse-operator/deployment.yaml.gotmpl", types.FormatYAML)
-	clickhouseOperatorService            = types.MustNewTemplateFromFS(templates, "templates/telemetrystore/clickhouse-operator/service.yaml.gotmpl", types.FormatYAML)
-	clickhouseOperatorServiceaccount     = types.MustNewTemplateFromFS(templates, "templates/telemetrystore/clickhouse-operator/serviceaccount.yaml.gotmpl", types.FormatYAML)
-	clickhouseOperatorKustomization      = types.MustNewTemplateFromFS(templates, "templates/telemetrystore/clickhouse-operator/kustomization.yaml.gotmpl", types.FormatYAML)
+	clickhouseOperatorClusterrole        = types.MustNewTemplateFromFS(templates, "templates/clickhouse-operator/clusterrole.yaml.gotmpl", types.FormatYAML)
+	clickhouseOperatorClusterrolebinding = types.MustNewTemplateFromFS(templates, "templates/clickhouse-operator/clusterrolebinding.yaml.gotmpl", types.FormatYAML)
+	clickhouseOperatorConfigmap          = types.MustNewTemplateFromFS(templates, "templates/clickhouse-operator/configmap.yaml.gotmpl", types.FormatYAML)
+	clickhouseOperatorDeployment         = types.MustNewTemplateFromFS(templates, "templates/clickhouse-operator/deployment.yaml.gotmpl", types.FormatYAML)
+	clickhouseOperatorService            = types.MustNewTemplateFromFS(templates, "templates/clickhouse-operator/service.yaml.gotmpl", types.FormatYAML)
+	clickhouseOperatorServiceaccount     = types.MustNewTemplateFromFS(templates, "templates/clickhouse-operator/serviceaccount.yaml.gotmpl", types.FormatYAML)
+	clickhouseOperatorKustomization      = types.MustNewTemplateFromFS(templates, "templates/clickhouse-operator/kustomization.yaml.gotmpl", types.FormatYAML)
 
-	// telemetrystore/clickhouse-instance.
-	clickhouseInstanceInstallation      = types.MustNewTemplateFromFS(templates, "templates/telemetrystore/clickhouse-instance/clickhouseinstallation.yaml.gotmpl", types.FormatYAML)
-	clickhouseInstanceConfigmap         = types.MustNewTemplateFromFS(templates, "templates/telemetrystore/clickhouse-instance/configmap.yaml.gotmpl", types.FormatYAML)
-	clickhouseInstallationKustomization = types.MustNewTemplateFromFS(templates, "templates/telemetrystore/clickhouse-instance/kustomization.yaml.gotmpl", types.FormatYAML)
+	// telemetrystore/clickhouse.
+	clickhouseInstanceInstallation      = types.MustNewTemplateFromFS(templates, "templates/telemetrystore/clickhouse/clickhouseinstallation.yaml.gotmpl", types.FormatYAML)
+	clickhouseInstanceConfigmap         = types.MustNewTemplateFromFS(templates, "templates/telemetrystore/clickhouse/configmap.yaml.gotmpl", types.FormatYAML)
+	clickhouseInstallationKustomization = types.MustNewTemplateFromFS(templates, "templates/telemetrystore/clickhouse/kustomization.yaml.gotmpl", types.FormatYAML)
 
 	// telemetrykeeper.
-	clickhouseKeeperInstallation  = types.MustNewTemplateFromFS(templates, "templates/telemetrykeeper/clickhousekeeperinstallation.yaml.gotmpl", types.FormatYAML)
-	clickhouseKeeperKustomization = types.MustNewTemplateFromFS(templates, "templates/telemetrykeeper/kustomization.yaml.gotmpl", types.FormatYAML)
+	clickhouseKeeperInstallation  = types.MustNewTemplateFromFS(templates, "templates/telemetrykeeper/clickhousekeeper/clickhousekeeperinstallation.yaml.gotmpl", types.FormatYAML)
+	clickhouseKeeperKustomization = types.MustNewTemplateFromFS(templates, "templates/telemetrykeeper/clickhousekeeper/kustomization.yaml.gotmpl", types.FormatYAML)
 
 	// signoz.
 	signozService        = types.MustNewTemplateFromFS(templates, "templates/signoz/service.yaml.gotmpl", types.FormatYAML)
@@ -42,10 +42,10 @@ var (
 	ingesterKustomization  = types.MustNewTemplateFromFS(templates, "templates/ingester/kustomization.yaml.gotmpl", types.FormatYAML)
 
 	// metastore/postgresql.
-	metastoreService        = types.MustNewTemplateFromFS(templates, "templates/metastore/postgresql/service.yaml.gotmpl", types.FormatYAML)
-	metastoreServiceaccount = types.MustNewTemplateFromFS(templates, "templates/metastore/postgresql/serviceaccount.yaml.gotmpl", types.FormatYAML)
-	metastoreStatefulset    = types.MustNewTemplateFromFS(templates, "templates/metastore/postgresql/statefulset.yaml.gotmpl", types.FormatYAML)
-	metastoreKustomization  = types.MustNewTemplateFromFS(templates, "templates/metastore/postgresql/kustomization.yaml.gotmpl", types.FormatYAML)
+	metastoreService        = types.MustNewTemplateFromFS(templates, "templates/metastore/postgres/service.yaml.gotmpl", types.FormatYAML)
+	metastoreServiceaccount = types.MustNewTemplateFromFS(templates, "templates/metastore/postgres/serviceaccount.yaml.gotmpl", types.FormatYAML)
+	metastoreStatefulset    = types.MustNewTemplateFromFS(templates, "templates/metastore/postgres/statefulset.yaml.gotmpl", types.FormatYAML)
+	metastoreKustomization  = types.MustNewTemplateFromFS(templates, "templates/metastore/postgres/kustomization.yaml.gotmpl", types.FormatYAML)
 
 	// telemetrystore-migrator.
 	telemetrystoreMigratorJob           = types.MustNewTemplateFromFS(templates, "templates/telemetrystore-migrator/job.yaml.gotmpl", types.FormatYAML)

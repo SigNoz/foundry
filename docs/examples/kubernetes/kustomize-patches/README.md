@@ -17,8 +17,8 @@ This example patches the following files:
 
 | Patch | Target file |
 |---|---|
-| [Storage class and size](#storage-class-and-size) | `deployment/telemetrystore/clickhouse-instance/clickhouseinstallation.yaml`, `deployment/metastore/postgresql/statefulset.yaml` |
-| [Resource limits](#resource-limits) | `deployment/telemetrystore/clickhouse-instance/clickhouseinstallation.yaml`, `deployment/signoz/statefulset.yaml`, `deployment/ingester/deployment.yaml` |
+| [Storage class and size](#storage-class-and-size) | `deployment/telemetrystore/clickhouse/clickhouseinstallation.yaml`, `deployment/metastore/postgresql/statefulset.yaml` |
+| [Resource limits](#resource-limits) | `deployment/telemetrystore/clickhouse/clickhouseinstallation.yaml`, `deployment/signoz/statefulset.yaml`, `deployment/ingester/deployment.yaml` |
 | [Tolerations and nodeSelector](#tolerations-and-nodeselector) | `deployment/signoz/statefulset.yaml` |
 | [LoadBalancer with AWS NLB](#loadbalancer-with-aws-nlb) | `deployment/signoz/service.yaml` |
 
@@ -30,7 +30,7 @@ ClickHouse has two volume claim templates (`data-0` and `default`):
 
 ```yaml
 patches:
-  - target: "deployment/telemetrystore/clickhouse-instance/clickhouseinstallation.yaml"
+  - target: "deployment/telemetrystore/clickhouse/clickhouseinstallation.yaml"
     operations:
       - op: add
         path: /spec/templates/volumeClaimTemplates/0/spec/storageClassName
@@ -53,7 +53,7 @@ For a ClickHouseInstallation (pod template):
 
 ```yaml
 patches:
-  - target: "deployment/telemetrystore/clickhouse-instance/clickhouseinstallation.yaml"
+  - target: "deployment/telemetrystore/clickhouse/clickhouseinstallation.yaml"
     operations:
       - op: replace
         path: /spec/templates/podTemplates/0/spec/containers/0/resources

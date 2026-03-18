@@ -48,23 +48,24 @@ pours/deployment/
     serviceaccount.yaml
     kustomization.yaml
   telemetrystore/                   # ClickHouse
-    clickhouse-instance/
+    clickhouse/
       clickhouseinstallation.yaml     # ClickHouse CR (volumes, resources, config)
       configmap.yaml                  # custom functions
       kustomization.yaml
-    clickhouse-operator/
-      deployment.yaml                 # operator Deployment
-      clusterrole.yaml
-      clusterrolebinding.yaml
-      configmap.yaml
-      service.yaml
-      serviceaccount.yaml
-      kustomization.yaml
-  telemetrykeeper/                  # ClickHouse Keeper
-    clickhousekeeperinstallation.yaml # Keeper CR
+  clickhouse-operator/
+    deployment.yaml                 # operator Deployment
+    clusterrole.yaml
+    clusterrolebinding.yaml
+    configmap.yaml
+    service.yaml
+    serviceaccount.yaml
     kustomization.yaml
+  telemetrykeeper/
+    clickhousekeeper/                  # ClickHouse Keeper
+      clickhousekeeperinstallation.yaml # Keeper CR
+      kustomization.yaml
   metastore/                        # PostgreSQL metadata store
-    postgresql/
+    postgres/
       statefulset.yaml                # PostgreSQL StatefulSet
       service.yaml
       serviceaccount.yaml

@@ -304,7 +304,7 @@ spec:
     - op: add
       path: /spec/templates/volumeClaimTemplates/1/spec/storageClassName
       value: gp3
-    target: deployment/telemetrystore/clickhouse-instance/clickhouseinstallation.yaml
+    target: deployment/telemetrystore/clickhouse/clickhouseinstallation.yaml
   - operations:
     - op: replace
       path: /spec/templates/podTemplates/0/spec/containers/0/resources
@@ -315,7 +315,7 @@ spec:
         requests:
           cpu: "2"
           memory: 4Gi
-    target: deployment/telemetrystore/clickhouse-instance/clickhouseinstallation.yaml
+    target: deployment/telemetrystore/clickhouse/clickhouseinstallation.yaml
   - operations:
     - op: replace
       path: /spec/template/spec/containers/0/resources
@@ -367,7 +367,7 @@ spec:
     - op: replace
       path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
       value: 20Gi
-    target: deployment/metastore/postgresql/statefulset.yaml
+    target: deployment/metastore/postgres/statefulset.yaml
   signoz:
     spec:
       cluster:

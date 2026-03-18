@@ -8,7 +8,7 @@ spec:
   patches:
     # 1. Set storage class and size on ClickHouse data volumes
     #    Required for cloud providers (gp3 on AWS, pd-ssd on GCP, managed-premium on Azure)
-    - target: "deployment/telemetrystore/clickhouse-instance/clickhouseinstallation.yaml"
+    - target: "deployment/telemetrystore/clickhouse/clickhouseinstallation.yaml"
       operations:
         - op: add
           path: /spec/templates/volumeClaimTemplates/0/spec/storageClassName
@@ -21,7 +21,7 @@ spec:
           value: gp3
 
     # 2. Set resource limits on ClickHouse for production sizing
-    - target: "deployment/telemetrystore/clickhouse-instance/clickhouseinstallation.yaml"
+    - target: "deployment/telemetrystore/clickhouse/clickhouseinstallation.yaml"
       operations:
         - op: replace
           path: /spec/templates/podTemplates/0/spec/containers/0/resources
@@ -86,7 +86,7 @@ spec:
               memory: "4Gi"
 
     # 7. Set storage class on PostgreSQL metastore
-    - target: "deployment/metastore/postgresql/statefulset.yaml"
+    - target: "deployment/metastore/postgres/statefulset.yaml"
       operations:
         - op: add
           path: /spec/volumeClaimTemplates/0/spec/storageClassName

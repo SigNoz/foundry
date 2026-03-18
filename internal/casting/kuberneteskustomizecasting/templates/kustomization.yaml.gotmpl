@@ -6,17 +6,17 @@ namespace: {{ $.Metadata.Name }}
 resources:
 - namespace.yaml
 {{- if $.Spec.TelemetryStore.Spec.Enabled }}
-- telemetrystore/clickhouse-operator
-- telemetrystore/clickhouse-instance
+- clickhouse-operator
+- telemetrystore/clickhouse
 {{- end }}
 {{- if $.Spec.TelemetryKeeper.Spec.Enabled }}
-- telemetrykeeper
+- telemetrykeeper/clickhousekeeper
 {{- end }}
 {{- if $.Spec.TelemetryStore.Spec.Enabled }}
 - telemetrystore-migrator
 {{- end }}
 {{- if $.Spec.MetaStore.Spec.Enabled }}
-- metastore/postgresql
+- metastore/postgres
 {{- end }}
 {{- if $.Spec.Signoz.Spec.Enabled }}
 - signoz
