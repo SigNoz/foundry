@@ -17,85 +17,71 @@ spec:
         shardsCount: 1
       name: cluster
     files:
-      config.d/crash.xml: |
-        <clickhouse>
-          <send_crash_reports replace="replace">
-            <enabled>false</enabled>
-          </send_crash_reports>
-        </clickhouse>
-      config.d/formatting.xml: |
-        <clickhouse>
-          <logger>
-            <formatting replace="replace">
-              <type>json</type>
-              <names>
-                <date_time>date_time</date_time>
-                <thread_name>thread_name</thread_name>
-                <thread_id>thread_id</thread_id>
-                <level>level</level>
-                <query_id>query_id</query_id>
-                <logger_name>logger_name</logger_name>
-                <message>message</message>
-                <source_file>source_file</source_file>
-                <source_line>source_line</source_line>
-              </names>
-            </formatting>
-          </logger>
-        </clickhouse>
-      config.d/load.xml: |
-        <clickhouse>
-          <async_load_databases replace="replace">false</async_load_databases>
-        </clickhouse>
-      config.d/path.xml: |
-        <clickhouse>
-          <path>/var/lib/clickhouse/</path>
-          <merge_tree>
-            <storage_policy>data</storage_policy>
-          </merge_tree>
-        </clickhouse>
-      config.d/storage.xml: |
-        <clickhouse>
-          <storage_configuration>
-            <disks>
-              <default></default>
-              <data0>
-                <path>/mnt/data-0/</path>
-                <keep_free_space_bytes>10485760</keep_free_space_bytes>
-              </data0>
-            </disks>
-            <policies>
-              <default>
-                <volumes>
-                  <default>
-                    <disk>default</disk>
-                  </default>
-                </volumes>
-              </default>
-              <data>
-                <volumes>
-                  <data0>
-                    <disk>data0</disk>
-                  </data0>
-                </volumes>
-              </data>
-            </policies>
-          </storage_configuration>
-        </clickhouse>
-      config.d/system_log.xml: |
-        <clickhouse>
-          <text_log>
-            <ttl>event_date + INTERVAL 3 DAY DELETE</ttl>
-          </text_log>
-          <latency_log>
-            <ttl>event_date + INTERVAL 3 DAY DELETE</ttl>
-          </latency_log>
-          <error_log>
-            <ttl>event_date + INTERVAL 7 DAY DELETE</ttl>
-          </error_log>
-          <query_metric_log>
-            <ttl>event_date + INTERVAL 3 DAY DELETE</ttl>
-          </query_metric_log>
-        </clickhouse>
+      config.d/crash.yaml: |
+        send_crash_reports:
+          enabled: false
+      config.d/extra.yaml: |
+        dictionaries_config: '*_dictionary.xml'
+        format_schema_path: /etc/clickhouse-server/config.d/
+        prometheus:
+          endpoint: /metrics
+          port: 9363
+        tmp_path: /var/lib/clickhouse/tmp/
+        user_defined_executable_functions_config: /etc/clickhouse-server/functions/custom-functions.xml
+        user_directories:
+          users_xml:
+            path: users.xml
+        user_files_path: /var/lib/clickhouse/user_files/
+        user_scripts_path: /var/lib/clickhouse/user_scripts/
+      config.d/formatting.yaml: |
+        logger:
+          console: 1
+          count: 10
+          formatting:
+            names:
+              date_time: date_time
+              level: level
+              logger_name: logger_name
+              message: message
+              query_id: query_id
+              source_file: source_file
+              source_line: source_line
+              thread_id: thread_id
+              thread_name: thread_name
+            type: json
+          level: information
+          size: 1000M
+      config.d/load.yaml: |
+        async_load_databases: false
+      config.d/path.yaml: |
+        merge_tree:
+          storage_policy: data
+        path: /var/lib/clickhouse/
+      config.d/storage.yaml: |
+        storage_configuration:
+          disks:
+            data0:
+              keep_free_space_bytes: 10485760
+              path: /mnt/data-0/
+            default: {}
+          policies:
+            data:
+              volumes:
+                data0:
+                  disk: data0
+            default:
+              volumes:
+                default:
+                  disk: default
+      config.d/system_log.yaml: |
+        error_log:
+          ttl: event_date + INTERVAL 7 DAY DELETE
+        latency_log:
+          ttl: event_date + INTERVAL 3 DAY DELETE
+        query_metric_log:
+          ttl: event_date + INTERVAL 3 DAY DELETE
+        text_log:
+          ttl: event_date + INTERVAL 3 DAY DELETE
       events.proto: |
         syntax = "proto3";
         message Event {
@@ -114,15 +100,19 @@ spec:
       admin/secondary_indices_enable_bulk_filtering: "0"
       default/allow_experimental_window_functions: "1"
       default/allow_nondeterministic_mutations: "1"
+      default/load_balancing: random
+      default/log_queries: 1
+      default/max_memory_usage: 10000000000
       default/max_threads: 16
       default/query_plan_max_limit_for_lazy_materialization: "0"
       default/secondary_indices_enable_bulk_filtering: "0"
-    settings:
-      format_schema_path: /etc/clickhouse-server/config.d/
-      prometheus/endpoint: /metrics
-      prometheus/port: 9363
-      user_defined_executable_functions_config: /etc/clickhouse-server/functions/custom-functions.xml
-      user_scripts_path: /var/lib/clickhouse/user_scripts/
+    quotas:
+      default/interval/duration: 3600
+      default/interval/errors: 0
+      default/interval/execution_time: 0
+      default/interval/queries: 0
+      default/interval/read_rows: 0
+      default/interval/result_rows: 0
     users:
       admin/networks/ip:
       - 10.0.0.0/8
@@ -134,6 +124,14 @@ spec:
       admin/password: 27ff0399-0d3a-4bd8-919d-17c2181e6fb9
       admin/profile: default
       admin/quota: default
+      default/access_management: 1
+      default/named_collection_control: 1
+      default/networks/ip: ::/0
+      default/password: ""
+      default/profile: default
+      default/quota: default
+      default/show_named_collection: 1
+      default/show_named_collection_secrets: 1
     zookeeper:
       nodes:
       - host: keeper-signoz-clickhouse-keeper

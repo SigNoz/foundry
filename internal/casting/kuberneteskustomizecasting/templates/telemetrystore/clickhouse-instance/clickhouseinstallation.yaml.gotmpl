@@ -14,85 +14,31 @@ metadata:
 spec:
   configuration:
     files:
-      config.d/crash.xml: |
-        <clickhouse>
-          <send_crash_reports replace="replace">
-            <enabled>false</enabled>
-          </send_crash_reports>
-        </clickhouse>
-      config.d/formatting.xml: |
-        <clickhouse>
-          <logger>
-            <formatting replace="replace">
-              <type>json</type>
-              <names>
-                <date_time>date_time</date_time>
-                <thread_name>thread_name</thread_name>
-                <thread_id>thread_id</thread_id>
-                <level>level</level>
-                <query_id>query_id</query_id>
-                <logger_name>logger_name</logger_name>
-                <message>message</message>
-                <source_file>source_file</source_file>
-                <source_line>source_line</source_line>
-              </names>
-            </formatting>
-          </logger>
-        </clickhouse>
-      config.d/load.xml: |
-        <clickhouse>
-          <async_load_databases replace="replace">false</async_load_databases>
-        </clickhouse>
-      config.d/path.xml: |
-        <clickhouse>
-          <path>/var/lib/clickhouse/</path>
-          <merge_tree>
-            <storage_policy>data</storage_policy>
-          </merge_tree>
-        </clickhouse>
-      config.d/storage.xml: |
-        <clickhouse>
-          <storage_configuration>
-            <disks>
-              <default></default>
-              <data0>
-                <path>/mnt/data-0/</path>
-                <keep_free_space_bytes>10485760</keep_free_space_bytes>
-              </data0>
-            </disks>
-            <policies>
-              <default>
-                <volumes>
-                  <default>
-                    <disk>default</disk>
-                  </default>
-                </volumes>
-              </default>
-              <data>
-                <volumes>
-                  <data0>
-                    <disk>data0</disk>
-                  </data0>
-                </volumes>
-              </data>
-            </policies>
-          </storage_configuration>
-        </clickhouse>
-      config.d/system_log.xml: |
-        <clickhouse>
-          <text_log>
-            <ttl>event_date + INTERVAL 3 DAY DELETE</ttl>
-          </text_log>
-          <latency_log>
-            <ttl>event_date + INTERVAL 3 DAY DELETE</ttl>
-          </latency_log>
-          <error_log>
-            <ttl>event_date + INTERVAL 7 DAY DELETE</ttl>
-          </error_log>
-          <query_metric_log>
-            <ttl>event_date + INTERVAL 3 DAY DELETE</ttl>
-          </query_metric_log>
-        </clickhouse>
+{{- $configData := $.Spec.TelemetryStore.Status.Config.Data }}
+{{- $config := index $configData "config.yaml" | fromYaml }}
+{{- if $config }}
+{{- $files := omit $config "profiles" "users" "quotas" "remote_servers" "zookeeper" "macros" "tcp_port" "http_port" "interserver_http_port" "listen_host" "display_name" "distributed_ddl" }}
+      config.d/crash.yaml: |
+{{ pick $files "send_crash_reports" | toYaml | indent 8 }}
+{{- $files = omit $files "send_crash_reports" }}
+      config.d/formatting.yaml: |
+{{ pick $files "logger" | toYaml | indent 8 }}
+{{- $files = omit $files "logger" }}
+      config.d/load.yaml: |
+{{ pick $files "async_load_databases" | toYaml | indent 8 }}
+{{- $files = omit $files "async_load_databases" }}
+      config.d/path.yaml: |
+{{ pick $files "path" "merge_tree" | toYaml | indent 8 }}
+{{- $files = omit $files "path" "merge_tree" }}
+      config.d/storage.yaml: |
+{{ pick $files "storage_configuration" | toYaml | indent 8 }}
+{{- $files = omit $files "storage_configuration" }}
+      config.d/system_log.yaml: |
+{{ pick $files "text_log" "latency_log" "error_log" "query_metric_log" | toYaml | indent 8 }}
+{{- $files = omit $files "text_log" "latency_log" "error_log" "query_metric_log" }}
+      config.d/extra.yaml: |
+{{ $files | toYaml | indent 8 }}
+{{- end }}
       events.proto: |
         syntax = "proto3";
         message Event {
@@ -105,32 +51,14 @@ spec:
           string created_at = 7;
           string elements_chain = 8;
         }
+{{- if $config }}
     profiles:
-      admin/max_threads: 16
-      default/allow_experimental_window_functions: "1"
-      default/allow_nondeterministic_mutations: "1"
-      default/max_threads: 16
-      admin/query_plan_max_limit_for_lazy_materialization: "0"
-      admin/secondary_indices_enable_bulk_filtering: "0"
-      default/query_plan_max_limit_for_lazy_materialization: "0"
-      default/secondary_indices_enable_bulk_filtering: "0"
+{{ index $config "profiles" | flattenKeys | toYaml | indent 6 }}
     users:
-      admin/networks/ip:
-      - 10.0.0.0/8
-      - 100.64.0.0/10
-      - 172.16.0.0/12
-      - 192.0.0.0/24
-      - 198.18.0.0/15
-      - 192.168.0.0/16
-      admin/password: 27ff0399-0d3a-4bd8-919d-17c2181e6fb9
-      admin/profile: default
-      admin/quota: default
-    settings:
-      format_schema_path: /etc/clickhouse-server/config.d/
-      prometheus/endpoint: /metrics
-      prometheus/port: 9363
-      user_defined_executable_functions_config: /etc/clickhouse-server/functions/custom-functions.xml
-      user_scripts_path: /var/lib/clickhouse/user_scripts/
+{{ index $config "users" | flattenKeys | toYaml | indent 6 }}
+    quotas:
+{{ index $config "quotas" | flattenKeys | toYaml | indent 6 }}
+{{- end }}
     clusters:
     - name: cluster
       layout:

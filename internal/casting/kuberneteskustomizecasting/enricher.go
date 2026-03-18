@@ -19,7 +19,8 @@ const (
 var _ molding.MoldingEnricher = (*kustomizeMoldingEnricher)(nil)
 
 type kustomizeMoldingEnricher struct {
-	materials []types.Material
+	materials         []types.Material
+	overrideMaterials []types.Material
 }
 
 func newKustomizeMoldingEnricher(config *v1alpha1.Casting) (*kustomizeMoldingEnricher, error) {
@@ -28,7 +29,15 @@ func newKustomizeMoldingEnricher(config *v1alpha1.Casting) (*kustomizeMoldingEnr
 		return nil, fmt.Errorf("failed to get service yaml material: %w", err)
 	}
 
-	return &kustomizeMoldingEnricher{materials: materials}, nil
+	overrideMaterials, err := getOverrideMaterials(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get override materials: %w", err)
+	}
+
+	return &kustomizeMoldingEnricher{
+		materials:         materials,
+		overrideMaterials: overrideMaterials,
+	}, nil
 }
 
 func (e *kustomizeMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *v1alpha1.Casting) error {
@@ -53,6 +62,12 @@ func (e *kustomizeMoldingEnricher) enrichTelemetryStore(config *v1alpha1.Casting
 		return fmt.Errorf("failed to get telemetrystore service names: %w", err)
 	}
 	config.Spec.TelemetryStore.Status.Addresses.TCP = []string{types.FormatAddress("tcp", string(name), telemetryStorePort)}
+
+	if config.Spec.TelemetryStore.Status.Extras == nil {
+		config.Spec.TelemetryStore.Status.Extras = make(map[string]string)
+	}
+	config.Spec.TelemetryStore.Status.Extras["_overrides"] = string(e.overrideMaterials[0].FmtContents())
+
 	return nil
 }
 

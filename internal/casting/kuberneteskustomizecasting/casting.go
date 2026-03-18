@@ -157,6 +157,22 @@ func (c *kustomizeCasting) forgeCasting(tmpl *types.Template, cfg *v1alpha1.Cast
 	return []types.Material{material}, nil
 }
 
+func getOverrideMaterials(config *v1alpha1.Casting) ([]types.Material, error) {
+	var materials []types.Material
+
+	storeBuf := bytes.NewBuffer(nil)
+	if err := telemetryStoreOverrideTemplate.Execute(storeBuf, config); err != nil {
+		return nil, fmt.Errorf("failed to execute store override template: %w", err)
+	}
+	storeMaterial, err := types.NewYAMLMaterial(storeBuf.Bytes(), "store_overrides.yaml")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create store override material: %w", err)
+	}
+	materials = append(materials, storeMaterial)
+
+	return materials, nil
+}
+
 func getServiceMaterials(config *v1alpha1.Casting) ([]types.Material, error) {
 	var materials []types.Material
 

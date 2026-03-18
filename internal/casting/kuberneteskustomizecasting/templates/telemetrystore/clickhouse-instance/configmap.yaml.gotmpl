@@ -11,22 +11,4 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 data:
   custom-functions.xml: |
-    <functions>
-        <function>
-            <type>executable</type>
-            <name>histogramQuantile</name>
-            <return_type>Float64</return_type>
-            <argument>
-                <type>Float64</type>
-            </argument>
-            <argument>
-                <type>Array(Float64)</type>
-            </argument>
-            <argument>
-                <type>Array(Float64)</type>
-            </argument>
-            <format>TabSeparated</format>
-            <command>/var/lib/clickhouse/user_scripts/histogramQuantile</command>
-            <send_chunk_header>false</send_chunk_header>
-        </function>
-    </functions>
+{{ index $.Spec.TelemetryStore.Spec.Config.Data "functions.yaml" | indent 4 }}

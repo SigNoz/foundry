@@ -54,4 +54,7 @@ var (
 	// deployment.
 	deploymentNamespace     = types.MustNewTemplateFromFS(templates, "templates/namespace.yaml.gotmpl", types.FormatYAML)
 	deploymentKustomization = types.MustNewTemplateFromFS(templates, "templates/kustomization.yaml.gotmpl", types.FormatYAML)
+
+	// molding overrides.
+	telemetryStoreOverrideTemplate = types.MustNewTemplateFromFS(templates, "templates/overrides/telemetrystore.yaml.gotmpl", types.FormatYAML)
 )
