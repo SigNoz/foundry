@@ -80,6 +80,8 @@ func NewRegistry(logger *slog.Logger) (*Registry, error) {
 				Flavor:   "stack",
 			}: {
 				Casting: coolifycasting.New(logger),
+			},
+			{
 				Platform: "railway",
 				Flavor:   "template",
 			}: {
