@@ -4,14 +4,18 @@ networks:
 services:
   signoz-ingester:
     command:
-    - --config=/etc/otel-collector-config.yaml
-    depends_on:
-      signoz-telemetrystore-clickhouse-0-0:
-        condition: service_healthy
-      signoz-telemetrystore-migrator:
-        condition: service_completed_successfully
+    - -c
+    - |
+      /signoz-otel-collector migrate sync check &&
+      /signoz-otel-collector --config=/etc/otel-collector-config.yaml --manager-config=/etc/opamp-config.yaml --copy-path=/var/tmp/collector-config.yaml
     deploy:
       replicas: 1
+      restart_policy:
+        condition: on-failure
+    entrypoint:
+    - /bin/sh
+    environment:
+    - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://signoz-telemetrystore-clickhouse-0-0:9000
     healthcheck:
       interval: 30s
       retries: 3
@@ -30,13 +34,14 @@ services:
     - 4317:4317
     - 4318:4318
     volumes:
-    - ./configs/ingester/ingester.yaml:/etc/otel-collector-config.yaml:ro
+    - ./ingester/ingester.yaml:/etc/otel-collector-config.yaml:ro
+    - ./ingester/opamp.yaml:/etc/opamp-config.yaml:ro
   signoz-metastore-postgres-0:
     container_name: signoz-metastore-postgres-0
     environment:
-    - POSTGRES_USER=signoz
-    - POSTGRES_PASSWORD=signoz
     - POSTGRES_DB=signoz
+    - POSTGRES_PASSWORD=signoz
+    - POSTGRES_USER=signoz
     healthcheck:
       interval: 30s
       retries: 3
@@ -51,23 +56,14 @@ services:
     volumes:
     - signoz-metastore-0-data:/var/lib/postgresql/data
   signoz-signoz:
-    depends_on:
-      signoz-metastore-postgres-0:
-        condition: service_healthy
-      signoz-telemetrystore-clickhouse-0-0:
-        condition: service_healthy
     deploy:
-      replicas: 1
+      restart_policy:
+        condition: on-failure
     environment:
-    - SIGNOZ_ALERTMANAGER_PROVIDER=signoz
+    - SIGNOZ_SQLSTORE_POSTGRES_DSN=postgres://signoz:signoz@signoz-metastore-postgres-0:5432/signoz?sslmode=disable
+    - SIGNOZ_SQLSTORE_PROVIDER=postgres
     - SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN=tcp://signoz-telemetrystore-clickhouse-0-0:9000
-    - SIGNOZ_SQLSTORE_SQLITE_PATH=/var/lib/signoz/signoz.db
-    - DASHBOARDS_PATH=/root/config/dashboards
-    - STORAGE=clickhouse
-    - GODEBUG=netdns=go
-    - TELEMETRY_ENABLED=true
-    - DEPLOYMENT_TYPE=docker-standalone-amd
-    - DOT_METRICS_ENABLED=true
+    - SIGNOZ_TELEMETRYSTORE_PROVIDER=clickhouse
     healthcheck:
       interval: 30s
       retries: 3
@@ -77,15 +73,13 @@ services:
       - wget
       - --spider
       - -q
-      - http://localhost:3301/api/v1/health
+      - http://localhost:8080/api/v1/health
       timeout: 10s
     image: signoz/signoz:latest
     networks:
     - signoz-network
     ports:
     - 8080:8080
-    volumes:
-    - signoz-signoz-0-data:/var/lib/signoz
   signoz-telemetrykeeper-clickhousekeeper-0:
     container_name: signoz-telemetrykeeper-clickhousekeeper-0
     entrypoint:
@@ -110,7 +104,7 @@ services:
     - signoz-network
     volumes:
     - signoz-telemetrykeeper-0-data:/var/lib/clickhouse-keeper
-    - ./configs/telemetrykeeper/keeper-0.yaml:/etc/clickhouse-keeper/keeper.yaml:ro
+    - ./telemetrykeeper/clickhousekeeper/keeper-0.yaml:/etc/clickhouse-keeper/keeper.yaml:ro
   signoz-telemetrystore-clickhouse-0-0:
     container_name: signoz-telemetrystore-clickhouse-0-0
     depends_on:
@@ -138,7 +132,8 @@ services:
     volumes:
     - signoz-telemetrystore-0-0-data:/var/lib/clickhouse
     - signoz-telemetrystore-user-scripts:/var/lib/clickhouse/user_scripts:ro
-    - ./configs/telemetrystore/config.yaml:/etc/clickhouse-server/config.yaml:ro
+    - ./telemetrystore/clickhouse/config.yaml:/etc/clickhouse-server/config.yaml:ro
+    - ./telemetrystore/clickhouse/functions.yaml:/etc/clickhouse-server/functions.yaml:ro
   signoz-telemetrystore-clickhouse-user-scripts:
     command:
     - bash
@@ -160,22 +155,22 @@ services:
     - signoz-telemetrystore-user-scripts:/var/lib/clickhouse/user_scripts
   signoz-telemetrystore-migrator:
     command:
-    - /signoz-otel-collector migrate bootstrap --clickhouse-dsn tcp://signoz-telemetrystore-clickhouse-0-0:9000
-    - /signoz-otel-collector migrate sync up --clickhouse-dsn tcp://signoz-telemetrystore-clickhouse-0-0:9000
-    - /signoz-otel-collector migrate async up --clickhouse-dsn tcp://signoz-telemetrystore-clickhouse-0-0:9000
+    - -c
+    - |
+      /signoz-otel-collector migrate ready &&
+      /signoz-otel-collector migrate bootstrap &&
+      /signoz-otel-collector migrate sync up &&
+      /signoz-otel-collector migrate async up
     container_name: signoz-telemetrystore-migrator
-    depends_on:
-      signoz-telemetrystore-clickhouse-0-0:
-        condition: service_healthy
     entrypoint:
     - /bin/sh
-    - -c
+    environment:
+    - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://signoz-telemetrystore-clickhouse-0-0:9000
     image: signoz/signoz-otel-collector:latest
     networks:
     - signoz-network
 volumes:
   signoz-metastore-0-data: null
-  signoz-signoz-0-data: null
   signoz-telemetrykeeper-0-data: null
   signoz-telemetrystore-0-0-data: null
   signoz-telemetrystore-user-scripts: null
