@@ -35,7 +35,7 @@ remote_servers:
   cluster:
     shard:
     - replica:
-        host: localhost
+      - host: localhost
         port: 9000
 tcp_port: 9000
 tmp_path: /var/lib/clickhouse/tmp/

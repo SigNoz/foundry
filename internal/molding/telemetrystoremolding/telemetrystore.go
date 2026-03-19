@@ -74,8 +74,15 @@ func (molding *telemetrystore) getData(config *v1alpha1.Casting) (Data, error) {
 
 	cluster := config.Spec.TelemetryStore.Spec.Cluster
 
-	shardCount := max(*cluster.Shards, 1)
-	replicaCount := max(*cluster.Replicas, 1)
+	shardCount := 1
+	if cluster.Shards != nil && *cluster.Shards > 0 {
+		shardCount = *cluster.Shards
+	}
+
+	replicaCount := 1
+	if cluster.Replicas != nil {
+		replicaCount = *cluster.Replicas + 1
+	}
 
 	expectedNodes := shardCount * replicaCount
 	if len(storeAddresses) < expectedNodes {

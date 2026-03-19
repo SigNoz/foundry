@@ -54,7 +54,7 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config v1alpha1.
 
 	// Add telemetrykeeper config files
 	for filename, content := range config.Spec.TelemetryKeeper.Spec.Config.Data {
-		material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "configs", "telemetrykeeper", filename))
+		material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "telemetrykeeper", config.Spec.TelemetryKeeper.Kind.String(), filename))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create telemetrykeeper config material: %w", err)
 		}
@@ -63,7 +63,7 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config v1alpha1.
 
 	// Add telemetrystore config files
 	for filename, content := range config.Spec.TelemetryStore.Spec.Config.Data {
-		material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "configs", "telemetrystore", filename))
+		material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "telemetrystore", config.Spec.TelemetryStore.Kind.String(), filename))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create telemetrystore config material: %w", err)
 		}
@@ -72,7 +72,7 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config v1alpha1.
 
 	// Add metastore config files
 	for filename, content := range config.Spec.MetaStore.Spec.Config.Data {
-		material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "configs", "metastore", filename))
+		material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "metastore", config.Spec.MetaStore.Kind.String(), filename))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create metastore config material: %w", err)
 		}
@@ -81,7 +81,7 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config v1alpha1.
 
 	// Add signoz config files
 	for filename, content := range config.Spec.Signoz.Spec.Config.Data {
-		material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "configs", "signoz", filename))
+		material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "signoz", filename))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create signoz config material: %w", err)
 		}
@@ -90,7 +90,7 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config v1alpha1.
 
 	// Add ingester config files
 	for filename, content := range config.Spec.Ingester.Spec.Config.Data {
-		material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "configs", "ingester", filename))
+		material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "ingester", filename))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create ingester config material: %w", err)
 		}

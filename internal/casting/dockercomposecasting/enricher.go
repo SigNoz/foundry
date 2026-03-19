@@ -98,7 +98,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		var metastoreContainerNames []string
 		for _, containerName := range containerNames {
 			if strings.Contains(containerName, "metastore") {
-				metastoreContainerNames = append(metastoreContainerNames, types.FormatAddress("tcp", containerName, 9000))
+				metastoreContainerNames = append(metastoreContainerNames, types.FormatAddress("tcp", containerName, 5432))
 			}
 		}
 
@@ -114,7 +114,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		var ingesterContainerNames []string
 		for _, containerName := range containerNames {
 			if strings.Contains(containerName, "ingester") {
-				ingesterContainerNames = append(ingesterContainerNames, types.FormatAddress("tcp", containerName, 9000))
+				ingesterContainerNames = append(ingesterContainerNames, types.FormatAddress("tcp", containerName, 4317))
 			}
 		}
 

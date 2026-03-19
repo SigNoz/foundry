@@ -452,7 +452,7 @@ spec:
               cluster:
                 shard:
                 - replica:
-                    host: signoz-clickhouse
+                  - host: signoz-clickhouse
                     port: 9000
             send_crash_reports:
               enabled: false
@@ -600,7 +600,7 @@ spec:
               cluster:
                 shard:
                 - replica:
-                    host: signoz-clickhouse
+                  - host: signoz-clickhouse
                     port: 9000
             send_crash_reports:
               enabled: false
