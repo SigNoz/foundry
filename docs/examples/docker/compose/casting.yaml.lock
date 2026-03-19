@@ -143,7 +143,7 @@ spec:
     status:
       addresses:
         otlp:
-        - tcp://signoz-ingester:9000
+        - tcp://signoz-ingester:4317
       config:
         data:
           ingester.yaml: |
@@ -288,7 +288,7 @@ spec:
     status:
       addresses:
         dsn:
-        - tcp://signoz-metastore-postgres-0:9000
+        - tcp://signoz-metastore-postgres-0:5432
       config: {}
       env:
         POSTGRES_DB: signoz
@@ -301,7 +301,7 @@ spec:
       config: {}
       enabled: true
       env:
-        SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@signoz-metastore-postgres-0:9000/signoz?sslmode=disable
+        SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@signoz-metastore-postgres-0:5432/signoz?sslmode=disable
         SIGNOZ_SQLSTORE_PROVIDER: postgres
         SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://signoz-telemetrystore-clickhouse-0-0:9000
         SIGNOZ_TELEMETRYSTORE_PROVIDER: clickhouse
@@ -315,7 +315,7 @@ spec:
         - ws://signoz-signoz:4320
       config: {}
       env:
-        SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@signoz-metastore-postgres-0:9000/signoz?sslmode=disable
+        SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@signoz-metastore-postgres-0:5432/signoz?sslmode=disable
         SIGNOZ_SQLSTORE_PROVIDER: postgres
         SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://signoz-telemetrystore-clickhouse-0-0:9000
         SIGNOZ_TELEMETRYSTORE_PROVIDER: clickhouse
@@ -427,9 +427,9 @@ spec:
             remote_servers:
               cluster:
                 shard:
-                  - replica:
-                      host: signoz-telemetrystore-clickhouse-0-0
-                      port: 9000
+                - replica:
+                      - host: signoz-telemetrystore-clickhouse-0-0
+                        port: 9000
             zookeeper:
               node:
                 - host: signoz-telemetrykeeper-clickhousekeeper-0
@@ -513,9 +513,9 @@ spec:
             remote_servers:
               cluster:
                 shard:
-                  - replica:
-                      host: signoz-telemetrystore-clickhouse-0-0
-                      port: 9000
+                - replica:
+                      - host: signoz-telemetrystore-clickhouse-0-0
+                        port: 9000
             zookeeper:
               node:
                 - host: signoz-telemetrykeeper-clickhousekeeper-0

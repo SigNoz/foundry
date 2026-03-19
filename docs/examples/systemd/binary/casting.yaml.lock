@@ -431,9 +431,9 @@ spec:
             remote_servers:
               cluster:
                 shard:
-                  - replica:
-                      host: localhost
-                      port: 9000
+                - replica:
+                      - host: localhost
+                        port: 9000
             zookeeper:
               node:
                 - host: localhost
@@ -517,9 +517,9 @@ spec:
             remote_servers:
               cluster:
                 shard:
-                  - replica:
-                      host: localhost
-                      port: 9000
+                - replica:
+                      - host: localhost
+                        port: 9000
             zookeeper:
               node:
                 - host: localhost
