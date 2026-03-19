@@ -5,6 +5,10 @@ spec:
   deployment:
     flavor: swarm
     mode: docker
+  infrastructure:
+    computeType: ec2
+    enabled: false
+    provider: aws
   ingester:
     spec:
       cluster:

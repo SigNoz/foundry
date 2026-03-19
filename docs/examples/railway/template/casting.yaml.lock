@@ -5,6 +5,10 @@ spec:
   deployment:
     flavor: template
     platform: railway
+  infrastructure:
+    computeType: ec2
+    enabled: false
+    provider: aws
   ingester:
     spec:
       cluster:
