@@ -425,9 +425,9 @@ spec:
             remote_servers:
               cluster:
                 shard:
-                  - replica:
-                      host: signoz-telemetrystore-clickhouse
-                      port: 9000
+                - replica:
+                      - host: signoz-telemetrystore-clickhouse
+                        port: 9000
             zookeeper:
               node:
                 - host: signoz-telemetrykeeper-zookeeper-0
@@ -511,9 +511,9 @@ spec:
             remote_servers:
               cluster:
                 shard:
-                  - replica:
-                      host: signoz-telemetrystore-clickhouse
-                      port: 9000
+                - replica:
+                      - host: signoz-telemetrystore-clickhouse
+                        port: 9000
             zookeeper:
               node:
                 - host: signoz-telemetrykeeper-zookeeper-0
