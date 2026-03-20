@@ -98,8 +98,11 @@ body:
         - docker
         - systemd
         - render
+        - kubernetes
+        - railway
+        - render
     validations:
-      required: true
+      required: false
 
   - type: dropdown
     id: flavor
@@ -109,8 +112,10 @@ body:
         - compose
         - binary
         - blueprint
+        - kustomize
+        - swarm
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: additional_context

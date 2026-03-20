@@ -6,9 +6,27 @@ body:
   - type: input
     id: platform
     attributes:
-      label: Deployment mode / platform
-      description: What new deployment target should Foundry support?
-      placeholder: "e.g., Kubernetes, Nomad, Fly.io"
+      label: Deployment platform
+      description: What new deployment platform should Foundry support?
+      placeholder: "e.g., AWS, GCP, Render, Railway etc."
+    validations:
+      required: false
+  
+  - type: input
+    id: mode
+    attributes:
+      label: Deployment mode
+      description: What new deployment mode should Foundry support
+      placeholder:  "e.g., Kubernetes, Docker, Systemd"
+    validations:
+      required: true
+  
+  - type: input
+    id: flavour
+    attributes:
+      label: Deployment flavor
+      description: What new deployment mode should Foundry support
+      placeholder:  "e.g., Kustomize, Compose, Binary"
     validations:
       required: true
 
