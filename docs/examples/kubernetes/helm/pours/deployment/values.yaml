@@ -1,0 +1,64 @@
+clickhouse:
+  enabled: true
+  fullnameOverride: signoz-telemetrystore-clickhouse
+  image:
+    repository: clickhouse/clickhouse-server
+    tag: 25.5.6
+  layout:
+    replicasCount: 0
+    shardsCount: 1
+  zookeeper:
+    enabled: true
+    fullnameOverride: signoz-telemetrykeeper-zookeeper
+    image:
+      repository: signoz/zookeeper
+      tag: 3.7.1
+    replicaCount: 1
+fullnameOverride: signoz
+otelCollector:
+  enabled: true
+  image:
+    repository: signoz/signoz-otel-collector
+    tag: latest
+  name: ingester
+  ports:
+    otlp:
+      containerPort: 4317
+      enabled: true
+      protocol: TCP
+      servicePort: 4317
+    otlp-http:
+      containerPort: 4318
+      enabled: true
+      protocol: TCP
+      servicePort: 4318
+  replicaCount: 1
+postgresql:
+  auth:
+    database: signoz
+    password: signoz
+    username: signoz
+  enabled: true
+  fullnameOverride: signoz-metastore-postgres
+  image:
+    repository: postgres
+    tag: 16
+signoz:
+  env:
+    SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@signoz-metastore-postgres:5432/signoz?sslmode=disable
+    SIGNOZ_SQLSTORE_PROVIDER: postgres
+    SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://signoz-telemetrystore-clickhouse:9000
+    SIGNOZ_TELEMETRYSTORE_PROVIDER: clickhouse
+  image:
+    repository: signoz/signoz
+    tag: latest
+  name: signoz
+  replicaCount: 1
+  service:
+    internalPort: 8085
+    opampPort: 4320
+    port: 8080
+    type: ClusterIP
+telemetryStoreMigrator:
+  enabled: true
+  name: signoz-telemetrystore-migrator

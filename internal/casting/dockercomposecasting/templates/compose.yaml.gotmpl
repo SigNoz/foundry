@@ -1,13 +1,19 @@
 services:
   {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}:
-    container_name: {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx  }}
+    container_name: {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}
     image: {{ $.Spec.TelemetryKeeper.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
+    {{- if $.Spec.TelemetryKeeper.Spec.Env }}
+    environment:
+      {{- range $key, $value := $.Spec.TelemetryKeeper.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    {{- end }}
     volumes:
       - {{ $.Metadata.Name }}-telemetrykeeper-{{ $replicaIdx }}-data:/var/lib/clickhouse-keeper
-      - ./configs/telemetrykeeper/keeper-{{ $replicaIdx }}.yaml:/etc/clickhouse-keeper/keeper.yaml:ro
+      - ./telemetrykeeper/{{ $.Spec.TelemetryKeeper.Kind }}/keeper-{{ $replicaIdx }}.yaml:/etc/clickhouse-keeper/keeper.yaml:ro
     entrypoint:
       - /usr/bin/clickhouse-keeper
       - --config-file=/etc/clickhouse-keeper/keeper.yaml
@@ -26,8 +32,8 @@ services:
       retries: 3
       start_period: 40s
   {{- end }}
-  {{- range $shardIdx := .Spec.TelemetryStore.Spec.Cluster.Shards }}
-  {{- range $replicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
+  {{- range $shardIdx := until (int $.Spec.TelemetryStore.Spec.Cluster.Shards) }}
+  {{- range $replicaIdx := until (int (add 1 (int $.Spec.TelemetryStore.Spec.Cluster.Replicas))) }}
   {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}:
     container_name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}
     depends_on:
@@ -43,10 +49,16 @@ services:
     environment:
       - CLICKHOUSE_SKIP_USER_SETUP=1
       - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.yaml
+    {{- if $.Spec.TelemetryStore.Spec.Env }}
+      {{- range $key, $value := $.Spec.TelemetryStore.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    {{- end }}
     volumes:
       - {{ $.Metadata.Name }}-telemetrystore-{{ $shardIdx }}-{{ $replicaIdx }}-data:/var/lib/clickhouse
       - {{ $.Metadata.Name }}-telemetrystore-user-scripts:/var/lib/clickhouse/user_scripts:ro
-      - ./configs/telemetrystore/config.yaml:/etc/clickhouse-server/config.yaml:ro
+      - ./telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/config.yaml:/etc/clickhouse-server/config.yaml:ro
+      - ./telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/functions.yaml:/etc/clickhouse-server/functions.yaml:ro
     healthcheck:
       test:
        - "CMD"
@@ -85,10 +97,12 @@ services:
     image: docker.io/{{ $.Spec.MetaStore.Kind }}:{{ $.Spec.MetaStore.Spec.Version }}
     networks:
       - {{ $.Metadata.Name }}-network
+    {{- if $.Spec.MetaStore.Spec.Env }}
     environment:
-      - POSTGRES_USER=signoz
-      - POSTGRES_PASSWORD=signoz
-      - POSTGRES_DB=signoz
+      {{- range $key, $value := $.Spec.MetaStore.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    {{- end }}
     volumes:
       - {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data:/var/lib/postgresql/data
     healthcheck:
@@ -104,13 +118,28 @@ services:
     image: {{ $.Spec.Ingester.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
+    entrypoint:
+      - /bin/sh
     command:
-      - "--config=/etc/otel-collector-config.yaml"
+      - -c
+      - |
+        /signoz-otel-collector migrate sync check &&
+        /signoz-otel-collector --config=/etc/otel-collector-config.yaml --manager-config=/etc/opamp-config.yaml --copy-path=/var/tmp/collector-config.yaml
     volumes:
-      - ./configs/ingester/ingester.yaml:/etc/otel-collector-config.yaml:ro
+      - ./ingester/ingester.yaml:/etc/otel-collector-config.yaml:ro
+      - ./ingester/opamp.yaml:/etc/opamp-config.yaml:ro
     ports:
-      - "4317:4317"   # OTLP gRPC
-      - "4318:4318"   # OTLP HTTP
+      - "4317:4317"
+      - "4318:4318"
+    environment:
+{{ if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
+      - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN={{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
+{{ end }}
+    {{- if $.Spec.Ingester.Spec.Env }}
+      {{- range $key, $value := $.Spec.Ingester.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    {{- end }}
     healthcheck:
       test:
       - "CMD"
@@ -122,43 +151,20 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-    depends_on:
-      {{- range $shardIdx := $.Spec.TelemetryStore.Spec.Cluster.Shards }}
-      {{- range $replicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
-      {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}:
-        condition: service_healthy
-      {{- end }}
-      {{- end }}
-      {{ $.Metadata.Name }}-telemetrystore-migrator:
-        condition: service_completed_successfully
     deploy:
       replicas: {{ int $.Spec.Ingester.Spec.Cluster.Replicas }}
-   {{- range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
+      restart_policy:
+        condition: on-failure
   {{ $.Metadata.Name }}-signoz:
     image: {{ $.Spec.Signoz.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
-    depends_on:
-      {{- range $metaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
-      {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $metaIdx }}:
-        condition: service_healthy
-      {{- end }}
-      {{- range $shardIdx := $.Spec.TelemetryStore.Spec.Cluster.Shards }}
-      {{- range $storeReplicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
-      {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $storeReplicaIdx }}:
-        condition: service_healthy
-      {{- end }}
-      {{- end }}
+    {{- if $.Spec.Signoz.Spec.Env }}
     environment:
-      - SIGNOZ_ALERTMANAGER_PROVIDER=signoz
-      - SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN=tcp://{{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0:9000
-      - SIGNOZ_SQLSTORE_SQLITE_PATH=/var/lib/signoz/signoz.db
-      - DASHBOARDS_PATH=/root/config/dashboards
-      - STORAGE=clickhouse
-      - GODEBUG=netdns=go
-      - TELEMETRY_ENABLED=true
-      - DEPLOYMENT_TYPE=docker-standalone-amd
-      - DOT_METRICS_ENABLED=true
+      {{- range $key, $value := $.Spec.Signoz.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    {{- end }}
     ports:
       - "8080:8080"
     healthcheck:
@@ -167,35 +173,32 @@ services:
       - "wget"
       - "--spider"
       - "-q"
-      - "http://localhost:3301/api/v1/health"
+      - "http://localhost:8080/api/v1/health"
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
     deploy:
-      replicas: {{ int $.Spec.Signoz.Spec.Cluster.Replicas }}
-    volumes:
-      - {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}-data:/var/lib/signoz
-  {{- end }}
+      restart_policy:
+        condition: on-failure
   {{ $.Metadata.Name }}-telemetrystore-migrator:
-    image: {{ $.Spec.Ingester.Spec.Image }}
     container_name: {{ $.Metadata.Name }}-telemetrystore-migrator
+    image: {{ $.Spec.Ingester.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
     entrypoint:
-    - "/bin/sh"
-    - "-c"
+      - /bin/sh
     command:
-      - /signoz-otel-collector migrate bootstrap --clickhouse-dsn tcp://{{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0:9000
-      - /signoz-otel-collector migrate sync up --clickhouse-dsn tcp://{{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0:9000
-      - /signoz-otel-collector migrate async up --clickhouse-dsn tcp://{{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0:9000
-    depends_on:
-      {{- range $shardIdx := $.Spec.TelemetryStore.Spec.Cluster.Shards }}
-      {{- range $replicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
-      {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}:
-        condition: service_healthy
-      {{- end }}
-      {{- end }}
+      - -c
+      - |
+        /signoz-otel-collector migrate ready &&
+        /signoz-otel-collector migrate bootstrap &&
+        /signoz-otel-collector migrate sync up &&
+        /signoz-otel-collector migrate async up
+    environment:
+{{ if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
+      - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN={{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
+{{ end }}
 networks:
   {{ $.Metadata.Name }}-network:
     name: {{ $.Metadata.Name }}-network
@@ -203,15 +206,12 @@ volumes:
   {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-telemetrykeeper-{{ $replicaIdx  }}-data:
   {{- end }}
-  {{- range $shardIdx := $.Spec.TelemetryStore.Spec.Cluster.Shards }}
-  {{- range $replicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
+  {{- range $shardIdx := until (int $.Spec.TelemetryStore.Spec.Cluster.Shards) }}
+  {{- range $replicaIdx := until (int (add 1 (int $.Spec.TelemetryStore.Spec.Cluster.Replicas))) }}
   {{ $.Metadata.Name }}-telemetrystore-{{ $shardIdx }}-{{ $replicaIdx }}-data:
   {{- end }}
   {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-user-scripts:
   {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data:
-  {{- end }}
-  {{- range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
-  {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}-data:
   {{- end }}
