@@ -1,0 +1,71 @@
+apiVersion: v1alpha1
+metadata:
+  name: signoz
+spec:
+  deployment:
+    flavor: helm
+    mode: kubernetes
+  patches:
+    # 1. Set resource requests and limits on ClickHouse
+    - target: "deployment/values.yaml"
+      operations:
+        - op: add
+          path: /clickhouse/resources
+          value:
+            requests:
+              cpu: "2"
+              memory: "4Gi"
+            limits:
+              cpu: "4"
+              memory: "8Gi"
+
+    # 2. Set resource requests and limits on SigNoz
+    - target: "deployment/values.yaml"
+      operations:
+        - op: add
+          path: /signoz/resources
+          value:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+
+    # 3. Add tolerations and nodeSelector for dedicated observability nodes
+    - target: "deployment/values.yaml"
+      operations:
+        - op: add
+          path: /signoz/tolerations
+          value:
+            - key: "dedicated"
+              operator: "Equal"
+              value: "signoz"
+              effect: "NoSchedule"
+        - op: add
+          path: /signoz/nodeSelector
+          value:
+            node-role.kubernetes.io/observability: ""
+
+    # 4. Set resource requests and limits on OTel Collector (ingester)
+    - target: "deployment/values.yaml"
+      operations:
+        - op: add
+          path: /otelCollector/resources
+          value:
+            requests:
+              cpu: "1"
+              memory: "2Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+
+    # 5. Set persistence on ClickHouse
+    - target: "deployment/values.yaml"
+      operations:
+        - op: add
+          path: /clickhouse/persistence
+          value:
+            enabled: true
+            storageClass: gp3
+            size: 100Gi
