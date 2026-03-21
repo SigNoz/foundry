@@ -55,3 +55,7 @@ func (tooler *dockerSwarmTooler) Gauge(ctx context.Context) error {
 func (tooler *dockerSwarmTooler) Install(ctx context.Context) error {
 	return nil
 }
+
+func (tooler *dockerSwarmTooler) InstallHint() string {
+	return "run 'docker swarm init' to initialize swarm mode"
+}

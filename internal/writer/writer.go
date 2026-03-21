@@ -18,9 +18,16 @@ type Options struct {
 	TargetDirectory string
 }
 
+// WrittenFile records a file that was written.
+type WrittenFile struct {
+	Path string
+	Size int64
+}
+
 type Writer struct {
 	logger  *slog.Logger
 	options Options
+	written []WrittenFile
 }
 
 // NewManager creates a new output manager.
@@ -46,6 +53,11 @@ func New(logger *slog.Logger, options *Options) (*Writer, error) {
 	}, nil
 }
 
+// Written returns the list of files written by this writer.
+func (w *Writer) Written() []WrittenFile {
+	return w.written
+}
+
 func (w *Writer) Write(ctx context.Context, material types.Material) error {
 	if _, ok := w.options.Output.(*os.File); ok {
 		path := filepath.Join(w.options.TargetDirectory, material.Path())
@@ -56,22 +68,29 @@ func (w *Writer) Write(ctx context.Context, material types.Material) error {
 			return err
 		}
 
-		if err := os.WriteFile(path, material.FmtContents(), 0644); err != nil {
+		contents := material.FmtContents()
+		if err := os.WriteFile(path, contents, 0644); err != nil {
 			w.logger.ErrorContext(ctx, "failed to write material", slog.String("path", path), foundryerrors.LogAttr(err))
 			return err
 		}
 
-		w.logger.InfoContext(ctx, "successfully wrote material", slog.String("path", path))
+		w.written = append(w.written, WrittenFile{
+			Path: material.Path(),
+			Size: int64(len(contents)),
+		})
+
+		w.logger.DebugContext(ctx, "wrote material", slog.String("path", path))
 		return nil
 	}
 
-	_, err := w.options.Output.Write(material.FmtContents())
+	contents := material.FmtContents()
+	_, err := w.options.Output.Write(contents)
 	if err != nil {
 		w.logger.ErrorContext(ctx, "failed to write material", foundryerrors.LogAttr(err))
 		return err
 	}
 
-	w.logger.InfoContext(ctx, "successfully wrote material")
+	w.logger.DebugContext(ctx, "wrote material")
 	return nil
 }
 

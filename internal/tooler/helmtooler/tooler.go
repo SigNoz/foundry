@@ -25,3 +25,7 @@ func (tooler *helmTooler) Gauge(ctx context.Context) error {
 func (tooler *helmTooler) Install(ctx context.Context) error {
 	return nil
 }
+
+func (tooler *helmTooler) InstallHint() string {
+	return "https://helm.sh/docs/intro/install/"
+}

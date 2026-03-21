@@ -16,6 +16,9 @@ type Tooler interface {
 
 	// Installs the tool on the system.
 	Install(context.Context) error
+
+	// InstallHint returns a human-readable hint for how to install the tool.
+	InstallHint() string
 }
 
 func ExecChecker(ctx context.Context, toolName string) error {

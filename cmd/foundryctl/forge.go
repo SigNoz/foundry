@@ -2,13 +2,12 @@ package main
 
 import (
 	"context"
-	"log/slog"
 	"os"
 	"path/filepath"
 
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/foundry"
-	"github.com/signoz/foundry/internal/instrumentation"
+	"github.com/signoz/foundry/internal/ux"
 	"github.com/signoz/foundry/internal/writer"
 	"github.com/spf13/cobra"
 )
@@ -20,23 +19,23 @@ func registerForgeCmd(rootCmd *cobra.Command) {
 		Long:  "Generate deployment configuration files from casting.yaml",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			logger := instrumentation.NewLogger(commonCfg.Debug)
+			u := ux.New(commonCfg.Debug)
 
-			return runForge(ctx, logger, commonCfg.File, poursCfg.Path)
+			return runForge(ctx, u, commonCfg.File, poursCfg.Path)
 		},
 	}
 
 	rootCmd.AddCommand(forgeCmd)
 }
 
-func runForge(ctx context.Context, logger *slog.Logger, path string, poursPath string) error {
-	foundry, err := foundry.New(logger)
+func runForge(ctx context.Context, u *ux.UX, path string, poursPath string) error {
+	f, err := foundry.New(u.Logger(), u)
 	if err != nil {
-		logger.ErrorContext(ctx, "failed to create foundry, please report this issues to developers at https://github.com/signoz/foundry/issues", foundryerrors.LogAttr(err))
+		u.Logger().ErrorContext(ctx, "failed to create foundry, please report this issues to developers at https://github.com/signoz/foundry/issues", foundryerrors.LogAttr(err))
 		return err
 	}
 
-	config, err := foundry.Config.GetV1Alpha1(ctx, path)
+	config, err := f.Config.GetV1Alpha1(ctx, path)
 	if err != nil {
 		return err
 	}
@@ -46,7 +45,7 @@ func runForge(ctx context.Context, logger *slog.Logger, path string, poursPath s
 		return err
 	}
 
-	err = foundry.Forge(ctx, config, path, &writer.Options{Output: &os.File{}, TargetDirectory: poursAbsPath})
+	err = f.Forge(ctx, config, path, &writer.Options{Output: &os.File{}, TargetDirectory: poursAbsPath})
 	if err != nil {
 		return err
 	}

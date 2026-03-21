@@ -4,12 +4,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"path/filepath"
 
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/foundry"
-	"github.com/signoz/foundry/internal/instrumentation"
+	"github.com/signoz/foundry/internal/ux"
 	"github.com/spf13/cobra"
 )
 
@@ -19,23 +18,23 @@ func registerCastCmd(rootCmd *cobra.Command) {
 		Short: "Cast to the target environment.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			logger := instrumentation.NewLogger(commonCfg.Debug)
+			u := ux.New(commonCfg.Debug)
 
 			if !castCfg.NoGauge {
-				err := runGauge(ctx, logger, commonCfg.File)
+				err := runGauge(ctx, u, commonCfg.File)
 				if err != nil {
 					return err
 				}
 			}
 
 			if !castCfg.NoForge {
-				err := runForge(ctx, logger, commonCfg.File, poursCfg.Path)
+				err := runForge(ctx, u, commonCfg.File, poursCfg.Path)
 				if err != nil {
 					return err
 				}
 			}
 
-			return runCast(ctx, logger, poursCfg.Path, commonCfg.File)
+			return runCast(ctx, u, poursCfg.Path, commonCfg.File)
 		},
 	}
 
@@ -43,10 +42,10 @@ func registerCastCmd(rootCmd *cobra.Command) {
 	castCfg.RegisterFlags(castCmd)
 }
 
-func runCast(ctx context.Context, logger *slog.Logger, poursPath string, configPath string) error {
-	foundry, err := foundry.New(logger)
+func runCast(ctx context.Context, u *ux.UX, poursPath string, configPath string) error {
+	f, err := foundry.New(u.Logger(), u)
 	if err != nil {
-		logger.ErrorContext(ctx, "failed to create foundry, please report this issues to developers at https://github.com/signoz/foundry/issues", foundryerrors.LogAttr(err))
+		u.Logger().ErrorContext(ctx, "failed to create foundry, please report this issues to developers at https://github.com/signoz/foundry/issues", foundryerrors.LogAttr(err))
 		return err
 	}
 
@@ -56,11 +55,11 @@ func runCast(ctx context.Context, logger *slog.Logger, poursPath string, configP
 		return fmt.Errorf("failed to resolve pours path: %w", err)
 	}
 
-	lock, err := foundry.Config.GetV1Alpha1Lock(ctx, configPath)
+	lock, err := f.Config.GetV1Alpha1Lock(ctx, configPath)
 	if err != nil {
-		logger.ErrorContext(ctx, "failed to load generated casting.yaml.lock", foundryerrors.LogAttr(err))
+		u.Logger().ErrorContext(ctx, "failed to load generated casting.yaml.lock", foundryerrors.LogAttr(err))
 		return err
 	}
 
-	return foundry.Cast(ctx, lock, poursPath)
+	return f.Cast(ctx, lock, poursPath)
 }

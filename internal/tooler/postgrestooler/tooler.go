@@ -56,7 +56,9 @@ func (tooler *postgresTooler) Gauge(ctx context.Context) error {
 }
 
 func (tooler *postgresTooler) Install(ctx context.Context) error {
-	// PostgreSQL is typically installed via package manager
-	// Installation instructions would depend on the OS distribution
 	return nil
+}
+
+func (tooler *postgresTooler) InstallHint() string {
+	return "https://www.postgresql.org/download/"
 }

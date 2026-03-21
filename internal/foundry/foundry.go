@@ -14,6 +14,7 @@ import (
 	"github.com/signoz/foundry/internal/molding/telemetrystoremolding"
 	"github.com/signoz/foundry/internal/patch"
 	"github.com/signoz/foundry/internal/patch/jsonpatch"
+	"github.com/signoz/foundry/internal/ux"
 )
 
 type Foundry struct {
@@ -26,6 +27,9 @@ type Foundry struct {
 	// Logger for logging.
 	Logger *slog.Logger
 
+	// UX for user-facing output with spinners and progress.
+	UX *ux.UX
+
 	// Registry for the different deployments.
 	Registry *Registry
 
@@ -33,7 +37,7 @@ type Foundry struct {
 	Moldings map[v1alpha1.MoldingKind]molding.Molding
 }
 
-func New(logger *slog.Logger) (*Foundry, error) {
+func New(logger *slog.Logger, ux *ux.UX) (*Foundry, error) {
 	yamlConfig := yamlconfig.New()
 
 	registry, err := NewRegistry(logger)
@@ -47,6 +51,7 @@ func New(logger *slog.Logger) (*Foundry, error) {
 			v1alpha1.PatchTypeJSONPatch: jsonpatch.New(),
 		},
 		Logger:   logger,
+		UX:       ux,
 		Registry: registry,
 		Moldings: map[v1alpha1.MoldingKind]molding.Molding{
 			v1alpha1.MoldingKindTelemetryStore:  telemetrystoremolding.New(logger),

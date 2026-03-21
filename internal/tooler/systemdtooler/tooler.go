@@ -25,3 +25,7 @@ func (tooler *systemdTooler) Gauge(ctx context.Context) error {
 func (tooler *systemdTooler) Install(ctx context.Context) error {
 	return nil
 }
+
+func (tooler *systemdTooler) InstallHint() string {
+	return "systemd is a system package — ensure you are on a systemd-based Linux distribution"
+}

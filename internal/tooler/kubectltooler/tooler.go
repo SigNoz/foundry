@@ -25,3 +25,7 @@ func (t *kubectlTooler) Gauge(ctx context.Context) error {
 func (t *kubectlTooler) Install(ctx context.Context) error {
 	return nil
 }
+
+func (t *kubectlTooler) InstallHint() string {
+	return "https://kubernetes.io/docs/tasks/tools/"
+}

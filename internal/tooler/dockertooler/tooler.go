@@ -25,3 +25,7 @@ func (tooler *dockerTooler) Gauge(ctx context.Context) error {
 func (tooler *dockerTooler) Install(ctx context.Context) error {
 	return nil
 }
+
+func (tooler *dockerTooler) InstallHint() string {
+	return "https://docs.docker.com/get-docker/"
+}

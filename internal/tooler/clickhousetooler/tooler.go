@@ -36,7 +36,9 @@ func (tooler *clickhouseTooler) Gauge(ctx context.Context) error {
 }
 
 func (tooler *clickhouseTooler) Install(ctx context.Context) error {
-	// ClickHouse is typically installed via package manager
-	// Installation instructions would depend on the OS distribution
 	return nil
+}
+
+func (tooler *clickhouseTooler) InstallHint() string {
+	return "https://clickhouse.com/docs/install"
 }

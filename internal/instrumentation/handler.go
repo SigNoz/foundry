@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/fatih/color"
 )
 
 const (
@@ -17,10 +19,30 @@ const (
 )
 
 type PrettyHandler struct {
-	out  io.Writer
-	opts Options
-	goas []groupOrAttrs
-	mu   *sync.Mutex
+	out    io.Writer
+	opts   Options
+	goas   []groupOrAttrs
+	mu     *sync.Mutex
+	colors *levelColors
+}
+
+// levelColors holds pre-allocated color sprint functions for each log level.
+type levelColors struct {
+	info  func(a ...interface{}) string
+	warn  func(a ...interface{}) string
+	err   func(a ...interface{}) string
+	debug func(a ...interface{}) string
+	dim   func(a ...interface{}) string
+}
+
+func newLevelColors() *levelColors {
+	return &levelColors{
+		info:  color.New(color.FgCyan).SprintFunc(),
+		warn:  color.New(color.FgYellow).SprintFunc(),
+		err:   color.New(color.FgRed, color.Bold).SprintFunc(),
+		debug: color.New(color.FgHiBlack).SprintFunc(),
+		dim:   color.New(color.FgHiBlack).SprintFunc(),
+	}
 }
 
 type Options struct {
@@ -32,6 +54,13 @@ type Options struct {
 	// AddSource reports whether to add the source code location of the
 	// log statement to the output.
 	AddSource bool
+
+	// Debug controls whether to show timestamps and source location.
+	// When false (compact mode), only level + message + attrs are shown.
+	Debug bool
+
+	// ColorEnabled controls whether ANSI color codes are added to output.
+	ColorEnabled bool
 }
 
 // groupOrAttrs holds either a group name or a list of slog.Attrs.
@@ -50,11 +79,17 @@ func newPrettyHandler(out io.Writer, opts *Options) *PrettyHandler {
 		}
 	}
 
-	return &PrettyHandler{
+	h := &PrettyHandler{
 		out:  out,
 		opts: *opts,
 		mu:   &sync.Mutex{},
 	}
+
+	if opts.ColorEnabled {
+		h.colors = newLevelColors()
+	}
+
+	return h
 }
 
 func (handler *PrettyHandler) Enabled(ctx context.Context, level slog.Level) bool {
@@ -65,17 +100,26 @@ func (handler *PrettyHandler) Handle(ctx context.Context, record slog.Record) er
 	buf := NewBuffer()
 	defer buf.Free()
 
-	// write the time attribute
-	buf = handler.appendAttr(buf, slog.Time(slog.TimeKey, record.Time), false, false, true, '|')
+	if handler.opts.Debug {
+		// Debug mode: full format with timestamp and source
+		// write the time attribute
+		buf = handler.appendAttr(buf, slog.Time(slog.TimeKey, record.Time), false, false, true, '|')
 
-	// write the level attribute
-	buf = handler.appendAttr(buf, slog.String(slog.LevelKey, record.Level.String()), false, true, true, '|')
+		// write the level attribute
+		buf = handler.appendLevel(buf, record.Level, true, '|')
 
-	// write the source attribute
-	buf = handler.appendAttr(buf, slog.Any(slog.SourceKey, record.Source()), false, true, true, '-')
+		// write the source attribute
+		buf = handler.appendAttr(buf, slog.Any(slog.SourceKey, record.Source()), false, true, true, '-')
 
-	// write the message attribute
-	buf = handler.appendAttr(buf, slog.String(slog.MessageKey, record.Message), false, true, false, 0)
+		// write the message attribute
+		buf = handler.appendAttr(buf, slog.String(slog.MessageKey, record.Message), false, true, false, 0)
+	} else {
+		// Compact mode: level + message only
+		buf = handler.appendLevel(buf, record.Level, false, 0)
+
+		// write the message attribute
+		buf = handler.appendAttr(buf, slog.String(slog.MessageKey, record.Message), false, true, false, 0)
+	}
 
 	goas := handler.goas
 	if record.NumAttrs() == 0 {
@@ -133,6 +177,43 @@ func (handler *PrettyHandler) withGroupOrAttrs(goa groupOrAttrs) *PrettyHandler 
 	return &copyOfHandler
 }
 
+// appendLevel writes the level string with padding and optional color.
+func (handler *PrettyHandler) appendLevel(buf *Buffer, level slog.Level, rightSpace bool, sep byte) *Buffer {
+	_ = buf.WriteByte(' ')
+
+	levelStr := level.String()
+	spaces := max(totalLevelSpaces-len(levelStr), 0)
+
+	if handler.colors != nil {
+		var colored string
+		switch {
+		case level >= slog.LevelError:
+			colored = handler.colors.err(levelStr)
+		case level >= slog.LevelWarn:
+			colored = handler.colors.warn(levelStr)
+		case level >= slog.LevelInfo:
+			colored = handler.colors.info(levelStr)
+		default:
+			colored = handler.colors.debug(levelStr)
+		}
+		_, _ = buf.WriteString(colored)
+	} else {
+		_, _ = buf.WriteString(levelStr)
+	}
+
+	_, _ = buf.Write(bytes.Repeat([]byte(" "), spaces))
+
+	if rightSpace {
+		_ = buf.WriteByte(' ')
+	}
+
+	if sep != 0 {
+		_ = buf.WriteByte(sep)
+	}
+
+	return buf
+}
+
 func (handler *PrettyHandler) appendAttr(buf *Buffer, attr slog.Attr, key bool, leftSpace bool, rightSpace bool, sep byte) *Buffer {
 	// Resolve the Attr's value before doing anything else.
 	attr.Value = attr.Value.Resolve()
@@ -156,7 +237,7 @@ func (handler *PrettyHandler) appendAttr(buf *Buffer, attr slog.Attr, key bool, 
 		}
 
 		if key {
-			_, _ = buf.WriteString(attr.Key + "=")
+			handler.writeKey(buf, attr.Key)
 		}
 		_, _ = buf.WriteString(attr.Value.Time().Format(timeFormat))
 
@@ -166,17 +247,10 @@ func (handler *PrettyHandler) appendAttr(buf *Buffer, attr slog.Attr, key bool, 
 		}
 	default:
 		if key {
-			_, _ = buf.WriteString(attr.Key + "=")
+			handler.writeKey(buf, attr.Key)
 		}
 
 		_, _ = buf.WriteString(attr.Value.String())
-
-		// Add spaces after the level key.
-		if attr.Key == slog.LevelKey {
-			// The total spaces should be totalLevelSpaces.
-			spaces := max(totalLevelSpaces-len(attr.Value.String()), 0)
-			_, _ = buf.Write(bytes.Repeat([]byte(" "), spaces))
-		}
 	}
 
 	// Add spaces after the attr.
@@ -190,4 +264,13 @@ func (handler *PrettyHandler) appendAttr(buf *Buffer, attr slog.Attr, key bool, 
 	}
 
 	return buf
+}
+
+// writeKey writes a key= prefix, with dim color if colors are enabled.
+func (handler *PrettyHandler) writeKey(buf *Buffer, k string) {
+	if handler.colors != nil {
+		_, _ = buf.WriteString(handler.colors.dim(k + "="))
+	} else {
+		_, _ = buf.WriteString(k + "=")
+	}
 }

@@ -24,6 +24,7 @@ func main() {
 	poursCfg.RegisterFlags(rootCmd)
 
 	// Register commands.
+	registerInitCmd(rootCmd)
 	registerGaugeCmd(rootCmd)
 	registerForgeCmd(rootCmd)
 	registerCastCmd(rootCmd)
