@@ -6,7 +6,6 @@ spec:
     flavor: compose
     mode: docker
   infrastructure:
-    computeType: ec2
     enabled: false
     provider: aws
   ingester:

@@ -5,6 +5,9 @@ spec:
   deployment:
     flavor: helm
     mode: kubernetes
+  infrastructure:
+    enabled: false
+    provider: aws
   ingester:
     spec:
       cluster:

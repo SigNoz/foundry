@@ -6,7 +6,6 @@ spec:
     flavor: kustomize
     mode: kubernetes
   infrastructure:
-    computeType: ec2
     enabled: false
     provider: aws
   ingester:

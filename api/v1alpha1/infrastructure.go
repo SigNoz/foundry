@@ -10,7 +10,7 @@ type Infrastructure struct {
 	Enabled bool `json:"enabled" yaml:"enabled"`
 
 	// The cloud provider to generate infrastructure manifests for (aws, gcp, azure)
-	Provider InfrastructureProvider `json:"provider,omitempty" yaml:"provider,omitempty"`
+	Provider InfrastructureProvider `json:"provider,omitempty" yaml:"provider"`
 
 	// Status holds the generated IaC file contents keyed by filename (e.g. "main.tf").
 	// This is populated by foundry after generation and written to the lock file.

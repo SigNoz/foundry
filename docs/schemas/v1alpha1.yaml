@@ -35,12 +35,14 @@ definitions:
     type: object
   V1Alpha1Infrastructure:
     properties:
-      computeType:
-        type: string
       enabled:
         type: boolean
       provider:
         type: string
+      status:
+        additionalProperties:
+          type: string
+        type: object
     type: object
   V1Alpha1Ingester:
     properties:

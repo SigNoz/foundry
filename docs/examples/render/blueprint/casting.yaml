@@ -6,7 +6,6 @@ spec:
     flavor: blueprint
     platform: render
   infrastructure:
-    computeType: ec2
     enabled: false
     provider: aws
   ingester:
