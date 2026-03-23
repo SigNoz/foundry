@@ -1,0 +1,101 @@
+{
+  "variable": {
+    "region": {
+      "description": "AWS region",
+      "type": "string"
+    },
+    "ecs_cluster_id": {
+      "description": "ID of the existing ECS cluster to deploy services into",
+      "type": "string"
+    },
+    "subnet_ids": {
+      "description": "List of subnet IDs for ECS service networking (awsvpc)",
+      "type": "list(string)"
+    },
+    "security_group_ids": {
+      "description": "List of security group IDs for ECS service networking (awsvpc)",
+      "type": "list(string)"
+    },
+    "service_discovery_namespace_id": {
+      "description": "ID of the Cloud Map private DNS namespace for service discovery",
+      "type": "string"
+    },
+    "config_bucket": {
+      "description": "S3 bucket name for storing config files",
+      "type": "string"
+    },
+    "task_role_arn": {
+      "description": "IAM role ARN for ECS tasks",
+      "type": "string"
+    },
+    "task_execution_role_arn": {
+      "description": "IAM role ARN for ECS task execution (pull images, write logs)",
+      "type": "string"
+    },
+    "log_retention_days": {
+      "description": "CloudWatch log retention in days",
+      "type": "number",
+      "default": 30
+    },
+    "telemetrykeeper_cpu": {
+      "description": "CPU units for telemetrykeeper container",
+      "type": "number",
+      "default": 256
+    },
+    "telemetrykeeper_memory": {
+      "description": "Memory (MiB) for telemetrykeeper container",
+      "type": "number",
+      "default": 512
+    },
+    "telemetrystore_cpu": {
+      "description": "CPU units for telemetrystore container",
+      "type": "number",
+      "default": 1024
+    },
+    "telemetrystore_memory": {
+      "description": "Memory (MiB) for telemetrystore container",
+      "type": "number",
+      "default": 512
+    },
+    "migrator_cpu": {
+      "description": "CPU units for telemetrystore migrator container",
+      "type": "number",
+      "default": 128
+    },
+    "migrator_memory": {
+      "description": "Memory (MiB) for telemetrystore migrator container",
+      "type": "number",
+      "default": 256
+    },
+    "metastore_cpu": {
+      "description": "CPU units for metastore container",
+      "type": "number",
+      "default": 256
+    },
+    "metastore_memory": {
+      "description": "Memory (MiB) for metastore container",
+      "type": "number",
+      "default": 256
+    },
+    "signoz_cpu": {
+      "description": "CPU units for signoz container",
+      "type": "number",
+      "default": 512
+    },
+    "signoz_memory": {
+      "description": "Memory (MiB) for signoz container",
+      "type": "number",
+      "default": 512
+    },
+    "ingester_cpu": {
+      "description": "CPU units for ingester container",
+      "type": "number",
+      "default": 512
+    },
+    "ingester_memory": {
+      "description": "Memory (MiB) for ingester container",
+      "type": "number",
+      "default": 512
+    }
+  }
+}

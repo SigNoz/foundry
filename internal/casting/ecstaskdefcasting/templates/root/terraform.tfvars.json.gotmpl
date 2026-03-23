@@ -1,0 +1,18 @@
+{{- $region := index $.Metadata.Annotations "foundry.signoz.io/ecs/region" -}}
+{{- $configBucket := index $.Metadata.Annotations "foundry.signoz.io/ecs/config-bucket" -}}
+{{- $taskRoleArn := index $.Metadata.Annotations "foundry.signoz.io/ecs/task-role-arn" -}}
+{{- $taskExecutionRoleArn := index $.Metadata.Annotations "foundry.signoz.io/ecs/task-execution-role-arn" -}}
+{{- $clusterID := index $.Metadata.Annotations "foundry.signoz.io/ecs/cluster-id" -}}
+{{- $subnetIDs := index $.Metadata.Annotations "foundry.signoz.io/ecs/subnet-ids" -}}
+{{- $securityGroupIDs := index $.Metadata.Annotations "foundry.signoz.io/ecs/security-group-ids" -}}
+{{- $namespaceID := index $.Metadata.Annotations "foundry.signoz.io/ecs/service-discovery-namespace-id" -}}
+{
+  "region": "{{ $region }}",
+  "ecs_cluster_id": "{{ $clusterID }}",
+  "subnet_ids": [{{ range $i, $v := splitList "," $subnetIDs }}{{ if $i }}, {{ end }}"{{ trim $v }}"{{ end }}],
+  "security_group_ids": [{{ range $i, $v := splitList "," $securityGroupIDs }}{{ if $i }}, {{ end }}"{{ trim $v }}"{{ end }}],
+  "service_discovery_namespace_id": "{{ $namespaceID }}",
+  "config_bucket": "{{ $configBucket }}",
+  "task_role_arn": "{{ $taskRoleArn }}",
+  "task_execution_role_arn": "{{ $taskExecutionRoleArn }}"
+}

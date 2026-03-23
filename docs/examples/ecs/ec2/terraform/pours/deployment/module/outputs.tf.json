@@ -1,0 +1,19 @@
+{
+  "output": {
+    "telemetrykeeper_service_name": {
+      "value": "${aws_ecs_service.telemetrykeeper.name}"
+    }
+    ,"telemetrystore_service_name": {
+      "value": "${aws_ecs_service.telemetrystore.name}"
+    }
+    ,"metastore_service_name": {
+      "value": "${aws_ecs_service.metastore.name}"
+    }
+    ,"signoz_service_name": {
+      "value": "${aws_ecs_service.signoz.name}"
+    }
+    ,"ingester_service_name": {
+      "value": "${aws_ecs_service.ingester.name}"
+    }
+  }
+}

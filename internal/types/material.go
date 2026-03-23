@@ -71,6 +71,17 @@ func NewYAMLMaterial(contents []byte, path string) (Material, error) {
 	}, nil
 }
 
+func NewJSONMaterial(contents []byte, path string) (Material, error) {
+	if !json.Valid(contents) {
+		return Material{}, fmt.Errorf("invalid json for %s", path)
+	}
+	return Material{
+		contents: contents,
+		path:     path,
+		format:   FormatJSON,
+	}, nil
+}
+
 func NewINIMaterial(contents []byte, path string) (Material, error) {
 	jsonContents, err := INIToJSON(contents)
 	if err != nil {
@@ -105,6 +116,8 @@ func (m Material) FmtContents() []byte {
 			return nil
 		}
 		return fmtContents
+	case FormatJSON:
+		return m.contents
 	case FormatText:
 		return m.contents
 	default:

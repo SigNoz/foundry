@@ -22,6 +22,7 @@ import (
 	"github.com/signoz/foundry/internal/tooler/kubectltooler"
 	"github.com/signoz/foundry/internal/tooler/postgrestooler"
 	"github.com/signoz/foundry/internal/tooler/systemdtooler"
+	"github.com/signoz/foundry/internal/tooler/terraformtooler"
 )
 
 // Defines a single casting item in the registry.
@@ -83,10 +84,11 @@ func NewRegistry(logger *slog.Logger) (*Registry, error) {
 			},
 			{
 				Platform: "ecs",
-				Flavor:   "taskdef",
+				Flavor:   "terraform",
 				Mode:     "ec2",
 			}: {
 				Casting: ecstaskdefcasting.New(logger),
+				Toolers: []tooler.Tooler{terraformtooler.New()},
 			},
 		},
 	}, nil

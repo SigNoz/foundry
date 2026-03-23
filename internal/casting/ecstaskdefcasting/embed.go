@@ -6,14 +6,26 @@ import (
 	"github.com/signoz/foundry/internal/types"
 )
 
-//go:embed templates/*/*.gotmpl templates/*/*/*.gotmpl
+//go:embed templates/root/*.gotmpl templates/module/*.gotmpl
 var templates embed.FS
 
+// Root Terraform templates
 var (
-	telemetryKeeperTaskDefinition = types.MustNewTemplateFromFS(templates, "templates/telemetrykeeper/clickhousekeeper/task-definition.json.gotmpl", types.FormatText)
-	telemetryStoreTaskDefinition  = types.MustNewTemplateFromFS(templates, "templates/telemetrystore/clickhouse/task-definition.json.gotmpl", types.FormatText)
-	metaStoreTaskDefinition       = types.MustNewTemplateFromFS(templates, "templates/metastore/postgres/task-definition.json.gotmpl", types.FormatText)
-	migratorTaskDefinition        = types.MustNewTemplateFromFS(templates, "templates/telemetrystore-migrator/task-definition.json.gotmpl", types.FormatText)
-	signozTaskDefinition          = types.MustNewTemplateFromFS(templates, "templates/signoz/task-definition.json.gotmpl", types.FormatText)
-	ingesterTaskDefinition        = types.MustNewTemplateFromFS(templates, "templates/ingester/task-definition.json.gotmpl", types.FormatText)
+	rootMainTF      = types.MustNewTemplateFromFS(templates, "templates/root/main.tf.json.gotmpl", types.FormatText)
+	rootVariablesTF = types.MustNewTemplateFromFS(templates, "templates/root/variables.tf.json.gotmpl", types.FormatText)
+	rootTfvarsTF    = types.MustNewTemplateFromFS(templates, "templates/root/terraform.tfvars.json.gotmpl", types.FormatJSON)
+)
+
+// Module Terraform templates
+var (
+	moduleMainTF      = types.MustNewTemplateFromFS(templates, "templates/module/main.tf.json.gotmpl", types.FormatText)
+	moduleVariablesTF = types.MustNewTemplateFromFS(templates, "templates/module/variables.tf.json.gotmpl", types.FormatText)
+	moduleOutputsTF   = types.MustNewTemplateFromFS(templates, "templates/module/outputs.tf.json.gotmpl", types.FormatText)
+
+	moduleTelemetryKeeperTF = types.MustNewTemplateFromFS(templates, "templates/module/telemetrykeeper.tf.json.gotmpl", types.FormatText)
+	moduleTelemetryStoreTF  = types.MustNewTemplateFromFS(templates, "templates/module/telemetrystore.tf.json.gotmpl", types.FormatText)
+	moduleMigratorTF        = types.MustNewTemplateFromFS(templates, "templates/module/telemetrystore_migrator.tf.json.gotmpl", types.FormatText)
+	moduleMetaStoreTF       = types.MustNewTemplateFromFS(templates, "templates/module/metastore.tf.json.gotmpl", types.FormatText)
+	moduleSignozTF          = types.MustNewTemplateFromFS(templates, "templates/module/signoz.tf.json.gotmpl", types.FormatText)
+	moduleIngesterTF        = types.MustNewTemplateFromFS(templates, "templates/module/ingester.tf.json.gotmpl", types.FormatText)
 )

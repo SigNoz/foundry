@@ -1,0 +1,197 @@
+{{- $name := $.Metadata.Name -}}
+{{- $region := index $.Metadata.Annotations "foundry.signoz.io/ecs/region" -}}
+{{- $configBucket := index $.Metadata.Annotations "foundry.signoz.io/ecs/config-bucket" -}}
+{
+  "locals": {
+    "telemetrystore_container_definitions": [
+      {
+        "name": "init-clickhouse",
+        "image": "alpine:3.18.2",
+        "essential": false,
+        "command": ["/bin/sh", "-c", "wget -O /var/lib/clickhouse/user_scripts/histogramQuantile https://github.com/SigNoz/signoz/releases/download/v0.50.0/histogram-quantile-linux-amd64 && chmod +x /var/lib/clickhouse/user_scripts/histogramQuantile"],
+        "mountPoints": [
+          {
+            "sourceVolume": "shared-binary-volume",
+            "containerPath": "/var/lib/clickhouse/user_scripts"
+          }
+        ],
+        "cpu": 256,
+        "memory": 256,
+        "memoryReservation": 256,
+        "logConfiguration": {
+          "logDriver": "awslogs",
+          "options": {
+            "awslogs-group": "/ecs/{{ $name }}",
+            "awslogs-region": "{{ $region }}",
+            "awslogs-stream-prefix": "init-clickhouse",
+            "awslogs-create-group": "true"
+          }
+        }
+      },
+      {
+        "name": "config-fetcher",
+        "image": "amazon/aws-cli:2.27.32",
+        "essential": false,
+        "entryPoint": ["/bin/sh", "-c"],
+        "command": ["aws s3 cp s3://{{ $configBucket }}/{{ $name }}/telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/ /configs/telemetrystore/ --recursive"],
+        "mountPoints": [
+          {
+            "sourceVolume": "telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-config",
+            "containerPath": "/configs/telemetrystore"
+          }
+        ],
+        "cpu": 10,
+        "memory": 102,
+        "memoryReservation": 102,
+        "logConfiguration": {
+          "logDriver": "awslogs",
+          "options": {
+            "awslogs-group": "/ecs/{{ $name }}",
+            "awslogs-region": "{{ $region }}",
+            "awslogs-stream-prefix": "telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-config-fetcher",
+            "awslogs-create-group": "true"
+          }
+        }
+      },
+      {
+        "name": "telemetrystore-{{ $.Spec.TelemetryStore.Kind }}",
+        "image": "{{ $.Spec.TelemetryStore.Spec.Image }}",
+        "essential": true,
+        "environment": [
+          {"name": "CLICKHOUSE_SKIP_USER_SETUP", "value": "1"}
+          {{- range $key, $value := $.Spec.TelemetryStore.Spec.Env }},
+          {
+            "name": {{ $key | toJson }},
+            "value": {{ $value | toJson }}
+          }
+          {{- end }}
+        ],
+        "portMappings": [
+          {"name": "client", "containerPort": 9000, "protocol": "tcp"},
+          {"name": "http", "containerPort": 8123, "protocol": "tcp"},
+          {"name": "prometheus", "containerPort": 9363, "protocol": "tcp"}
+        ],
+        "mountPoints": [
+          {
+            "sourceVolume": "shared-binary-volume",
+            "containerPath": "/var/lib/clickhouse/user_scripts"
+          },
+          {
+            "sourceVolume": "{{ $.Spec.TelemetryStore.Kind }}-config",
+            "containerPath": "/etc/clickhouse-server/config.d"
+          },
+          {
+            "sourceVolume": "clickhouse-data",
+            "containerPath": "/var/lib/clickhouse"
+          }
+        ],
+        "dependsOn": [
+          {"containerName": "init-clickhouse", "condition": "SUCCESS"},
+          {"containerName": "config-fetcher", "condition": "SUCCESS"}
+        ],
+        "cpu": "${var.telemetrystore_cpu}",
+        "memory": "${var.telemetrystore_memory}",
+        "memoryReservation": "${var.telemetrystore_memory}",
+        "healthCheck": {
+          "command": ["CMD-SHELL", "wget --spider -q 0.0.0.0:8123/ping || exit 1"],
+          "interval": 30,
+          "timeout": 5,
+          "retries": 3,
+          "startPeriod": 30
+        },
+        "logConfiguration": {
+          "logDriver": "awslogs",
+          "options": {
+            "awslogs-group": "/ecs/{{ $name }}",
+            "awslogs-region": "{{ $region }}",
+            "awslogs-stream-prefix": "clickhouse",
+            "awslogs-create-group": "true"
+          }
+        }
+      }
+    ]
+  },
+  "resource": {
+    "aws_s3_object": {
+      "telemetrystore_configs": {
+        "for_each": "${fileset(\"${path.module}/configs/telemetrystore/{{ $.Spec.TelemetryStore.Kind }}\", \"**\")}",
+        "bucket": "${var.config_bucket}",
+        "key": "{{ $name }}/telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/${each.value}",
+        "source": "${path.module}/configs/telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/${each.value}",
+        "etag": "${filemd5(\"${path.module}/configs/telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/${each.value}\")}"
+      }
+    },
+    "aws_ecs_task_definition": {
+      "telemetrystore": {
+        "family": "{{ $name }}-telemetrystore",
+        "network_mode": "awsvpc",
+        "requires_compatibilities": ["EC2"],
+        "task_role_arn": "${var.task_role_arn}",
+        "execution_role_arn": "${var.task_execution_role_arn}",
+        "container_definitions": "${jsonencode(local.telemetrystore_container_definitions)}",
+        "volume": [
+          {
+            "name": "shared-binary-volume",
+            "docker_volume_configuration": {
+              "scope": "task",
+              "driver": "local"
+            }
+          },
+          {
+            "name": "clickhouse-config",
+            "docker_volume_configuration": {
+              "scope": "task",
+              "driver": "local"
+            }
+          },
+          {
+            "name": "clickhouse-data",
+            "docker_volume_configuration": {
+              "scope": "task",
+              "driver": "local"
+            }
+          }
+        ],
+        "depends_on": ["aws_s3_object.telemetrystore_configs"]
+      }
+    },
+    "aws_service_discovery_service": {
+      "telemetrystore": {
+        "name": "telemetrystore-{{ $.Spec.TelemetryStore.Kind }}",
+        "dns_config": {
+          "namespace_id": "${var.service_discovery_namespace_id}",
+          "routing_policy": "MULTIVALUE",
+          "dns_records": [
+            {
+              "ttl": 10,
+              "type": "A"
+            }
+          ]
+        },
+        "health_check_custom_config": {
+          "failure_threshold": 1
+        }
+      }
+    },
+    "aws_ecs_service": {
+      "telemetrystore": {
+        "name": "{{ $name }}-telemetrystore",
+        "cluster": "${var.ecs_cluster_id}",
+        "task_definition": "${aws_ecs_task_definition.telemetrystore.arn}",
+        "desired_count": 1,
+        "launch_type": "EC2",
+        "network_configuration": {
+          "subnets": "${var.subnet_ids}",
+          "security_groups": "${var.security_group_ids}"
+        },
+        "service_registries": {
+          "registry_arn": "${aws_service_discovery_service.telemetrystore.arn}"
+        },
+        "depends_on": [
+          "aws_cloudwatch_log_group.ecs",
+          "aws_ecs_service.telemetrykeeper"
+        ]
+      }
+    }
+  }
+}

@@ -1,8 +1,0 @@
-apiVersion: v1alpha1
-metadata:
-  name: signoz
-spec:
-  deployment:
-    flavor: taskdef
-    mode: ec2
-    platform: ecs

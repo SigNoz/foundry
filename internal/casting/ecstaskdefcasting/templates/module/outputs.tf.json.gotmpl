@@ -1,0 +1,35 @@
+{
+  "output": {
+    {{- $first := true }}
+    {{- if $.Spec.TelemetryKeeper.Spec.Enabled }}
+    {{ if not $first }},{{ end }}"telemetrykeeper_service_name": {
+      "value": "${aws_ecs_service.telemetrykeeper.name}"
+    }
+    {{- $first = false }}
+    {{- end }}
+    {{- if $.Spec.TelemetryStore.Spec.Enabled }}
+    {{ if not $first }},{{ end }}"telemetrystore_service_name": {
+      "value": "${aws_ecs_service.telemetrystore.name}"
+    }
+    {{- $first = false }}
+    {{- end }}
+    {{- if $.Spec.MetaStore.Spec.Enabled }}
+    {{ if not $first }},{{ end }}"metastore_service_name": {
+      "value": "${aws_ecs_service.metastore.name}"
+    }
+    {{- $first = false }}
+    {{- end }}
+    {{- if $.Spec.Signoz.Spec.Enabled }}
+    {{ if not $first }},{{ end }}"signoz_service_name": {
+      "value": "${aws_ecs_service.signoz.name}"
+    }
+    {{- $first = false }}
+    {{- end }}
+    {{- if $.Spec.Ingester.Spec.Enabled }}
+    {{ if not $first }},{{ end }}"ingester_service_name": {
+      "value": "${aws_ecs_service.ingester.name}"
+    }
+    {{- $first = false }}
+    {{- end }}
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "locals": {
+    "metastore_container_definitions": [
+      {
+        "name": "metastore-postgres",
+        "image": "postgres:16",
+        "essential": true,
+        "environment": [
+          {
+            "name": "POSTGRES_DB",
+            "value": "signoz"
+          },
+          {
+            "name": "POSTGRES_PASSWORD",
+            "value": "signoz"
+          },
+          {
+            "name": "POSTGRES_USER",
+            "value": "signoz"
+          }
+        ],
+        "portMappings": [
+          {"name": "postgres", "containerPort": 5432, "protocol": "tcp"}
+        ],
+        "mountPoints": [
+          {
+            "sourceVolume": "postgres-data",
+            "containerPath": "/var/lib/postgresql/data"
+          }
+        ],
+        "cpu": "${var.metastore_cpu}",
+        "memory": "${var.metastore_memory}",
+        "memoryReservation": "${var.metastore_memory}",
+        "healthCheck": {
+          "command": ["CMD-SHELL", "pg_isready -U postgres || exit 1"],
+          "interval": 30,
+          "timeout": 5,
+          "retries": 3,
+          "startPeriod": 30
+        },
+        "logConfiguration": {
+          "logDriver": "awslogs",
+          "options": {
+            "awslogs-group": "/ecs/signoz",
+            "awslogs-region": "",
+            "awslogs-stream-prefix": "metastore-postgres",
+            "awslogs-create-group": "true"
+          }
+        }
+      }
+    ]
+  },
+  "resource": {
+    "aws_ecs_task_definition": {
+      "metastore": {
+        "family": "signoz-metastore",
+        "network_mode": "awsvpc",
+        "requires_compatibilities": ["EC2"],
+        "task_role_arn": "${var.task_role_arn}",
+        "execution_role_arn": "${var.task_execution_role_arn}",
+        "container_definitions": "${jsonencode(local.metastore_container_definitions)}",
+        "volume": [
+          {
+            "name": "postgres-data",
+            "docker_volume_configuration": {
+              "scope": "task",
+              "driver": "local"
+            }
+          }
+        ]
+      }
+    },
+    "aws_service_discovery_service": {
+      "metastore": {
+        "name": "metastore-postgres",
+        "dns_config": {
+          "namespace_id": "${var.service_discovery_namespace_id}",
+          "routing_policy": "MULTIVALUE",
+          "dns_records": [
+            {
+              "ttl": 10,
+              "type": "A"
+            }
+          ]
+        },
+        "health_check_custom_config": {
+          "failure_threshold": 1
+        }
+      }
+    },
+    "aws_ecs_service": {
+      "metastore": {
+        "name": "signoz-metastore",
+        "cluster": "${var.ecs_cluster_id}",
+        "task_definition": "${aws_ecs_task_definition.metastore.arn}",
+        "desired_count": 1,
+        "launch_type": "EC2",
+        "network_configuration": {
+          "subnets": "${var.subnet_ids}",
+          "security_groups": "${var.security_group_ids}"
+        },
+        "service_registries": {
+          "registry_arn": "${aws_service_discovery_service.metastore.arn}"
+        },
+        "depends_on": ["aws_cloudwatch_log_group.ecs"]
+      }
+    }
+  }
+}
