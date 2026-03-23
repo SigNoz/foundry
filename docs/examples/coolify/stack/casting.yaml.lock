@@ -5,6 +5,9 @@ spec:
   deployment:
     flavor: stack
     platform: coolify
+  infrastructure:
+    enabled: false
+    provider: aws
   ingester:
     spec:
       cluster:
