@@ -1,52 +1,60 @@
-package terraformcasting
+package terraform
 
 import (
 	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/internal/infrastructure"
 	"github.com/signoz/foundry/internal/types"
 )
 
+var _ infrastructure.Generator = (*Generator)(nil)
+
 const infrastructureDir = "infrastructure"
 
-// TerraformGenerator generates Terraform manifests for infrastructure deployment.
-type TerraformGenerator struct {
+// Generator generates Terraform manifests for infrastructure deployment.
+type Generator struct {
 	logger *slog.Logger
 }
 
-// NewGenerator creates a new TerraformGenerator.
-func NewGenerator(logger *slog.Logger) *TerraformGenerator {
-	return &TerraformGenerator{
+// New creates a new Terraform Generator.
+func New(logger *slog.Logger) *Generator {
+	return &Generator{
 		logger: logger,
 	}
 }
 
-// Generate creates Terraform manifests based on the casting configuration and infrastructure provider.
-func (g *TerraformGenerator) Generate(ctx context.Context, config v1alpha1.Casting) ([]types.Material, error) {
+// Generate creates Terraform manifests based on the casting configuration.
+// The compute type is resolved automatically from the provider and deployment mode.
+func (g *Generator) Generate(ctx context.Context, config v1alpha1.Casting) ([]types.Material, error) {
 	if !config.Spec.Infrastructure.Enabled {
 		return nil, nil
 	}
 
 	provider := config.Spec.Infrastructure.Provider
-	computeType := config.Spec.Infrastructure.ComputeType
-	g.logger.InfoContext(ctx, "Generating Terraform manifests",
-		slog.String("provider", string(provider)),
-		slog.String("computeType", string(computeType)),
-	)
-
-	var materials []types.Material
-
-	// Get provider-specific templates
-	mainTemplate, varsTemplate, outputsTemplate, err := g.getTemplatesForProvider(provider, computeType)
+	computeType, err := infrastructure.ResolveComputeType(provider, config.Spec.Deployment)
 	if err != nil {
 		return nil, err
 	}
 
-	// Generate main.tf
+	g.logger.InfoContext(ctx, "generating terraform manifests",
+		slog.String("provider", provider.String()),
+		slog.String("computeType", computeType.String()),
+	)
+
+	mainTemplate, varsTemplate, outputsTemplate, err := g.templatesFor(provider, computeType)
+	if err != nil {
+		return nil, err
+	}
+
+	var materials []types.Material
+
+	// main.tf
 	mainBuf := bytes.NewBuffer(nil)
 	if err := mainTemplate.Execute(mainBuf, config); err != nil {
 		return nil, fmt.Errorf("failed to execute main.tf template: %w", err)
@@ -57,7 +65,7 @@ func (g *TerraformGenerator) Generate(ctx context.Context, config v1alpha1.Casti
 	}
 	materials = append(materials, mainMaterial)
 
-	// Generate variables.tf
+	// variables.tf
 	varsBuf := bytes.NewBuffer(nil)
 	if err := varsTemplate.Execute(varsBuf, config); err != nil {
 		return nil, fmt.Errorf("failed to execute variables.tf template: %w", err)
@@ -68,7 +76,7 @@ func (g *TerraformGenerator) Generate(ctx context.Context, config v1alpha1.Casti
 	}
 	materials = append(materials, varsMaterial)
 
-	// Generate providers.tf (common template)
+	// providers.tf
 	providersBuf := bytes.NewBuffer(nil)
 	if err := providersTFTemplate.Execute(providersBuf, config); err != nil {
 		return nil, fmt.Errorf("failed to execute providers.tf template: %w", err)
@@ -79,7 +87,7 @@ func (g *TerraformGenerator) Generate(ctx context.Context, config v1alpha1.Casti
 	}
 	materials = append(materials, providersMaterial)
 
-	// Generate outputs.tf
+	// outputs.tf
 	outputsBuf := bytes.NewBuffer(nil)
 	if err := outputsTemplate.Execute(outputsBuf, config); err != nil {
 		return nil, fmt.Errorf("failed to execute outputs.tf template: %w", err)
@@ -93,37 +101,44 @@ func (g *TerraformGenerator) Generate(ctx context.Context, config v1alpha1.Casti
 	return materials, nil
 }
 
-// getTemplatesForProvider returns the appropriate templates for the given infrastructure provider and compute type.
-func (g *TerraformGenerator) getTemplatesForProvider(provider v1alpha1.InfrastructureProvider, computeType v1alpha1.InfrastructureComputeType) (main, vars, outputs *types.Template, err error) {
+// Validate runs `terraform validate` against the manifests in poursPath/infrastructure.
+func (g *Generator) Validate(ctx context.Context, poursPath string) error {
+	infraDir := filepath.Join(poursPath, infrastructureDir)
+	g.logger.InfoContext(ctx, "validating terraform manifests", slog.String("path", infraDir))
+
+	cmd := exec.CommandContext(ctx, "terraform", "validate")
+	cmd.Dir = infraDir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("terraform validate failed: %w\n%s", err, out)
+	}
+	return nil
+}
+
+// templatesFor returns the provider+compute-type specific templates.
+func (g *Generator) templatesFor(provider v1alpha1.InfrastructureProvider, computeType infrastructure.ComputeType) (main, vars, outputs *types.Template, err error) {
 	switch provider {
 	case v1alpha1.InfrastructureProviderAWS:
 		switch computeType {
-		case v1alpha1.InfrastructureComputeTypeEC2, "":
+		case infrastructure.ComputeTypeEC2:
 			return awsEC2MainTFTemplate, awsEC2VariablesTFTemplate, awsEC2OutputsTFTemplate, nil
-		case v1alpha1.InfrastructureComputeTypeEKS:
+		case infrastructure.ComputeTypeEKS:
 			return awsEKSMainTFTemplate, awsEKSVariablesTFTemplate, awsEKSOutputsTFTemplate, nil
-		default:
-			return nil, nil, nil, fmt.Errorf("unsupported compute type %q for provider %q", computeType, provider)
 		}
 	case v1alpha1.InfrastructureProviderGCP:
 		switch computeType {
-		case v1alpha1.InfrastructureComputeTypeGCE, "":
+		case infrastructure.ComputeTypeGCE:
 			return gcpGCEMainTFTemplate, gcpGCEVariablesTFTemplate, gcpGCEOutputsTFTemplate, nil
-		case v1alpha1.InfrastructureComputeTypeGKE:
+		case infrastructure.ComputeTypeGKE:
 			return gcpGKEMainTFTemplate, gcpGKEVariablesTFTemplate, gcpGKEOutputsTFTemplate, nil
-		default:
-			return nil, nil, nil, fmt.Errorf("unsupported compute type %q for provider %q", computeType, provider)
 		}
 	case v1alpha1.InfrastructureProviderAzure:
 		switch computeType {
-		case v1alpha1.InfrastructureComputeTypeVM, "":
+		case infrastructure.ComputeTypeVM:
 			return azureVMMainTFTemplate, azureVMVariablesTFTemplate, azureVMOutputsTFTemplate, nil
-		case v1alpha1.InfrastructureComputeTypeAKS:
+		case infrastructure.ComputeTypeAKS:
 			return azureAKSMainTFTemplate, azureAKSVariablesTFTemplate, azureAKSOutputsTFTemplate, nil
-		default:
-			return nil, nil, nil, fmt.Errorf("unsupported compute type %q for provider %q", computeType, provider)
 		}
-	default:
-		return nil, nil, nil, fmt.Errorf("unsupported infrastructure provider: %s", provider)
 	}
+	return nil, nil, nil, fmt.Errorf("unsupported provider %q / compute type %q combination", provider, computeType)
 }

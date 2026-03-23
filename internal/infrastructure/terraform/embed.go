@@ -1,4 +1,4 @@
-package terraformcasting
+package terraform
 
 import (
 	"embed"

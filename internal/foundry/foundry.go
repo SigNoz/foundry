@@ -4,9 +4,10 @@ import (
 	"log/slog"
 
 	"github.com/signoz/foundry/api/v1alpha1"
-	"github.com/signoz/foundry/internal/casting/terraformcasting"
 	"github.com/signoz/foundry/internal/config"
 	"github.com/signoz/foundry/internal/config/yamlconfig"
+	"github.com/signoz/foundry/internal/infrastructure"
+	terraformgenerator "github.com/signoz/foundry/internal/infrastructure/terraform"
 	"github.com/signoz/foundry/internal/molding"
 	"github.com/signoz/foundry/internal/molding/ingestermolding"
 	"github.com/signoz/foundry/internal/molding/metastoremolding"
@@ -33,8 +34,8 @@ type Foundry struct {
 	// Moldings for the different molding kinds.
 	Moldings map[v1alpha1.MoldingKind]molding.Molding
 
-	// TerraformGenerator for generating infrastructure manifests.
-	TerraformGenerator *terraformcasting.TerraformGenerator
+	// InfrastructureGenerator for generating infrastructure-as-code manifests.
+	InfrastructureGenerator infrastructure.Generator
 }
 
 func New(logger *slog.Logger) (*Foundry, error) {
@@ -59,6 +60,6 @@ func New(logger *slog.Logger) (*Foundry, error) {
 			v1alpha1.MoldingKindSignoz:          signozmolding.New(logger),
 			v1alpha1.MoldingKindIngester:        ingestermolding.New(logger),
 		},
-		TerraformGenerator: terraformcasting.NewGenerator(logger),
+		InfrastructureGenerator: terraformgenerator.New(logger),
 	}, nil
 }
