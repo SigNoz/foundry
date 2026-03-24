@@ -1,13 +1,18 @@
+{{- $name := $.Metadata.Name -}}
 {
   "locals": {
     "telemetrystore_migrator_container_definitions": [
       {
         "name": "telemetrystore-migrator",
-        "image": "signoz/signoz-otel-collector:latest",
+        "image": "{{ $.Spec.Ingester.Spec.Image }}",
         "essential": true,
         "entryPoint": ["/bin/sh", "-c"],
         "command": ["/signoz-otel-collector migrate ready && /signoz-otel-collector migrate bootstrap && /signoz-otel-collector migrate sync up && /signoz-otel-collector migrate async up"],
-        "environment": [{"name":"SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN","value":"tcp://telemetrystore-clickhouse.signoz.local:9000"}],
+        {{- $env := list }}
+        {{- if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
+        {{- $env = append $env (dict "name" "SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN" "value" (index $.Spec.TelemetryStore.Status.Addresses.TCP 0)) }}
+        {{- end }}
+        "environment": {{ toJson $env }},
         "cpu": "${var.migrator_cpu}",
         "memory": "${var.migrator_memory}",
         "logConfiguration": {
@@ -15,7 +20,7 @@
           "options": {
             "awslogs-group": "${var.log_group}",
             "awslogs-region": "${var.region}",
-            "awslogs-stream-prefix": "signoz-telemetrystore-migrator"
+            "awslogs-stream-prefix": "{{ $name }}-telemetrystore-migrator"
           }
         }
       }
@@ -24,7 +29,7 @@
   "resource": {
     "aws_ecs_task_definition": {
       "telemetrystore_migrator": {
-        "family": "signoz-telemetrystore-migrator",
+        "family": "{{ $name }}-telemetrystore-migrator",
         "network_mode": "awsvpc",
         "requires_compatibilities": ["FARGATE"],
         "cpu": "${var.migrator_cpu}",

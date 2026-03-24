@@ -5,7 +5,7 @@
         "name": "init-clickhouse",
         "image": "alpine:3.18.2",
         "essential": false,
-        "command": ["/bin/sh", "-c", "wget -O /var/lib/clickhouse/user_scripts/histogramQuantile https://github.com/SigNoz/signoz/releases/download/v0.50.0/histogram-quantile-linux-amd64 && chmod +x /var/lib/clickhouse/user_scripts/histogramQuantile"],
+        "command": ["/bin/sh", "-c", "cd /tmp && wget -O histogram-quantile.tar.gz 'https://github.com/SigNoz/signoz/releases/download/histogram-quantile%2Fv0.0.1/histogram-quantile_linux_amd64.tar.gz' && tar -xzf histogram-quantile.tar.gz && mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile"],
         "mountPoints": [
           {
             "sourceVolume": "shared-binary-volume",
@@ -18,10 +18,9 @@
         "logConfiguration": {
           "logDriver": "awslogs",
           "options": {
-            "awslogs-group": "/ecs/signoz",
-            "awslogs-region": "",
-            "awslogs-stream-prefix": "init-clickhouse",
-            "awslogs-create-group": "true"
+            "awslogs-group": "${var.log_group}",
+            "awslogs-region": "${var.region}",
+            "awslogs-stream-prefix": "signoz-telemetrystore-clickhouse-init"
           }
         }
       },
@@ -30,7 +29,7 @@
         "image": "amazon/aws-cli:2.27.32",
         "essential": false,
         "entryPoint": ["/bin/sh", "-c"],
-        "command": ["aws s3 cp s3:///signoz/telemetrystore/clickhouse/ /configs/telemetrystore/ --recursive"],
+        "command": ["aws s3 cp s3://${var.config_bucket}/signoz/telemetrystore/clickhouse/ /configs/telemetrystore/ --recursive"],
         "mountPoints": [
           {
             "sourceVolume": "telemetrystore-clickhouse-config",
@@ -43,24 +42,21 @@
         "logConfiguration": {
           "logDriver": "awslogs",
           "options": {
-            "awslogs-group": "/ecs/signoz",
-            "awslogs-region": "",
-            "awslogs-stream-prefix": "telemetrystore-clickhouse-config-fetcher",
-            "awslogs-create-group": "true"
+            "awslogs-group": "${var.log_group}",
+            "awslogs-region": "${var.region}",
+            "awslogs-stream-prefix": "signoz-telemetrystore-clickhouse-config-fetcher"
           }
         }
       },
       {
-        "name": "telemetrystore-clickhouse",
+        "name": "signoz-telemetrystore-clickhouse-0-0",
         "image": "clickhouse/clickhouse-server:25.5.6",
         "essential": true,
-        "environment": [
-          {"name": "CLICKHOUSE_SKIP_USER_SETUP", "value": "1"}
-        ],
+        "environment": [{"name":"CLICKHOUSE_SKIP_USER_SETUP","value":"1"}],
         "portMappings": [
-          {"name": "client", "containerPort": 9000, "protocol": "tcp"},
-          {"name": "http", "containerPort": 8123, "protocol": "tcp"},
-          {"name": "prometheus", "containerPort": 9363, "protocol": "tcp"}
+          {"name": "native", "containerPort": 9000, "protocol": "tcp"},
+          {"name": "http", "containerPort": 8123, "protocol": "tcp", "appProtocol": "http"},
+          {"name": "prometheus", "containerPort": 9363, "protocol": "tcp", "appProtocol": "http"}
         ],
         "mountPoints": [
           {
@@ -68,7 +64,7 @@
             "containerPath": "/var/lib/clickhouse/user_scripts"
           },
           {
-            "sourceVolume": "clickhouse-config",
+            "sourceVolume": "telemetrystore-clickhouse-config",
             "containerPath": "/etc/clickhouse-server/config.d"
           },
           {
@@ -90,13 +86,12 @@
           "retries": 3,
           "startPeriod": 30
         },
-        "logConfiguration": {
+"logConfiguration": {
           "logDriver": "awslogs",
           "options": {
-            "awslogs-group": "/ecs/signoz",
-            "awslogs-region": "",
-            "awslogs-stream-prefix": "clickhouse",
-            "awslogs-create-group": "true"
+            "awslogs-group": "${var.log_group}",
+            "awslogs-region": "${var.region}",
+            "awslogs-stream-prefix": "signoz-telemetrystore-clickhouse-0-0"
           }
         }
       }
@@ -105,16 +100,16 @@
   "resource": {
     "aws_s3_object": {
       "telemetrystore_configs": {
-        "for_each": "${fileset(\"${path.module}/configs/telemetrystore/clickhouse\", \"**\")}",
+        "for_each": "${fileset(\"${path.module}/telemetrystore/clickhouse\", \"**\")}",
         "bucket": "${var.config_bucket}",
         "key": "signoz/telemetrystore/clickhouse/${each.value}",
-        "source": "${path.module}/configs/telemetrystore/clickhouse/${each.value}",
-        "etag": "${filemd5(\"${path.module}/configs/telemetrystore/clickhouse/${each.value}\")}"
+        "source": "${path.module}/telemetrystore/clickhouse/${each.value}",
+        "etag": "${filemd5(\"${path.module}/telemetrystore/clickhouse/${each.value}\")}"
       }
     },
     "aws_ecs_task_definition": {
       "telemetrystore": {
-        "family": "signoz-telemetrystore",
+        "family": "signoz-telemetrystore-clickhouse-0-0",
         "network_mode": "awsvpc",
         "requires_compatibilities": ["EC2"],
         "task_role_arn": "${var.task_role_arn}",
@@ -129,7 +124,7 @@
             }
           },
           {
-            "name": "clickhouse-config",
+            "name": "telemetrystore-clickhouse-config",
             "docker_volume_configuration": {
               "scope": "task",
               "driver": "local"
@@ -150,27 +145,30 @@
       "telemetrystore": {
         "name": "telemetrystore-clickhouse",
         "dns_config": {
-          "namespace_id": "${var.service_discovery_namespace_id}",
-          "routing_policy": "MULTIVALUE",
+          "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
           "dns_records": [
             {
               "ttl": 10,
               "type": "A"
             }
-          ]
-        },
-        "health_check_custom_config": {
-          "failure_threshold": 1
+          ],
+          "routing_policy": "MULTIVALUE"
         }
       }
     },
     "aws_ecs_service": {
       "telemetrystore": {
-        "name": "signoz-telemetrystore",
+        "name": "signoz-telemetrystore-clickhouse-0-0",
         "cluster": "${var.ecs_cluster_id}",
         "task_definition": "${aws_ecs_task_definition.telemetrystore.arn}",
         "desired_count": 1,
-        "launch_type": "EC2",
+        "capacity_provider_strategy": [
+          {
+            "capacity_provider": "${var.capacity_provider}",
+            "weight": 1,
+            "base": 0
+          }
+        ],
         "network_configuration": {
           "subnets": "${var.subnet_ids}",
           "security_groups": "${var.security_group_ids}"
@@ -178,7 +176,7 @@
         "service_registries": {
           "registry_arn": "${aws_service_discovery_service.telemetrystore.arn}"
         },
-        "depends_on": [
+"depends_on": [
           "aws_cloudwatch_log_group.ecs",
           "aws_ecs_service.telemetrykeeper"
         ]

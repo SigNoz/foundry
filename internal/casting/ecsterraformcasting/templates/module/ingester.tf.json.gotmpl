@@ -1,6 +1,4 @@
 {{- $name := $.Metadata.Name -}}
-{{- $region := index $.Metadata.Annotations "foundry.signoz.io/ecs/region" -}}
-{{- $configBucket := index $.Metadata.Annotations "foundry.signoz.io/ecs/config-bucket" -}}
 {
   "locals": {
     "ingester_container_definitions": [
@@ -9,7 +7,7 @@
         "image": "amazon/aws-cli:2.27.32",
         "essential": false,
         "entryPoint": ["/bin/sh", "-c"],
-        "command": ["aws s3 cp s3://{{ $configBucket }}/{{ $name }}/ingester/ /configs/ingester/ --recursive"],
+        "command": ["aws s3 cp s3://${var.config_bucket}/{{ $name }}/ingester/ /configs/ingester/ --recursive"],
         "mountPoints": [
           {
             "sourceVolume": "ingester-config",
@@ -22,10 +20,9 @@
         "logConfiguration": {
           "logDriver": "awslogs",
           "options": {
-            "awslogs-group": "/ecs/{{ $name }}",
-            "awslogs-region": "{{ $region }}",
-            "awslogs-stream-prefix": "ingester-config-fetcher",
-            "awslogs-create-group": "true"
+            "awslogs-group": "${var.log_group}",
+            "awslogs-region": "${var.region}",
+            "awslogs-stream-prefix": "{{ $name }}-ingester-config-fetcher"
           }
         }
       },
@@ -35,22 +32,17 @@
         "essential": true,
         "entryPoint": ["/bin/sh", "-c"],
         "command": ["/signoz-otel-collector migrate sync check && /signoz-otel-collector --config=/conf/ingester.yaml --manager-config=/conf/opamp.yaml --copy-path=/var/tmp/collector-config.yaml"],
-        "environment": [
-{{ if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
-          {"name": "SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN", "value": "{{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}"}
-{{ end }}
-          {{- if $.Spec.Ingester.Spec.Env }}
-          {{- range $key, $value := $.Spec.Ingester.Spec.Env }},
-          {
-            "name": {{ $key | toJson }},
-            "value": {{ $value | toJson }}
-          }
-          {{- end }}
-          {{- end }}
-        ],
+        {{- $env := list }}
+        {{- if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
+        {{- $env = append $env (dict "name" "SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN" "value" (index $.Spec.TelemetryStore.Status.Addresses.TCP 0)) }}
+        {{- end }}
+        {{- range $key, $value := $.Spec.Ingester.Spec.Env }}
+        {{- $env = append $env (dict "name" $key "value" $value) }}
+        {{- end }}
+        "environment": {{ toJson $env }},
         "portMappings": [
-          {"name": "otel-grpc", "containerPort": 4317, "protocol": "tcp"},
-          {"name": "otel-http", "containerPort": 4318, "protocol": "tcp"}
+          {"name": "grpc", "containerPort": 4317, "protocol": "tcp", "appProtocol": "grpc"},
+          {"name": "http", "containerPort": 4318, "protocol": "tcp", "appProtocol": "http"}
         ],
         "mountPoints": [
           {
@@ -71,13 +63,12 @@
           "retries": 3,
           "startPeriod": 30
         },
-        "logConfiguration": {
+"logConfiguration": {
           "logDriver": "awslogs",
           "options": {
-            "awslogs-group": "/ecs/{{ $name }}",
-            "awslogs-region": "{{ $region }}",
-            "awslogs-stream-prefix": "otel-collector",
-            "awslogs-create-group": "true"
+            "awslogs-group": "${var.log_group}",
+            "awslogs-region": "${var.region}",
+            "awslogs-stream-prefix": "{{ $name }}-ingester"
           }
         }
       }
@@ -86,11 +77,11 @@
   "resource": {
     "aws_s3_object": {
       "ingester_configs": {
-        "for_each": "${fileset(\"${path.module}/configs/ingester\", \"*.yaml\")}",
+        "for_each": "${fileset(\"${path.module}/ingester\", \"*.yaml\")}",
         "bucket": "${var.config_bucket}",
         "key": "{{ $name }}/ingester/${each.value}",
-        "source": "${path.module}/configs/ingester/${each.value}",
-        "etag": "${filemd5(\"${path.module}/configs/ingester/${each.value}\")}"
+        "source": "${path.module}/ingester/${each.value}",
+        "etag": "${filemd5(\"${path.module}/ingester/${each.value}\")}"
       }
     },
     "aws_ecs_task_definition": {
@@ -117,17 +108,14 @@
       "ingester": {
         "name": "ingester",
         "dns_config": {
-          "namespace_id": "${var.service_discovery_namespace_id}",
-          "routing_policy": "MULTIVALUE",
+          "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
           "dns_records": [
             {
               "ttl": 10,
               "type": "A"
             }
-          ]
-        },
-        "health_check_custom_config": {
-          "failure_threshold": 1
+          ],
+          "routing_policy": "MULTIVALUE"
         }
       }
     },
@@ -137,7 +125,13 @@
         "cluster": "${var.ecs_cluster_id}",
         "task_definition": "${aws_ecs_task_definition.ingester.arn}",
         "desired_count": 1,
-        "launch_type": "EC2",
+        "capacity_provider_strategy": [
+          {
+            "capacity_provider": "${var.capacity_provider}",
+            "weight": 1,
+            "base": 0
+          }
+        ],
         "network_configuration": {
           "subnets": "${var.subnet_ids}",
           "security_groups": "${var.security_group_ids}"
@@ -145,7 +139,7 @@
         "service_registries": {
           "registry_arn": "${aws_service_discovery_service.ingester.arn}"
         },
-        "depends_on": [
+"depends_on": [
           "aws_cloudwatch_log_group.ecs",
           "aws_ecs_service.signoz",
           "aws_ecs_service.telemetrystore"

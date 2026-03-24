@@ -69,25 +69,25 @@ spec:
                   - name: service.version
             exporters:
               clickhousetraces:
-                datasource: tcp://telemetrystore-clickhouse:9000/signoz_traces
+                datasource: tcp://telemetrystore-clickhouse.signoz.local:9000/signoz_traces
                 low_cardinal_exception_grouping: ${env:LOW_CARDINAL_EXCEPTION_GROUPING}
                 use_new_schema: true
                 timeout: 45s
                 sending_queue:
                   enabled: false
               signozclickhousemetrics:
-                dsn: tcp://telemetrystore-clickhouse:9000/signoz_metrics
+                dsn: tcp://telemetrystore-clickhouse.signoz.local:9000/signoz_metrics
                 timeout: 45s
                 sending_queue:
                   enabled: false
               clickhouselogsexporter:
-                dsn: tcp://telemetrystore-clickhouse:9000/signoz_logs
+                dsn: tcp://telemetrystore-clickhouse.signoz.local:9000/signoz_logs
                 use_new_schema: true
                 timeout: 45s
                 sending_queue:
                   enabled: false
               signozclickhousemeter:
-                dsn: tcp://telemetrystore-clickhouse:9000/signoz_meter
+                dsn: tcp://telemetrystore-clickhouse.signoz.local:9000/signoz_meter
                 timeout: 45s
                 sending_queue:
                   enabled: false
@@ -137,7 +137,7 @@ spec:
                   exporters:
                     - signozclickhousemeter
           opamp.yaml: |
-            server_endpoint: ws://signoz:4320/v1/opamp
+            server_endpoint: ws://signoz.signoz.local:4320/v1/opamp
       enabled: true
       image: signoz/signoz-otel-collector:latest
       version: latest
@@ -203,25 +203,25 @@ spec:
                   - name: service.version
             exporters:
               clickhousetraces:
-                datasource: tcp://telemetrystore-clickhouse:9000/signoz_traces
+                datasource: tcp://telemetrystore-clickhouse.signoz.local:9000/signoz_traces
                 low_cardinal_exception_grouping: ${env:LOW_CARDINAL_EXCEPTION_GROUPING}
                 use_new_schema: true
                 timeout: 45s
                 sending_queue:
                   enabled: false
               signozclickhousemetrics:
-                dsn: tcp://telemetrystore-clickhouse:9000/signoz_metrics
+                dsn: tcp://telemetrystore-clickhouse.signoz.local:9000/signoz_metrics
                 timeout: 45s
                 sending_queue:
                   enabled: false
               clickhouselogsexporter:
-                dsn: tcp://telemetrystore-clickhouse:9000/signoz_logs
+                dsn: tcp://telemetrystore-clickhouse.signoz.local:9000/signoz_logs
                 use_new_schema: true
                 timeout: 45s
                 sending_queue:
                   enabled: false
               signozclickhousemeter:
-                dsn: tcp://telemetrystore-clickhouse:9000/signoz_meter
+                dsn: tcp://telemetrystore-clickhouse.signoz.local:9000/signoz_meter
                 timeout: 45s
                 sending_queue:
                   enabled: false
@@ -271,7 +271,7 @@ spec:
                   exporters:
                     - signozclickhousemeter
           opamp.yaml: |
-            server_endpoint: ws://signoz:4320/v1/opamp
+            server_endpoint: ws://signoz.signoz.local:4320/v1/opamp
   metastore:
     kind: postgres
     spec:
@@ -288,7 +288,7 @@ spec:
     status:
       addresses:
         dsn:
-        - tcp://metastore-postgres:5432
+        - tcp://metastore-postgres.signoz.local:5432
       config: {}
       env:
         POSTGRES_DB: signoz
@@ -301,23 +301,23 @@ spec:
       config: {}
       enabled: true
       env:
-        SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@metastore-postgres:5432/signoz?sslmode=disable
+        SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@metastore-postgres.signoz.local:5432/signoz?sslmode=disable
         SIGNOZ_SQLSTORE_PROVIDER: postgres
-        SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://telemetrystore-clickhouse:9000
+        SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://telemetrystore-clickhouse.signoz.local:9000
         SIGNOZ_TELEMETRYSTORE_PROVIDER: clickhouse
       image: signoz/signoz:latest
       version: latest
     status:
       addresses:
         apiserver:
-        - tcp://signoz:8080
+        - tcp://signoz.signoz.local:8080
         opamp:
-        - ws://signoz:4320
+        - ws://signoz.signoz.local:4320
       config: {}
       env:
-        SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@metastore-postgres:5432/signoz?sslmode=disable
+        SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@metastore-postgres.signoz.local:5432/signoz?sslmode=disable
         SIGNOZ_SQLSTORE_PROVIDER: postgres
-        SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://telemetrystore-clickhouse:9000
+        SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://telemetrystore-clickhouse.signoz.local:9000
         SIGNOZ_TELEMETRYSTORE_PROVIDER: clickhouse
   telemetrykeeper:
     kind: clickhousekeeper
@@ -340,7 +340,7 @@ spec:
               log_storage_path: /var/lib/clickhouse/coordination/log
               raft_configuration:
                 server:
-                - hostname: telemetrykeeper-clickhousekeeper
+                - hostname: telemetrykeeper-clickhousekeeper.signoz.local
                   port: 9234
                   id: 0
               server_id: 0
@@ -352,9 +352,9 @@ spec:
     status:
       addresses:
         client:
-        - tcp://telemetrykeeper-clickhousekeeper:9181
+        - tcp://telemetrykeeper-clickhousekeeper.signoz.local:9181
         raft:
-        - tcp://telemetrykeeper-clickhousekeeper:9234
+        - tcp://telemetrykeeper-clickhousekeeper.signoz.local:9234
       config:
         data:
           keeper-0.yaml: |
@@ -371,7 +371,7 @@ spec:
               log_storage_path: /var/lib/clickhouse/coordination/log
               raft_configuration:
                 server:
-                - hostname: telemetrykeeper-clickhousekeeper
+                - hostname: telemetrykeeper-clickhousekeeper.signoz.local
                   port: 9234
                   id: 0
               server_id: 0
@@ -428,11 +428,11 @@ spec:
               cluster:
                 shard:
                   - replica:
-                      host: telemetrystore-clickhouse
+                      host: telemetrystore-clickhouse.signoz.local
                       port: 9000
             zookeeper:
               node:
-                - host: telemetrykeeper-clickhousekeeper
+                - host: telemetrykeeper-clickhousekeeper.signoz.local
                   port: 9181
             tcp_port: 9000
             user_defined_executable_functions_config: '*function.yaml'
@@ -468,7 +468,7 @@ spec:
     status:
       addresses:
         tcp:
-        - tcp://telemetrystore-clickhouse:9000
+        - tcp://telemetrystore-clickhouse.signoz.local:9000
       config:
         data:
           config.yaml: |
@@ -514,11 +514,11 @@ spec:
               cluster:
                 shard:
                   - replica:
-                      host: telemetrystore-clickhouse
+                      host: telemetrystore-clickhouse.signoz.local
                       port: 9000
             zookeeper:
               node:
-                - host: telemetrykeeper-clickhousekeeper
+                - host: telemetrykeeper-clickhousekeeper.signoz.local
                   port: 9181
             tcp_port: 9000
             user_defined_executable_functions_config: '*function.yaml'

@@ -20,11 +20,13 @@
       "ecs_cluster_id": "${var.ecs_cluster_id}",
       "subnet_ids": "${var.subnet_ids}",
       "security_group_ids": "${var.security_group_ids}",
-      "service_discovery_namespace_id": "${var.service_discovery_namespace_id}",
+      "vpc_id": "${var.vpc_id}",
       "config_bucket": "${var.config_bucket}",
       "task_role_arn": "${var.task_role_arn}",
       "task_execution_role_arn": "${var.task_execution_role_arn}",
-      "log_retention_days": "${var.log_retention_days}"
+      "log_group": "${var.log_group}",
+      "log_retention_days": "${var.log_retention_days}",
+      "capacity_provider": "${var.capacity_provider}"
       {{- if $.Spec.TelemetryKeeper.Spec.Enabled }},
       "telemetrykeeper_cpu": "${var.telemetrykeeper_cpu}",
       "telemetrykeeper_memory": "${var.telemetrykeeper_memory}"

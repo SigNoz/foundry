@@ -1,6 +1,4 @@
 {{- $name := $.Metadata.Name -}}
-{{- $region := index $.Metadata.Annotations "foundry.signoz.io/ecs/region" -}}
-{{- $configBucket := index $.Metadata.Annotations "foundry.signoz.io/ecs/config-bucket" -}}
 {
   "locals": {
     "telemetrykeeper_container_definitions": [
@@ -9,7 +7,7 @@
         "image": "amazon/aws-cli:2.27.32",
         "essential": false,
         "entryPoint": ["/bin/sh", "-c"],
-        "command": ["aws s3 cp s3://{{ $configBucket }}/{{ $name }}/telemetrykeeper/{{ $.Spec.TelemetryKeeper.Kind }}/ /configs/telemetrykeeper/ --recursive"],
+        "command": ["aws s3 cp s3://${var.config_bucket}/{{ $name }}/telemetrykeeper/{{ $.Spec.TelemetryKeeper.Kind }}/ /configs/telemetrykeeper/ --recursive"],
         "mountPoints": [
           {
             "sourceVolume": "keeper-config",
@@ -22,34 +20,27 @@
         "logConfiguration": {
           "logDriver": "awslogs",
           "options": {
-            "awslogs-group": "/ecs/{{ $name }}",
-            "awslogs-region": "{{ $region }}",
-            "awslogs-stream-prefix": "telemetrykeeper-config-fetcher",
-            "awslogs-create-group": "true"
+            "awslogs-group": "${var.log_group}",
+            "awslogs-region": "${var.region}",
+            "awslogs-stream-prefix": "{{ $name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-config-fetcher"
           }
         }
       },
       {
-        "name": "telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}",
+        "name": "{{ $name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-0",
         "image": "{{ $.Spec.TelemetryKeeper.Spec.Image }}",
         "essential": true,
-        "command": ["/usr/bin/clickhouse-keeper", "--config-file=/etc/clickhouse-keeper/keeper.yaml"],
-        {{- if $.Spec.TelemetryKeeper.Spec.Env }}
-        "environment": [
-          {{- $first := true }}
-          {{- range $key, $value := $.Spec.TelemetryKeeper.Spec.Env }}
-          {{- if not $first }},{{ end }}
-          {
-            "name": {{ $key | toJson }},
-            "value": {{ $value | toJson }}
-          }
-          {{- $first = false }}
-          {{- end }}
-        ],
+        "entryPoint": ["/usr/bin/clickhouse-keeper", "--config-file=/etc/clickhouse-keeper/keeper.yaml"],
+        {{- $env := list }}
+        {{- range $key, $value := $.Spec.TelemetryKeeper.Spec.Env }}
+        {{- $env = append $env (dict "name" $key "value" $value) }}
+        {{- end }}
+        {{- if $env }}
+        "environment": {{ toJson $env }},
         {{- end }}
         "portMappings": [
-          {"name": "keeper-client", "containerPort": 9181, "protocol": "tcp"},
-          {"name": "keeper-raft", "containerPort": 9234, "protocol": "tcp"}
+          {"name": "client", "containerPort": 9181, "protocol": "tcp"},
+          {"name": "raft", "containerPort": 9234, "protocol": "tcp"}
         ],
         "mountPoints": [
           {
@@ -74,13 +65,12 @@
           "retries": 3,
           "startPeriod": 30
         },
-        "logConfiguration": {
+"logConfiguration": {
           "logDriver": "awslogs",
           "options": {
-            "awslogs-group": "/ecs/{{ $name }}",
-            "awslogs-region": "{{ $region }}",
-            "awslogs-stream-prefix": "clickhouse-keeper",
-            "awslogs-create-group": "true"
+            "awslogs-group": "${var.log_group}",
+            "awslogs-region": "${var.region}",
+            "awslogs-stream-prefix": "{{ $name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-0"
           }
         }
       }
@@ -89,16 +79,16 @@
   "resource": {
     "aws_s3_object": {
       "telemetrykeeper_configs": {
-        "for_each": "${fileset(\"${path.module}/configs/telemetrykeeper/{{ $.Spec.TelemetryKeeper.Kind }}\", \"**\")}",
+        "for_each": "${fileset(\"${path.module}/telemetrykeeper/{{ $.Spec.TelemetryKeeper.Kind }}\", \"**\")}",
         "bucket": "${var.config_bucket}",
         "key": "{{ $name }}/telemetrykeeper/{{ $.Spec.TelemetryKeeper.Kind }}/${each.value}",
-        "source": "${path.module}/configs/telemetrykeeper/{{ $.Spec.TelemetryKeeper.Kind }}/${each.value}",
-        "etag": "${filemd5(\"${path.module}/configs/telemetrykeeper/{{ $.Spec.TelemetryKeeper.Kind }}/${each.value}\")}"
+        "source": "${path.module}/telemetrykeeper/{{ $.Spec.TelemetryKeeper.Kind }}/${each.value}",
+        "etag": "${filemd5(\"${path.module}/telemetrykeeper/{{ $.Spec.TelemetryKeeper.Kind }}/${each.value}\")}"
       }
     },
     "aws_ecs_task_definition": {
       "telemetrykeeper": {
-        "family": "{{ $name }}-telemetrykeeper",
+        "family": "{{ $name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-0",
         "network_mode": "awsvpc",
         "requires_compatibilities": ["EC2"],
         "task_role_arn": "${var.task_role_arn}",
@@ -127,27 +117,30 @@
       "telemetrykeeper": {
         "name": "telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}",
         "dns_config": {
-          "namespace_id": "${var.service_discovery_namespace_id}",
-          "routing_policy": "MULTIVALUE",
+          "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
           "dns_records": [
             {
               "ttl": 10,
               "type": "A"
             }
-          ]
-        },
-        "health_check_custom_config": {
-          "failure_threshold": 1
+          ],
+          "routing_policy": "MULTIVALUE"
         }
       }
     },
     "aws_ecs_service": {
       "telemetrykeeper": {
-        "name": "{{ $name }}-telemetrykeeper",
+        "name": "{{ $name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-0",
         "cluster": "${var.ecs_cluster_id}",
         "task_definition": "${aws_ecs_task_definition.telemetrykeeper.arn}",
         "desired_count": 1,
-        "launch_type": "EC2",
+        "capacity_provider_strategy": [
+          {
+            "capacity_provider": "${var.capacity_provider}",
+            "weight": 1,
+            "base": 0
+          }
+        ],
         "network_configuration": {
           "subnets": "${var.subnet_ids}",
           "security_groups": "${var.security_group_ids}"
@@ -155,7 +148,7 @@
         "service_registries": {
           "registry_arn": "${aws_service_discovery_service.telemetrykeeper.arn}"
         },
-        "depends_on": ["aws_cloudwatch_log_group.ecs"]
+"depends_on": ["aws_cloudwatch_log_group.ecs"]
       }
     }
   }

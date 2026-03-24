@@ -6,7 +6,7 @@
         "image": "amazon/aws-cli:2.27.32",
         "essential": false,
         "entryPoint": ["/bin/sh", "-c"],
-        "command": ["aws s3 cp s3:///signoz/telemetrykeeper/clickhousekeeper/ /configs/telemetrykeeper/ --recursive"],
+        "command": ["aws s3 cp s3://${var.config_bucket}/signoz/telemetrykeeper/clickhousekeeper/ /configs/telemetrykeeper/ --recursive"],
         "mountPoints": [
           {
             "sourceVolume": "keeper-config",
@@ -19,21 +19,20 @@
         "logConfiguration": {
           "logDriver": "awslogs",
           "options": {
-            "awslogs-group": "/ecs/signoz",
-            "awslogs-region": "",
-            "awslogs-stream-prefix": "telemetrykeeper-config-fetcher",
-            "awslogs-create-group": "true"
+            "awslogs-group": "${var.log_group}",
+            "awslogs-region": "${var.region}",
+            "awslogs-stream-prefix": "signoz-telemetrykeeper-clickhousekeeper-config-fetcher"
           }
         }
       },
       {
-        "name": "telemetrykeeper-clickhousekeeper",
+        "name": "signoz-telemetrykeeper-clickhousekeeper-0",
         "image": "clickhouse/clickhouse-keeper:25.5.6",
         "essential": true,
-        "command": ["/usr/bin/clickhouse-keeper", "--config-file=/etc/clickhouse-keeper/keeper.yaml"],
+        "entryPoint": ["/usr/bin/clickhouse-keeper", "--config-file=/etc/clickhouse-keeper/keeper.yaml"],
         "portMappings": [
-          {"name": "keeper-client", "containerPort": 9181, "protocol": "tcp"},
-          {"name": "keeper-raft", "containerPort": 9234, "protocol": "tcp"}
+          {"name": "client", "containerPort": 9181, "protocol": "tcp"},
+          {"name": "raft", "containerPort": 9234, "protocol": "tcp"}
         ],
         "mountPoints": [
           {
@@ -58,13 +57,12 @@
           "retries": 3,
           "startPeriod": 30
         },
-        "logConfiguration": {
+"logConfiguration": {
           "logDriver": "awslogs",
           "options": {
-            "awslogs-group": "/ecs/signoz",
-            "awslogs-region": "",
-            "awslogs-stream-prefix": "clickhouse-keeper",
-            "awslogs-create-group": "true"
+            "awslogs-group": "${var.log_group}",
+            "awslogs-region": "${var.region}",
+            "awslogs-stream-prefix": "signoz-telemetrykeeper-clickhousekeeper-0"
           }
         }
       }
@@ -73,16 +71,16 @@
   "resource": {
     "aws_s3_object": {
       "telemetrykeeper_configs": {
-        "for_each": "${fileset(\"${path.module}/configs/telemetrykeeper/clickhousekeeper\", \"**\")}",
+        "for_each": "${fileset(\"${path.module}/telemetrykeeper/clickhousekeeper\", \"**\")}",
         "bucket": "${var.config_bucket}",
         "key": "signoz/telemetrykeeper/clickhousekeeper/${each.value}",
-        "source": "${path.module}/configs/telemetrykeeper/clickhousekeeper/${each.value}",
-        "etag": "${filemd5(\"${path.module}/configs/telemetrykeeper/clickhousekeeper/${each.value}\")}"
+        "source": "${path.module}/telemetrykeeper/clickhousekeeper/${each.value}",
+        "etag": "${filemd5(\"${path.module}/telemetrykeeper/clickhousekeeper/${each.value}\")}"
       }
     },
     "aws_ecs_task_definition": {
       "telemetrykeeper": {
-        "family": "signoz-telemetrykeeper",
+        "family": "signoz-telemetrykeeper-clickhousekeeper-0",
         "network_mode": "awsvpc",
         "requires_compatibilities": ["EC2"],
         "task_role_arn": "${var.task_role_arn}",
@@ -111,27 +109,30 @@
       "telemetrykeeper": {
         "name": "telemetrykeeper-clickhousekeeper",
         "dns_config": {
-          "namespace_id": "${var.service_discovery_namespace_id}",
-          "routing_policy": "MULTIVALUE",
+          "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
           "dns_records": [
             {
               "ttl": 10,
               "type": "A"
             }
-          ]
-        },
-        "health_check_custom_config": {
-          "failure_threshold": 1
+          ],
+          "routing_policy": "MULTIVALUE"
         }
       }
     },
     "aws_ecs_service": {
       "telemetrykeeper": {
-        "name": "signoz-telemetrykeeper",
+        "name": "signoz-telemetrykeeper-clickhousekeeper-0",
         "cluster": "${var.ecs_cluster_id}",
         "task_definition": "${aws_ecs_task_definition.telemetrykeeper.arn}",
         "desired_count": 1,
-        "launch_type": "EC2",
+        "capacity_provider_strategy": [
+          {
+            "capacity_provider": "${var.capacity_provider}",
+            "weight": 1,
+            "base": 0
+          }
+        ],
         "network_configuration": {
           "subnets": "${var.subnet_ids}",
           "security_groups": "${var.security_group_ids}"
@@ -139,7 +140,7 @@
         "service_registries": {
           "registry_arn": "${aws_service_discovery_service.telemetrykeeper.arn}"
         },
-        "depends_on": ["aws_cloudwatch_log_group.ecs"]
+"depends_on": ["aws_cloudwatch_log_group.ecs"]
       }
     }
   }

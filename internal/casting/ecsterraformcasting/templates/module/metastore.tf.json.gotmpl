@@ -1,23 +1,16 @@
 {{- $name := $.Metadata.Name -}}
-{{- $region := index $.Metadata.Annotations "foundry.signoz.io/ecs/region" -}}
 {
   "locals": {
     "metastore_container_definitions": [
       {
-        "name": "metastore-{{ $.Spec.MetaStore.Kind }}",
+        "name": "{{ $name }}-metastore-{{ $.Spec.MetaStore.Kind }}-0",
         "image": "{{ $.Spec.MetaStore.Spec.Image }}",
         "essential": true,
-        "environment": [
-          {{- $first := true }}
-          {{- range $key, $value := $.Spec.MetaStore.Spec.Env }}
-          {{- if not $first }},{{ end }}
-          {
-            "name": {{ $key | toJson }},
-            "value": {{ $value | toJson }}
-          }
-          {{- $first = false }}
-          {{- end }}
-        ],
+        {{- $env := list }}
+        {{- range $key, $value := $.Spec.MetaStore.Spec.Env }}
+        {{- $env = append $env (dict "name" $key "value" $value) }}
+        {{- end }}
+        "environment": {{ toJson $env }},
         "portMappings": [
           {"name": "postgres", "containerPort": 5432, "protocol": "tcp"}
         ],
@@ -37,13 +30,12 @@
           "retries": 3,
           "startPeriod": 30
         },
-        "logConfiguration": {
+"logConfiguration": {
           "logDriver": "awslogs",
           "options": {
-            "awslogs-group": "/ecs/{{ $name }}",
-            "awslogs-region": "{{ $region }}",
-            "awslogs-stream-prefix": "metastore-postgres",
-            "awslogs-create-group": "true"
+            "awslogs-group": "${var.log_group}",
+            "awslogs-region": "${var.region}",
+            "awslogs-stream-prefix": "{{ $name }}-metastore-{{ $.Spec.MetaStore.Kind }}-0"
           }
         }
       }
@@ -52,7 +44,7 @@
   "resource": {
     "aws_ecs_task_definition": {
       "metastore": {
-        "family": "{{ $name }}-metastore",
+        "family": "{{ $name }}-metastore-{{ $.Spec.MetaStore.Kind }}-0",
         "network_mode": "awsvpc",
         "requires_compatibilities": ["EC2"],
         "task_role_arn": "${var.task_role_arn}",
@@ -73,27 +65,30 @@
       "metastore": {
         "name": "metastore-{{ $.Spec.MetaStore.Kind }}",
         "dns_config": {
-          "namespace_id": "${var.service_discovery_namespace_id}",
-          "routing_policy": "MULTIVALUE",
+          "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
           "dns_records": [
             {
               "ttl": 10,
               "type": "A"
             }
-          ]
-        },
-        "health_check_custom_config": {
-          "failure_threshold": 1
+          ],
+          "routing_policy": "MULTIVALUE"
         }
       }
     },
     "aws_ecs_service": {
       "metastore": {
-        "name": "{{ $name }}-metastore",
+        "name": "{{ $name }}-metastore-{{ $.Spec.MetaStore.Kind }}-0",
         "cluster": "${var.ecs_cluster_id}",
         "task_definition": "${aws_ecs_task_definition.metastore.arn}",
         "desired_count": 1,
-        "launch_type": "EC2",
+        "capacity_provider_strategy": [
+          {
+            "capacity_provider": "${var.capacity_provider}",
+            "weight": 1,
+            "base": 0
+          }
+        ],
         "network_configuration": {
           "subnets": "${var.subnet_ids}",
           "security_groups": "${var.security_group_ids}"
@@ -101,7 +96,7 @@
         "service_registries": {
           "registry_arn": "${aws_service_discovery_service.metastore.arn}"
         },
-        "depends_on": ["aws_cloudwatch_log_group.ecs"]
+"depends_on": ["aws_cloudwatch_log_group.ecs"]
       }
     }
   }

@@ -1,5 +1,4 @@
 {{- $name := $.Metadata.Name -}}
-{{- $region := index $.Metadata.Annotations "foundry.signoz.io/ecs/region" -}}
 {
   "locals": {
     "signoz_container_definitions": [
@@ -7,22 +6,16 @@
         "name": "signoz",
         "image": "{{ $.Spec.Signoz.Spec.Image }}",
         "essential": true,
-        {{- if $.Spec.Signoz.Spec.Env }}
-        "environment": [
-          {{- $first := true }}
-          {{- range $key, $value := $.Spec.Signoz.Spec.Env }}
-          {{- if not $first }},{{ end }}
-          {
-            "name": {{ $key | toJson }},
-            "value": {{ $value | toJson }}
-          }
-          {{- $first = false }}
-          {{- end }}
-        ],
+        {{- $env := list }}
+        {{- range $key, $value := $.Spec.Signoz.Spec.Env }}
+        {{- $env = append $env (dict "name" $key "value" $value) }}
+        {{- end }}
+        {{- if $env }}
+        "environment": {{ toJson $env }},
         {{- end }}
         "portMappings": [
-          {"name": "signoz-http", "containerPort": 8080, "protocol": "tcp"},
-          {"name": "signoz-opamp", "containerPort": 4320, "protocol": "tcp"}
+          {"name": "http", "containerPort": 8080, "protocol": "tcp", "appProtocol": "http"},
+          {"name": "opamp", "containerPort": 4320, "protocol": "tcp"}
         ],
         "cpu": "${var.signoz_cpu}",
         "memory": "${var.signoz_memory}",
@@ -34,13 +27,12 @@
           "retries": 3,
           "startPeriod": 30
         },
-        "logConfiguration": {
+"logConfiguration": {
           "logDriver": "awslogs",
           "options": {
-            "awslogs-group": "/ecs/{{ $name }}",
-            "awslogs-region": "{{ $region }}",
-            "awslogs-stream-prefix": "signoz",
-            "awslogs-create-group": "true"
+            "awslogs-group": "${var.log_group}",
+            "awslogs-region": "${var.region}",
+            "awslogs-stream-prefix": "{{ $name }}-signoz"
           }
         }
       }
@@ -61,17 +53,14 @@
       "signoz": {
         "name": "signoz",
         "dns_config": {
-          "namespace_id": "${var.service_discovery_namespace_id}",
-          "routing_policy": "MULTIVALUE",
+          "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
           "dns_records": [
             {
               "ttl": 10,
               "type": "A"
             }
-          ]
-        },
-        "health_check_custom_config": {
-          "failure_threshold": 1
+          ],
+          "routing_policy": "MULTIVALUE"
         }
       }
     },
@@ -81,7 +70,13 @@
         "cluster": "${var.ecs_cluster_id}",
         "task_definition": "${aws_ecs_task_definition.signoz.arn}",
         "desired_count": 1,
-        "launch_type": "EC2",
+        "capacity_provider_strategy": [
+          {
+            "capacity_provider": "${var.capacity_provider}",
+            "weight": 1,
+            "base": 0
+          }
+        ],
         "network_configuration": {
           "subnets": "${var.subnet_ids}",
           "security_groups": "${var.security_group_ids}"
@@ -89,7 +84,7 @@
         "service_registries": {
           "registry_arn": "${aws_service_discovery_service.signoz.arn}"
         },
-        "depends_on": [
+"depends_on": [
           "aws_cloudwatch_log_group.ecs",
           "aws_ecs_service.metastore",
           "aws_ecs_service.telemetrystore"

@@ -8,7 +8,7 @@ import (
 	"github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/casting/dockercomposecasting"
 	"github.com/signoz/foundry/internal/casting/dockerswarmcasting"
-	"github.com/signoz/foundry/internal/casting/ecstaskdefcasting"
+	"github.com/signoz/foundry/internal/casting/ecsterraformcasting"
 	"github.com/signoz/foundry/internal/casting/kuberneteskustomizecasting"
 	"github.com/signoz/foundry/internal/casting/railwaytemplatecasting"
 	"github.com/signoz/foundry/internal/casting/rendercasting"
@@ -87,7 +87,7 @@ func NewRegistry(logger *slog.Logger) (*Registry, error) {
 				Flavor:   "terraform",
 				Mode:     "ec2",
 			}: {
-				Casting: ecstaskdefcasting.New(logger),
+				Casting: ecsterraformcasting.New(logger),
 				Toolers: []tooler.Tooler{terraformtooler.New()},
 			},
 		},
