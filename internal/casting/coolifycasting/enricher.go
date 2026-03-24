@@ -1,4 +1,4 @@
-package dockercomposecasting
+package coolifycasting
 
 import (
 	"context"
@@ -12,25 +12,23 @@ import (
 	"github.com/signoz/foundry/internal/types"
 )
 
-var _ molding.MoldingEnricher = (*dockerComposeMoldingEnricher)(nil)
+var _ molding.MoldingEnricher = (*coolifyMoldingEnricher)(nil)
 
-type dockerComposeMoldingEnricher struct {
+type coolifyMoldingEnricher struct {
 	material types.Material
 }
 
-func newDockerComposeMoldingEnricher(config *v1alpha1.Casting) (*dockerComposeMoldingEnricher, error) {
-	material, err := getComposeMaterial(config, filepath.Join(rootcasting.DeploymentDir, "compose.yaml"))
+func newCoolifyMoldingEnricher(config *v1alpha1.Casting) (*coolifyMoldingEnricher, error) {
+	material, err := getCoolifyMaterial(config, filepath.Join(rootcasting.DeploymentDir, "coolify.yaml"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to get compose yaml material: %w", err)
+		return nil, fmt.Errorf("failed to get coolify yaml material: %w", err)
 	}
-
-	return &dockerComposeMoldingEnricher{material: material}, nil
+	return &coolifyMoldingEnricher{material: material}, nil
 }
 
-func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *v1alpha1.Casting) error {
+func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *v1alpha1.Casting) error {
 	switch kind {
 	case v1alpha1.MoldingKindTelemetryStore:
-		// Get telemetrystore container names
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
 			return fmt.Errorf("failed to get telemetrystore container names: %w", err)
@@ -42,11 +40,9 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 				telemetrystoreContainerNames = append(telemetrystoreContainerNames, types.FormatAddress("tcp", containerName, 9000))
 			}
 		}
-
 		config.Spec.TelemetryStore.Status.Addresses.TCP = telemetrystoreContainerNames
 
 	case v1alpha1.MoldingKindSignoz:
-		// Get signoz container names
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
 			return fmt.Errorf("failed to get signoz container names: %w", err)
@@ -64,7 +60,6 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		config.Spec.Signoz.Status.Addresses.Opamp = opampAddr
 
 	case v1alpha1.MoldingKindTelemetryKeeper:
-		// Get telemetrykeeper container names (using service keys since they match container_name)
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
 			return fmt.Errorf("failed to get telemetrykeeper container names: %w", err)
@@ -76,7 +71,6 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 				telemetrykeeperContainerNames = append(telemetrykeeperContainerNames, types.FormatAddress("tcp", containerName, 9181))
 			}
 		}
-
 		config.Spec.TelemetryKeeper.Status.Addresses.Client = telemetrykeeperContainerNames
 
 		var telemetryRaftaddress []string
@@ -85,11 +79,9 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 				telemetryRaftaddress = append(telemetryRaftaddress, types.FormatAddress("tcp", containerName, 9234))
 			}
 		}
-
 		config.Spec.TelemetryKeeper.Status.Addresses.Raft = telemetryRaftaddress
 
 	case v1alpha1.MoldingKindMetaStore:
-		// Get metastore container names
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
 			return fmt.Errorf("failed to get metastore container names: %w", err)
@@ -101,11 +93,9 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 				metastoreContainerNames = append(metastoreContainerNames, types.FormatAddress("tcp", containerName, 5432))
 			}
 		}
-
 		config.Spec.MetaStore.Status.Addresses.DSN = metastoreContainerNames
 
 	case v1alpha1.MoldingKindIngester:
-		// Get ingester container names
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
 			return fmt.Errorf("failed to get ingester container names: %w", err)
@@ -114,10 +104,9 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		var ingesterContainerNames []string
 		for _, containerName := range containerNames {
 			if strings.Contains(containerName, "ingester") {
-				ingesterContainerNames = append(ingesterContainerNames, types.FormatAddress("tcp", containerName, 4317))
+				ingesterContainerNames = append(ingesterContainerNames, types.FormatAddress("tcp", containerName, 4318))
 			}
 		}
-
 		config.Spec.Ingester.Status.Addresses.OTLP = ingesterContainerNames
 	}
 

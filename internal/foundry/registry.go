@@ -6,11 +6,13 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/casting"
+	"github.com/signoz/foundry/internal/casting/coolifycasting"
 	"github.com/signoz/foundry/internal/casting/dockercomposecasting"
 	"github.com/signoz/foundry/internal/casting/dockerswarmcasting"
 	"github.com/signoz/foundry/internal/casting/ecsterraformcasting"
 	"github.com/signoz/foundry/internal/casting/kuberneteskustomizecasting"
 	"github.com/signoz/foundry/internal/casting/railwaytemplatecasting"
+	"github.com/signoz/foundry/internal/casting/kuberneteshelmcasting"
 	"github.com/signoz/foundry/internal/casting/rendercasting"
 	"github.com/signoz/foundry/internal/casting/systemdcasting"
 	"github.com/signoz/foundry/internal/tooler"
@@ -20,6 +22,7 @@ import (
 	"github.com/signoz/foundry/internal/tooler/dockerswarmtooler"
 	"github.com/signoz/foundry/internal/tooler/dockertooler"
 	"github.com/signoz/foundry/internal/tooler/kubectltooler"
+	"github.com/signoz/foundry/internal/tooler/helmtooler"
 	"github.com/signoz/foundry/internal/tooler/postgrestooler"
 	"github.com/signoz/foundry/internal/tooler/systemdtooler"
 	"github.com/signoz/foundry/internal/tooler/terraformtooler"
@@ -77,6 +80,12 @@ func NewRegistry(logger *slog.Logger) (*Registry, error) {
 				Casting: rendercasting.New(logger),
 			},
 			{
+				Platform: "coolify",
+				Flavor:   "stack",
+			}: {
+				Casting: coolifycasting.New(logger),
+			},
+			{
 				Platform: "railway",
 				Flavor:   "template",
 			}: {
@@ -89,6 +98,13 @@ func NewRegistry(logger *slog.Logger) (*Registry, error) {
 			}: {
 				Casting: ecsterraformcasting.New(logger),
 				Toolers: []tooler.Tooler{terraformtooler.New()},
+      },
+      {
+				Mode:   "kubernetes",
+				Flavor: "helm",
+			}: {
+				Casting: kuberneteshelmcasting.New(logger),
+				Toolers: []tooler.Tooler{helmtooler.New()},
 			},
 		},
 	}, nil

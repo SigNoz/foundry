@@ -3,8 +3,8 @@ metadata:
   name: signoz
 spec:
   deployment:
-    flavor: kustomize
-    mode: kubernetes
+    flavor: stack
+    platform: coolify
   ingester:
     spec:
       cluster:
@@ -68,25 +68,25 @@ spec:
                   - name: service.version
             exporters:
               clickhousetraces:
-                datasource: tcp://signoz-clickhouse:9000/signoz_traces
+                datasource: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_traces
                 low_cardinal_exception_grouping: ${env:LOW_CARDINAL_EXCEPTION_GROUPING}
                 use_new_schema: true
                 timeout: 45s
                 sending_queue:
                   enabled: false
               signozclickhousemetrics:
-                dsn: tcp://signoz-clickhouse:9000/signoz_metrics
+                dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_metrics
                 timeout: 45s
                 sending_queue:
                   enabled: false
               clickhouselogsexporter:
-                dsn: tcp://signoz-clickhouse:9000/signoz_logs
+                dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_logs
                 use_new_schema: true
                 timeout: 45s
                 sending_queue:
                   enabled: false
               signozclickhousemeter:
-                dsn: tcp://signoz-clickhouse:9000/signoz_meter
+                dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_meter
                 timeout: 45s
                 sending_queue:
                   enabled: false
@@ -142,7 +142,8 @@ spec:
       version: latest
     status:
       addresses:
-        otlp: null
+        otlp:
+        - tcp://signoz-ingester:4318
       config:
         data:
           ingester.yaml: |
@@ -202,25 +203,25 @@ spec:
                   - name: service.version
             exporters:
               clickhousetraces:
-                datasource: tcp://signoz-clickhouse:9000/signoz_traces
+                datasource: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_traces
                 low_cardinal_exception_grouping: ${env:LOW_CARDINAL_EXCEPTION_GROUPING}
                 use_new_schema: true
                 timeout: 45s
                 sending_queue:
                   enabled: false
               signozclickhousemetrics:
-                dsn: tcp://signoz-clickhouse:9000/signoz_metrics
+                dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_metrics
                 timeout: 45s
                 sending_queue:
                   enabled: false
               clickhouselogsexporter:
-                dsn: tcp://signoz-clickhouse:9000/signoz_logs
+                dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_logs
                 use_new_schema: true
                 timeout: 45s
                 sending_queue:
                   enabled: false
               signozclickhousemeter:
-                dsn: tcp://signoz-clickhouse:9000/signoz_meter
+                dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_meter
                 timeout: 45s
                 sending_queue:
                   enabled: false
@@ -287,7 +288,7 @@ spec:
     status:
       addresses:
         dsn:
-        - postgres://signoz-metastore:5432
+        - tcp://signoz-metastore-postgres-0:5432
       config: {}
       env:
         POSTGRES_DB: signoz
@@ -300,22 +301,23 @@ spec:
       config: {}
       enabled: true
       env:
-        SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@signoz-metastore:5432/signoz?sslmode=disable
+        SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@signoz-metastore-postgres-0:5432/signoz?sslmode=disable
         SIGNOZ_SQLSTORE_PROVIDER: postgres
-        SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://signoz-clickhouse:9000
+        SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://signoz-telemetrystore-clickhouse-0-0:9000
         SIGNOZ_TELEMETRYSTORE_PROVIDER: clickhouse
       image: signoz/signoz:latest
       version: latest
     status:
       addresses:
-        apiserver: null
+        apiserver:
+        - tcp://signoz-signoz:8080
         opamp:
         - ws://signoz-signoz:4320
       config: {}
       env:
-        SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@signoz-metastore:5432/signoz?sslmode=disable
+        SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@signoz-metastore-postgres-0:5432/signoz?sslmode=disable
         SIGNOZ_SQLSTORE_PROVIDER: postgres
-        SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://signoz-clickhouse:9000
+        SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://signoz-telemetrystore-clickhouse-0-0:9000
         SIGNOZ_TELEMETRYSTORE_PROVIDER: clickhouse
   telemetrykeeper:
     kind: clickhousekeeper
@@ -338,7 +340,7 @@ spec:
               log_storage_path: /var/lib/clickhouse/coordination/log
               raft_configuration:
                 server:
-                - hostname: signoz-clickhouse-keeper-0
+                - hostname: signoz-telemetrykeeper-clickhousekeeper-0
                   port: 9234
                   id: 0
               server_id: 0
@@ -350,9 +352,9 @@ spec:
     status:
       addresses:
         client:
-        - tcp://signoz-clickhouse-keeper-0:9181
+        - tcp://signoz-telemetrykeeper-clickhousekeeper-0:9181
         raft:
-        - tcp://signoz-clickhouse-keeper-0:9234
+        - tcp://signoz-telemetrykeeper-clickhousekeeper-0:9234
       config:
         data:
           keeper-0.yaml: |
@@ -369,7 +371,7 @@ spec:
               log_storage_path: /var/lib/clickhouse/coordination/log
               raft_configuration:
                 server:
-                - hostname: signoz-clickhouse-keeper-0
+                - hostname: signoz-telemetrykeeper-clickhousekeeper-0
                   port: 9234
                   id: 0
               server_id: 0
@@ -384,130 +386,68 @@ spec:
       config:
         data:
           config.yaml: |
-            async_load_databases: false
+            path: /var/lib/clickhouse/
+            tmp_path: /var/lib/clickhouse/tmp/
+            user_files_path: /var/lib/clickhouse/user_files/
+            format_schema_path: /var/lib/clickhouse/format_schemas/
             dictionaries_config: '*_dictionary.xml'
             display_name: cluster
             distributed_ddl:
-              path: /clickhouse/task_queue/ddl
-            error_log:
-              ttl: event_date + INTERVAL 7 DAY DELETE
-            format_schema_path: /etc/clickhouse-server/config.d/
+                path: /clickhouse/task_queue/ddl
             http_port: 8123
             interserver_http_port: 9009
-            latency_log:
-              ttl: event_date + INTERVAL 3 DAY DELETE
             listen_host: 0.0.0.0
             logger:
-              console: 1
-              count: 10
-              formatting:
-                names:
-                  date_time: date_time
-                  level: level
-                  logger_name: logger_name
-                  message: message
-                  query_id: query_id
-                  source_file: source_file
-                  source_line: source_line
-                  thread_id: thread_id
-                  thread_name: thread_name
-                type: json
-              level: information
-              size: 1000M
+                console: 1
+                count: 10
+                formatting:
+                    type: console
+                level: information
+                size: 1000M
             macros:
-              replica: "01"
-              shard: "01"
-            merge_tree:
-              storage_policy: data
-            path: /var/lib/clickhouse/
+                replica: "01"
+                shard: "01"
             profiles:
-              admin:
-                max_threads: 16
-                query_plan_max_limit_for_lazy_materialization: "0"
-                secondary_indices_enable_bulk_filtering: "0"
-              default:
-                allow_experimental_window_functions: "1"
-                allow_nondeterministic_mutations: "1"
-                load_balancing: random
-                log_queries: 1
-                max_memory_usage: 10000000000
-                max_threads: 16
-                query_plan_max_limit_for_lazy_materialization: "0"
-                secondary_indices_enable_bulk_filtering: "0"
-            prometheus:
-              endpoint: /metrics
-              port: 9363
-            query_metric_log:
-              ttl: event_date + INTERVAL 3 DAY DELETE
+                default:
+                    load_balancing: random
+                    log_queries: 1
+                    max_memory_usage: 10000000000
             quotas:
-              default:
-                interval:
-                  duration: 3600
-                  errors: 0
-                  execution_time: 0
-                  queries: 0
-                  read_rows: 0
-                  result_rows: 0
+                default:
+                    interval:
+                        duration: 3600
+                        errors: 0
+                        execution_time: 0
+                        queries: 0
+                        read_rows: 0
+                        result_rows: 0
+            user_directories:
+              users_xml:
+                path: users.xml
             remote_servers:
               cluster:
                 shard:
                 - replica:
-                  - host: signoz-clickhouse
-                    port: 9000
-            send_crash_reports:
-              enabled: false
-            storage_configuration:
-              disks:
-                data0:
-                  keep_free_space_bytes: 10485760
-                  path: /mnt/data-0/
-                default: {}
-              policies:
-                data:
-                  volumes:
-                    data0:
-                      disk: data0
-                default:
-                  volumes:
-                    default:
-                      disk: default
-            tcp_port: 9000
-            text_log:
-              ttl: event_date + INTERVAL 3 DAY DELETE
-            tmp_path: /var/lib/clickhouse/tmp/
-            user_defined_executable_functions_config: /etc/clickhouse-server/functions/custom-functions.xml
-            user_directories:
-              users_xml:
-                path: users.xml
-            user_files_path: /var/lib/clickhouse/user_files/
-            user_scripts_path: /var/lib/clickhouse/user_scripts/
-            users:
-              admin:
-                networks:
-                  ip:
-                  - 10.0.0.0/8
-                  - 100.64.0.0/10
-                  - 172.16.0.0/12
-                  - 192.0.0.0/24
-                  - 198.18.0.0/15
-                  - 192.168.0.0/16
-                password: 27ff0399-0d3a-4bd8-919d-17c2181e6fb9
-                profile: default
-                quota: default
-              default:
-                access_management: 1
-                named_collection_control: 1
-                networks:
-                  ip: ::/0
-                password: ""
-                profile: default
-                quota: default
-                show_named_collection: 1
-                show_named_collection_secrets: 1
+                      - host: signoz-telemetrystore-clickhouse-0-0
+                        port: 9000
             zookeeper:
               node:
-              - host: signoz-clickhouse-keeper-0
-                port: 9181
+                - host: signoz-telemetrykeeper-clickhousekeeper-0
+                  port: 9181
+            tcp_port: 9000
+            user_defined_executable_functions_config: '*function.yaml'
+            user_scripts_path: /var/lib/clickhouse/user_scripts/
+            users:
+                default:
+                    access_management: 1
+                    named_collection_control: 1
+                    networks:
+                        ip: ::/0
+                    password: ""
+                    profile: default
+                    quota: default
+                    show_named_collection: 1
+                    show_named_collection_secrets: 1
           functions.yaml: |
             functions:
               argument:
@@ -528,134 +468,72 @@ spec:
     status:
       addresses:
         tcp:
-        - tcp://signoz-clickhouse:9000
+        - tcp://signoz-telemetrystore-clickhouse-0-0:9000
       config:
         data:
           config.yaml: |
-            async_load_databases: false
+            path: /var/lib/clickhouse/
+            tmp_path: /var/lib/clickhouse/tmp/
+            user_files_path: /var/lib/clickhouse/user_files/
+            format_schema_path: /var/lib/clickhouse/format_schemas/
             dictionaries_config: '*_dictionary.xml'
             display_name: cluster
             distributed_ddl:
-              path: /clickhouse/task_queue/ddl
-            error_log:
-              ttl: event_date + INTERVAL 7 DAY DELETE
-            format_schema_path: /etc/clickhouse-server/config.d/
+                path: /clickhouse/task_queue/ddl
             http_port: 8123
             interserver_http_port: 9009
-            latency_log:
-              ttl: event_date + INTERVAL 3 DAY DELETE
             listen_host: 0.0.0.0
             logger:
-              console: 1
-              count: 10
-              formatting:
-                names:
-                  date_time: date_time
-                  level: level
-                  logger_name: logger_name
-                  message: message
-                  query_id: query_id
-                  source_file: source_file
-                  source_line: source_line
-                  thread_id: thread_id
-                  thread_name: thread_name
-                type: json
-              level: information
-              size: 1000M
+                console: 1
+                count: 10
+                formatting:
+                    type: console
+                level: information
+                size: 1000M
             macros:
-              replica: "01"
-              shard: "01"
-            merge_tree:
-              storage_policy: data
-            path: /var/lib/clickhouse/
+                replica: "01"
+                shard: "01"
             profiles:
-              admin:
-                max_threads: 16
-                query_plan_max_limit_for_lazy_materialization: "0"
-                secondary_indices_enable_bulk_filtering: "0"
-              default:
-                allow_experimental_window_functions: "1"
-                allow_nondeterministic_mutations: "1"
-                load_balancing: random
-                log_queries: 1
-                max_memory_usage: 10000000000
-                max_threads: 16
-                query_plan_max_limit_for_lazy_materialization: "0"
-                secondary_indices_enable_bulk_filtering: "0"
-            prometheus:
-              endpoint: /metrics
-              port: 9363
-            query_metric_log:
-              ttl: event_date + INTERVAL 3 DAY DELETE
+                default:
+                    load_balancing: random
+                    log_queries: 1
+                    max_memory_usage: 10000000000
             quotas:
-              default:
-                interval:
-                  duration: 3600
-                  errors: 0
-                  execution_time: 0
-                  queries: 0
-                  read_rows: 0
-                  result_rows: 0
+                default:
+                    interval:
+                        duration: 3600
+                        errors: 0
+                        execution_time: 0
+                        queries: 0
+                        read_rows: 0
+                        result_rows: 0
+            user_directories:
+              users_xml:
+                path: users.xml
             remote_servers:
               cluster:
                 shard:
                 - replica:
-                  - host: signoz-clickhouse
-                    port: 9000
-            send_crash_reports:
-              enabled: false
-            storage_configuration:
-              disks:
-                data0:
-                  keep_free_space_bytes: 10485760
-                  path: /mnt/data-0/
-                default: {}
-              policies:
-                data:
-                  volumes:
-                    data0:
-                      disk: data0
-                default:
-                  volumes:
-                    default:
-                      disk: default
-            tcp_port: 9000
-            text_log:
-              ttl: event_date + INTERVAL 3 DAY DELETE
-            tmp_path: /var/lib/clickhouse/tmp/
-            user_defined_executable_functions_config: /etc/clickhouse-server/functions/custom-functions.xml
-            user_directories:
-              users_xml:
-                path: users.xml
-            user_files_path: /var/lib/clickhouse/user_files/
-            user_scripts_path: /var/lib/clickhouse/user_scripts/
-            users:
-              admin:
-                networks:
-                  ip:
-                  - 10.0.0.0/8
-                  - 100.64.0.0/10
-                  - 172.16.0.0/12
-                  - 192.0.0.0/24
-                  - 198.18.0.0/15
-                  - 192.168.0.0/16
-                password: 27ff0399-0d3a-4bd8-919d-17c2181e6fb9
-                profile: default
-                quota: default
-              default:
-                access_management: 1
-                named_collection_control: 1
-                networks:
-                  ip: ::/0
-                password: ""
-                profile: default
-                quota: default
-                show_named_collection: 1
-                show_named_collection_secrets: 1
+                      - host: signoz-telemetrystore-clickhouse-0-0
+                        port: 9000
             zookeeper:
               node:
-              - host: signoz-clickhouse-keeper-0
-                port: 9181
+                - host: signoz-telemetrykeeper-clickhousekeeper-0
+                  port: 9181
+            tcp_port: 9000
+            user_defined_executable_functions_config: '*function.yaml'
+            user_scripts_path: /var/lib/clickhouse/user_scripts/
+            users:
+                default:
+                    access_management: 1
+                    named_collection_control: 1
+                    networks:
+                        ip: ::/0
+                    password: ""
+                    profile: default
+                    quota: default
+                    show_named_collection: 1
+                    show_named_collection_secrets: 1
           functions.yaml: |
             functions:
               argument:
@@ -670,75 +548,3 @@ spec:
               name: histogramQuantile
               return_type: Float64
               type: executable
-      extras:
-        _overrides: |
-          async_load_databases: false
-          error_log:
-            ttl: event_date + INTERVAL 7 DAY DELETE
-          format_schema_path: /etc/clickhouse-server/config.d/
-          latency_log:
-            ttl: event_date + INTERVAL 3 DAY DELETE
-          logger:
-            formatting:
-              names:
-                date_time: date_time
-                level: level
-                logger_name: logger_name
-                message: message
-                query_id: query_id
-                source_file: source_file
-                source_line: source_line
-                thread_id: thread_id
-                thread_name: thread_name
-              type: json
-          merge_tree:
-            storage_policy: data
-          profiles:
-            admin:
-              max_threads: 16
-              query_plan_max_limit_for_lazy_materialization: "0"
-              secondary_indices_enable_bulk_filtering: "0"
-            default:
-              allow_experimental_window_functions: "1"
-              allow_nondeterministic_mutations: "1"
-              max_threads: 16
-              query_plan_max_limit_for_lazy_materialization: "0"
-              secondary_indices_enable_bulk_filtering: "0"
-          prometheus:
-            endpoint: /metrics
-            port: 9363
-          query_metric_log:
-            ttl: event_date + INTERVAL 3 DAY DELETE
-          send_crash_reports:
-            enabled: false
-          storage_configuration:
-            disks:
-              data0:
-                keep_free_space_bytes: 10485760
-                path: /mnt/data-0/
-              default: {}
-            policies:
-              data:
-                volumes:
-                  data0:
-                    disk: data0
-              default:
-                volumes:
-                  default:
-                    disk: default
-          text_log:
-            ttl: event_date + INTERVAL 3 DAY DELETE
-          user_defined_executable_functions_config: /etc/clickhouse-server/functions/custom-functions.xml
-          users:
-            admin:
-              networks:
-                ip:
-                - 10.0.0.0/8
-                - 100.64.0.0/10
-                - 172.16.0.0/12
-                - 192.0.0.0/24
-                - 198.18.0.0/15
-                - 192.168.0.0/16
-              password: 27ff0399-0d3a-4bd8-919d-17c2181e6fb9
-              profile: default
-              quota: default

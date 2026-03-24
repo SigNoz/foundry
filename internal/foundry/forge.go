@@ -44,7 +44,6 @@ func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, path
 			return err
 		}
 	}
-
 	// merging status into spec
 	foundry.Logger.InfoContext(ctx, "merging status into spec", slog.String("casting.metadata.name", config.Metadata.Name))
 	if err := v1alpha1.MergeCastingSpecAndStatus(&config); err != nil {

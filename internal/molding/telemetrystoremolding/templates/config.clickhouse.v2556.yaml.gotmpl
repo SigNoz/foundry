@@ -40,13 +40,13 @@ remote_servers:
   cluster:
     shard:
 {{- range $s := until .ShardCount }}
-      - replica:
-  {{- range $r := until $.ReplicaCount }}
+    - replica:
+    {{- range $r := until $.ReplicaCount }}
     {{- $idx := add (mul $s $.ReplicaCount) $r }}
     {{- $addr := index $.StoreAddresses $idx }}
-          host: {{ $addr.Host }}
-          port: {{ $addr.Port }}
-  {{- end }}
+          - host: {{ $addr.Host }}
+            port: {{ $addr.Port }}
+{{- end }}
 {{- end }}
 zookeeper:
   node:

@@ -1,0 +1,19 @@
+name: General
+description: For issues that don't fit the Bug, Feature Request, or Casting templates.
+labels: ["uncategorised"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe your issue, question, or suggestion in detail.
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Any relevant links, screenshots, logs, or references.
+    validations:
+      required: false

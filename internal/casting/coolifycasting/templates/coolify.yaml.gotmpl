@@ -1,0 +1,255 @@
+# documentation: https://signoz.io/docs/introduction/
+# slogan: An observability platform native to OpenTelemetry with logs, traces and metrics.
+# tags: telemetry, server, applications, interface, logs, monitoring, traces, metrics
+# logo: svgs/signoz.svg
+# port: 8080
+
+services:
+  {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}:
+    image: {{ $.Spec.TelemetryKeeper.Spec.Image }}
+    healthcheck:
+      test:
+        - CMD
+        - clickhouse-keeper-client
+        - -h
+        - localhost
+        - -p
+        - "9181"
+        - -q
+        - ls
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - type: volume
+        source: {{ $.Metadata.Name }}-telemetrykeeper-{{ $replicaIdx }}-data
+        target: /var/lib/clickhouse-keeper
+      - type: bind
+        source: ./configs/telemetrykeeper/keeper-{{ $replicaIdx }}.yaml
+        target: /etc/clickhouse-keeper/keeper.yaml
+        content: |
+{{ index $.Spec.TelemetryKeeper.Spec.Config.Data (printf "keeper-%d.yaml" $replicaIdx) | indent 10 }}
+    entrypoint:
+      - /usr/bin/clickhouse-keeper
+      - --config-file=/etc/clickhouse-keeper/keeper.yaml
+    logging:
+      options:
+        max-size: 50m
+        max-file: "3"
+  {{- end }}
+  {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts:
+    image: {{ $.Spec.TelemetryStore.Spec.Image }}
+    restart: "no"
+    command:
+      - bash
+      - -c
+      - |
+        version="v0.0.1"
+        node_os=$$(uname -s | tr '[:upper:]' '[:lower:]')
+        node_arch=$$(uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/)
+        echo "Fetching histogram-binary for $${node_os}/$${node_arch}"
+        cd /tmp
+        wget -O histogram-quantile.tar.gz "https://github.com/SigNoz/signoz/releases/download/histogram-quantile%2F$${version}/histogram-quantile_$${node_os}_$${node_arch}.tar.gz"
+        tar -xvzf histogram-quantile.tar.gz
+        mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile
+    exclude_from_hc: true
+    volumes:
+      - type: volume
+        source: {{ $.Metadata.Name }}-telemetrystore-user-scripts
+        target: /var/lib/clickhouse/user_scripts
+    logging:
+      options:
+        max-size: 50m
+        max-file: "3"
+  {{- range $shardIdx := .Spec.TelemetryStore.Spec.Cluster.Shards }}
+  {{- range $replicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
+  {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}:
+    image: {{ $.Spec.TelemetryStore.Spec.Image }}
+    depends_on:
+      {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts:
+        condition: service_completed_successfully
+      {{- range $keeperIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
+      {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $keeperIdx }}:
+        condition: service_healthy
+      {{- end }}
+    environment:
+      - CLICKHOUSE_SKIP_USER_SETUP=1
+      - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.yaml
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --spider
+        - -q
+        - 0.0.0.0:8123/ping
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - type: volume
+        source: {{ $.Metadata.Name }}-telemetrystore-{{ $shardIdx }}-{{ $replicaIdx }}-data
+        target: /var/lib/clickhouse/
+      - type: volume
+        source: {{ $.Metadata.Name }}-telemetrystore-user-scripts
+        target: /var/lib/clickhouse/user_scripts
+        read_only: true
+      - type: bind
+        source: ./configs/telemetrystore/config.yaml
+        target: /etc/clickhouse-server/config.yaml
+        content: |
+{{ index $.Spec.TelemetryStore.Spec.Config.Data "config.yaml" | indent 10 }}
+      - type: bind
+        source: ./configs/telemetrystore/functions.yaml
+        target: /etc/clickhouse-server/functions.yaml
+        content: |
+{{ index $.Spec.TelemetryStore.Spec.Config.Data "functions.yaml" | indent 10 }}
+    logging:
+      options:
+        max-size: 50m
+        max-file: "3"
+  {{- end }}
+  {{- end }}
+  {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}:
+    image: docker.io/{{ $.Spec.MetaStore.Kind }}:{{ $.Spec.MetaStore.Spec.Version }}
+    environment:
+      - POSTGRES_USER=signoz
+      - POSTGRES_PASSWORD=signoz
+      - POSTGRES_DB=signoz
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U signoz -d signoz
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - type: volume
+        source: {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data
+        target: /var/lib/postgresql/data
+    logging:
+      options:
+        max-size: 50m
+        max-file: "3"
+  {{- end }}
+  {{ $.Metadata.Name }}-signoz:
+    image: {{ $.Spec.Signoz.Spec.Image }}
+    depends_on:
+      {{- range $metaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
+      {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $metaIdx }}:
+        condition: service_healthy
+      {{- end }}
+      {{- range $shardIdx := $.Spec.TelemetryStore.Spec.Cluster.Shards }}
+      {{- range $storeReplicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
+      {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $storeReplicaIdx }}:
+        condition: service_healthy
+      {{- end }}
+      {{- end }}
+      {{ $.Metadata.Name }}-telemetrystore-migrator:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --spider
+        - -q
+        - localhost:8080/api/v1/health
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    environment:
+      {{- if $.Spec.Signoz.Spec.Env }}
+      {{- range $key, $value := $.Spec.Signoz.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+      {{- end }}
+    volumes:
+      - type: volume
+        source: {{ $.Metadata.Name }}-signoz-data
+        target: /var/lib/signoz/
+    logging:
+      options:
+        max-size: 50m
+        max-file: "3"
+  {{ $.Metadata.Name }}-ingester:
+    image: {{ $.Spec.Ingester.Spec.Image }}
+    depends_on:
+      {{- range $shardIdx := $.Spec.TelemetryStore.Spec.Cluster.Shards }}
+      {{- range $replicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
+      {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}:
+        condition: service_healthy
+      {{- end }}
+      {{- end }}
+      {{ $.Metadata.Name }}-telemetrystore-migrator:
+        condition: service_completed_successfully
+      {{ $.Metadata.Name }}-signoz:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --spider
+        - -q
+        - http://localhost:13133/health
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    environment:
+      - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
+      - LOW_CARDINAL_EXCEPTION_GROUPING=false
+      {{- if $.Spec.Ingester.Spec.Env }}
+      {{- range $key, $value := $.Spec.Ingester.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+      {{- end }}
+    command:
+      - --config=/etc/otel-collector-config.yaml
+    volumes:
+      - type: bind
+        source: ./configs/ingester/ingester.yaml
+        target: /etc/otel-collector-config.yaml
+        content: |
+{{ index $.Spec.Ingester.Spec.Config.Data "ingester.yaml" | indent 10 }}
+    logging:
+      options:
+        max-size: 50m
+        max-file: "3"
+  {{ $.Metadata.Name }}-telemetrystore-migrator:
+    image: {{ $.Spec.Ingester.Spec.Image }}
+    depends_on:
+      {{- range $shardIdx := $.Spec.TelemetryStore.Spec.Cluster.Shards }}
+      {{- range $replicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
+      {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}:
+        condition: service_healthy
+      {{- end }}
+      {{- end }}
+    restart: on-failure
+    exclude_from_hc: true
+    {{- $clickhouseDSN := printf "%s-telemetrystore-%s-0-0" $.Metadata.Name $.Spec.TelemetryStore.Kind }}
+    entrypoint:
+      - "/bin/sh"
+      - "-c"
+    command:
+      - /signoz-otel-collector migrate bootstrap --clickhouse-dsn tcp://{{ $clickhouseDSN }}:9000
+      - /signoz-otel-collector migrate sync up --clickhouse-dsn tcp://{{ $clickhouseDSN }}:9000
+      - /signoz-otel-collector migrate async up --clickhouse-dsn tcp://{{$clickhouseDSN }}:9000
+    logging:
+      options:
+        max-size: 50m
+        max-file: "3"
+volumes:
+  {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-telemetrykeeper-{{ $replicaIdx }}-data:
+  {{- end }}
+  {{- range $shardIdx := $.Spec.TelemetryStore.Spec.Cluster.Shards }}
+  {{- range $replicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
+  {{ $.Metadata.Name }}-telemetrystore-{{ $shardIdx }}-{{ $replicaIdx }}-data:
+  {{- end }}
+  {{- end }}
+  {{ $.Metadata.Name }}-telemetrystore-user-scripts:
+  {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data:
+  {{- end }}
+  {{ $.Metadata.Name }}-signoz-data:

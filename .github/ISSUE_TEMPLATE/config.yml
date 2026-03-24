@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: SigNoz Slack Community
+    url: https://signoz.io/slack
+    about: Ask questions and get help from the SigNoz community.
+  - name: SigNoz Documentation
+    url: https://signoz.io/docs/
+    about: Read the SigNoz docs for guides and reference material.
