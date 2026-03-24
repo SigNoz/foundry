@@ -35,7 +35,7 @@ remote_servers:
   cluster:
     shard:
     - replica:
-        host: telemetrystore-clickhouse.signoz.local
+      - host: telemetrystore-clickhouse.signoz.local
         port: 9000
 tcp_port: 9000
 tmp_path: /var/lib/clickhouse/tmp/
