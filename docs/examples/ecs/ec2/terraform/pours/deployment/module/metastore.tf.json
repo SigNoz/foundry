@@ -1,6 +1,6 @@
 {
   "locals": {
-    "metastore_container_definitions": [
+    "containers": [
       {
         "name": "signoz-metastore-postgres-0",
         "image": "postgres:16",
@@ -15,23 +15,15 @@
             "containerPath": "/var/lib/postgresql/data"
           }
         ],
-        "cpu": "${var.metastore_cpu}",
-        "memory": "${var.metastore_memory}",
-        "memoryReservation": "${var.metastore_memory}",
+        "cpu": 256,
+        "memory": 256,
+        "memoryReservation": 256,
         "healthCheck": {
           "command": ["CMD-SHELL", "pg_isready -U postgres || exit 1"],
           "interval": 30,
           "timeout": 5,
           "retries": 3,
           "startPeriod": 30
-        },
-"logConfiguration": {
-          "logDriver": "awslogs",
-          "options": {
-            "awslogs-group": "${var.log_group}",
-            "awslogs-region": "${var.region}",
-            "awslogs-stream-prefix": "signoz-metastore-postgres-0"
-          }
         }
       }
     ]
@@ -44,7 +36,7 @@
         "requires_compatibilities": ["EC2"],
         "task_role_arn": "${var.task_role_arn}",
         "execution_role_arn": "${var.task_execution_role_arn}",
-        "container_definitions": "${jsonencode(local.metastore_container_definitions)}",
+        "container_definitions": "${jsonencode(local.containers)}",
         "volume": [
           {
             "name": "postgres-data",
@@ -90,8 +82,7 @@
         },
         "service_registries": {
           "registry_arn": "${aws_service_discovery_service.metastore.arn}"
-        },
-"depends_on": ["aws_cloudwatch_log_group.ecs"]
+        }
       }
     }
   }

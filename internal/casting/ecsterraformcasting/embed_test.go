@@ -40,15 +40,15 @@ func TestTfvarsTemplateWithAnnotations(t *testing.T) {
 		Metadata: v1alpha1.TypeMetadata{
 			Name: "signoz",
 			Annotations: map[string]string{
-				"foundry.signoz.io/ecs/region":                 "us-east-1",
-				"foundry.signoz.io/ecs/cluster-id":             "arn:aws:ecs:us-east-1:123456789012:cluster/test",
-				"foundry.signoz.io/ecs/subnet-ids":             "subnet-abc123,subnet-def456",
-				"foundry.signoz.io/ecs/security-group-ids":     "sg-abc123",
-				"foundry.signoz.io/ecs/vpc-id":                 "vpc-abc123",
-				"foundry.signoz.io/ecs/config-bucket":          "test-configs",
-				"foundry.signoz.io/ecs/task-role-arn":          "arn:aws:iam::123456789012:role/task",
+				"foundry.signoz.io/ecs/region":                  "us-east-1",
+				"foundry.signoz.io/ecs/cluster-id":              "arn:aws:ecs:us-east-1:123456789012:cluster/test",
+				"foundry.signoz.io/ecs/subnet-ids":              "subnet-abc123,subnet-def456",
+				"foundry.signoz.io/ecs/security-group-ids":      "sg-abc123",
+				"foundry.signoz.io/ecs/vpc-id":                  "vpc-abc123",
+				"foundry.signoz.io/ecs/config-bucket":           "test-configs",
+				"foundry.signoz.io/ecs/task-role-arn":           "arn:aws:iam::123456789012:role/task",
 				"foundry.signoz.io/ecs/task-execution-role-arn": "arn:aws:iam::123456789012:role/exec",
-				"foundry.signoz.io/ecs/capacity-provider":      "test-provider",
+				"foundry.signoz.io/ecs/capacity-provider":       "test-provider",
 			},
 		},
 	}

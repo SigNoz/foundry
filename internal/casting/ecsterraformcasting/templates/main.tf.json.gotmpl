@@ -24,31 +24,7 @@
       "config_bucket": "${var.config_bucket}",
       "task_role_arn": "${var.task_role_arn}",
       "task_execution_role_arn": "${var.task_execution_role_arn}",
-      "log_group": "${var.log_group}",
-      "log_retention_days": "${var.log_retention_days}",
       "capacity_provider": "${var.capacity_provider}"
-      {{- if $.Spec.TelemetryKeeper.Spec.Enabled }},
-      "telemetrykeeper_cpu": "${var.telemetrykeeper_cpu}",
-      "telemetrykeeper_memory": "${var.telemetrykeeper_memory}"
-      {{- end }}
-      {{- if $.Spec.TelemetryStore.Spec.Enabled }},
-      "telemetrystore_cpu": "${var.telemetrystore_cpu}",
-      "telemetrystore_memory": "${var.telemetrystore_memory}",
-      "migrator_cpu": "${var.migrator_cpu}",
-      "migrator_memory": "${var.migrator_memory}"
-      {{- end }}
-      {{- if $.Spec.MetaStore.Spec.Enabled }},
-      "metastore_cpu": "${var.metastore_cpu}",
-      "metastore_memory": "${var.metastore_memory}"
-      {{- end }}
-      {{- if $.Spec.Signoz.Spec.Enabled }},
-      "signoz_cpu": "${var.signoz_cpu}",
-      "signoz_memory": "${var.signoz_memory}"
-      {{- end }}
-      {{- if $.Spec.Ingester.Spec.Enabled }},
-      "ingester_cpu": "${var.ingester_cpu}",
-      "ingester_memory": "${var.ingester_memory}"
-      {{- end }}
     }
   }
 }

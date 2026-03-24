@@ -69,7 +69,6 @@ Annotations populate `terraform.tfvars.json` so Foundry can generate a ready-to-
 | `foundry.signoz.io/ecs/task-execution-role-arn` | `task_execution_role_arn` | IAM role ARN for task execution |
 | `foundry.signoz.io/ecs/capacity-provider` | `capacity_provider` | ECS capacity provider name |
 
-The `log_group` is auto-generated as `/ecs/{metadata.name}`.
 
 #### Deployment Spec
 
@@ -97,6 +96,51 @@ terraform init
 terraform apply
 ```
 
+#### Customizing with Patches
+
+The module ships with sensible defaults for CPU and memory. To override them, use `spec.patches` on the generated module files:
+
+```yaml
+# casting.yaml
+apiVersion: v1alpha1
+metadata:
+  name: signoz
+  annotations:
+    # ...
+spec:
+  deployment:
+    platform: ecs
+    mode: ec2
+    flavor: terraform
+  patches:
+  - target: "deployment/module/signoz.tf.json"
+    type: jsonpatch
+    operations:
+      - op: replace
+        path: /locals/containers/0/cpu
+        value: 1024
+      - op: replace
+        path: /locals/containers/0/memory
+        value: 1024
+      - op: replace
+        path: /locals/containers/0/memoryReservation
+        value: 1024
+  - target: "deployment/module/telemetrystore.tf.json"
+    type: jsonpatch
+    operations:
+      - op: replace
+        path: /locals/containers/2/cpu
+        value: 2048
+      - op: replace
+        path: /locals/containers/2/memory
+        value: 4096
+      - op: replace
+        path: /locals/containers/2/memoryReservation
+        value: 4096
+```
+
+Run `foundryctl forge` to see the generated files and identify the JSON paths you want to patch.
+
 ## Architecture
 
 ```text
@@ -105,7 +149,7 @@ pours/deployment/
   variables.tf.json         # Root variables (passed through to module)
   terraform.tfvars.json     # User-provided values
   module/
-    main.tf.json            # CloudWatch log group, Cloud Map namespace
+    main.tf.json            # Cloud Map namespace
     variables.tf.json       # Module input variables
     outputs.tf.json         # Service ARNs, namespace info
     telemetrykeeper.tf.json # ClickHouse Keeper: task def, service, SD
@@ -120,7 +164,7 @@ pours/deployment/
 
 | Provider | Version | Purpose |
 |---|---|---|
-| `hashicorp/aws` | `>= 5.0` | ECS, Cloud Map, CloudWatch, S3 |
+| `hashicorp/aws` | `>= 5.0` | ECS, Cloud Map, S3 |
 
 ## Resources
 
@@ -129,7 +173,6 @@ The module creates the following AWS resources:
 | Resource | Count | Description |
 |---|---|---|
 | `aws_service_discovery_private_dns_namespace` | 1 | Cloud Map namespace (`{name}.local`) |
-| `aws_cloudwatch_log_group` | 1 | Shared log group for all ECS services |
 | `aws_ecs_task_definition` | 6 | One per component (including migrator) |
 | `aws_ecs_service` | 5 | One per long-running component |
 | `aws_service_discovery_service` | 5 | One per long-running component |
@@ -150,26 +193,7 @@ The module creates the following AWS resources:
 | `config_bucket` | `string` | S3 bucket for storing component config files |
 | `task_role_arn` | `string` | IAM role ARN for ECS tasks |
 | `task_execution_role_arn` | `string` | IAM role ARN for ECS task execution (pull images, write logs) |
-| `log_group` | `string` | CloudWatch log group name |
 | `capacity_provider` | `string` | Name of the ECS capacity provider |
-
-### Optional
-
-| Variable | Type | Default | Description |
-|---|---|---|---|
-| `log_retention_days` | `number` | `30` | CloudWatch log retention in days |
-| `telemetrykeeper_cpu` | `number` | `256` | CPU units for ClickHouse Keeper |
-| `telemetrykeeper_memory` | `number` | `512` | Memory (MiB) for ClickHouse Keeper |
-| `telemetrystore_cpu` | `number` | `1024` | CPU units for ClickHouse |
-| `telemetrystore_memory` | `number` | `512` | Memory (MiB) for ClickHouse |
-| `migrator_cpu` | `number` | `256` | CPU units for schema migrator (Fargate) |
-| `migrator_memory` | `number` | `512` | Memory (MiB) for schema migrator (Fargate) |
-| `metastore_cpu` | `number` | `256` | CPU units for PostgreSQL |
-| `metastore_memory` | `number` | `256` | Memory (MiB) for PostgreSQL |
-| `signoz_cpu` | `number` | `512` | CPU units for SigNoz |
-| `signoz_memory` | `number` | `512` | Memory (MiB) for SigNoz |
-| `ingester_cpu` | `number` | `512` | CPU units for OTel Collector |
-| `ingester_memory` | `number` | `512` | Memory (MiB) for OTel Collector |
 
 ## Outputs
 

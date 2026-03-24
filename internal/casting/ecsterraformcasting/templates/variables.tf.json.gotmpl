@@ -32,88 +32,9 @@
       "description": "IAM role ARN for ECS task execution (pull images, write logs)",
       "type": "string"
     },
-    "log_group": {
-      "description": "CloudWatch log group name for ECS services",
-      "type": "string"
-    },
-    "log_retention_days": {
-      "description": "CloudWatch log retention in days",
-      "type": "number",
-      "default": 30
-    },
     "capacity_provider": {
       "description": "Name of the ECS capacity provider",
       "type": "string"
     }
-    {{- if $.Spec.TelemetryKeeper.Spec.Enabled }},
-    "telemetrykeeper_cpu": {
-      "description": "CPU units for telemetrykeeper container",
-      "type": "number",
-      "default": 256
-    },
-    "telemetrykeeper_memory": {
-      "description": "Memory (MiB) for telemetrykeeper container",
-      "type": "number",
-      "default": 512
-    }
-    {{- end }}
-    {{- if $.Spec.TelemetryStore.Spec.Enabled }},
-    "telemetrystore_cpu": {
-      "description": "CPU units for telemetrystore container",
-      "type": "number",
-      "default": 1024
-    },
-    "telemetrystore_memory": {
-      "description": "Memory (MiB) for telemetrystore container",
-      "type": "number",
-      "default": 512
-    },
-    "migrator_cpu": {
-      "description": "CPU units for telemetrystore migrator (Fargate)",
-      "type": "number",
-      "default": 256
-    },
-    "migrator_memory": {
-      "description": "Memory (MiB) for telemetrystore migrator (Fargate)",
-      "type": "number",
-      "default": 512
-    }
-    {{- end }}
-    {{- if $.Spec.MetaStore.Spec.Enabled }},
-    "metastore_cpu": {
-      "description": "CPU units for metastore container",
-      "type": "number",
-      "default": 256
-    },
-    "metastore_memory": {
-      "description": "Memory (MiB) for metastore container",
-      "type": "number",
-      "default": 256
-    }
-    {{- end }}
-    {{- if $.Spec.Signoz.Spec.Enabled }},
-    "signoz_cpu": {
-      "description": "CPU units for signoz container",
-      "type": "number",
-      "default": 512
-    },
-    "signoz_memory": {
-      "description": "Memory (MiB) for signoz container",
-      "type": "number",
-      "default": 512
-    }
-    {{- end }}
-    {{- if $.Spec.Ingester.Spec.Enabled }},
-    "ingester_cpu": {
-      "description": "CPU units for ingester container",
-      "type": "number",
-      "default": 512
-    },
-    "ingester_memory": {
-      "description": "Memory (MiB) for ingester container",
-      "type": "number",
-      "default": 512
-    }
-    {{- end }}
   }
 }

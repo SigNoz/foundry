@@ -1,7 +1,7 @@
 {{- $name := $.Metadata.Name -}}
 {
   "locals": {
-    "signoz_container_definitions": [
+    "containers": [
       {
         "name": "signoz",
         "image": "{{ $.Spec.Signoz.Spec.Image }}",
@@ -17,23 +17,15 @@
           {"name": "http", "containerPort": 8080, "protocol": "tcp", "appProtocol": "http"},
           {"name": "opamp", "containerPort": 4320, "protocol": "tcp"}
         ],
-        "cpu": "${var.signoz_cpu}",
-        "memory": "${var.signoz_memory}",
-        "memoryReservation": "${var.signoz_memory}",
+        "cpu": 512,
+        "memory": 512,
+        "memoryReservation": 512,
         "healthCheck": {
           "command": ["CMD-SHELL", "wget --spider -q localhost:8080/api/v1/health || exit 1"],
           "interval": 30,
           "timeout": 5,
           "retries": 3,
           "startPeriod": 30
-        },
-"logConfiguration": {
-          "logDriver": "awslogs",
-          "options": {
-            "awslogs-group": "${var.log_group}",
-            "awslogs-region": "${var.region}",
-            "awslogs-stream-prefix": "{{ $name }}-signoz"
-          }
         }
       }
     ]
@@ -46,7 +38,7 @@
         "requires_compatibilities": ["EC2"],
         "task_role_arn": "${var.task_role_arn}",
         "execution_role_arn": "${var.task_execution_role_arn}",
-        "container_definitions": "${jsonencode(local.signoz_container_definitions)}"
+        "container_definitions": "${jsonencode(local.containers)}"
       }
     },
     "aws_service_discovery_service": {
@@ -85,7 +77,6 @@
           "registry_arn": "${aws_service_discovery_service.signoz.arn}"
         },
 "depends_on": [
-          "aws_cloudwatch_log_group.ecs",
           "aws_ecs_service.metastore",
           "aws_ecs_service.telemetrystore"
         ]

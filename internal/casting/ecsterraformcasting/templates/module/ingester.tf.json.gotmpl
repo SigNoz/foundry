@@ -1,7 +1,7 @@
 {{- $name := $.Metadata.Name -}}
 {
   "locals": {
-    "ingester_container_definitions": [
+    "containers": [
       {
         "name": "config-fetcher",
         "image": "amazon/aws-cli:2.27.32",
@@ -16,15 +16,7 @@
         ],
         "cpu": 10,
         "memory": 102,
-        "memoryReservation": 102,
-        "logConfiguration": {
-          "logDriver": "awslogs",
-          "options": {
-            "awslogs-group": "${var.log_group}",
-            "awslogs-region": "${var.region}",
-            "awslogs-stream-prefix": "{{ $name }}-ingester-config-fetcher"
-          }
-        }
+        "memoryReservation": 102
       },
       {
         "name": "ingester",
@@ -53,23 +45,15 @@
         "dependsOn": [
           {"containerName": "config-fetcher", "condition": "SUCCESS"}
         ],
-        "cpu": "${var.ingester_cpu}",
-        "memory": "${var.ingester_memory}",
-        "memoryReservation": "${var.ingester_memory}",
+        "cpu": 512,
+        "memory": 512,
+        "memoryReservation": 512,
         "healthCheck": {
           "command": ["CMD-SHELL", "wget --spider -q localhost:13133 || exit 1"],
           "interval": 30,
           "timeout": 5,
           "retries": 3,
           "startPeriod": 30
-        },
-"logConfiguration": {
-          "logDriver": "awslogs",
-          "options": {
-            "awslogs-group": "${var.log_group}",
-            "awslogs-region": "${var.region}",
-            "awslogs-stream-prefix": "{{ $name }}-ingester"
-          }
         }
       }
     ]
@@ -91,7 +75,7 @@
         "requires_compatibilities": ["EC2"],
         "task_role_arn": "${var.task_role_arn}",
         "execution_role_arn": "${var.task_execution_role_arn}",
-        "container_definitions": "${jsonencode(local.ingester_container_definitions)}",
+        "container_definitions": "${jsonencode(local.containers)}",
         "volume": [
           {
             "name": "ingester-config",
@@ -140,7 +124,6 @@
           "registry_arn": "${aws_service_discovery_service.ingester.arn}"
         },
 "depends_on": [
-          "aws_cloudwatch_log_group.ecs",
           "aws_ecs_service.signoz",
           "aws_ecs_service.telemetrystore"
         ]

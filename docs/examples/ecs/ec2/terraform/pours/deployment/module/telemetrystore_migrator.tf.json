@@ -1,6 +1,6 @@
 {
   "locals": {
-    "telemetrystore_migrator_container_definitions": [
+    "containers": [
       {
         "name": "telemetrystore-migrator",
         "image": "signoz/signoz-otel-collector:latest",
@@ -8,16 +8,8 @@
         "entryPoint": ["/bin/sh", "-c"],
         "command": ["/signoz-otel-collector migrate ready && /signoz-otel-collector migrate bootstrap && /signoz-otel-collector migrate sync up && /signoz-otel-collector migrate async up"],
         "environment": [{"name":"SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN","value":"tcp://telemetrystore-clickhouse.signoz.local:9000"}],
-        "cpu": "${var.migrator_cpu}",
-        "memory": "${var.migrator_memory}",
-        "logConfiguration": {
-          "logDriver": "awslogs",
-          "options": {
-            "awslogs-group": "${var.log_group}",
-            "awslogs-region": "${var.region}",
-            "awslogs-stream-prefix": "signoz-telemetrystore-migrator"
-          }
-        }
+        "cpu": 256,
+        "memory": 512
       }
     ]
   },
@@ -27,11 +19,11 @@
         "family": "signoz-telemetrystore-migrator",
         "network_mode": "awsvpc",
         "requires_compatibilities": ["FARGATE"],
-        "cpu": "${var.migrator_cpu}",
-        "memory": "${var.migrator_memory}",
+        "cpu": 256,
+        "memory": 512,
         "task_role_arn": "${var.task_role_arn}",
         "execution_role_arn": "${var.task_execution_role_arn}",
-        "container_definitions": "${jsonencode(local.telemetrystore_migrator_container_definitions)}"
+        "container_definitions": "${jsonencode(local.containers)}"
       }
     }
   },

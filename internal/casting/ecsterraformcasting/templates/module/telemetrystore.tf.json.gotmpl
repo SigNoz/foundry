@@ -1,7 +1,7 @@
 {{- $name := $.Metadata.Name -}}
 {
   "locals": {
-    "telemetrystore_container_definitions": [
+    "containers": [
       {
         "name": "init-clickhouse",
         "image": "alpine:3.18.2",
@@ -15,15 +15,7 @@
         ],
         "cpu": 256,
         "memory": 256,
-        "memoryReservation": 256,
-        "logConfiguration": {
-          "logDriver": "awslogs",
-          "options": {
-            "awslogs-group": "${var.log_group}",
-            "awslogs-region": "${var.region}",
-            "awslogs-stream-prefix": "{{ $name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-init"
-          }
-        }
+        "memoryReservation": 256
       },
       {
         "name": "config-fetcher",
@@ -39,15 +31,7 @@
         ],
         "cpu": 10,
         "memory": 102,
-        "memoryReservation": 102,
-        "logConfiguration": {
-          "logDriver": "awslogs",
-          "options": {
-            "awslogs-group": "${var.log_group}",
-            "awslogs-region": "${var.region}",
-            "awslogs-stream-prefix": "{{ $name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-config-fetcher"
-          }
-        }
+        "memoryReservation": 102
       },
       {
         "name": "{{ $name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0",
@@ -81,23 +65,15 @@
           {"containerName": "init-clickhouse", "condition": "SUCCESS"},
           {"containerName": "config-fetcher", "condition": "SUCCESS"}
         ],
-        "cpu": "${var.telemetrystore_cpu}",
-        "memory": "${var.telemetrystore_memory}",
-        "memoryReservation": "${var.telemetrystore_memory}",
+        "cpu": 1024,
+        "memory": 512,
+        "memoryReservation": 512,
         "healthCheck": {
           "command": ["CMD-SHELL", "wget --spider -q 0.0.0.0:8123/ping || exit 1"],
           "interval": 30,
           "timeout": 5,
           "retries": 3,
           "startPeriod": 30
-        },
-"logConfiguration": {
-          "logDriver": "awslogs",
-          "options": {
-            "awslogs-group": "${var.log_group}",
-            "awslogs-region": "${var.region}",
-            "awslogs-stream-prefix": "{{ $name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0"
-          }
         }
       }
     ]
@@ -119,7 +95,7 @@
         "requires_compatibilities": ["EC2"],
         "task_role_arn": "${var.task_role_arn}",
         "execution_role_arn": "${var.task_execution_role_arn}",
-        "container_definitions": "${jsonencode(local.telemetrystore_container_definitions)}",
+        "container_definitions": "${jsonencode(local.containers)}",
         "volume": [
           {
             "name": "shared-binary-volume",
@@ -182,7 +158,6 @@
           "registry_arn": "${aws_service_discovery_service.telemetrystore.arn}"
         },
 "depends_on": [
-          "aws_cloudwatch_log_group.ecs",
           "aws_ecs_service.telemetrykeeper"
         ]
       }

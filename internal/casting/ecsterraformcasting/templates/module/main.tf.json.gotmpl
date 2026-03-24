@@ -1,12 +1,6 @@
 {{- $name := $.Metadata.Name -}}
 {
   "resource": {
-    "aws_cloudwatch_log_group": {
-      "ecs": {
-        "name": "${var.log_group}",
-        "retention_in_days": "${var.log_retention_days}"
-      }
-    },
     "aws_service_discovery_private_dns_namespace": {
       "main": {
         "name": "{{ $name }}.local",

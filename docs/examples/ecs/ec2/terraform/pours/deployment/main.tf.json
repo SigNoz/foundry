@@ -24,21 +24,7 @@
       "config_bucket": "${var.config_bucket}",
       "task_role_arn": "${var.task_role_arn}",
       "task_execution_role_arn": "${var.task_execution_role_arn}",
-      "log_group": "${var.log_group}",
-      "log_retention_days": "${var.log_retention_days}",
-      "capacity_provider": "${var.capacity_provider}",
-      "telemetrykeeper_cpu": "${var.telemetrykeeper_cpu}",
-      "telemetrykeeper_memory": "${var.telemetrykeeper_memory}",
-      "telemetrystore_cpu": "${var.telemetrystore_cpu}",
-      "telemetrystore_memory": "${var.telemetrystore_memory}",
-      "migrator_cpu": "${var.migrator_cpu}",
-      "migrator_memory": "${var.migrator_memory}",
-      "metastore_cpu": "${var.metastore_cpu}",
-      "metastore_memory": "${var.metastore_memory}",
-      "signoz_cpu": "${var.signoz_cpu}",
-      "signoz_memory": "${var.signoz_memory}",
-      "ingester_cpu": "${var.ingester_cpu}",
-      "ingester_memory": "${var.ingester_memory}"
+      "capacity_provider": "${var.capacity_provider}"
     }
   }
 }
