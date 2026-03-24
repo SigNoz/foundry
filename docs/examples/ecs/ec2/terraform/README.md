@@ -70,22 +70,14 @@ Annotations populate `terraform.tfvars.json` so Foundry can generate a ready-to-
 | `foundry.signoz.io/ecs/capacity-provider` | `capacity_provider` | ECS capacity provider name |
 
 
-#### Deployment Spec
-
-| Field | Value | Description |
-|---|---|---|
-| `spec.deployment.platform` | `ecs` | Target platform (AWS ECS) |
-| `spec.deployment.mode` | `ec2` | Launch type (EC2 instances, not Fargate) |
-| `spec.deployment.flavor` | `terraform` | Infrastructure-as-code tool |
-
 #### Run
 
 ```bash
 # Generate Terraform files only
-foundryctl forge
+foundryctl forge -f casting.yaml
 
 # Or generate and apply in one step (runs terraform init + apply)
-foundryctl cast
+foundryctl cast -f casting.yaml
 ```
 
 Foundry generates the Terraform files into `pours/deployment/`. You can also run `forge` first and apply manually:
