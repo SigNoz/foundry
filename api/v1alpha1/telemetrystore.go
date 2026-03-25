@@ -30,7 +30,7 @@ func DefaultTelemetryStore() TelemetryStore {
 	return TelemetryStore{
 		Kind: TelemetryStoreKindClickhouse,
 		Spec: MoldingSpec{
-			Enabled: true,
+			Enabled: types.NewBoolPtr(true),
 			Cluster: TypeCluster{
 				Replicas: types.NewIntPtr(0),
 				Shards:   types.NewIntPtr(1),

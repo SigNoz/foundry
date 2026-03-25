@@ -27,7 +27,7 @@ type SigNozStatusAddresses struct {
 func DefaultSigNoz() SigNoz {
 	return SigNoz{
 		Spec: MoldingSpec{
-			Enabled: true,
+			Enabled: types.NewBoolPtr(true),
 			Cluster: TypeCluster{
 				Replicas: types.NewIntPtr(1),
 			},

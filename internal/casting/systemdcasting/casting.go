@@ -84,7 +84,7 @@ func (c *systemdCasting) Cast(ctx context.Context, config v1alpha1.Casting, pour
 		return err
 	}
 
-	if config.Spec.MetaStore.Spec.Enabled {
+	if config.Spec.MetaStore.Spec.IsEnabled() {
 		if err := c.initializePostgres(ctx, &config); err != nil {
 			return err
 		}
@@ -122,7 +122,7 @@ func (c *systemdCasting) forgeCasting(tmpl *types.Template, cfg *v1alpha1.Castin
 
 func (c *systemdCasting) forgeIngester(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
 	spec := &cfg.Spec.Ingester
-	if !spec.Spec.Enabled {
+	if !spec.Spec.IsEnabled() {
 		return nil, nil
 	}
 	if spec.Status.Config.Data == nil {
@@ -155,7 +155,7 @@ func (c *systemdCasting) forgeIngester(tmpl *types.Template, cfg *v1alpha1.Casti
 
 func (c *systemdCasting) forgeSignoz(tmpl *types.Template, cfg *v1alpha1.Casting) ([]types.Material, error) {
 	spec := &cfg.Spec.Signoz
-	if !spec.Spec.Enabled {
+	if !spec.Spec.IsEnabled() {
 		return nil, nil
 	}
 
@@ -179,7 +179,7 @@ func (c *systemdCasting) forgeSignoz(tmpl *types.Template, cfg *v1alpha1.Casting
 
 func (c *systemdCasting) forgeMetaStore(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
 	spec := &cfg.Spec.MetaStore
-	if !spec.Spec.Enabled {
+	if !spec.Spec.IsEnabled() {
 		return nil, nil
 	}
 
@@ -200,7 +200,7 @@ func (c *systemdCasting) forgeMetaStore(tmpl *types.Template, cfg *v1alpha1.Cast
 
 func (c *systemdCasting) forgeTelemetryStore(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
 	spec := &cfg.Spec.TelemetryStore
-	if !spec.Spec.Enabled {
+	if !spec.Spec.IsEnabled() {
 		return nil, nil
 	}
 	if spec.Status.Config.Data == nil {
@@ -238,7 +238,7 @@ func (c *systemdCasting) forgeTelemetryStore(tmpl *types.Template, cfg *v1alpha1
 
 func (c *systemdCasting) forgeTelemetryKeeper(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
 	spec := &cfg.Spec.TelemetryKeeper
-	if !spec.Spec.Enabled {
+	if !spec.Spec.IsEnabled() {
 		return nil, nil
 	}
 	if spec.Status.Config.Data == nil {
@@ -276,7 +276,7 @@ func (c *systemdCasting) forgeTelemetryKeeper(tmpl *types.Template, cfg *v1alpha
 
 func (c *systemdCasting) forgeMigrator(tmpl *types.Template, cfg *v1alpha1.Casting) ([]types.Material, error) {
 	spec := &cfg.Spec.TelemetryStore
-	if !spec.Spec.Enabled {
+	if !spec.Spec.IsEnabled() {
 		return nil, nil
 	}
 
@@ -393,12 +393,12 @@ func (c *systemdCasting) setupSystemEnvironment(ctx context.Context, config *v1a
 	_ = c.execCommand(ctx, "chown", "-R", "signoz:signoz", "/opt/signoz/") // best effort
 
 	// Copy clickhouse configs to standard locations
-	if config.Spec.TelemetryStore.Spec.Enabled {
+	if config.Spec.TelemetryStore.Spec.IsEnabled() {
 		if err := c.copyDir(filepath.Join(poursPath, rootcasting.DeploymentDir, "configs", "telemetrystore"), "/etc/clickhouse-server/"); err != nil {
 			return fmt.Errorf("failed to copy clickhouse-server configs: %w", err)
 		}
 	}
-	if config.Spec.TelemetryKeeper.Spec.Enabled {
+	if config.Spec.TelemetryKeeper.Spec.IsEnabled() {
 		if err := c.copyDir(filepath.Join(poursPath, rootcasting.DeploymentDir, "configs", "telemetrykeeper"), "/etc/clickhouse-keeper/"); err != nil {
 			return fmt.Errorf("failed to copy clickhouse-keeper configs: %w", err)
 		}

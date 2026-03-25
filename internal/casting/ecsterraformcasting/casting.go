@@ -68,7 +68,7 @@ func (c *ecsCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPa
 	}
 
 	// TelemetryKeeper
-	if config.Spec.TelemetryKeeper.Spec.Enabled {
+	if config.Spec.TelemetryKeeper.Spec.IsEnabled() {
 		m, err := executeTemplate(moduleTelemetryKeeperTF, config, filepath.Join(moduleDir, "telemetrykeeper.tf.json"))
 		if err != nil {
 			return nil, err
@@ -85,7 +85,7 @@ func (c *ecsCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPa
 	}
 
 	// TelemetryStore
-	if config.Spec.TelemetryStore.Spec.Enabled {
+	if config.Spec.TelemetryStore.Spec.IsEnabled() {
 		m, err := executeTemplate(moduleTelemetryStoreTF, config, filepath.Join(moduleDir, "telemetrystore.tf.json"))
 		if err != nil {
 			return nil, err
@@ -102,7 +102,7 @@ func (c *ecsCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPa
 	}
 
 	// TelemetryStore migrator
-	if config.Spec.TelemetryStore.Spec.Enabled {
+	if config.Spec.TelemetryStore.Spec.IsEnabled() {
 		m, err := executeTemplate(moduleMigratorTF, config, filepath.Join(moduleDir, "telemetrystore_migrator.tf.json"))
 		if err != nil {
 			return nil, err
@@ -111,7 +111,7 @@ func (c *ecsCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPa
 	}
 
 	// MetaStore
-	if config.Spec.MetaStore.Spec.Enabled {
+	if config.Spec.MetaStore.Spec.IsEnabled() {
 		m, err := executeTemplate(moduleMetaStoreTF, config, filepath.Join(moduleDir, "metastore.tf.json"))
 		if err != nil {
 			return nil, err
@@ -128,7 +128,7 @@ func (c *ecsCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPa
 	}
 
 	// Signoz
-	if config.Spec.Signoz.Spec.Enabled {
+	if config.Spec.Signoz.Spec.IsEnabled() {
 		m, err := executeTemplate(moduleSignozTF, config, filepath.Join(moduleDir, "signoz.tf.json"))
 		if err != nil {
 			return nil, err
@@ -137,7 +137,7 @@ func (c *ecsCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPa
 	}
 
 	// Ingester
-	if config.Spec.Ingester.Spec.Enabled {
+	if config.Spec.Ingester.Spec.IsEnabled() {
 		m, err := executeTemplate(moduleIngesterTF, config, filepath.Join(moduleDir, "ingester.tf.json"))
 		if err != nil {
 			return nil, err

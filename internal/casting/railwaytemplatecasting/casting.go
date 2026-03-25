@@ -48,7 +48,7 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config v1alpha1.Cast
 	var materials []types.Material
 
 	// TelemetryKeeper: Dockerfile + configs + railway.json
-	if config.Spec.TelemetryKeeper.Spec.Enabled {
+	if config.Spec.TelemetryKeeper.Spec.IsEnabled() {
 		dockerfileBuf := bytes.NewBuffer(nil)
 		if err := telemetryKeeperDockerfileTemplate.Execute(dockerfileBuf, config); err != nil {
 			return nil, fmt.Errorf("telemetrykeeper dockerfile: %w", err)
@@ -69,7 +69,7 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config v1alpha1.Cast
 	}
 
 	// TelemetryStore: Dockerfile + configs + railway.json
-	if config.Spec.TelemetryStore.Spec.Enabled {
+	if config.Spec.TelemetryStore.Spec.IsEnabled() {
 		dockerfileBuf := bytes.NewBuffer(nil)
 		if err := telemetryStoreDockerfileTemplate.Execute(dockerfileBuf, config); err != nil {
 			return nil, fmt.Errorf("telemetrystore dockerfile: %w", err)
@@ -90,7 +90,7 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config v1alpha1.Cast
 	}
 
 	// Ingester: Dockerfile + configs + railway.json
-	if config.Spec.Ingester.Spec.Enabled {
+	if config.Spec.Ingester.Spec.IsEnabled() {
 		dockerfileBuf := bytes.NewBuffer(nil)
 		if err := ingesterDockerfileTemplate.Execute(dockerfileBuf, config); err != nil {
 			return nil, fmt.Errorf("ingester dockerfile: %w", err)
@@ -111,7 +111,7 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config v1alpha1.Cast
 	}
 
 	// Signoz: Dockerfile + railway.json
-	if config.Spec.Signoz.Spec.Enabled {
+	if config.Spec.Signoz.Spec.IsEnabled() {
 		dockerfileBuf := bytes.NewBuffer(nil)
 		if err := signozDockerfileTemplate.Execute(dockerfileBuf, config); err != nil {
 			return nil, fmt.Errorf("signoz dockerfile: %w", err)
@@ -125,7 +125,7 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config v1alpha1.Cast
 	}
 
 	// TelemetryStore migrator: Dockerfile + railway.json
-	if config.Spec.TelemetryStore.Spec.Enabled {
+	if config.Spec.TelemetryStore.Spec.IsEnabled() {
 		dockerfileBuf := bytes.NewBuffer(nil)
 		if err := telemetryStoreMigratorDockerfileTemplate.Execute(dockerfileBuf, config); err != nil {
 			return nil, fmt.Errorf("telemetrystore-migrator dockerfile: %w", err)

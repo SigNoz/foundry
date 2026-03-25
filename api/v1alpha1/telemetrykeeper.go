@@ -34,7 +34,7 @@ func DefaultTelemetryKeeper() TelemetryKeeper {
 	return TelemetryKeeper{
 		Kind: TelemetryKeeperKindClickhouseKeeper,
 		Spec: MoldingSpec{
-			Enabled: true,
+			Enabled: types.NewBoolPtr(true),
 			Cluster: TypeCluster{
 				Replicas: types.NewIntPtr(1),
 			},

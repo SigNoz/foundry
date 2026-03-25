@@ -48,7 +48,7 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 	materials = append(materials, blueprintMaterial)
 
 	// Generate Dockerfile for telemetrykeeper services
-	if config.Spec.TelemetryKeeper.Spec.Enabled {
+	if config.Spec.TelemetryKeeper.Spec.IsEnabled() {
 		dockerfileBuf := bytes.NewBuffer(nil)
 		err := telemetryKeeperDockerfileTemplate.Execute(dockerfileBuf, config)
 		if err != nil {
@@ -68,7 +68,7 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 	}
 
 	// Add Dockerfile for telemetrystore services
-	if config.Spec.TelemetryStore.Spec.Enabled {
+	if config.Spec.TelemetryStore.Spec.IsEnabled() {
 		dockerfileBuf := bytes.NewBuffer(nil)
 		err := telemetryStoreDockerfileTemplate.Execute(dockerfileBuf, config)
 		if err != nil {
@@ -88,7 +88,7 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 	}
 
 	// Add Dockerfile for ingester services
-	if config.Spec.Ingester.Spec.Enabled {
+	if config.Spec.Ingester.Spec.IsEnabled() {
 		dockerfileBuf := bytes.NewBuffer(nil)
 		err := ingesterDockerfileTemplate.Execute(dockerfileBuf, config)
 		if err != nil {

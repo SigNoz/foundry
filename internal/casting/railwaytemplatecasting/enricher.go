@@ -36,7 +36,7 @@ func (enricher *railwayTemplateMoldingEnricher) EnrichStatus(ctx context.Context
 	}
 	switch kind {
 	case v1alpha1.MoldingKindTelemetryStore:
-		if !config.Spec.TelemetryStore.Spec.Enabled {
+		if !config.Spec.TelemetryStore.Spec.IsEnabled() {
 			return nil
 		}
 		svc := name + "-telemetrystore-" + config.Spec.TelemetryStore.Kind.String()
@@ -48,7 +48,7 @@ func (enricher *railwayTemplateMoldingEnricher) EnrichStatus(ctx context.Context
 		config.Spec.TelemetryStore.Status.Extras["_overrides"] = string(enricher.material[1].FmtContents())
 
 	case v1alpha1.MoldingKindSignoz:
-		if !config.Spec.Signoz.Spec.Enabled {
+		if !config.Spec.Signoz.Spec.IsEnabled() {
 			return nil
 		}
 		svc := name + "-signoz"
@@ -56,7 +56,7 @@ func (enricher *railwayTemplateMoldingEnricher) EnrichStatus(ctx context.Context
 		config.Spec.Signoz.Status.Addresses.Opamp = []string{types.FormatAddress("ws", railwayInternalHost(svc), 4320)}
 
 	case v1alpha1.MoldingKindTelemetryKeeper:
-		if !config.Spec.TelemetryKeeper.Spec.Enabled {
+		if !config.Spec.TelemetryKeeper.Spec.IsEnabled() {
 			return nil
 		}
 		svc := name + "-telemetrykeeper-" + config.Spec.TelemetryKeeper.Kind.String()
@@ -68,7 +68,7 @@ func (enricher *railwayTemplateMoldingEnricher) EnrichStatus(ctx context.Context
 		config.Spec.TelemetryKeeper.Status.Extras["service_names"] = svc
 		config.Spec.TelemetryKeeper.Status.Extras["_overrides"] = string(enricher.material[0].FmtContents())
 	case v1alpha1.MoldingKindIngester:
-		if !config.Spec.Ingester.Spec.Enabled {
+		if !config.Spec.Ingester.Spec.IsEnabled() {
 			return nil
 		}
 		svc := name + "-ingester"

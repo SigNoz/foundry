@@ -23,7 +23,7 @@ type IngesterStatusAddresses struct {
 func DefaultIngester() Ingester {
 	return Ingester{
 		Spec: MoldingSpec{
-			Enabled: true,
+			Enabled: types.NewBoolPtr(true),
 			Cluster: TypeCluster{
 				Replicas: types.NewIntPtr(1),
 			},

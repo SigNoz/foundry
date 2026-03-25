@@ -4,7 +4,7 @@ import "maps"
 
 type MoldingSpec struct {
 	// Whether the molding is enabled
-	Enabled bool `json:"enabled,omitempty" yaml:"enabled,omitempty" description:"Whether the molding is enabled" default:"true"`
+	Enabled *bool `json:"enabled,omitempty" yaml:"enabled,omitempty" description:"Whether the molding is enabled" default:"true"`
 
 	// Cluster configuration for the molding
 	Cluster TypeCluster `json:"cluster" yaml:"cluster,omitempty" description:"Cluster configuration for the molding"`
@@ -31,6 +31,15 @@ type MoldingStatus struct {
 
 	// Configuration for the molding
 	Config TypeConfig `json:"config" yaml:"config,omitempty" description:"Configuration for the molding"`
+}
+
+// IsEnabled returns whether the molding is enabled.
+// Returns false if the receiver or Enabled is nil.
+func (spec *MoldingSpec) IsEnabled() bool {
+	if spec == nil || spec.Enabled == nil {
+		return false
+	}
+	return *spec.Enabled
 }
 
 func (spec *MoldingSpec) MergeStatus(status MoldingStatus) error {
