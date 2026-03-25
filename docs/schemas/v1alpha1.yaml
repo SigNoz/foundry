@@ -37,8 +37,6 @@ definitions:
     properties:
       enabled:
         type: boolean
-      provider:
-        type: string
       status:
         additionalProperties:
           type: string

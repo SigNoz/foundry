@@ -114,8 +114,21 @@ func (registry *Registry) CastingItems() map[v1alpha1.TypeDeployment]CastingItem
 	return registry.castings
 }
 
+func (registry *Registry) lookup(deployment v1alpha1.TypeDeployment) (CastingItem, bool) {
+	if item, ok := registry.castings[deployment]; ok {
+		return item, true
+	}
+	// Fall back to matching without platform (platform may be set for infra generation
+	// but the casting itself is platform-agnostic, e.g. docker/compose on aws).
+	if deployment.Platform != "" {
+		item, ok := registry.castings[v1alpha1.TypeDeployment{Mode: deployment.Mode, Flavor: deployment.Flavor}]
+		return item, ok
+	}
+	return CastingItem{}, false
+}
+
 func (registry *Registry) Casting(deployment v1alpha1.TypeDeployment) (casting.Casting, error) {
-	item, ok := registry.castings[deployment]
+	item, ok := registry.lookup(deployment)
 	if !ok {
 		return nil, fmt.Errorf("deployment '%+v' is not supported, raise an issue at https://github.com/signoz/foundry/issues to request support for this deployment", deployment)
 	}
@@ -124,7 +137,7 @@ func (registry *Registry) Casting(deployment v1alpha1.TypeDeployment) (casting.C
 }
 
 func (registry *Registry) Toolers(deployment v1alpha1.TypeDeployment) ([]tooler.Tooler, error) {
-	item, ok := registry.castings[deployment]
+	item, ok := registry.lookup(deployment)
 	if !ok {
 		return nil, fmt.Errorf("deployment '%+v' is not supported, raise an issue at https://github.com/signoz/foundry/issues to request support for this deployment", deployment)
 	}

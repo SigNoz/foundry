@@ -1,3 +1,5 @@
+.PHONY: clean gauge forge cast test docs
+
 clean:
 	cd pours/deployment && docker compose -p dev down --remove-orphans --volumes
 	cd ../..
@@ -16,5 +18,6 @@ test:
 	make forge
 	make docker
 
-gen:
-	go run ./cmd/foundryctl/*.go gen
+docs:
+	go run ./cmd/foundryctl gen --debug examples
+	go run ./cmd/foundryctl gen --debug schemas

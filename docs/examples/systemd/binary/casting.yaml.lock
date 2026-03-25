@@ -9,9 +9,6 @@ spec:
   deployment:
     flavor: binary
     mode: systemd
-  infrastructure:
-    enabled: false
-    provider: aws
   ingester:
     spec:
       cluster:

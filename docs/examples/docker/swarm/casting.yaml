@@ -5,9 +5,6 @@ spec:
   deployment:
     flavor: swarm
     mode: docker
-  infrastructure:
-    enabled: false
-    provider: aws
   ingester:
     spec:
       cluster:
