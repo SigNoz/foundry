@@ -63,5 +63,3 @@ pours/
 
 ### VSCode ###
 !.vscode/settings.json
-
-docs/examples/systemd/all-in-one
