@@ -94,14 +94,6 @@ func NewINIMaterial(contents []byte, path string) (Material, error) {
 	}, nil
 }
 
-func NewHCLMaterial(contents []byte, path string) (Material, error) {
-	return Material{
-		contents: contents,
-		path:     path,
-		format:   FormatHCL,
-	}, nil
-}
-
 func (m Material) Contents() []byte {
 	return m.contents
 }

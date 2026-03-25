@@ -126,6 +126,9 @@ func DefaultCasting() Casting {
 	}
 }
 
+// ExampleCasting returns a minimal casting with only the deployment spec set.
+// The forge pipeline enriches and expands defaults; the full state is written
+// to the lock file, not the casting.yaml.
 func ExampleCasting() Casting {
 	return Casting{
 		TypeVersion: TypeVersion{
@@ -134,13 +137,6 @@ func ExampleCasting() Casting {
 		Metadata: TypeMetadata{
 			Name: "signoz",
 		},
-		Spec: CastingSpec{
-			Infrastructure:  DefaultInfrastructure(),
-			Signoz:          DefaultSigNoz(),
-			TelemetryStore:  DefaultTelemetryStore(),
-			TelemetryKeeper: DefaultTelemetryKeeper(),
-			MetaStore:       DefaultMetaStore(),
-			Ingester:        DefaultIngester(),
-		},
+		Spec: CastingSpec{},
 	}
 }
