@@ -1,0 +1,30 @@
+{
+  "terraform": {
+    "required_version": ">= 1.0",
+    "required_providers": {
+      "aws": {
+        "source": "hashicorp/aws",
+        "version": ">= 5.0"
+      }
+    }
+  },
+  "provider": {
+    "aws": {
+      "region": "${var.region}"
+    }
+  },
+  "module": {
+    "signoz": {
+      "source": "./module",
+      "region": "${var.region}",
+      "ecs_cluster_id": "${var.ecs_cluster_id}",
+      "subnet_ids": "${var.subnet_ids}",
+      "security_group_ids": "${var.security_group_ids}",
+      "vpc_id": "${var.vpc_id}",
+      "config_bucket": "${var.config_bucket}",
+      "task_role_arn": "${var.task_role_arn}",
+      "task_execution_role_arn": "${var.task_execution_role_arn}",
+      "capacity_provider": "${var.capacity_provider}"
+    }
+  }
+}

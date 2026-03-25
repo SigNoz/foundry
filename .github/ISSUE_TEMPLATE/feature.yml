@@ -1,6 +1,6 @@
 name: Feature Request
 description: Suggest a new capability, improvement, or CLI enhancement for Foundry.
-title: "(feature) <title>"
+title: "[enhancement] <title>"
 labels: ["enhancement"]
 body:
   - type: textarea

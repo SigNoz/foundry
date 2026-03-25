@@ -1,6 +1,6 @@
 name: Bug
 description: Report a runtime failure (forge/cast), unexpected behavior, a Casting config issue (merge, defaults, schema), or a Molding config issue (defaults, template rendering).
-title: "(bug) <title>"
+title: "[bug] <title>"
 labels: ["bug"]
 body:
   - type: dropdown

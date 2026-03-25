@@ -1,0 +1,125 @@
+{
+  "locals": {
+    "containers": [
+      {
+        "name": "config-fetcher",
+        "image": "amazon/aws-cli:2.27.32",
+        "essential": false,
+        "entryPoint": ["/bin/sh", "-c"],
+        "command": ["aws s3 cp s3://${var.config_bucket}/signoz/ingester/ /configs/ingester/ --recursive"],
+        "mountPoints": [
+          {
+            "sourceVolume": "ingester-config",
+            "containerPath": "/configs/ingester"
+          }
+        ],
+        "cpu": 10,
+        "memory": 102,
+        "memoryReservation": 102
+      },
+      {
+        "name": "ingester",
+        "image": "signoz/signoz-otel-collector:latest",
+        "essential": true,
+        "entryPoint": ["/bin/sh", "-c"],
+        "command": ["/signoz-otel-collector migrate sync check && /signoz-otel-collector --config=/conf/ingester.yaml --manager-config=/conf/opamp.yaml --copy-path=/var/tmp/collector-config.yaml"],
+        "environment": [{"name":"SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN","value":"tcp://telemetrystore-clickhouse.signoz.local:9000"}],
+        "portMappings": [
+          {"name": "grpc", "containerPort": 4317, "protocol": "tcp", "appProtocol": "grpc"},
+          {"name": "http", "containerPort": 4318, "protocol": "tcp", "appProtocol": "http"}
+        ],
+        "mountPoints": [
+          {
+            "sourceVolume": "ingester-config",
+            "containerPath": "/conf"
+          }
+        ],
+        "dependsOn": [
+          {"containerName": "config-fetcher", "condition": "SUCCESS"}
+        ],
+        "cpu": 512,
+        "memory": 512,
+        "memoryReservation": 512,
+        "healthCheck": {
+          "command": ["CMD-SHELL", "wget --spider -q localhost:13133 || exit 1"],
+          "interval": 30,
+          "timeout": 5,
+          "retries": 3,
+          "startPeriod": 30
+        }
+      }
+    ]
+  },
+  "resource": {
+    "aws_s3_object": {
+      "ingester_configs": {
+        "for_each": "${fileset(\"${path.module}/ingester\", \"*.yaml\")}",
+        "bucket": "${var.config_bucket}",
+        "key": "signoz/ingester/${each.value}",
+        "source": "${path.module}/ingester/${each.value}",
+        "etag": "${filemd5(\"${path.module}/ingester/${each.value}\")}"
+      }
+    },
+    "aws_ecs_task_definition": {
+      "ingester": {
+        "family": "signoz-ingester",
+        "network_mode": "awsvpc",
+        "requires_compatibilities": ["EC2"],
+        "task_role_arn": "${var.task_role_arn}",
+        "execution_role_arn": "${var.task_execution_role_arn}",
+        "container_definitions": "${jsonencode(local.containers)}",
+        "volume": [
+          {
+            "name": "ingester-config",
+            "docker_volume_configuration": {
+              "scope": "task",
+              "driver": "local"
+            }
+          }
+        ],
+        "depends_on": ["aws_s3_object.ingester_configs"]
+      }
+    },
+    "aws_service_discovery_service": {
+      "ingester": {
+        "name": "ingester",
+        "dns_config": {
+          "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
+          "dns_records": [
+            {
+              "ttl": 10,
+              "type": "A"
+            }
+          ],
+          "routing_policy": "MULTIVALUE"
+        }
+      }
+    },
+    "aws_ecs_service": {
+      "ingester": {
+        "name": "signoz-ingester",
+        "cluster": "${var.ecs_cluster_id}",
+        "task_definition": "${aws_ecs_task_definition.ingester.arn}",
+        "desired_count": 1,
+        "capacity_provider_strategy": [
+          {
+            "capacity_provider": "${var.capacity_provider}",
+            "weight": 1,
+            "base": 0
+          }
+        ],
+        "network_configuration": {
+          "subnets": "${var.subnet_ids}",
+          "security_groups": "${var.security_group_ids}"
+        },
+        "service_registries": {
+          "registry_arn": "${aws_service_discovery_service.ingester.arn}"
+        },
+"depends_on": [
+          "aws_ecs_service.signoz",
+          "aws_ecs_service.telemetrystore"
+        ]
+      }
+    }
+  }
+}

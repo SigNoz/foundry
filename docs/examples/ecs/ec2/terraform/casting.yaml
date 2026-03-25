@@ -1,0 +1,8 @@
+apiVersion: v1alpha1
+metadata:
+  name: signoz
+spec:
+  deployment:
+    flavor: terraform
+    mode: ec2
+    platform: ecs

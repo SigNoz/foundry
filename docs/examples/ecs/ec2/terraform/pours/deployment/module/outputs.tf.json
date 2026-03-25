@@ -1,0 +1,52 @@
+{
+  "output": {
+    "ecs_cluster_id": {
+      "description": "ECS cluster ID",
+      "value": "${var.ecs_cluster_id}"
+    },
+    "namespace_id": {
+      "description": "Cloud Map private DNS namespace ID",
+      "value": "${aws_service_discovery_private_dns_namespace.main.id}"
+    },
+    "namespace_name": {
+      "description": "Cloud Map private DNS namespace name",
+      "value": "${aws_service_discovery_private_dns_namespace.main.name}"
+    },
+    "subnet_ids": {
+      "description": "Subnet IDs used by ECS services",
+      "value": "${var.subnet_ids}"
+    },
+    "security_group_ids": {
+      "description": "Security group IDs used by ECS services",
+      "value": "${var.security_group_ids}"
+    },
+    "signoz_service_arn": {
+      "description": "SigNoz ECS service ARN (target for ALB on port 8080)",
+      "value": "${aws_ecs_service.signoz.id}"
+    },
+    "signoz_service_name": {
+      "description": "SigNoz ECS service name",
+      "value": "${aws_ecs_service.signoz.name}"
+    },
+    "ingester_service_arn": {
+      "description": "Ingester ECS service ARN (target for NLB on port 4317/4318)",
+      "value": "${aws_ecs_service.ingester.id}"
+    },
+    "ingester_service_name": {
+      "description": "Ingester ECS service name",
+      "value": "${aws_ecs_service.ingester.name}"
+    },
+    "telemetrystore_service_name": {
+      "description": "TelemetryStore ECS service name",
+      "value": "${aws_ecs_service.telemetrystore.name}"
+    },
+    "telemetrykeeper_service_name": {
+      "description": "TelemetryKeeper ECS service name",
+      "value": "${aws_ecs_service.telemetrykeeper.name}"
+    },
+    "metastore_service_name": {
+      "description": "MetaStore ECS service name",
+      "value": "${aws_ecs_service.metastore.name}"
+    }
+  }
+}

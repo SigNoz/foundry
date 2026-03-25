@@ -1,0 +1,79 @@
+{
+  "locals": {
+    "containers": [
+      {
+        "name": "signoz",
+        "image": "signoz/signoz:latest",
+        "essential": true,
+        "environment": [{"name":"SIGNOZ_SQLSTORE_POSTGRES_DSN","value":"postgres://signoz:signoz@metastore-postgres.signoz.local:5432/signoz?sslmode=disable"},{"name":"SIGNOZ_SQLSTORE_PROVIDER","value":"postgres"},{"name":"SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN","value":"tcp://telemetrystore-clickhouse.signoz.local:9000"},{"name":"SIGNOZ_TELEMETRYSTORE_PROVIDER","value":"clickhouse"}],
+        "portMappings": [
+          {"name": "http", "containerPort": 8080, "protocol": "tcp", "appProtocol": "http"},
+          {"name": "opamp", "containerPort": 4320, "protocol": "tcp"}
+        ],
+        "cpu": 512,
+        "memory": 512,
+        "memoryReservation": 512,
+        "healthCheck": {
+          "command": ["CMD-SHELL", "wget --spider -q localhost:8080/api/v1/health || exit 1"],
+          "interval": 30,
+          "timeout": 5,
+          "retries": 3,
+          "startPeriod": 30
+        }
+      }
+    ]
+  },
+  "resource": {
+    "aws_ecs_task_definition": {
+      "signoz": {
+        "family": "signoz-signoz",
+        "network_mode": "awsvpc",
+        "requires_compatibilities": ["EC2"],
+        "task_role_arn": "${var.task_role_arn}",
+        "execution_role_arn": "${var.task_execution_role_arn}",
+        "container_definitions": "${jsonencode(local.containers)}"
+      }
+    },
+    "aws_service_discovery_service": {
+      "signoz": {
+        "name": "signoz",
+        "dns_config": {
+          "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
+          "dns_records": [
+            {
+              "ttl": 10,
+              "type": "A"
+            }
+          ],
+          "routing_policy": "MULTIVALUE"
+        }
+      }
+    },
+    "aws_ecs_service": {
+      "signoz": {
+        "name": "signoz-signoz",
+        "cluster": "${var.ecs_cluster_id}",
+        "task_definition": "${aws_ecs_task_definition.signoz.arn}",
+        "desired_count": 1,
+        "capacity_provider_strategy": [
+          {
+            "capacity_provider": "${var.capacity_provider}",
+            "weight": 1,
+            "base": 0
+          }
+        ],
+        "network_configuration": {
+          "subnets": "${var.subnet_ids}",
+          "security_groups": "${var.security_group_ids}"
+        },
+        "service_registries": {
+          "registry_arn": "${aws_service_discovery_service.signoz.arn}"
+        },
+"depends_on": [
+          "aws_ecs_service.metastore",
+          "aws_ecs_service.telemetrystore"
+        ]
+      }
+    }
+  }
+}

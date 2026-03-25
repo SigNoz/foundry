@@ -1,0 +1,130 @@
+{
+  "locals": {
+    "containers": [
+      {
+        "name": "config-fetcher",
+        "image": "amazon/aws-cli:2.27.32",
+        "essential": false,
+        "entryPoint": ["/bin/sh", "-c"],
+        "command": ["aws s3 cp s3://${var.config_bucket}/signoz/telemetrykeeper/clickhousekeeper/ /configs/telemetrykeeper/ --recursive"],
+        "mountPoints": [
+          {
+            "sourceVolume": "keeper-config",
+            "containerPath": "/configs/telemetrykeeper"
+          }
+        ],
+        "cpu": 10,
+        "memory": 102,
+        "memoryReservation": 102
+      },
+      {
+        "name": "signoz-telemetrykeeper-clickhousekeeper-0",
+        "image": "clickhouse/clickhouse-keeper:25.5.6",
+        "essential": true,
+        "entryPoint": ["/usr/bin/clickhouse-keeper", "--config-file=/etc/clickhouse-keeper/keeper.yaml"],
+        "portMappings": [
+          {"name": "client", "containerPort": 9181, "protocol": "tcp"},
+          {"name": "raft", "containerPort": 9234, "protocol": "tcp"}
+        ],
+        "mountPoints": [
+          {
+            "sourceVolume": "keeper-data",
+            "containerPath": "/var/lib/clickhouse-keeper"
+          },
+          {
+            "sourceVolume": "keeper-config",
+            "containerPath": "/etc/clickhouse-keeper"
+          }
+        ],
+        "dependsOn": [
+          {"containerName": "config-fetcher", "condition": "SUCCESS"}
+        ],
+        "cpu": 256,
+        "memory": 512,
+        "memoryReservation": 512,
+        "healthCheck": {
+          "command": ["CMD-SHELL", "echo ruok | nc localhost 9181 || exit 1"],
+          "interval": 30,
+          "timeout": 5,
+          "retries": 3,
+          "startPeriod": 30
+        }
+      }
+    ]
+  },
+  "resource": {
+    "aws_s3_object": {
+      "telemetrykeeper_configs": {
+        "for_each": "${fileset(\"${path.module}/telemetrykeeper/clickhousekeeper\", \"**\")}",
+        "bucket": "${var.config_bucket}",
+        "key": "signoz/telemetrykeeper/clickhousekeeper/${each.value}",
+        "source": "${path.module}/telemetrykeeper/clickhousekeeper/${each.value}",
+        "etag": "${filemd5(\"${path.module}/telemetrykeeper/clickhousekeeper/${each.value}\")}"
+      }
+    },
+    "aws_ecs_task_definition": {
+      "telemetrykeeper": {
+        "family": "signoz-telemetrykeeper-clickhousekeeper-0",
+        "network_mode": "awsvpc",
+        "requires_compatibilities": ["EC2"],
+        "task_role_arn": "${var.task_role_arn}",
+        "execution_role_arn": "${var.task_execution_role_arn}",
+        "container_definitions": "${jsonencode(local.containers)}",
+        "volume": [
+          {
+            "name": "keeper-config",
+            "docker_volume_configuration": {
+              "scope": "task",
+              "driver": "local"
+            }
+          },
+          {
+            "name": "keeper-data",
+            "docker_volume_configuration": {
+              "scope": "task",
+              "driver": "local"
+            }
+          }
+        ],
+        "depends_on": ["aws_s3_object.telemetrykeeper_configs"]
+      }
+    },
+    "aws_service_discovery_service": {
+      "telemetrykeeper": {
+        "name": "telemetrykeeper-clickhousekeeper",
+        "dns_config": {
+          "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
+          "dns_records": [
+            {
+              "ttl": 10,
+              "type": "A"
+            }
+          ],
+          "routing_policy": "MULTIVALUE"
+        }
+      }
+    },
+    "aws_ecs_service": {
+      "telemetrykeeper": {
+        "name": "signoz-telemetrykeeper-clickhousekeeper-0",
+        "cluster": "${var.ecs_cluster_id}",
+        "task_definition": "${aws_ecs_task_definition.telemetrykeeper.arn}",
+        "desired_count": 1,
+        "capacity_provider_strategy": [
+          {
+            "capacity_provider": "${var.capacity_provider}",
+            "weight": 1,
+            "base": 0
+          }
+        ],
+        "network_configuration": {
+          "subnets": "${var.subnet_ids}",
+          "security_groups": "${var.security_group_ids}"
+        },
+        "service_registries": {
+          "registry_arn": "${aws_service_discovery_service.telemetrykeeper.arn}"
+        }
+      }
+    }
+  }
+}

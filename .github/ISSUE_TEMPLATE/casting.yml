@@ -1,7 +1,7 @@
 name: Casting
 description: Request support for a new casting (e.g., Kubernetes, Nomad, a new cloud provider).
-title: "(casting) <title>"
-labels: ["new-casting"]
+title: "[casting] <title>"
+labels: ["casting", "enhancement"]
 body:
   - type: input
     id: platform

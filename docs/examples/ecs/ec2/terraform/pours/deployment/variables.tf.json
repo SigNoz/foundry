@@ -1,0 +1,40 @@
+{
+  "variable": {
+    "region": {
+      "description": "AWS region",
+      "type": "string"
+    },
+    "ecs_cluster_id": {
+      "description": "ID of the existing ECS cluster to deploy services into",
+      "type": "string"
+    },
+    "subnet_ids": {
+      "description": "List of subnet IDs for ECS service networking (awsvpc)",
+      "type": "list(string)"
+    },
+    "security_group_ids": {
+      "description": "List of security group IDs for ECS service networking (awsvpc)",
+      "type": "list(string)"
+    },
+    "vpc_id": {
+      "description": "VPC ID for the private DNS namespace",
+      "type": "string"
+    },
+    "config_bucket": {
+      "description": "S3 bucket name for storing config files",
+      "type": "string"
+    },
+    "task_role_arn": {
+      "description": "IAM role ARN for ECS tasks",
+      "type": "string"
+    },
+    "task_execution_role_arn": {
+      "description": "IAM role ARN for ECS task execution (pull images, write logs)",
+      "type": "string"
+    },
+    "capacity_provider": {
+      "description": "Name of the ECS capacity provider",
+      "type": "string"
+    }
+  }
+}

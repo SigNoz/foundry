@@ -1,0 +1,10 @@
+{
+  "resource": {
+    "aws_service_discovery_private_dns_namespace": {
+      "main": {
+        "name": "signoz.local",
+        "vpc": "${var.vpc_id}"
+      }
+    }
+  }
+}

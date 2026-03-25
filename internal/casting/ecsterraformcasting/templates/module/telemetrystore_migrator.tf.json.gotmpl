@@ -1,0 +1,53 @@
+{{- $name := $.Metadata.Name -}}
+{
+  "locals": {
+    "containers": [
+      {
+        "name": "telemetrystore-migrator",
+        "image": "{{ $.Spec.Ingester.Spec.Image }}",
+        "essential": true,
+        "entryPoint": ["/bin/sh", "-c"],
+        "command": ["/signoz-otel-collector migrate ready && /signoz-otel-collector migrate bootstrap && /signoz-otel-collector migrate sync up && /signoz-otel-collector migrate async up"],
+        {{- $env := list }}
+        {{- if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
+        {{- $env = append $env (dict "name" "SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN" "value" (index $.Spec.TelemetryStore.Status.Addresses.TCP 0)) }}
+        {{- end }}
+        "environment": {{ toJson $env }},
+        "cpu": 256,
+        "memory": 512
+      }
+    ]
+  },
+  "resource": {
+    "aws_ecs_task_definition": {
+      "telemetrystore_migrator": {
+        "family": "{{ $name }}-telemetrystore-migrator",
+        "network_mode": "awsvpc",
+        "requires_compatibilities": ["FARGATE"],
+        "cpu": 256,
+        "memory": 512,
+        "task_role_arn": "${var.task_role_arn}",
+        "execution_role_arn": "${var.task_execution_role_arn}",
+        "container_definitions": "${jsonencode(local.containers)}"
+      }
+    }
+  },
+  "data": {
+    "aws_ecs_task_execution": {
+      "telemetrystore_migrator": {
+        "cluster": "${var.ecs_cluster_id}",
+        "task_definition": "${aws_ecs_task_definition.telemetrystore_migrator.arn}",
+        "desired_count": 1,
+        "launch_type": "FARGATE",
+        "network_configuration": {
+          "subnets": "${var.subnet_ids}",
+          "security_groups": "${var.security_group_ids}",
+          "assign_public_ip": false
+        },
+        "depends_on": [
+          "aws_ecs_service.telemetrystore"
+        ]
+      }
+    }
+  }
+}
