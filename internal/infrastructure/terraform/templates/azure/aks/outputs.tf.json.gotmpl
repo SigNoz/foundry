@@ -1,0 +1,53 @@
+{
+  "output": {
+    "cluster_name": {
+      "description": "Name of the AKS cluster",
+      "value": "${azurerm_kubernetes_cluster.main.name}"
+    },
+    "cluster_fqdn": {
+      "description": "FQDN of the AKS cluster",
+      "value": "${azurerm_kubernetes_cluster.main.fqdn}"
+    },
+    "kube_config": {
+      "description": "Raw kubeconfig for the AKS cluster",
+      "value": "${azurerm_kubernetes_cluster.main.kube_config_raw}",
+      "sensitive": true
+    },
+    "cluster_identity_principal_id": {
+      "description": "Principal ID of the AKS cluster managed identity",
+      "value": "${azurerm_kubernetes_cluster.main.identity[0].principal_id}"
+    },
+    "resource_group_name": {
+      "description": "Name of the Azure resource group",
+      "value": "${azurerm_resource_group.main.name}"
+    },
+    "vnet_id": {
+      "description": "ID of the virtual network",
+      "value": "${azurerm_virtual_network.main.id}"
+    },
+    "aks_subnet_id": {
+      "description": "ID of the AKS subnet",
+      "value": "${azurerm_subnet.aks.id}"
+    },
+    "telemetrykeeper_node_pool_id": {
+      "description": "ID of the TelemetryKeeper node pool",
+      "value": "${azurerm_kubernetes_cluster_node_pool.telemetrykeeper[*].id}"
+    },
+    "telemetrystore_node_pool_id": {
+      "description": "ID of the TelemetryStore node pool",
+      "value": "${azurerm_kubernetes_cluster_node_pool.telemetrystore[*].id}"
+    },
+    "metastore_node_pool_id": {
+      "description": "ID of the MetaStore node pool",
+      "value": "${azurerm_kubernetes_cluster_node_pool.metastore[*].id}"
+    },
+    "ingester_node_pool_id": {
+      "description": "ID of the Ingester node pool",
+      "value": "${azurerm_kubernetes_cluster_node_pool.ingester[*].id}"
+    },
+    "signoz_node_pool_id": {
+      "description": "ID of the SigNoz node pool",
+      "value": "${azurerm_kubernetes_cluster_node_pool.signoz[*].id}"
+    }
+  }
+}

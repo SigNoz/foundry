@@ -1,0 +1,78 @@
+{
+  "variable": {
+    "project_id": {
+      "description": "GCP project ID",
+      "type": "string"
+    },
+    "region": {
+      "description": "GCP region to deploy resources",
+      "type": "string",
+      "default": "us-central1"
+    },
+    "name": {
+      "description": "The name of the deployment",
+      "type": "string",
+      "default": "{{ .Metadata.Name }}"
+    },
+    "private_subnet_cidr": {
+      "description": "CIDR block for the private subnet",
+      "type": "string",
+      "default": "10.0.1.0/24"
+    },
+    "public_subnet_cidr": {
+      "description": "CIDR block for the public subnet",
+      "type": "string",
+      "default": "10.0.2.0/24"
+    },
+    "telemetrykeeper_machine_type": {
+      "description": "GCE machine type for TelemetryKeeper",
+      "type": "string",
+      "default": "n2-standard-2"
+    },
+    "telemetrykeeper_disk_size": {
+      "description": "Boot disk size (GB) for TelemetryKeeper instances",
+      "type": "number",
+      "default": 20
+    },
+    "telemetrystore_machine_type": {
+      "description": "GCE machine type for TelemetryStore",
+      "type": "string",
+      "default": "n2-highmem-4"
+    },
+    "telemetrystore_disk_size": {
+      "description": "Boot disk size (GB) for TelemetryStore instances",
+      "type": "number",
+      "default": 100
+    },
+    "metastore_machine_type": {
+      "description": "GCE machine type for MetaStore",
+      "type": "string",
+      "default": "n2-standard-2"
+    },
+    "metastore_disk_size": {
+      "description": "Boot disk size (GB) for MetaStore instances",
+      "type": "number",
+      "default": 20
+    },
+    "ingester_machine_type": {
+      "description": "GCE machine type for Ingester",
+      "type": "string",
+      "default": "n2-standard-4"
+    },
+    "ingester_disk_size": {
+      "description": "Boot disk size (GB) for Ingester instances",
+      "type": "number",
+      "default": 50
+    },
+    "signoz_machine_type": {
+      "description": "GCE machine type for SigNoz",
+      "type": "string",
+      "default": "n2-standard-4"
+    },
+    "signoz_disk_size": {
+      "description": "Boot disk size (GB) for SigNoz instances",
+      "type": "number",
+      "default": 50
+    }
+  }
+}

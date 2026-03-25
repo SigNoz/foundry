@@ -1,0 +1,224 @@
+{
+  "locals": {
+    "name": "{{ .Metadata.Name }}",
+    "common_labels": {
+      "app-kubernetes-io-managed-by": "foundry",
+      "app-kubernetes-io-name": "{{ .Metadata.Name }}"
+    }
+  },
+  "resource": {
+    "google_compute_network": {
+      "main": {
+        "name": "${local.name}-vpc",
+        "auto_create_subnetworks": false,
+        "project": "${var.project_id}"
+      }
+    },
+    "google_compute_subnetwork": {
+      "private": {
+        "name": "${local.name}-private",
+        "ip_cidr_range": "${var.private_subnet_cidr}",
+        "region": "${var.region}",
+        "network": "${google_compute_network.main.id}",
+        "project": "${var.project_id}",
+        "private_ip_google_access": true,
+        "secondary_ip_range": [
+          {
+            "range_name": "${local.name}-pods",
+            "ip_cidr_range": "${var.pods_cidr}"
+          },
+          {
+            "range_name": "${local.name}-services",
+            "ip_cidr_range": "${var.services_cidr}"
+          }
+        ]
+      },
+      "public": {
+        "name": "${local.name}-public",
+        "ip_cidr_range": "${var.public_subnet_cidr}",
+        "region": "${var.region}",
+        "network": "${google_compute_network.main.id}",
+        "project": "${var.project_id}"
+      }
+    },
+    "google_compute_router": {
+      "main": {
+        "name": "${local.name}-router",
+        "region": "${var.region}",
+        "network": "${google_compute_network.main.id}",
+        "project": "${var.project_id}"
+      }
+    },
+    "google_compute_router_nat": {
+      "main": {
+        "name": "${local.name}-nat",
+        "router": "${google_compute_router.main.name}",
+        "region": "${var.region}",
+        "project": "${var.project_id}",
+        "nat_ip_allocate_option": "AUTO_ONLY",
+        "source_subnetwork_ip_ranges_to_nat": "LIST_OF_SUBNETWORKS",
+        "subnetwork": [{
+          "name": "${google_compute_subnetwork.private.id}",
+          "source_ip_ranges_to_nat": ["ALL_IP_RANGES"]
+        }]
+      }
+    },
+    "google_container_cluster": {
+      "main": {
+        "name": "${local.name}",
+        "location": "${var.region}",
+        "project": "${var.project_id}",
+        "network": "${google_compute_network.main.id}",
+        "subnetwork": "${google_compute_subnetwork.private.id}",
+        "remove_default_node_pool": true,
+        "initial_node_count": 1,
+        "ip_allocation_policy": [{
+          "cluster_secondary_range_name": "${local.name}-pods",
+          "services_secondary_range_name": "${local.name}-services"
+        }],
+        "private_cluster_config": [{
+          "enable_private_nodes": true,
+          "enable_private_endpoint": false,
+          "master_ipv4_cidr_block": "${var.master_cidr}"
+        }],
+        "master_auth": [{
+          "client_certificate_config": [{
+            "issue_client_certificate": false
+          }]
+        }],
+        "workload_identity_config": [{
+          "workload_pool": "${var.project_id}.svc.id.goog"
+        }],
+        "release_channel": [{
+          "channel": "REGULAR"
+        }],
+        "resource_labels": {
+          "app-kubernetes-io-managed-by": "foundry",
+          "app-kubernetes-io-name": "{{ .Metadata.Name }}"
+        }
+      }
+    },
+    "google_container_node_pool": {
+      "telemetrykeeper": {
+        "count": {{ if .Spec.TelemetryKeeper.Spec.Enabled }}1{{ else }}0{{ end }},
+        "name": "${local.name}-telemetrykeeper",
+        "cluster": "${google_container_cluster.main.name}",
+        "location": "${var.region}",
+        "project": "${var.project_id}",
+        "node_count": {{ derefInt .Spec.TelemetryKeeper.Spec.Cluster.Replicas }},
+        "node_config": [{
+          "machine_type": "${var.telemetrykeeper_machine_type}",
+          "disk_size_gb": "${var.telemetrykeeper_disk_size}",
+          "disk_type": "pd-ssd",
+          "labels": {
+            "app-kubernetes-io-managed-by": "foundry",
+            "app-kubernetes-io-name": "{{ .Metadata.Name }}",
+            "role": "telemetrykeeper"
+          },
+          "workload_metadata_config": [{"mode": "GKE_METADATA"}],
+          "shielded_instance_config": [{"enable_secure_boot": true}]
+        }],
+        "management": [{
+          "auto_repair": true,
+          "auto_upgrade": true
+        }]
+      },
+      "telemetrystore": {
+        "count": {{ if .Spec.TelemetryStore.Spec.Enabled }}1{{ else }}0{{ end }},
+        "name": "${local.name}-telemetrystore",
+        "cluster": "${google_container_cluster.main.name}",
+        "location": "${var.region}",
+        "project": "${var.project_id}",
+        "node_count": {{ derefInt .Spec.TelemetryStore.Spec.Cluster.Replicas }},
+        "node_config": [{
+          "machine_type": "${var.telemetrystore_machine_type}",
+          "disk_size_gb": "${var.telemetrystore_disk_size}",
+          "disk_type": "pd-ssd",
+          "labels": {
+            "app-kubernetes-io-managed-by": "foundry",
+            "app-kubernetes-io-name": "{{ .Metadata.Name }}",
+            "role": "telemetrystore"
+          },
+          "workload_metadata_config": [{"mode": "GKE_METADATA"}],
+          "shielded_instance_config": [{"enable_secure_boot": true}]
+        }],
+        "management": [{
+          "auto_repair": true,
+          "auto_upgrade": true
+        }]
+      },
+      "metastore": {
+        "count": {{ if .Spec.MetaStore.Spec.Enabled }}1{{ else }}0{{ end }},
+        "name": "${local.name}-metastore",
+        "cluster": "${google_container_cluster.main.name}",
+        "location": "${var.region}",
+        "project": "${var.project_id}",
+        "node_count": {{ derefInt .Spec.MetaStore.Spec.Cluster.Replicas }},
+        "node_config": [{
+          "machine_type": "${var.metastore_machine_type}",
+          "disk_size_gb": "${var.metastore_disk_size}",
+          "disk_type": "pd-ssd",
+          "labels": {
+            "app-kubernetes-io-managed-by": "foundry",
+            "app-kubernetes-io-name": "{{ .Metadata.Name }}",
+            "role": "metastore"
+          },
+          "workload_metadata_config": [{"mode": "GKE_METADATA"}],
+          "shielded_instance_config": [{"enable_secure_boot": true}]
+        }],
+        "management": [{
+          "auto_repair": true,
+          "auto_upgrade": true
+        }]
+      },
+      "ingester": {
+        "count": {{ if .Spec.Ingester.Spec.Enabled }}1{{ else }}0{{ end }},
+        "name": "${local.name}-ingester",
+        "cluster": "${google_container_cluster.main.name}",
+        "location": "${var.region}",
+        "project": "${var.project_id}",
+        "node_count": {{ derefInt .Spec.Ingester.Spec.Cluster.Replicas }},
+        "node_config": [{
+          "machine_type": "${var.ingester_machine_type}",
+          "disk_size_gb": "${var.ingester_disk_size}",
+          "disk_type": "pd-ssd",
+          "labels": {
+            "app-kubernetes-io-managed-by": "foundry",
+            "app-kubernetes-io-name": "{{ .Metadata.Name }}",
+            "role": "ingester"
+          },
+          "workload_metadata_config": [{"mode": "GKE_METADATA"}],
+          "shielded_instance_config": [{"enable_secure_boot": true}]
+        }],
+        "management": [{
+          "auto_repair": true,
+          "auto_upgrade": true
+        }]
+      },
+      "signoz": {
+        "count": {{ if .Spec.Signoz.Spec.Enabled }}1{{ else }}0{{ end }},
+        "name": "${local.name}-signoz",
+        "cluster": "${google_container_cluster.main.name}",
+        "location": "${var.region}",
+        "project": "${var.project_id}",
+        "node_count": {{ derefInt .Spec.Signoz.Spec.Cluster.Replicas }},
+        "node_config": [{
+          "machine_type": "${var.signoz_machine_type}",
+          "disk_size_gb": "${var.signoz_disk_size}",
+          "disk_type": "pd-ssd",
+          "labels": {
+            "app-kubernetes-io-managed-by": "foundry",
+            "app-kubernetes-io-name": "{{ .Metadata.Name }}",
+            "role": "signoz"
+          },
+          "workload_metadata_config": [{"mode": "GKE_METADATA"}],
+          "shielded_instance_config": [{"enable_secure_boot": true}]
+        }],
+        "management": [{
+          "auto_repair": true,
+          "auto_upgrade": true
+        }]
+      }
+    }
+  }
+}

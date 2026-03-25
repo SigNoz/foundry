@@ -36,7 +36,10 @@ func (g *Generator) Generate(ctx context.Context, config v1alpha1.Casting) ([]ty
 		return nil, nil
 	}
 
-	provider := config.Spec.Infrastructure.Provider
+	provider, err := infrastructure.ResolveProvider(config.Spec.Deployment.Platform)
+	if err != nil {
+		return nil, err
+	}
 	computeType, err := infrastructure.ResolveComputeType(provider, config.Spec.Deployment)
 	if err != nil {
 		return nil, err
@@ -54,47 +57,47 @@ func (g *Generator) Generate(ctx context.Context, config v1alpha1.Casting) ([]ty
 
 	var materials []types.Material
 
-	// main.tf
+	// main.tf.json
 	mainBuf := bytes.NewBuffer(nil)
 	if err := mainTemplate.Execute(mainBuf, config); err != nil {
-		return nil, fmt.Errorf("failed to execute main.tf template: %w", err)
+		return nil, fmt.Errorf("failed to execute main.tf.json template: %w", err)
 	}
-	mainMaterial, err := types.NewHCLMaterial(mainBuf.Bytes(), filepath.Join(infrastructureDir, "main.tf"))
+	mainMaterial, err := types.NewJSONMaterial(mainBuf.Bytes(), filepath.Join(infrastructureDir, "main.tf.json"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create main.tf material: %w", err)
+		return nil, fmt.Errorf("failed to create main.tf.json material: %w", err)
 	}
 	materials = append(materials, mainMaterial)
 
-	// variables.tf
+	// variables.tf.json
 	varsBuf := bytes.NewBuffer(nil)
 	if err := varsTemplate.Execute(varsBuf, config); err != nil {
-		return nil, fmt.Errorf("failed to execute variables.tf template: %w", err)
+		return nil, fmt.Errorf("failed to execute variables.tf.json template: %w", err)
 	}
-	varsMaterial, err := types.NewHCLMaterial(varsBuf.Bytes(), filepath.Join(infrastructureDir, "variables.tf"))
+	varsMaterial, err := types.NewJSONMaterial(varsBuf.Bytes(), filepath.Join(infrastructureDir, "variables.tf.json"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create variables.tf material: %w", err)
+		return nil, fmt.Errorf("failed to create variables.tf.json material: %w", err)
 	}
 	materials = append(materials, varsMaterial)
 
-	// providers.tf
+	// providers.tf.json
 	providersBuf := bytes.NewBuffer(nil)
 	if err := providersTFTemplate.Execute(providersBuf, config); err != nil {
-		return nil, fmt.Errorf("failed to execute providers.tf template: %w", err)
+		return nil, fmt.Errorf("failed to execute providers.tf.json template: %w", err)
 	}
-	providersMaterial, err := types.NewHCLMaterial(providersBuf.Bytes(), filepath.Join(infrastructureDir, "providers.tf"))
+	providersMaterial, err := types.NewJSONMaterial(providersBuf.Bytes(), filepath.Join(infrastructureDir, "providers.tf.json"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create providers.tf material: %w", err)
+		return nil, fmt.Errorf("failed to create providers.tf.json material: %w", err)
 	}
 	materials = append(materials, providersMaterial)
 
-	// outputs.tf
+	// outputs.tf.json
 	outputsBuf := bytes.NewBuffer(nil)
 	if err := outputsTemplate.Execute(outputsBuf, config); err != nil {
-		return nil, fmt.Errorf("failed to execute outputs.tf template: %w", err)
+		return nil, fmt.Errorf("failed to execute outputs.tf.json template: %w", err)
 	}
-	outputsMaterial, err := types.NewHCLMaterial(outputsBuf.Bytes(), filepath.Join(infrastructureDir, "outputs.tf"))
+	outputsMaterial, err := types.NewJSONMaterial(outputsBuf.Bytes(), filepath.Join(infrastructureDir, "outputs.tf.json"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create outputs.tf material: %w", err)
+		return nil, fmt.Errorf("failed to create outputs.tf.json material: %w", err)
 	}
 	materials = append(materials, outputsMaterial)
 

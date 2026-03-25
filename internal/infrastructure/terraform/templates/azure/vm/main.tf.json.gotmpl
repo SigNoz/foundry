@@ -1,0 +1,537 @@
+{
+  "locals": {
+    "name": "{{ .Metadata.Name }}",
+    "common_tags": {
+      "app.kubernetes.io/managed-by": "foundry",
+      "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+    }
+  },
+  "resource": {
+    "azurerm_resource_group": {
+      "main": {
+        "name": "${var.resource_group_name}",
+        "location": "${var.location}",
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      }
+    },
+    "azurerm_virtual_network": {
+      "main": {
+        "name": "${local.name}-vnet",
+        "location": "${azurerm_resource_group.main.location}",
+        "resource_group_name": "${azurerm_resource_group.main.name}",
+        "address_space": ["${var.vnet_cidr}"],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      }
+    },
+    "azurerm_subnet": {
+      "private": {
+        "name": "${local.name}-private",
+        "resource_group_name": "${azurerm_resource_group.main.name}",
+        "virtual_network_name": "${azurerm_virtual_network.main.name}",
+        "address_prefixes": ["${var.private_subnet_cidr}"]
+      },
+      "public": {
+        "name": "${local.name}-public",
+        "resource_group_name": "${azurerm_resource_group.main.name}",
+        "virtual_network_name": "${azurerm_virtual_network.main.name}",
+        "address_prefixes": ["${var.public_subnet_cidr}"]
+      }
+    },
+    "azurerm_network_security_group": {
+      "telemetrykeeper": {
+        "name": "${local.name}-telemetrykeeper-nsg",
+        "location": "${azurerm_resource_group.main.location}",
+        "resource_group_name": "${azurerm_resource_group.main.name}",
+        "security_rule": [
+          {
+            "name": "allow-keeper-client",
+            "priority": 100,
+            "direction": "Inbound",
+            "access": "Allow",
+            "protocol": "Tcp",
+            "source_port_range": "*",
+            "destination_port_range": "9181",
+            "source_address_prefix": "${var.vnet_cidr}",
+            "destination_address_prefix": "*"
+          },
+          {
+            "name": "allow-keeper-raft",
+            "priority": 110,
+            "direction": "Inbound",
+            "access": "Allow",
+            "protocol": "Tcp",
+            "source_port_range": "*",
+            "destination_port_range": "9234",
+            "source_address_prefix": "${var.vnet_cidr}",
+            "destination_address_prefix": "*"
+          },
+          {
+            "name": "allow-ssh",
+            "priority": 120,
+            "direction": "Inbound",
+            "access": "Allow",
+            "protocol": "Tcp",
+            "source_port_range": "*",
+            "destination_port_range": "22",
+            "source_address_prefix": "${var.vnet_cidr}",
+            "destination_address_prefix": "*"
+          }
+        ],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      },
+      "telemetrystore": {
+        "name": "${local.name}-telemetrystore-nsg",
+        "location": "${azurerm_resource_group.main.location}",
+        "resource_group_name": "${azurerm_resource_group.main.name}",
+        "security_rule": [
+          {
+            "name": "allow-clickhouse-native",
+            "priority": 100,
+            "direction": "Inbound",
+            "access": "Allow",
+            "protocol": "Tcp",
+            "source_port_range": "*",
+            "destination_port_range": "9000",
+            "source_address_prefix": "${var.vnet_cidr}",
+            "destination_address_prefix": "*"
+          },
+          {
+            "name": "allow-clickhouse-http",
+            "priority": 110,
+            "direction": "Inbound",
+            "access": "Allow",
+            "protocol": "Tcp",
+            "source_port_range": "*",
+            "destination_port_range": "8123",
+            "source_address_prefix": "${var.vnet_cidr}",
+            "destination_address_prefix": "*"
+          },
+          {
+            "name": "allow-ssh",
+            "priority": 120,
+            "direction": "Inbound",
+            "access": "Allow",
+            "protocol": "Tcp",
+            "source_port_range": "*",
+            "destination_port_range": "22",
+            "source_address_prefix": "${var.vnet_cidr}",
+            "destination_address_prefix": "*"
+          }
+        ],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      },
+      "metastore": {
+        "name": "${local.name}-metastore-nsg",
+        "location": "${azurerm_resource_group.main.location}",
+        "resource_group_name": "${azurerm_resource_group.main.name}",
+        "security_rule": [
+          {
+            "name": "allow-postgres",
+            "priority": 100,
+            "direction": "Inbound",
+            "access": "Allow",
+            "protocol": "Tcp",
+            "source_port_range": "*",
+            "destination_port_range": "5432",
+            "source_address_prefix": "${var.vnet_cidr}",
+            "destination_address_prefix": "*"
+          },
+          {
+            "name": "allow-ssh",
+            "priority": 110,
+            "direction": "Inbound",
+            "access": "Allow",
+            "protocol": "Tcp",
+            "source_port_range": "*",
+            "destination_port_range": "22",
+            "source_address_prefix": "${var.vnet_cidr}",
+            "destination_address_prefix": "*"
+          }
+        ],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      },
+      "ingester": {
+        "name": "${local.name}-ingester-nsg",
+        "location": "${azurerm_resource_group.main.location}",
+        "resource_group_name": "${azurerm_resource_group.main.name}",
+        "security_rule": [
+          {
+            "name": "allow-otlp-grpc",
+            "priority": 100,
+            "direction": "Inbound",
+            "access": "Allow",
+            "protocol": "Tcp",
+            "source_port_range": "*",
+            "destination_port_range": "4317",
+            "source_address_prefix": "*",
+            "destination_address_prefix": "*"
+          },
+          {
+            "name": "allow-otlp-http",
+            "priority": 110,
+            "direction": "Inbound",
+            "access": "Allow",
+            "protocol": "Tcp",
+            "source_port_range": "*",
+            "destination_port_range": "4318",
+            "source_address_prefix": "*",
+            "destination_address_prefix": "*"
+          },
+          {
+            "name": "allow-ssh",
+            "priority": 120,
+            "direction": "Inbound",
+            "access": "Allow",
+            "protocol": "Tcp",
+            "source_port_range": "*",
+            "destination_port_range": "22",
+            "source_address_prefix": "${var.vnet_cidr}",
+            "destination_address_prefix": "*"
+          }
+        ],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      },
+      "signoz": {
+        "name": "${local.name}-signoz-nsg",
+        "location": "${azurerm_resource_group.main.location}",
+        "resource_group_name": "${azurerm_resource_group.main.name}",
+        "security_rule": [
+          {
+            "name": "allow-ui",
+            "priority": 100,
+            "direction": "Inbound",
+            "access": "Allow",
+            "protocol": "Tcp",
+            "source_port_range": "*",
+            "destination_port_range": "8080",
+            "source_address_prefix": "*",
+            "destination_address_prefix": "*"
+          },
+          {
+            "name": "allow-api",
+            "priority": 110,
+            "direction": "Inbound",
+            "access": "Allow",
+            "protocol": "Tcp",
+            "source_port_range": "*",
+            "destination_port_range": "3301",
+            "source_address_prefix": "${var.vnet_cidr}",
+            "destination_address_prefix": "*"
+          },
+          {
+            "name": "allow-ssh",
+            "priority": 120,
+            "direction": "Inbound",
+            "access": "Allow",
+            "protocol": "Tcp",
+            "source_port_range": "*",
+            "destination_port_range": "22",
+            "source_address_prefix": "${var.vnet_cidr}",
+            "destination_address_prefix": "*"
+          }
+        ],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      }
+    },
+    "azurerm_network_interface": {
+      "telemetrykeeper": {
+        "count": {{ if .Spec.TelemetryKeeper.Spec.Enabled }}{{ derefInt .Spec.TelemetryKeeper.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "name": "${local.name}-telemetrykeeper-nic-${count.index}",
+        "location": "${azurerm_resource_group.main.location}",
+        "resource_group_name": "${azurerm_resource_group.main.name}",
+        "ip_configuration": [{
+          "name": "internal",
+          "subnet_id": "${azurerm_subnet.private.id}",
+          "private_ip_address_allocation": "Dynamic"
+        }],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      },
+      "telemetrystore": {
+        "count": {{ if .Spec.TelemetryStore.Spec.Enabled }}{{ derefInt .Spec.TelemetryStore.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "name": "${local.name}-telemetrystore-nic-${count.index}",
+        "location": "${azurerm_resource_group.main.location}",
+        "resource_group_name": "${azurerm_resource_group.main.name}",
+        "ip_configuration": [{
+          "name": "internal",
+          "subnet_id": "${azurerm_subnet.private.id}",
+          "private_ip_address_allocation": "Dynamic"
+        }],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      },
+      "metastore": {
+        "count": {{ if .Spec.MetaStore.Spec.Enabled }}{{ derefInt .Spec.MetaStore.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "name": "${local.name}-metastore-nic-${count.index}",
+        "location": "${azurerm_resource_group.main.location}",
+        "resource_group_name": "${azurerm_resource_group.main.name}",
+        "ip_configuration": [{
+          "name": "internal",
+          "subnet_id": "${azurerm_subnet.private.id}",
+          "private_ip_address_allocation": "Dynamic"
+        }],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      },
+      "ingester": {
+        "count": {{ if .Spec.Ingester.Spec.Enabled }}{{ derefInt .Spec.Ingester.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "name": "${local.name}-ingester-nic-${count.index}",
+        "location": "${azurerm_resource_group.main.location}",
+        "resource_group_name": "${azurerm_resource_group.main.name}",
+        "ip_configuration": [{
+          "name": "external",
+          "subnet_id": "${azurerm_subnet.public.id}",
+          "private_ip_address_allocation": "Dynamic",
+          "public_ip_address_id": "${azurerm_public_ip.ingester[count.index].id}"
+        }],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      },
+      "signoz": {
+        "count": {{ if .Spec.Signoz.Spec.Enabled }}{{ derefInt .Spec.Signoz.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "name": "${local.name}-signoz-nic-${count.index}",
+        "location": "${azurerm_resource_group.main.location}",
+        "resource_group_name": "${azurerm_resource_group.main.name}",
+        "ip_configuration": [{
+          "name": "external",
+          "subnet_id": "${azurerm_subnet.public.id}",
+          "private_ip_address_allocation": "Dynamic",
+          "public_ip_address_id": "${azurerm_public_ip.signoz[count.index].id}"
+        }],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      }
+    },
+    "azurerm_network_interface_security_group_association": {
+      "telemetrykeeper": {
+        "count": {{ if .Spec.TelemetryKeeper.Spec.Enabled }}{{ derefInt .Spec.TelemetryKeeper.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "network_interface_id": "${azurerm_network_interface.telemetrykeeper[count.index].id}",
+        "network_security_group_id": "${azurerm_network_security_group.telemetrykeeper.id}"
+      },
+      "telemetrystore": {
+        "count": {{ if .Spec.TelemetryStore.Spec.Enabled }}{{ derefInt .Spec.TelemetryStore.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "network_interface_id": "${azurerm_network_interface.telemetrystore[count.index].id}",
+        "network_security_group_id": "${azurerm_network_security_group.telemetrystore.id}"
+      },
+      "metastore": {
+        "count": {{ if .Spec.MetaStore.Spec.Enabled }}{{ derefInt .Spec.MetaStore.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "network_interface_id": "${azurerm_network_interface.metastore[count.index].id}",
+        "network_security_group_id": "${azurerm_network_security_group.metastore.id}"
+      },
+      "ingester": {
+        "count": {{ if .Spec.Ingester.Spec.Enabled }}{{ derefInt .Spec.Ingester.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "network_interface_id": "${azurerm_network_interface.ingester[count.index].id}",
+        "network_security_group_id": "${azurerm_network_security_group.ingester.id}"
+      },
+      "signoz": {
+        "count": {{ if .Spec.Signoz.Spec.Enabled }}{{ derefInt .Spec.Signoz.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "network_interface_id": "${azurerm_network_interface.signoz[count.index].id}",
+        "network_security_group_id": "${azurerm_network_security_group.signoz.id}"
+      }
+    },
+    "azurerm_public_ip": {
+      "ingester": {
+        "count": {{ if .Spec.Ingester.Spec.Enabled }}{{ derefInt .Spec.Ingester.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "name": "${local.name}-ingester-pip-${count.index}",
+        "location": "${azurerm_resource_group.main.location}",
+        "resource_group_name": "${azurerm_resource_group.main.name}",
+        "allocation_method": "Static",
+        "sku": "Standard",
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      },
+      "signoz": {
+        "count": {{ if .Spec.Signoz.Spec.Enabled }}{{ derefInt .Spec.Signoz.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "name": "${local.name}-signoz-pip-${count.index}",
+        "location": "${azurerm_resource_group.main.location}",
+        "resource_group_name": "${azurerm_resource_group.main.name}",
+        "allocation_method": "Static",
+        "sku": "Standard",
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      }
+    },
+    "azurerm_linux_virtual_machine": {
+      "telemetrykeeper": {
+        "count": {{ if .Spec.TelemetryKeeper.Spec.Enabled }}{{ derefInt .Spec.TelemetryKeeper.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "name": "${local.name}-telemetrykeeper-${count.index}",
+        "location": "${azurerm_resource_group.main.location}",
+        "resource_group_name": "${azurerm_resource_group.main.name}",
+        "size": "${var.telemetrykeeper_vm_size}",
+        "admin_username": "ubuntu",
+        "network_interface_ids": ["${azurerm_network_interface.telemetrykeeper[count.index].id}"],
+        "admin_ssh_key": [{
+          "username": "ubuntu",
+          "public_key": "${var.ssh_public_key}"
+        }],
+        "os_disk": [{
+          "caching": "ReadWrite",
+          "storage_account_type": "Premium_LRS",
+          "disk_size_gb": "${var.telemetrykeeper_disk_size}"
+        }],
+        "source_image_reference": [{
+          "publisher": "Canonical",
+          "offer": "0001-com-ubuntu-server-jammy",
+          "sku": "22_04-lts",
+          "version": "latest"
+        }],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Role": "telemetrykeeper"
+        }
+      },
+      "telemetrystore": {
+        "count": {{ if .Spec.TelemetryStore.Spec.Enabled }}{{ derefInt .Spec.TelemetryStore.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "name": "${local.name}-telemetrystore-${count.index}",
+        "location": "${azurerm_resource_group.main.location}",
+        "resource_group_name": "${azurerm_resource_group.main.name}",
+        "size": "${var.telemetrystore_vm_size}",
+        "admin_username": "ubuntu",
+        "network_interface_ids": ["${azurerm_network_interface.telemetrystore[count.index].id}"],
+        "admin_ssh_key": [{
+          "username": "ubuntu",
+          "public_key": "${var.ssh_public_key}"
+        }],
+        "os_disk": [{
+          "caching": "ReadWrite",
+          "storage_account_type": "Premium_LRS",
+          "disk_size_gb": "${var.telemetrystore_disk_size}"
+        }],
+        "source_image_reference": [{
+          "publisher": "Canonical",
+          "offer": "0001-com-ubuntu-server-jammy",
+          "sku": "22_04-lts",
+          "version": "latest"
+        }],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Role": "telemetrystore"
+        }
+      },
+      "metastore": {
+        "count": {{ if .Spec.MetaStore.Spec.Enabled }}{{ derefInt .Spec.MetaStore.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "name": "${local.name}-metastore-${count.index}",
+        "location": "${azurerm_resource_group.main.location}",
+        "resource_group_name": "${azurerm_resource_group.main.name}",
+        "size": "${var.metastore_vm_size}",
+        "admin_username": "ubuntu",
+        "network_interface_ids": ["${azurerm_network_interface.metastore[count.index].id}"],
+        "admin_ssh_key": [{
+          "username": "ubuntu",
+          "public_key": "${var.ssh_public_key}"
+        }],
+        "os_disk": [{
+          "caching": "ReadWrite",
+          "storage_account_type": "Premium_LRS",
+          "disk_size_gb": "${var.metastore_disk_size}"
+        }],
+        "source_image_reference": [{
+          "publisher": "Canonical",
+          "offer": "0001-com-ubuntu-server-jammy",
+          "sku": "22_04-lts",
+          "version": "latest"
+        }],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Role": "metastore"
+        }
+      },
+      "ingester": {
+        "count": {{ if .Spec.Ingester.Spec.Enabled }}{{ derefInt .Spec.Ingester.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "name": "${local.name}-ingester-${count.index}",
+        "location": "${azurerm_resource_group.main.location}",
+        "resource_group_name": "${azurerm_resource_group.main.name}",
+        "size": "${var.ingester_vm_size}",
+        "admin_username": "ubuntu",
+        "network_interface_ids": ["${azurerm_network_interface.ingester[count.index].id}"],
+        "admin_ssh_key": [{
+          "username": "ubuntu",
+          "public_key": "${var.ssh_public_key}"
+        }],
+        "os_disk": [{
+          "caching": "ReadWrite",
+          "storage_account_type": "Premium_LRS",
+          "disk_size_gb": "${var.ingester_disk_size}"
+        }],
+        "source_image_reference": [{
+          "publisher": "Canonical",
+          "offer": "0001-com-ubuntu-server-jammy",
+          "sku": "22_04-lts",
+          "version": "latest"
+        }],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Role": "ingester"
+        }
+      },
+      "signoz": {
+        "count": {{ if .Spec.Signoz.Spec.Enabled }}{{ derefInt .Spec.Signoz.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "name": "${local.name}-signoz-${count.index}",
+        "location": "${azurerm_resource_group.main.location}",
+        "resource_group_name": "${azurerm_resource_group.main.name}",
+        "size": "${var.signoz_vm_size}",
+        "admin_username": "ubuntu",
+        "network_interface_ids": ["${azurerm_network_interface.signoz[count.index].id}"],
+        "admin_ssh_key": [{
+          "username": "ubuntu",
+          "public_key": "${var.ssh_public_key}"
+        }],
+        "os_disk": [{
+          "caching": "ReadWrite",
+          "storage_account_type": "Premium_LRS",
+          "disk_size_gb": "${var.signoz_disk_size}"
+        }],
+        "source_image_reference": [{
+          "publisher": "Canonical",
+          "offer": "0001-com-ubuntu-server-jammy",
+          "sku": "22_04-lts",
+          "version": "latest"
+        }],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Role": "signoz"
+        }
+      }
+    }
+  }
+}

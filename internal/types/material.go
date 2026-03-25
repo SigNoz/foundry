@@ -91,6 +91,17 @@ func NewHCLMaterial(contents []byte, path string) (Material, error) {
 	}, nil
 }
 
+func NewJSONMaterial(contents []byte, path string) (Material, error) {
+	if !json.Valid(contents) {
+		return Material{}, fmt.Errorf("invalid json at path %q", path)
+	}
+	return Material{
+		contents: contents,
+		path:     path,
+		format:   FormatJSON,
+	}, nil
+}
+
 func (m Material) Contents() []byte {
 	return m.contents
 }

@@ -11,47 +11,47 @@ var templates embed.FS
 
 // Common templates.
 var (
-	providersTFTemplate *types.Template = types.MustNewTemplateFromFS(templates, "templates/providers.tf.gotmpl", types.FormatHCL)
+	providersTFTemplate *types.Template = types.MustNewTemplateFromFS(templates, "templates/providers.tf.json.gotmpl", types.FormatJSON)
 )
 
 // AWS EC2 templates.
 var (
-	awsEC2MainTFTemplate      *types.Template = types.MustNewTemplateFromFS(templates, "templates/aws/ec2/main.tf.gotmpl", types.FormatHCL)
-	awsEC2VariablesTFTemplate *types.Template = types.MustNewTemplateFromFS(templates, "templates/aws/ec2/variables.tf.gotmpl", types.FormatHCL)
-	awsEC2OutputsTFTemplate   *types.Template = types.MustNewTemplateFromFS(templates, "templates/aws/ec2/outputs.tf.gotmpl", types.FormatHCL)
+	awsEC2MainTFTemplate      *types.Template = types.MustNewTemplateFromFS(templates, "templates/aws/ec2/main.tf.json.gotmpl", types.FormatJSON)
+	awsEC2VariablesTFTemplate *types.Template = types.MustNewTemplateFromFS(templates, "templates/aws/ec2/variables.tf.json.gotmpl", types.FormatJSON)
+	awsEC2OutputsTFTemplate   *types.Template = types.MustNewTemplateFromFS(templates, "templates/aws/ec2/outputs.tf.json.gotmpl", types.FormatJSON)
 )
 
 // AWS EKS templates.
 var (
-	awsEKSMainTFTemplate      *types.Template = types.MustNewTemplateFromFS(templates, "templates/aws/eks/main.tf.gotmpl", types.FormatHCL)
-	awsEKSVariablesTFTemplate *types.Template = types.MustNewTemplateFromFS(templates, "templates/aws/eks/variables.tf.gotmpl", types.FormatHCL)
-	awsEKSOutputsTFTemplate   *types.Template = types.MustNewTemplateFromFS(templates, "templates/aws/eks/outputs.tf.gotmpl", types.FormatHCL)
+	awsEKSMainTFTemplate      *types.Template = types.MustNewTemplateFromFS(templates, "templates/aws/eks/main.tf.json.gotmpl", types.FormatJSON)
+	awsEKSVariablesTFTemplate *types.Template = types.MustNewTemplateFromFS(templates, "templates/aws/eks/variables.tf.json.gotmpl", types.FormatJSON)
+	awsEKSOutputsTFTemplate   *types.Template = types.MustNewTemplateFromFS(templates, "templates/aws/eks/outputs.tf.json.gotmpl", types.FormatJSON)
 )
 
 // GCP GCE templates.
 var (
-	gcpGCEMainTFTemplate      *types.Template = types.MustNewTemplateFromFS(templates, "templates/gcp/gce/main.tf.gotmpl", types.FormatHCL)
-	gcpGCEVariablesTFTemplate *types.Template = types.MustNewTemplateFromFS(templates, "templates/gcp/gce/variables.tf.gotmpl", types.FormatHCL)
-	gcpGCEOutputsTFTemplate   *types.Template = types.MustNewTemplateFromFS(templates, "templates/gcp/gce/outputs.tf.gotmpl", types.FormatHCL)
+	gcpGCEMainTFTemplate      *types.Template = types.MustNewTemplateFromFS(templates, "templates/gcp/gce/main.tf.json.gotmpl", types.FormatJSON)
+	gcpGCEVariablesTFTemplate *types.Template = types.MustNewTemplateFromFS(templates, "templates/gcp/gce/variables.tf.json.gotmpl", types.FormatJSON)
+	gcpGCEOutputsTFTemplate   *types.Template = types.MustNewTemplateFromFS(templates, "templates/gcp/gce/outputs.tf.json.gotmpl", types.FormatJSON)
 )
 
 // GCP GKE templates.
 var (
-	gcpGKEMainTFTemplate      *types.Template = types.MustNewTemplateFromFS(templates, "templates/gcp/gke/main.tf.gotmpl", types.FormatHCL)
-	gcpGKEVariablesTFTemplate *types.Template = types.MustNewTemplateFromFS(templates, "templates/gcp/gke/variables.tf.gotmpl", types.FormatHCL)
-	gcpGKEOutputsTFTemplate   *types.Template = types.MustNewTemplateFromFS(templates, "templates/gcp/gke/outputs.tf.gotmpl", types.FormatHCL)
+	gcpGKEMainTFTemplate      *types.Template = types.MustNewTemplateFromFS(templates, "templates/gcp/gke/main.tf.json.gotmpl", types.FormatJSON)
+	gcpGKEVariablesTFTemplate *types.Template = types.MustNewTemplateFromFS(templates, "templates/gcp/gke/variables.tf.json.gotmpl", types.FormatJSON)
+	gcpGKEOutputsTFTemplate   *types.Template = types.MustNewTemplateFromFS(templates, "templates/gcp/gke/outputs.tf.json.gotmpl", types.FormatJSON)
 )
 
 // Azure VM templates.
 var (
-	azureVMMainTFTemplate      *types.Template = types.MustNewTemplateFromFS(templates, "templates/azure/vm/main.tf.gotmpl", types.FormatHCL)
-	azureVMVariablesTFTemplate *types.Template = types.MustNewTemplateFromFS(templates, "templates/azure/vm/variables.tf.gotmpl", types.FormatHCL)
-	azureVMOutputsTFTemplate   *types.Template = types.MustNewTemplateFromFS(templates, "templates/azure/vm/outputs.tf.gotmpl", types.FormatHCL)
+	azureVMMainTFTemplate      *types.Template = types.MustNewTemplateFromFS(templates, "templates/azure/vm/main.tf.json.gotmpl", types.FormatJSON)
+	azureVMVariablesTFTemplate *types.Template = types.MustNewTemplateFromFS(templates, "templates/azure/vm/variables.tf.json.gotmpl", types.FormatJSON)
+	azureVMOutputsTFTemplate   *types.Template = types.MustNewTemplateFromFS(templates, "templates/azure/vm/outputs.tf.json.gotmpl", types.FormatJSON)
 )
 
 // Azure AKS templates.
 var (
-	azureAKSMainTFTemplate      *types.Template = types.MustNewTemplateFromFS(templates, "templates/azure/aks/main.tf.gotmpl", types.FormatHCL)
-	azureAKSVariablesTFTemplate *types.Template = types.MustNewTemplateFromFS(templates, "templates/azure/aks/variables.tf.gotmpl", types.FormatHCL)
-	azureAKSOutputsTFTemplate   *types.Template = types.MustNewTemplateFromFS(templates, "templates/azure/aks/outputs.tf.gotmpl", types.FormatHCL)
+	azureAKSMainTFTemplate      *types.Template = types.MustNewTemplateFromFS(templates, "templates/azure/aks/main.tf.json.gotmpl", types.FormatJSON)
+	azureAKSVariablesTFTemplate *types.Template = types.MustNewTemplateFromFS(templates, "templates/azure/aks/variables.tf.json.gotmpl", types.FormatJSON)
+	azureAKSOutputsTFTemplate   *types.Template = types.MustNewTemplateFromFS(templates, "templates/azure/aks/outputs.tf.json.gotmpl", types.FormatJSON)
 )

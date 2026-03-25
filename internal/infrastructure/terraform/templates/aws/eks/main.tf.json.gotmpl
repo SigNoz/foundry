@@ -1,0 +1,327 @@
+{
+  "locals": {
+    "name": "{{ .Metadata.Name }}",
+    "common_tags": {
+      "app.kubernetes.io/managed-by": "foundry",
+      "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+    }
+  },
+  "data": {
+    "aws_availability_zones": {
+      "available": {
+        "state": "available"
+      }
+    }
+  },
+  "resource": {
+    "aws_vpc": {
+      "main": {
+        "cidr_block": "${var.vpc_cidr}",
+        "enable_dns_hostnames": true,
+        "enable_dns_support": true,
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-vpc",
+          "kubernetes.io/cluster/${local.name}": "shared"
+        }
+      }
+    },
+    "aws_subnet": {
+      "private": {
+        "count": "${var.az_count}",
+        "vpc_id": "${aws_vpc.main.id}",
+        "cidr_block": "${cidrsubnet(var.vpc_cidr, 8, count.index)}",
+        "availability_zone": "${data.aws_availability_zones.available.names[count.index]}",
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-private-${count.index}",
+          "kubernetes.io/cluster/${local.name}": "shared",
+          "kubernetes.io/role/internal-elb": "1"
+        }
+      },
+      "public": {
+        "count": "${var.az_count}",
+        "vpc_id": "${aws_vpc.main.id}",
+        "cidr_block": "${cidrsubnet(var.vpc_cidr, 8, count.index + var.az_count)}",
+        "availability_zone": "${data.aws_availability_zones.available.names[count.index]}",
+        "map_public_ip_on_launch": true,
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-public-${count.index}",
+          "kubernetes.io/cluster/${local.name}": "shared",
+          "kubernetes.io/role/elb": "1"
+        }
+      }
+    },
+    "aws_internet_gateway": {
+      "main": {
+        "vpc_id": "${aws_vpc.main.id}",
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-igw"
+        }
+      }
+    },
+    "aws_eip": {
+      "nat": {
+        "count": "${var.az_count}",
+        "domain": "vpc",
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-nat-eip-${count.index}"
+        }
+      }
+    },
+    "aws_nat_gateway": {
+      "main": {
+        "count": "${var.az_count}",
+        "allocation_id": "${aws_eip.nat[count.index].id}",
+        "subnet_id": "${aws_subnet.public[count.index].id}",
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-nat-${count.index}"
+        },
+        "depends_on": ["${aws_internet_gateway.main}"]
+      }
+    },
+    "aws_route_table": {
+      "public": {
+        "vpc_id": "${aws_vpc.main.id}",
+        "route": [
+          {
+            "cidr_block": "0.0.0.0/0",
+            "gateway_id": "${aws_internet_gateway.main.id}"
+          }
+        ],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-public-rt"
+        }
+      },
+      "private": {
+        "count": "${var.az_count}",
+        "vpc_id": "${aws_vpc.main.id}",
+        "route": [
+          {
+            "cidr_block": "0.0.0.0/0",
+            "nat_gateway_id": "${aws_nat_gateway.main[count.index].id}"
+          }
+        ],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-private-rt-${count.index}"
+        }
+      }
+    },
+    "aws_route_table_association": {
+      "public": {
+        "count": "${var.az_count}",
+        "subnet_id": "${aws_subnet.public[count.index].id}",
+        "route_table_id": "${aws_route_table.public.id}"
+      },
+      "private": {
+        "count": "${var.az_count}",
+        "subnet_id": "${aws_subnet.private[count.index].id}",
+        "route_table_id": "${aws_route_table.private[count.index].id}"
+      }
+    },
+    "aws_iam_role": {
+      "eks_cluster": {
+        "name": "${local.name}-eks-cluster-role",
+        "assume_role_policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Action\" = \"sts:AssumeRole\", \"Effect\" = \"Allow\", \"Principal\" = {\"Service\" = \"eks.amazonaws.com\"}}]})}",
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      },
+      "eks_node_group": {
+        "name": "${local.name}-eks-node-group-role",
+        "assume_role_policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Action\" = \"sts:AssumeRole\", \"Effect\" = \"Allow\", \"Principal\" = {\"Service\" = \"ec2.amazonaws.com\"}}]})}",
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      }
+    },
+    "aws_iam_role_policy_attachment": {
+      "eks_cluster_policy": {
+        "policy_arn": "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy",
+        "role": "${aws_iam_role.eks_cluster.name}"
+      },
+      "eks_worker_node_policy": {
+        "policy_arn": "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy",
+        "role": "${aws_iam_role.eks_node_group.name}"
+      },
+      "eks_cni_policy": {
+        "policy_arn": "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
+        "role": "${aws_iam_role.eks_node_group.name}"
+      },
+      "eks_container_registry": {
+        "policy_arn": "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
+        "role": "${aws_iam_role.eks_node_group.name}"
+      }
+    },
+    "aws_eks_cluster": {
+      "main": {
+        "name": "${local.name}",
+        "role_arn": "${aws_iam_role.eks_cluster.arn}",
+        "version": "${var.kubernetes_version}",
+        "vpc_config": [{
+          "subnet_ids": "${concat(aws_subnet.private[*].id, aws_subnet.public[*].id)}",
+          "endpoint_private_access": true,
+          "endpoint_public_access": true
+        }],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        },
+        "depends_on": ["${aws_iam_role_policy_attachment.eks_cluster_policy}"]
+      }
+    },
+    "aws_eks_node_group": {
+      "telemetrykeeper": {
+        "count": {{ if .Spec.TelemetryKeeper.Spec.Enabled }}1{{ else }}0{{ end }},
+        "cluster_name": "${aws_eks_cluster.main.name}",
+        "node_group_name": "${local.name}-telemetrykeeper",
+        "node_role_arn": "${aws_iam_role.eks_node_group.arn}",
+        "subnet_ids": "${aws_subnet.private[*].id}",
+        "instance_types": ["${var.telemetrykeeper_instance_type}"],
+        "scaling_config": [{
+          "desired_size": {{ derefInt .Spec.TelemetryKeeper.Spec.Cluster.Replicas }},
+          "min_size": 1,
+          "max_size": {{ derefInt .Spec.TelemetryKeeper.Spec.Cluster.Replicas }}
+        }],
+        "disk_size": "${var.telemetrykeeper_volume_size}",
+        "labels": {
+          "role": "telemetrykeeper"
+        },
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-telemetrykeeper"
+        },
+        "depends_on": [
+          "${aws_iam_role_policy_attachment.eks_worker_node_policy}",
+          "${aws_iam_role_policy_attachment.eks_cni_policy}",
+          "${aws_iam_role_policy_attachment.eks_container_registry}"
+        ]
+      },
+      "telemetrystore": {
+        "count": {{ if .Spec.TelemetryStore.Spec.Enabled }}1{{ else }}0{{ end }},
+        "cluster_name": "${aws_eks_cluster.main.name}",
+        "node_group_name": "${local.name}-telemetrystore",
+        "node_role_arn": "${aws_iam_role.eks_node_group.arn}",
+        "subnet_ids": "${aws_subnet.private[*].id}",
+        "instance_types": ["${var.telemetrystore_instance_type}"],
+        "scaling_config": [{
+          "desired_size": {{ derefInt .Spec.TelemetryStore.Spec.Cluster.Replicas }},
+          "min_size": 1,
+          "max_size": {{ derefInt .Spec.TelemetryStore.Spec.Cluster.Replicas }}
+        }],
+        "disk_size": "${var.telemetrystore_volume_size}",
+        "labels": {
+          "role": "telemetrystore"
+        },
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-telemetrystore"
+        },
+        "depends_on": [
+          "${aws_iam_role_policy_attachment.eks_worker_node_policy}",
+          "${aws_iam_role_policy_attachment.eks_cni_policy}",
+          "${aws_iam_role_policy_attachment.eks_container_registry}"
+        ]
+      },
+      "metastore": {
+        "count": {{ if .Spec.MetaStore.Spec.Enabled }}1{{ else }}0{{ end }},
+        "cluster_name": "${aws_eks_cluster.main.name}",
+        "node_group_name": "${local.name}-metastore",
+        "node_role_arn": "${aws_iam_role.eks_node_group.arn}",
+        "subnet_ids": "${aws_subnet.private[*].id}",
+        "instance_types": ["${var.metastore_instance_type}"],
+        "scaling_config": [{
+          "desired_size": {{ derefInt .Spec.MetaStore.Spec.Cluster.Replicas }},
+          "min_size": 1,
+          "max_size": {{ derefInt .Spec.MetaStore.Spec.Cluster.Replicas }}
+        }],
+        "disk_size": "${var.metastore_volume_size}",
+        "labels": {
+          "role": "metastore"
+        },
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-metastore"
+        },
+        "depends_on": [
+          "${aws_iam_role_policy_attachment.eks_worker_node_policy}",
+          "${aws_iam_role_policy_attachment.eks_cni_policy}",
+          "${aws_iam_role_policy_attachment.eks_container_registry}"
+        ]
+      },
+      "ingester": {
+        "count": {{ if .Spec.Ingester.Spec.Enabled }}1{{ else }}0{{ end }},
+        "cluster_name": "${aws_eks_cluster.main.name}",
+        "node_group_name": "${local.name}-ingester",
+        "node_role_arn": "${aws_iam_role.eks_node_group.arn}",
+        "subnet_ids": "${aws_subnet.public[*].id}",
+        "instance_types": ["${var.ingester_instance_type}"],
+        "scaling_config": [{
+          "desired_size": {{ derefInt .Spec.Ingester.Spec.Cluster.Replicas }},
+          "min_size": 1,
+          "max_size": {{ derefInt .Spec.Ingester.Spec.Cluster.Replicas }}
+        }],
+        "disk_size": "${var.ingester_volume_size}",
+        "labels": {
+          "role": "ingester"
+        },
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-ingester"
+        },
+        "depends_on": [
+          "${aws_iam_role_policy_attachment.eks_worker_node_policy}",
+          "${aws_iam_role_policy_attachment.eks_cni_policy}",
+          "${aws_iam_role_policy_attachment.eks_container_registry}"
+        ]
+      },
+      "signoz": {
+        "count": {{ if .Spec.Signoz.Spec.Enabled }}1{{ else }}0{{ end }},
+        "cluster_name": "${aws_eks_cluster.main.name}",
+        "node_group_name": "${local.name}-signoz",
+        "node_role_arn": "${aws_iam_role.eks_node_group.arn}",
+        "subnet_ids": "${aws_subnet.public[*].id}",
+        "instance_types": ["${var.signoz_instance_type}"],
+        "scaling_config": [{
+          "desired_size": {{ derefInt .Spec.Signoz.Spec.Cluster.Replicas }},
+          "min_size": 1,
+          "max_size": {{ derefInt .Spec.Signoz.Spec.Cluster.Replicas }}
+        }],
+        "disk_size": "${var.signoz_volume_size}",
+        "labels": {
+          "role": "signoz"
+        },
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-signoz"
+        },
+        "depends_on": [
+          "${aws_iam_role_policy_attachment.eks_worker_node_policy}",
+          "${aws_iam_role_policy_attachment.eks_cni_policy}",
+          "${aws_iam_role_policy_attachment.eks_container_registry}"
+        ]
+      }
+    }
+  }
+}

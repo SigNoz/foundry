@@ -80,11 +80,10 @@ func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, path
 	if config.Spec.Infrastructure.Enabled {
 		foundry.Logger.InfoContext(ctx, "generating infrastructure manifests",
 			slog.String("casting.metadata.name", config.Metadata.Name),
-			slog.String("infrastructure.provider", config.Spec.Infrastructure.Provider.String()))
+			slog.String("deployment.platform", config.Spec.Deployment.Platform))
 
 		infraMaterials, err = foundry.InfrastructureGenerator.Generate(ctx, config)
 		if err != nil {
-			foundry.Logger.ErrorContext(ctx, "failed to generate infrastructure manifests", foundryerrors.LogAttr(err))
 			return fmt.Errorf("failed to generate infrastructure manifests: %w", err)
 		}
 

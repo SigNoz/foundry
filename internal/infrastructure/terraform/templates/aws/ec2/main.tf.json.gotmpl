@@ -1,0 +1,456 @@
+{
+  "locals": {
+    "name": "{{ .Metadata.Name }}",
+    "common_tags": {
+      "app.kubernetes.io/managed-by": "foundry",
+      "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+    }
+  },
+  "data": {
+    "aws_availability_zones": {
+      "available": {
+        "state": "available"
+      }
+    },
+    "aws_ami": {
+      "ubuntu": {
+        "most_recent": true,
+        "owners": ["099720109477"],
+        "filter": [
+          {
+            "name": "name",
+            "values": ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+          },
+          {
+            "name": "virtualization-type",
+            "values": ["hvm"]
+          }
+        ]
+      }
+    }
+  },
+  "resource": {
+    "aws_vpc": {
+      "main": {
+        "cidr_block": "${var.vpc_cidr}",
+        "enable_dns_hostnames": true,
+        "enable_dns_support": true,
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-vpc"
+        }
+      }
+    },
+    "aws_subnet": {
+      "private": {
+        "count": "${var.az_count}",
+        "vpc_id": "${aws_vpc.main.id}",
+        "cidr_block": "${cidrsubnet(var.vpc_cidr, 8, count.index)}",
+        "availability_zone": "${data.aws_availability_zones.available.names[count.index]}",
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-private-${count.index}"
+        }
+      },
+      "public": {
+        "count": "${var.az_count}",
+        "vpc_id": "${aws_vpc.main.id}",
+        "cidr_block": "${cidrsubnet(var.vpc_cidr, 8, count.index + var.az_count)}",
+        "availability_zone": "${data.aws_availability_zones.available.names[count.index]}",
+        "map_public_ip_on_launch": true,
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-public-${count.index}"
+        }
+      }
+    },
+    "aws_internet_gateway": {
+      "main": {
+        "vpc_id": "${aws_vpc.main.id}",
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-igw"
+        }
+      }
+    },
+    "aws_eip": {
+      "nat": {
+        "count": "${var.az_count}",
+        "domain": "vpc",
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-nat-eip-${count.index}"
+        }
+      }
+    },
+    "aws_nat_gateway": {
+      "main": {
+        "count": "${var.az_count}",
+        "allocation_id": "${aws_eip.nat[count.index].id}",
+        "subnet_id": "${aws_subnet.public[count.index].id}",
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-nat-${count.index}"
+        },
+        "depends_on": ["${aws_internet_gateway.main}"]
+      }
+    },
+    "aws_route_table": {
+      "public": {
+        "vpc_id": "${aws_vpc.main.id}",
+        "route": [
+          {
+            "cidr_block": "0.0.0.0/0",
+            "gateway_id": "${aws_internet_gateway.main.id}"
+          }
+        ],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-public-rt"
+        }
+      },
+      "private": {
+        "count": "${var.az_count}",
+        "vpc_id": "${aws_vpc.main.id}",
+        "route": [
+          {
+            "cidr_block": "0.0.0.0/0",
+            "nat_gateway_id": "${aws_nat_gateway.main[count.index].id}"
+          }
+        ],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-private-rt-${count.index}"
+        }
+      }
+    },
+    "aws_route_table_association": {
+      "public": {
+        "count": "${var.az_count}",
+        "subnet_id": "${aws_subnet.public[count.index].id}",
+        "route_table_id": "${aws_route_table.public.id}"
+      },
+      "private": {
+        "count": "${var.az_count}",
+        "subnet_id": "${aws_subnet.private[count.index].id}",
+        "route_table_id": "${aws_route_table.private[count.index].id}"
+      }
+    },
+    "aws_security_group": {
+      "telemetrykeeper": {
+        "name": "${local.name}-telemetrykeeper-sg",
+        "description": "Security group for TelemetryKeeper (ClickHouse Keeper)",
+        "vpc_id": "${aws_vpc.main.id}",
+        "ingress": [
+          {
+            "from_port": 9181,
+            "to_port": 9181,
+            "protocol": "tcp",
+            "cidr_blocks": ["${var.vpc_cidr}"],
+            "description": "ClickHouse Keeper client port"
+          },
+          {
+            "from_port": 9234,
+            "to_port": 9234,
+            "protocol": "tcp",
+            "cidr_blocks": ["${var.vpc_cidr}"],
+            "description": "ClickHouse Keeper raft port"
+          },
+          {
+            "from_port": 22,
+            "to_port": 22,
+            "protocol": "tcp",
+            "cidr_blocks": ["${var.vpc_cidr}"],
+            "description": "SSH access from VPC"
+          }
+        ],
+        "egress": [
+          {
+            "from_port": 0,
+            "to_port": 0,
+            "protocol": "-1",
+            "cidr_blocks": ["0.0.0.0/0"]
+          }
+        ],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-telemetrykeeper-sg"
+        }
+      },
+      "telemetrystore": {
+        "name": "${local.name}-telemetrystore-sg",
+        "description": "Security group for TelemetryStore (ClickHouse)",
+        "vpc_id": "${aws_vpc.main.id}",
+        "ingress": [
+          {
+            "from_port": 9000,
+            "to_port": 9000,
+            "protocol": "tcp",
+            "cidr_blocks": ["${var.vpc_cidr}"],
+            "description": "ClickHouse native port"
+          },
+          {
+            "from_port": 8123,
+            "to_port": 8123,
+            "protocol": "tcp",
+            "cidr_blocks": ["${var.vpc_cidr}"],
+            "description": "ClickHouse HTTP port"
+          },
+          {
+            "from_port": 22,
+            "to_port": 22,
+            "protocol": "tcp",
+            "cidr_blocks": ["${var.vpc_cidr}"],
+            "description": "SSH access from VPC"
+          }
+        ],
+        "egress": [
+          {
+            "from_port": 0,
+            "to_port": 0,
+            "protocol": "-1",
+            "cidr_blocks": ["0.0.0.0/0"]
+          }
+        ],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-telemetrystore-sg"
+        }
+      },
+      "metastore": {
+        "name": "${local.name}-metastore-sg",
+        "description": "Security group for MetaStore (PostgreSQL)",
+        "vpc_id": "${aws_vpc.main.id}",
+        "ingress": [
+          {
+            "from_port": 5432,
+            "to_port": 5432,
+            "protocol": "tcp",
+            "cidr_blocks": ["${var.vpc_cidr}"],
+            "description": "PostgreSQL port"
+          },
+          {
+            "from_port": 22,
+            "to_port": 22,
+            "protocol": "tcp",
+            "cidr_blocks": ["${var.vpc_cidr}"],
+            "description": "SSH access from VPC"
+          }
+        ],
+        "egress": [
+          {
+            "from_port": 0,
+            "to_port": 0,
+            "protocol": "-1",
+            "cidr_blocks": ["0.0.0.0/0"]
+          }
+        ],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-metastore-sg"
+        }
+      },
+      "ingester": {
+        "name": "${local.name}-ingester-sg",
+        "description": "Security group for Ingester (OpenTelemetry Collector)",
+        "vpc_id": "${aws_vpc.main.id}",
+        "ingress": [
+          {
+            "from_port": 4317,
+            "to_port": 4317,
+            "protocol": "tcp",
+            "cidr_blocks": ["0.0.0.0/0"],
+            "description": "OTLP gRPC port"
+          },
+          {
+            "from_port": 4318,
+            "to_port": 4318,
+            "protocol": "tcp",
+            "cidr_blocks": ["0.0.0.0/0"],
+            "description": "OTLP HTTP port"
+          },
+          {
+            "from_port": 22,
+            "to_port": 22,
+            "protocol": "tcp",
+            "cidr_blocks": ["${var.vpc_cidr}"],
+            "description": "SSH access from VPC"
+          }
+        ],
+        "egress": [
+          {
+            "from_port": 0,
+            "to_port": 0,
+            "protocol": "-1",
+            "cidr_blocks": ["0.0.0.0/0"]
+          }
+        ],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-ingester-sg"
+        }
+      },
+      "signoz": {
+        "name": "${local.name}-signoz-sg",
+        "description": "Security group for SigNoz",
+        "vpc_id": "${aws_vpc.main.id}",
+        "ingress": [
+          {
+            "from_port": 8080,
+            "to_port": 8080,
+            "protocol": "tcp",
+            "cidr_blocks": ["0.0.0.0/0"],
+            "description": "SigNoz UI port"
+          },
+          {
+            "from_port": 3301,
+            "to_port": 3301,
+            "protocol": "tcp",
+            "cidr_blocks": ["${var.vpc_cidr}"],
+            "description": "SigNoz API port"
+          },
+          {
+            "from_port": 22,
+            "to_port": 22,
+            "protocol": "tcp",
+            "cidr_blocks": ["${var.vpc_cidr}"],
+            "description": "SSH access from VPC"
+          }
+        ],
+        "egress": [
+          {
+            "from_port": 0,
+            "to_port": 0,
+            "protocol": "-1",
+            "cidr_blocks": ["0.0.0.0/0"]
+          }
+        ],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-signoz-sg"
+        }
+      }
+    },
+    "aws_key_pair": {
+      "main": {
+        "count": "${var.ssh_public_key != \"\" ? 1 : 0}",
+        "key_name": "${local.name}-key",
+        "public_key": "${var.ssh_public_key}",
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      }
+    },
+    "aws_instance": {
+      "telemetrykeeper": {
+        "count": {{ if .Spec.TelemetryKeeper.Spec.Enabled }}{{ derefInt .Spec.TelemetryKeeper.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "ami": "${data.aws_ami.ubuntu.id}",
+        "instance_type": "${var.telemetrykeeper_instance_type}",
+        "subnet_id": "${aws_subnet.private[count.index % var.az_count].id}",
+        "vpc_security_group_ids": ["${aws_security_group.telemetrykeeper.id}"],
+        "key_name": "${var.ssh_public_key != \"\" ? aws_key_pair.main[0].key_name : null}",
+        "root_block_device": [{
+          "volume_size": "${var.telemetrykeeper_volume_size}",
+          "volume_type": "gp3",
+          "encrypted": true
+        }],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-telemetrykeeper-${count.index}",
+          "Role": "telemetrykeeper"
+        }
+      },
+      "telemetrystore": {
+        "count": {{ if .Spec.TelemetryStore.Spec.Enabled }}{{ derefInt .Spec.TelemetryStore.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "ami": "${data.aws_ami.ubuntu.id}",
+        "instance_type": "${var.telemetrystore_instance_type}",
+        "subnet_id": "${aws_subnet.private[count.index % var.az_count].id}",
+        "vpc_security_group_ids": ["${aws_security_group.telemetrystore.id}"],
+        "key_name": "${var.ssh_public_key != \"\" ? aws_key_pair.main[0].key_name : null}",
+        "root_block_device": [{
+          "volume_size": "${var.telemetrystore_volume_size}",
+          "volume_type": "gp3",
+          "encrypted": true
+        }],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-telemetrystore-${count.index}",
+          "Role": "telemetrystore"
+        }
+      },
+      "metastore": {
+        "count": {{ if .Spec.MetaStore.Spec.Enabled }}{{ derefInt .Spec.MetaStore.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "ami": "${data.aws_ami.ubuntu.id}",
+        "instance_type": "${var.metastore_instance_type}",
+        "subnet_id": "${aws_subnet.private[count.index % var.az_count].id}",
+        "vpc_security_group_ids": ["${aws_security_group.metastore.id}"],
+        "key_name": "${var.ssh_public_key != \"\" ? aws_key_pair.main[0].key_name : null}",
+        "root_block_device": [{
+          "volume_size": "${var.metastore_volume_size}",
+          "volume_type": "gp3",
+          "encrypted": true
+        }],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-metastore-${count.index}",
+          "Role": "metastore"
+        }
+      },
+      "ingester": {
+        "count": {{ if .Spec.Ingester.Spec.Enabled }}{{ derefInt .Spec.Ingester.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "ami": "${data.aws_ami.ubuntu.id}",
+        "instance_type": "${var.ingester_instance_type}",
+        "subnet_id": "${aws_subnet.public[count.index % var.az_count].id}",
+        "vpc_security_group_ids": ["${aws_security_group.ingester.id}"],
+        "key_name": "${var.ssh_public_key != \"\" ? aws_key_pair.main[0].key_name : null}",
+        "root_block_device": [{
+          "volume_size": "${var.ingester_volume_size}",
+          "volume_type": "gp3",
+          "encrypted": true
+        }],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-ingester-${count.index}",
+          "Role": "ingester"
+        }
+      },
+      "signoz": {
+        "count": {{ if .Spec.Signoz.Spec.Enabled }}{{ derefInt .Spec.Signoz.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "ami": "${data.aws_ami.ubuntu.id}",
+        "instance_type": "${var.signoz_instance_type}",
+        "subnet_id": "${aws_subnet.public[count.index % var.az_count].id}",
+        "vpc_security_group_ids": ["${aws_security_group.signoz.id}"],
+        "key_name": "${var.ssh_public_key != \"\" ? aws_key_pair.main[0].key_name : null}",
+        "root_block_device": [{
+          "volume_size": "${var.signoz_volume_size}",
+          "volume_type": "gp3",
+          "encrypted": true
+        }],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}",
+          "Name": "${local.name}-signoz-${count.index}",
+          "Role": "signoz"
+        }
+      }
+    }
+  }
+}
