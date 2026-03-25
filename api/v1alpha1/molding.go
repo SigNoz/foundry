@@ -4,7 +4,7 @@ import "maps"
 
 type MoldingSpec struct {
 	// Whether the molding is enabled
-	Enabled bool `json:"enabled,omitempty" yaml:"enabled,omitempty" description:"Whether the molding is enabled" default:"true"`
+	Enabled *bool `json:"enabled,omitempty" yaml:"enabled,omitempty" description:"Whether the molding is enabled" default:"true"`
 
 	// Cluster configuration for the molding
 	Cluster TypeCluster `json:"cluster" yaml:"cluster,omitempty" description:"Cluster configuration for the molding"`

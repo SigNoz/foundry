@@ -120,7 +120,9 @@ definitions:
       enabled:
         default: true
         description: Whether the molding is enabled
-        type: boolean
+        type:
+        - "null"
+        - boolean
       env:
         additionalProperties:
           type: string
