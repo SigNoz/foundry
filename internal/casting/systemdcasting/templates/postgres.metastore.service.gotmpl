@@ -7,11 +7,9 @@ After=network-online.target
 [Service]
 Type=notify
 User=postgres
-{{ if $.Spec.MetaStore.Spec.Env }}
-{{ range $key, $value := $.Spec.MetaStore.Spec.Env }}
+{{- range $key, $value := $.Spec.MetaStore.Spec.Env }}
 Environment={{ $key }}={{ $value }}
-{{ end }}
-{{ end }}
+{{- end }}
 {{- if and $.Metadata.Annotations (index $.Metadata.Annotations "foundry.signoz.io/metastore-postgres-binary-path") }}
 {{- $metastoreBinaryPath := index $.Metadata.Annotations "foundry.signoz.io/metastore-postgres-binary-path" }}
 ExecStart={{ $metastoreBinaryPath }} -D /usr/local/pgsql/data

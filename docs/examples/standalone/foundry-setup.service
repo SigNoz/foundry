@@ -1,0 +1,13 @@
+[Unit]
+Description=Foundry Setup - SigNoz Standalone
+After=multi-user.target
+ConditionPathExists=!/var/lib/foundry/.initialized
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/foundryctl cast -f /etc/foundry/casting.yaml -p /etc/foundry/pours --no-gauge
+ExecStartPost=/bin/touch /var/lib/foundry/.initialized
+
+[Install]
+WantedBy=multi-user.target

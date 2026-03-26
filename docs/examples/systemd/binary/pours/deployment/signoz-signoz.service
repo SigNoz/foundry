@@ -11,12 +11,11 @@ ExecStart=/opt/signoz/bin/signoz server
 Group=signoz
 KillMode=mixed
 Restart=on-failure
+RestartSec=5
 Type=simple
 User=signoz
 WorkingDirectory=/opt/signoz
 
 [Unit]
-After=signoz-telemetrystore-clickhouse-0-0 signoz-metastore-postgres signoz-telemetrystore-migrator
 Description=SigNoz
 Documentation=https://signoz.io/docs
-Requires=signoz-telemetrystore-migrator

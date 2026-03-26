@@ -22,10 +22,6 @@ import (
 
 const svcSuffix = ".service"
 
-const (
-	serviceStartTimeout = 2 * time.Minute
-)
-
 var _ rootcasting.Casting = (*systemdCasting)(nil)
 
 type systemdCasting struct {
@@ -54,7 +50,7 @@ func (c *systemdCasting) Enricher(ctx context.Context, config *v1alpha1.Casting)
 func (c *systemdCasting) Forge(ctx context.Context, cfg v1alpha1.Casting, poursPath string) ([]types.Material, error) {
 	var materials []types.Material
 	for _, tmpl := range c.castings {
-		m, err := c.forgeCasting(tmpl, &cfg, poursPath)
+		m, err := c.forgeCasting(tmpl, &cfg)
 		if err != nil {
 			return nil, fmt.Errorf("failed to forge: %w", err)
 		}
@@ -70,11 +66,11 @@ func (c *systemdCasting) Cast(ctx context.Context, config v1alpha1.Casting, pour
 	defer cancel()
 
 	// Discover and prepare services
-	serviceMap, err := c.discoverAndPrepareServices(runctx, poursPath)
+	services, err := c.discoverAndPrepareServices(runctx, poursPath)
 	if err != nil {
 		return err
 	}
-	if serviceMap == nil {
+	if len(services) == 0 {
 		c.logger.WarnContext(runctx, "No service files found in pours directory")
 		return nil
 	}
@@ -85,13 +81,21 @@ func (c *systemdCasting) Cast(ctx context.Context, config v1alpha1.Casting, pour
 	}
 
 	if config.Spec.MetaStore.Spec.IsEnabled() {
-		if err := c.initializePostgres(ctx, &config); err != nil {
-			return err
+		switch config.Spec.MetaStore.Kind {
+		case v1alpha1.MetaStoreKindPostgres:
+			if err := c.initializePostgres(ctx, &config); err != nil {
+				return err
+			}
+		case v1alpha1.MetaStoreKindSQLite:
+			if err := os.MkdirAll("/var/lib/signoz", 0755); err != nil {
+				return fmt.Errorf("failed to create sqlite data directory: %w", err)
+			}
+			_ = c.execCommand(ctx, "chown", "-R", "signoz:signoz", "/var/lib/signoz")
 		}
 	}
 
 	// Start all services - systemd dependencies handle ordering
-	if err := c.startAllServices(runctx, serviceMap); err != nil {
+	if err := c.startAllServices(runctx, services); err != nil {
 		return err
 	}
 
@@ -99,115 +103,113 @@ func (c *systemdCasting) Cast(ctx context.Context, config v1alpha1.Casting, pour
 	return nil
 }
 
-func (c *systemdCasting) forgeCasting(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
+func (c *systemdCasting) forgeCasting(tmpl *types.Template, cfg *v1alpha1.Casting) ([]types.Material, error) {
 	switch tmpl {
 	case signozServiceTemplate:
+		if !cfg.Spec.Signoz.Spec.IsEnabled() {
+			return nil, nil
+		}
 		return c.forgeSignoz(tmpl, cfg)
 	case metaStoreServiceTemplate:
-		return c.forgeMetaStore(tmpl, cfg, poursPath)
+		if !cfg.Spec.MetaStore.Spec.IsEnabled() {
+			return nil, nil
+		}
+		return c.forgeMetaStore(tmpl, cfg)
 	case ingesterServiceTemplate:
-		return c.forgeIngester(tmpl, cfg, poursPath)
+		if !cfg.Spec.Ingester.Spec.IsEnabled() {
+			return nil, nil
+		}
+		return c.forgeIngester(tmpl, cfg)
 	case telemetryStoreServiceTemplate:
-		return c.forgeTelemetryStore(tmpl, cfg, poursPath)
+		if !cfg.Spec.TelemetryStore.Spec.IsEnabled() {
+			return nil, nil
+		}
+		return c.forgeTelemetryStore(tmpl, cfg)
 	case telemetryKeeperServiceTemplate:
-		return c.forgeTelemetryKeeper(tmpl, cfg, poursPath)
+		if !cfg.Spec.TelemetryKeeper.Spec.IsEnabled() {
+			return nil, nil
+		}
+		return c.forgeTelemetryKeeper(tmpl, cfg)
 	case telemetryStoreMigratorServiceTemplate:
+		if !cfg.Spec.TelemetryStore.Spec.IsEnabled() {
+			return nil, nil
+		}
 		return c.forgeMigrator(tmpl, cfg)
 	default:
 		return nil, nil
 	}
 }
 
-// --- Forge Handlers ---
-
-func (c *systemdCasting) forgeIngester(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
+func (c *systemdCasting) forgeIngester(tmpl *types.Template, cfg *v1alpha1.Casting) ([]types.Material, error) {
 	spec := &cfg.Spec.Ingester
-	if !spec.Spec.IsEnabled() {
-		return nil, nil
-	}
-	if spec.Status.Config.Data == nil {
-		return nil, fmt.Errorf("no config molded for %s", v1alpha1.MoldingKindIngester)
-	}
 
-	// Initialize status extras
 	if spec.Status.Extras == nil {
 		spec.Status.Extras = make(map[string]string)
 	}
-
-	// Create config materials
-	mats, err := c.configMaterials(spec.Status.Config.Data, "ingester")
-	if err != nil {
-		return nil, err
-	}
-
-	// Set extras for template
-	spec.Status.Extras["cfgPath"] = "configs/ingester/ingester.yaml"
-	spec.Status.Extras["cfgOpampPath"] = "configs/ingester/opamp.yaml"
+	spec.Status.Extras["cfgPath"] = filepath.Join("ingester", "ingester.yaml")
+	spec.Status.Extras["cfgOpampPath"] = filepath.Join("ingester", "opamp.yaml")
 	spec.Status.Extras["workingDir"] = "/opt/ingester"
 
-	// Create service material
+	var materials []types.Material
+
 	svcMat, err := c.renderTemplate(tmpl, cfg, cfg.Metadata.Name+"-ingester"+svcSuffix)
 	if err != nil {
 		return nil, err
 	}
-	return append(mats, svcMat), nil
+	materials = append(materials, svcMat)
+
+	cfgMats, err := c.configMaterials(spec.Spec.Config.Data, "ingester", "")
+	if err != nil {
+		return nil, err
+	}
+	materials = append(materials, cfgMats...)
+
+	return materials, nil
 }
 
 func (c *systemdCasting) forgeSignoz(tmpl *types.Template, cfg *v1alpha1.Casting) ([]types.Material, error) {
 	spec := &cfg.Spec.Signoz
-	if !spec.Spec.IsEnabled() {
-		return nil, nil
-	}
 
-	// Initialize status maps
 	if spec.Status.Extras == nil {
 		spec.Status.Extras = make(map[string]string)
 	}
-
-	// Create env material
-	prefix := cfg.Metadata.Name + "-signoz"
-
 	spec.Status.Extras["workingDir"] = "/opt/signoz"
 
-	// Create service material
-	svcMat, err := c.renderTemplate(tmpl, cfg, prefix+svcSuffix)
+	var materials []types.Material
+
+	svcMat, err := c.renderTemplate(tmpl, cfg, cfg.Metadata.Name+"-signoz"+svcSuffix)
 	if err != nil {
 		return nil, err
 	}
-	return []types.Material{svcMat}, nil
+	materials = append(materials, svcMat)
+
+	return materials, nil
 }
 
-func (c *systemdCasting) forgeMetaStore(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
+func (c *systemdCasting) forgeMetaStore(tmpl *types.Template, cfg *v1alpha1.Casting) ([]types.Material, error) {
 	spec := &cfg.Spec.MetaStore
-	if !spec.Spec.IsEnabled() {
-		return nil, nil
-	}
 
-	// Initialize status extras
 	if spec.Status.Extras == nil {
 		spec.Status.Extras = make(map[string]string)
 	}
 
-	// Create env material
-	prefix := fmt.Sprintf("%s-metastore-%s", cfg.Metadata.Name, spec.Kind.String())
-	// Create service material
-	svcMat, err := c.renderTemplate(tmpl, cfg, prefix+svcSuffix)
-	if err != nil {
-		return nil, err
+	var materials []types.Material
+
+	switch spec.Kind {
+	case v1alpha1.MetaStoreKindPostgres:
+		svcMat, err := c.renderTemplate(tmpl, cfg, fmt.Sprintf("%s-metastore-%s%s", cfg.Metadata.Name, spec.Kind.String(), svcSuffix))
+		if err != nil {
+			return nil, err
+		}
+		materials = append(materials, svcMat)
 	}
-	return []types.Material{svcMat}, nil
+
+	return materials, nil
 }
 
-func (c *systemdCasting) forgeTelemetryStore(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
+func (c *systemdCasting) forgeTelemetryStore(tmpl *types.Template, cfg *v1alpha1.Casting) ([]types.Material, error) {
 	spec := &cfg.Spec.TelemetryStore
-	if !spec.Spec.IsEnabled() {
-		return nil, nil
-	}
-	if spec.Status.Config.Data == nil {
-		return nil, fmt.Errorf("no config molded for %s", v1alpha1.MoldingKindTelemetryStore)
-	}
 
-	// Initialize status extras
 	if spec.Status.Extras == nil {
 		spec.Status.Extras = make(map[string]string)
 	}
@@ -216,36 +218,30 @@ func (c *systemdCasting) forgeTelemetryStore(tmpl *types.Template, cfg *v1alpha1
 	reps := max(1, *spec.Spec.Cluster.Replicas+1)
 	shards := max(1, *spec.Spec.Cluster.Shards)
 
-	// Create config materials
-	mats, err := c.configMaterials(spec.Status.Config.Data, "telemetrystore")
-	if err != nil {
-		return nil, err
-	}
+	var materials []types.Material
 
-	// Create service materials for each shard/replica
 	for s := range shards {
 		for r := range reps {
-			svcName := fmt.Sprintf("%s-telemetrystore-%s-%d-%d%s", cfg.Metadata.Name, kind, s, r, svcSuffix)
-			svcMat, err := c.renderTemplate(tmpl, cfg, svcName)
+			svcMat, err := c.renderTemplate(tmpl, cfg, fmt.Sprintf("%s-telemetrystore-%s-%d-%d%s", cfg.Metadata.Name, kind, s, r, svcSuffix))
 			if err != nil {
 				return nil, err
 			}
-			mats = append(mats, svcMat)
+			materials = append(materials, svcMat)
 		}
 	}
-	return mats, nil
+
+	cfgMats, err := c.configMaterials(spec.Spec.Config.Data, "telemetrystore", kind)
+	if err != nil {
+		return nil, err
+	}
+	materials = append(materials, cfgMats...)
+
+	return materials, nil
 }
 
-func (c *systemdCasting) forgeTelemetryKeeper(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
+func (c *systemdCasting) forgeTelemetryKeeper(tmpl *types.Template, cfg *v1alpha1.Casting) ([]types.Material, error) {
 	spec := &cfg.Spec.TelemetryKeeper
-	if !spec.Spec.IsEnabled() {
-		return nil, nil
-	}
-	if spec.Status.Config.Data == nil {
-		return nil, fmt.Errorf("no config molded for %s", v1alpha1.MoldingKindTelemetryKeeper)
-	}
 
-	// Initialize status extras
 	if spec.Status.Extras == nil {
 		spec.Status.Extras = make(map[string]string)
 	}
@@ -253,42 +249,53 @@ func (c *systemdCasting) forgeTelemetryKeeper(tmpl *types.Template, cfg *v1alpha
 	kind := spec.Kind.String()
 	reps := max(1, *spec.Spec.Cluster.Replicas)
 
-	// Create config materials
-	mats, err := c.configMaterials(spec.Status.Config.Data, "telemetrykeeper")
+	// Config materials are created first because cfgPath extra is derived from them
+	cfgMats, err := c.configMaterials(spec.Spec.Config.Data, "telemetrykeeper", kind)
 	if err != nil {
 		return nil, err
 	}
+	if len(cfgMats) > 0 {
+		spec.Status.Extras["cfgPath"] = filepath.Join("/etc/clickhouse-keeper/", filepath.Base(cfgMats[0].Path()))
+	}
 
-	// Set config path for template
-	spec.Status.Extras["cfgPath"] = filepath.Join("/etc/clickhouse-keeper/", filepath.Base(mats[0].Path()))
+	var materials []types.Material
 
-	// Create service materials for each replica
 	for r := range reps {
-		svcName := fmt.Sprintf("%s-telemetrykeeper-%s-%d%s", cfg.Metadata.Name, kind, r, svcSuffix)
-		svcMat, err := c.renderTemplate(tmpl, cfg, svcName)
+		svcMat, err := c.renderTemplate(tmpl, cfg, fmt.Sprintf("%s-telemetrykeeper-%s-%d%s", cfg.Metadata.Name, kind, r, svcSuffix))
 		if err != nil {
 			return nil, err
 		}
-		mats = append(mats, svcMat)
+		materials = append(materials, svcMat)
 	}
-	return mats, nil
+
+	materials = append(materials, cfgMats...)
+
+	return materials, nil
 }
 
 func (c *systemdCasting) forgeMigrator(tmpl *types.Template, cfg *v1alpha1.Casting) ([]types.Material, error) {
-	spec := &cfg.Spec.TelemetryStore
-	if !spec.Spec.IsEnabled() {
-		return nil, nil
-	}
+	var materials []types.Material
 
-	// Create service material
 	svcMat, err := c.renderTemplate(tmpl, cfg, cfg.Metadata.Name+"-telemetrystore-migrator"+svcSuffix)
 	if err != nil {
 		return nil, err
 	}
-	return []types.Material{svcMat}, nil
+	materials = append(materials, svcMat)
+
+	return materials, nil
 }
 
-// --- Material Helpers ---
+func (c *systemdCasting) configMaterials(data map[string]string, component string, kind string) ([]types.Material, error) {
+	mats := make([]types.Material, 0, len(data))
+	for filename, content := range data {
+		m, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, component, kind, filename))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create %s config material %s: %w", component, filename, err)
+		}
+		mats = append(mats, m)
+	}
+	return mats, nil
+}
 
 func (c *systemdCasting) renderTemplate(tmpl *types.Template, cfg *v1alpha1.Casting, path string) (types.Material, error) {
 	var buf bytes.Buffer
@@ -296,18 +303,6 @@ func (c *systemdCasting) renderTemplate(tmpl *types.Template, cfg *v1alpha1.Cast
 		return types.Material{}, fmt.Errorf("execute template %s: %w", path, err)
 	}
 	return types.NewINIMaterial(buf.Bytes(), filepath.Join(rootcasting.DeploymentDir, path))
-}
-
-func (c *systemdCasting) configMaterials(data map[string]string, path string) ([]types.Material, error) {
-	mats := make([]types.Material, 0, len(data))
-	for file, content := range data {
-		m, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "configs/", path, file))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create config material %s: %w", file, err)
-		}
-		mats = append(mats, m)
-	}
-	return mats, nil
 }
 
 // execCommand executes a command and returns an error if it fails.
@@ -318,61 +313,33 @@ func (c *systemdCasting) execCommand(ctx context.Context, name string, args ...s
 	return cmd.Run()
 }
 
-// discoverAndPrepareServices discovers service files, categorizes them, and prepares systemd.
-// Returns nil serviceMap if no services found.
-func (c *systemdCasting) discoverAndPrepareServices(ctx context.Context, poursPath string) (map[string][]string, error) {
+// discoverAndPrepareServices discovers service files in the pours directory and reloads systemd.
+func (c *systemdCasting) discoverAndPrepareServices(ctx context.Context, poursPath string) ([]string, error) {
 	deploymentPath := filepath.Join(poursPath, rootcasting.DeploymentDir)
 	entries, err := os.ReadDir(deploymentPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read directory %s: %w", deploymentPath, err)
 	}
 
-	serviceMap := map[string][]string{"keeper": {}, "store": {}, "postgres": {}, "signoz": {}, "ingester": {}, "migrator": {}}
-
+	var services []string
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".service") {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), svcSuffix) {
 			continue
 		}
-		servicePath := filepath.Join(deploymentPath, entry.Name())
-		baseName := strings.TrimSuffix(entry.Name(), ".service")
-
-		switch {
-		case strings.HasSuffix(baseName, "-migrator"):
-			serviceMap["migrator"] = append(serviceMap["migrator"], servicePath)
-		case strings.Contains(baseName, "-telemetrykeeper-") && !strings.Contains(baseName, "-migrator"):
-			serviceMap["keeper"] = append(serviceMap["keeper"], servicePath)
-		case strings.Contains(baseName, "-telemetrystore-") && !strings.Contains(baseName, "-migrator"):
-			serviceMap["store"] = append(serviceMap["store"], servicePath)
-		case strings.Contains(baseName, "-metastore-postgres"):
-			serviceMap["postgres"] = append(serviceMap["postgres"], servicePath)
-		case strings.HasSuffix(baseName, "-signoz"):
-			serviceMap["signoz"] = append(serviceMap["signoz"], servicePath)
-		case strings.HasSuffix(baseName, "-ingester"):
-			serviceMap["ingester"] = append(serviceMap["ingester"], servicePath)
-		default:
-			c.logger.WarnContext(ctx, "Unknown service type, skipping", slog.String("service", servicePath))
-		}
+		services = append(services, filepath.Join(deploymentPath, entry.Name()))
 	}
 
-	// Check if any services were found
-	total := 0
-	for cat, svcs := range serviceMap {
-		if len(svcs) > 0 {
-			c.logger.DebugContext(ctx, "Found services", slog.String("category", cat), slog.Int("count", len(svcs)))
-			total += len(svcs)
-		}
-	}
-	if total == 0 {
-		return map[string][]string{}, nil
+	if len(services) == 0 {
+		return nil, nil
 	}
 
-	// Reload systemd to pick up new service files
-	c.logger.DebugContext(ctx, "Reloading systemd daemon")
+	c.logger.DebugContext(ctx, "Found services", slog.Int("count", len(services)))
+
 	if err := c.execCommand(ctx, "systemctl", "daemon-reload"); err != nil {
 		return nil, fmt.Errorf("systemd daemon-reload failed: %w", err)
 	}
 
-	return serviceMap, nil
+	return services, nil
 }
 
 // setupSystemEnvironment creates signoz user, directories, copies configs, and validates binaries.
@@ -394,12 +361,14 @@ func (c *systemdCasting) setupSystemEnvironment(ctx context.Context, config *v1a
 
 	// Copy clickhouse configs to standard locations
 	if config.Spec.TelemetryStore.Spec.IsEnabled() {
-		if err := c.copyDir(filepath.Join(poursPath, rootcasting.DeploymentDir, "configs", "telemetrystore"), "/etc/clickhouse-server/"); err != nil {
+		src := filepath.Join(poursPath, rootcasting.DeploymentDir, "telemetrystore", config.Spec.TelemetryStore.Kind.String())
+		if err := c.copyDir(src, "/etc/clickhouse-server/"); err != nil {
 			return fmt.Errorf("failed to copy clickhouse-server configs: %w", err)
 		}
 	}
 	if config.Spec.TelemetryKeeper.Spec.IsEnabled() {
-		if err := c.copyDir(filepath.Join(poursPath, rootcasting.DeploymentDir, "configs", "telemetrykeeper"), "/etc/clickhouse-keeper/"); err != nil {
+		src := filepath.Join(poursPath, rootcasting.DeploymentDir, "telemetrykeeper", config.Spec.TelemetryKeeper.Kind.String())
+		if err := c.copyDir(src, "/etc/clickhouse-keeper/"); err != nil {
 			return fmt.Errorf("failed to copy clickhouse-keeper configs: %w", err)
 		}
 	}
@@ -463,32 +432,28 @@ func (c *systemdCasting) validateBinaries(config *v1alpha1.Casting) error {
 }
 
 // startAllServices enables and starts all discovered services.
-// Systemd dependencies ensure proper ordering.
-func (c *systemdCasting) startAllServices(ctx context.Context, serviceMap map[string][]string) error {
-	// Collect all services
-	var allServices []string
-	for _, services := range serviceMap {
-		allServices = append(allServices, services...)
-	}
-
-	if len(allServices) == 0 {
-		return nil
-	}
-
-	// Enable and start all services - systemd will handle ordering via dependencies
-	for _, svc := range allServices {
+// All services are enabled first so that dependency references resolve,
+// then started — systemd handles ordering via After=/Requires=.
+func (c *systemdCasting) startAllServices(ctx context.Context, services []string) error {
+	// Enable all services first so dependencies can be resolved
+	for _, svc := range services {
 		unitName := filepath.Base(svc)
-		c.logger.DebugContext(ctx, "Enabling service", slog.String("service", unitName), slog.String("path", svc))
-		// Use full path for enable - systemctl can work with paths to service files
+		c.logger.DebugContext(ctx, "Enabling service", slog.String("service", unitName))
 		if err := c.execCommand(ctx, "systemctl", "enable", svc); err != nil {
 			return fmt.Errorf("failed to enable service %s: %w", unitName, err)
 		}
+	}
+
+	// Reload systemd to pick up all enabled services
+	if err := c.execCommand(ctx, "systemctl", "daemon-reload"); err != nil {
+		return fmt.Errorf("systemd daemon-reload failed: %w", err)
+	}
+
+	// Start all services without blocking — systemd dependencies handle ordering
+	for _, svc := range services {
+		unitName := filepath.Base(svc)
 		c.logger.InfoContext(ctx, "Starting service", slog.String("service", unitName))
-		startCtx, cancel := context.WithTimeout(ctx, serviceStartTimeout)
-		// Use full path for start as well
-		err := c.execCommand(startCtx, "systemctl", "start", unitName)
-		cancel()
-		if err != nil {
+		if err := c.execCommand(ctx, "systemctl", "start", "--no-block", unitName); err != nil {
 			return fmt.Errorf("failed to start service %s: %w", unitName, err)
 		}
 	}

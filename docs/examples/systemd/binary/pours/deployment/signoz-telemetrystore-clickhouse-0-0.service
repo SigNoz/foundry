@@ -14,7 +14,7 @@ Type=simple
 User=clickhouse
 
 [Unit]
-After=time-sync.target network-online.target signoz-telemetrykeeper-clickhousekeeper-0.service
+After=time-sync.target network-online.target
 Description=ClickHouse Server (v25.5.6)
 Requires=network-online.target
-Wants=time-sync.target signoz-telemetrykeeper-clickhousekeeper-0.service
+Wants=time-sync.target

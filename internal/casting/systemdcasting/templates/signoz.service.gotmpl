@@ -1,10 +1,6 @@
 [Unit]
 Description=SigNoz
 Documentation=https://signoz.io/docs
-After={{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0 {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}{{ if $.Spec.TelemetryStore.Spec.Enabled }} {{ $.Metadata.Name }}-telemetrystore-migrator{{ end }}
-{{ if $.Spec.TelemetryStore.Spec.Enabled }}
-Requires={{ $.Metadata.Name }}-telemetrystore-migrator
-{{ end }}
 
 [Service]
 User=signoz
@@ -12,18 +8,16 @@ Group=signoz
 Type=simple
 KillMode=mixed
 Restart=on-failure
+RestartSec=5
 WorkingDirectory=/opt/signoz
 {{- if and $.Metadata.Annotations (index $.Metadata.Annotations "foundry.signoz.io/signoz-binary-path") }}
 {{- $signozBinaryPath := index $.Metadata.Annotations "foundry.signoz.io/signoz-binary-path" }}
 ExecStart={{ $signozBinaryPath }} server
 {{- end }}
 Environment=SIGNOZ_WEB_DIRECTORY=/opt/signoz/web
-{{ if $.Spec.Signoz.Spec.Env }}
-{{ range $key, $value := $.Spec.Signoz.Spec.Env }}
+{{- range $key, $value := $.Spec.Signoz.Spec.Env }}
 Environment={{ $key }}={{ $value }}
-{{ end }}
-{{ end }}
-{{ if and $.Spec.Signoz.Status.Extras (index $.Spec.Signoz.Status.Extras "envPath") }}
-{{ end }}
+{{- end }}
+
 [Install]
 WantedBy=multi-user.target

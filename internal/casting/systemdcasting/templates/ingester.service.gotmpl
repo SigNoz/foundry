@@ -1,10 +1,6 @@
 [Unit]
 Description=SigNoz OTel Collector
 Documentation=https://signoz.io/docs
-After={{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-0-0{{ if $.Spec.TelemetryStore.Spec.Enabled }} {{ $.Metadata.Name }}-telemetrystore-migrator{{ end }}
-{{ if $.Spec.TelemetryStore.Spec.Enabled }}
-Requires={{ $.Metadata.Name }}-telemetrystore-migrator
-{{ end }}
 
 [Service]
 User=signoz
@@ -12,12 +8,20 @@ Group=signoz
 Type=simple
 KillMode=mixed
 Restart=on-failure
-{{/* Using Fragment specifier to get the config from pours directory */}}
+RestartSec=5
 {{- if and $.Metadata.Annotations (index $.Metadata.Annotations "foundry.signoz.io/ingester-binary-path") }}
 {{- $ingesterBinaryPath := index $.Metadata.Annotations "foundry.signoz.io/ingester-binary-path" }}
-{{ if and $.Spec.Ingester.Status.Extras (index $.Spec.Ingester.Status.Extras "cfgPath") (index $.Spec.Ingester.Status.Extras "cfgOpampPath") }}
+{{- if and $.Spec.Ingester.Status.Extras (index $.Spec.Ingester.Status.Extras "cfgPath") (index $.Spec.Ingester.Status.Extras "cfgOpampPath") }}
+ExecStartPre={{ $ingesterBinaryPath }} migrate sync check
 ExecStart={{ $ingesterBinaryPath }} --config=%Y/{{ index $.Spec.Ingester.Status.Extras "cfgPath" }} --manager-config=%Y/{{ index $.Spec.Ingester.Status.Extras "cfgOpampPath" }} --copy-path=/var/lib/ingester/ingester.yaml
-{{ end }}
 {{- end }}
+{{- end }}
+{{- if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
+Environment=SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN={{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
+{{- end }}
+{{- range $key, $value := $.Spec.Ingester.Spec.Env }}
+Environment={{ $key }}={{ $value }}
+{{- end }}
+
 [Install]
 WantedBy=multi-user.target

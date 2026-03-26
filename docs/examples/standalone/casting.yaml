@@ -1,0 +1,12 @@
+apiVersion: v1alpha1
+metadata:
+  name: signoz
+  annotations:
+    foundry.signoz.io/signoz-binary-path: /opt/signoz/bin/signoz
+    foundry.signoz.io/ingester-binary-path: /opt/ingester/bin/signoz-otel-collector
+spec:
+  deployment:
+    flavor: binary
+    mode: systemd
+  metastore:
+    kind: sqlite

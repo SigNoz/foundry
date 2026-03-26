@@ -97,20 +97,25 @@ func (e *linuxMoldingEnricher) enrichTelemetryKeeper(config *v1alpha1.Casting) e
 }
 
 func (e *linuxMoldingEnricher) enrichMetaStore(config *v1alpha1.Casting) error {
-	dsn := types.FormatAddress("postgres", "localhost", baseMetaStorePostgresPort)
-	config.Spec.MetaStore.Status.Addresses.DSN = []string{dsn}
+	switch config.Spec.MetaStore.Kind {
+	case v1alpha1.MetaStoreKindSQLite:
+		// SQLite — no addresses or binaries to enrich.
+	case v1alpha1.MetaStoreKindPostgres:
+		dsn := types.FormatAddress("postgres", "localhost", baseMetaStorePostgresPort)
+		config.Spec.MetaStore.Status.Addresses.DSN = []string{dsn}
 
-	// Get the annotation value
-	metastoreBin := config.Metadata.Annotations["foundry.signoz.io/metastore-postgres-binary-path"]
+		// Get the annotation value
+		metastoreBin := config.Metadata.Annotations["foundry.signoz.io/metastore-postgres-binary-path"]
 
-	// If it's missing, apply the default and write it back
-	if metastoreBin == "" {
-		metastoreBin = "/usr/bin/postgres"
+		// If it's missing, apply the default and write it back
+		if metastoreBin == "" {
+			metastoreBin = "/usr/bin/postgres"
 
-		if config.Metadata.Annotations == nil {
-			config.Metadata.Annotations = make(map[string]string)
+			if config.Metadata.Annotations == nil {
+				config.Metadata.Annotations = make(map[string]string)
+			}
+			config.Metadata.Annotations["foundry.signoz.io/metastore-postgres-binary-path"] = metastoreBin
 		}
-		config.Metadata.Annotations["foundry.signoz.io/metastore-postgres-binary-path"] = metastoreBin
 	}
 	return nil
 }
@@ -156,6 +161,11 @@ func (e *linuxMoldingEnricher) enrichIngester(config *v1alpha1.Casting) error {
 		}
 		config.Metadata.Annotations["foundry.signoz.io/ingester-binary-path"] = ingesterBin
 	}
+
+	if config.Spec.Ingester.Status.Env == nil {
+		config.Spec.Ingester.Status.Env = make(map[string]string)
+	}
+	config.Spec.Ingester.Status.Env["SIGNOZ_OTEL_COLLECTOR_TIMEOUT"] = "10m"
 
 	return nil
 }

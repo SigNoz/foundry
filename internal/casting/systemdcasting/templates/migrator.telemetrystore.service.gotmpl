@@ -1,23 +1,24 @@
 [Unit]
-Description=SigNoz Schema Migrator
+Description=SigNoz TelemetryStore Migrator
 Documentation=https://signoz.io/docs
-{{ if $.Spec.TelemetryStore.Spec.Enabled }}
-{{ $firstStore := printf "%s-telemetrystore-%s-0-0" $.Metadata.Name $.Spec.TelemetryStore.Kind.String }}
-After={{ $firstStore }}
-Requires={{ $firstStore }}
-{{ end }}
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
+Restart=on-failure
+RestartSec=5
 User=signoz
 Group=signoz
 {{- if and $.Metadata.Annotations (index $.Metadata.Annotations "foundry.signoz.io/ingester-binary-path") }}
 {{- $migratorBinary := index $.Metadata.Annotations "foundry.signoz.io/ingester-binary-path" }}
-{{ if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
-{{- $dsn := index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
-ExecStart=/bin/bash -c '{{ $migratorBinary }} migrate bootstrap --clickhouse-dsn={{ $dsn }} && {{ $migratorBinary }} migrate sync up --clickhouse-dsn={{ $dsn }} && {{ $migratorBinary }} migrate async up --clickhouse-dsn={{ $dsn }}'
-{{ end }}
+ExecStartPre={{ $migratorBinary }} migrate ready
+ExecStart=/bin/bash -c '{{ $migratorBinary }} migrate bootstrap && {{ $migratorBinary }} migrate sync up && {{ $migratorBinary }} migrate async up'
+{{- end }}
+{{- if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
+Environment=SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN={{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
+{{- end }}
+{{- range $key, $value := $.Spec.Ingester.Spec.Env }}
+Environment={{ $key }}={{ $value }}
 {{- end }}
 [Install]
 WantedBy=multi-user.target
