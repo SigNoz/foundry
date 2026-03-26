@@ -48,6 +48,12 @@ tar -xzf foundry.tar.gz
 # macOS
 curl -L "https://github.com/SigNoz/foundry/releases/latest/download/foundry_darwin_$(uname -m | sed 's/x86_64/amd64/g' | sed 's/arm64/arm64/g').tar.gz" -o foundry.tar.gz
 tar -xzf foundry.tar.gz
+
+# Windows
+
+$ARCH = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "arm64" } else { "amd64" }
+Invoke-WebRequest -Uri "https://github.com/SigNoz/foundry/releases/latest/download/foundry_windows_${ARCH}.tar.gz" -OutFile foundry.tar.gz -UseBasicParsing
+tar -xzf foundry.tar.gz
 ```
 
 See [Getting Started](docs/getting-started.md) for full install instructions (including Windows) and a step-by-step walkthrough.
@@ -70,33 +76,52 @@ spec:
 foundryctl cast -f casting.yaml
 ```
 
-## The Foundry Model
+## How it works
 
-Foundry uses a metalworking metaphor: you define a **Casting**, which contains **Moldings** (components), and Foundry **forges** them into **Pours** (generated files).
-
-```mermaid
-graph LR
-    A[📋 casting.yaml<br/>Single Config File] --> B[🔧 foundryctl gauge<br/>Validate Tools]
-    B --> C[⚒️ foundryctl forge<br/>Generate Deployment Files]
-    C --> D[🏺 pours/<br/>compose.yaml + configs]
-
-    D --> E[🔥 foundryctl cast<br/>Deploy]
-    E --> F[⚙️ Docker Compose /<br/>Systemd /<br/>Cloud Platform]
-    F --> G[✨ SigNoz Running<br/>ClickHouse, PostgreSQL,<br/>OTel Collector, SigNoz UI]
-
-    style A fill:#FF9900,stroke:#E68A00,stroke-width:3px,color:#000
-    style D fill:#FDB44B,stroke:#E68A00,stroke-width:3px,color:#000
-    style G fill:#4E9FFF,stroke:#2A7FD8,stroke-width:3px,color:#fff
-    style B fill:#1F1F1F,stroke:#FF9900,stroke-width:2px,color:#fff
-    style C fill:#1F1F1F,stroke:#FF9900,stroke-width:2px,color:#fff
-    style E fill:#1F1F1F,stroke:#FF9900,stroke-width:2px,color:#fff
-    style F fill:#2D2D2D,stroke:#4E9FFF,stroke-width:2px,color:#fff
 ```
-### Casting
+  +-------------------------------------------------------------+
+  |                       casting.yaml                          |
+  |              your single deployment config                  |
+  +-----------------------------+-------------------------------+
+                                |
+                +---------------+---------------+
+                |               |               |
+                v               v               v
+         +-----------+  +-----------+  +----------------+
+         |   gauge   |  |   forge   |  |     cast       |
+         |-----------|  |-----------|  |----------------|
+         | validate  |  | generate  |  | gauge + forge  |
+         | prereqs   |  | files     |  | + deploy       |
+         +-----------+  +-----+-----+  +-------+--------+
+                              |                 |
+                              v                 |
+         +----------------------------------+   |
+         |             pours/               |   |
+         |----------------------------------|   |
+         |  compose.yaml    manifests/      |   |
+         |  values.yaml     configs/        |   |
+         |  render.yaml     *.tf.json       |   |
+         +-----------------+----------------+   |
+                           |                    |
+                           +----------+---------+
+                                      v
+  +-------------------------------------------------------------+
+  |                      SigNoz Running                         |
+  |-------------------------------------------------------------|
+  |  Docker Compose - Swarm - Systemd - Kubernetes - ECS        |
+  |  Render - Railway - Coolify                                 |
+  +-------------------------------------------------------------+
+```
 
-A Casting is a complete SigNoz deployment definition: one YAML file that Foundry merges with built-in defaults. See [What is a Casting](docs/concepts/casting.md) for the full explanation, or [Casting File Reference](docs/reference/casting-file.md) for the field-by-field spec.
+`foundryctl cast` runs the full pipeline (gauge + forge + deploy) in one step.
 
-### Examples
+| Term | What it means |
+| --- | --- |
+| **Casting** | Your deployment config. One YAML file describing what you want. [Learn more](docs/concepts/casting.md) |
+| **Moldings** | The SigNoz components (ClickHouse, PostgreSQL, OTel Collector, etc.) that Foundry configures for you. [Learn more](docs/concepts/moldings.md) |
+| **Pours** | The generated output files in `pours/`. Structure varies by deployment mode. See [examples](docs/examples/) |
+
+## Examples
 
 | Platform | Mode | Flavor | Path |
 | --- | --- | --- | --- |
@@ -109,24 +134,6 @@ A Casting is a complete SigNoz deployment definition: one YAML file that Foundry
 | - | Docker | Swarm | [docker/swarm](docs/examples/docker/swarm/) |
 | - | Docker | Compose | [docker/compose](docs/examples/docker/compose/) |
 | Coolify | - | Stack | [coolify/stack](docs/examples/coolify/stack/) |
-
-### Moldings
-
-**Moldings** are the individual components that make up a SigNoz deployment:
-
-| Molding | Implementation |
-|---------|----------------|
-| **TelemetryStore** | ClickHouse |
-| **TelemetryKeeper** | ClickHouse Keeper |
-| **MetaStore** | PostgreSQL, SQLite |
-| **Ingester** | SigNoz OTel Collector |
-| **SigNoz** | SigNoz |
-
-See [Moldings](docs/concepts/moldings.md) for processing order, spec fields, and configuration details.
-
-### Pours
-
-**Pours** are the generated deployment and configuration files. `forge` creates the `pours/` directory containing everything needed to run SigNoz. The structure varies by deployment mode - see each [example](docs/examples/) for its generated output.
 
 ## CLI reference
 
