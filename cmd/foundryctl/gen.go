@@ -116,7 +116,7 @@ func runGenExamples(ctx context.Context, logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile("castings.json", castingsJSON, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join("docs", "examples/", "castings.json"), castingsJSON, 0644); err != nil {
 		return err
 	}
 	logger.InfoContext(ctx, "generated castings.json")

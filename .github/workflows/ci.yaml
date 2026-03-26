@@ -78,7 +78,7 @@ jobs:
         run: |
           go run cmd/foundryctl/*.go gen schemas
           git diff --compact-summary --exit-code || (echo; echo "Unexpected difference in docs/schemas/ directory. Run go run cmd/foundryctl/*.go gen locally and commit."; exit 1)
-  readme:
+  docs:
     if: |
       (github.event_name == 'pull_request' && ! github.event.pull_request.head.repo.fork && github.event.pull_request.user.login != 'dependabot[bot]' && ! contains(github.event.pull_request.labels.*.name, 'safe-to-test')) ||
       (github.event_name == 'pull_request_target' && contains(github.event.pull_request.labels.*.name, 'safe-to-test'))
@@ -92,8 +92,8 @@ jobs:
           go-version: "1.25"
       - name: install-gotmpl
         run: go install go.opentelemetry.io/build-tools/gotmpl@latest
-      - name: gen-readme
+      - name: gen-docs
         run: |
-          go run go.opentelemetry.io/build-tools/gotmpl@latest -b README.md.gotmpl -d "$$(cat castings.json)" -o README.md
-          go run go.opentelemetry.io/build-tools/gotmpl@latest -b docs/examples/README.md.gotmpl -d "$$(cat castings.json)" -o docs/examples/README.md
+          go run go.opentelemetry.io/build-tools/gotmpl@latest -b README.md.gotmpl -d "$$(cat docs/examples/castings.json)" -o README.md
+          go run go.opentelemetry.io/build-tools/gotmpl@latest -b docs/examples/README.md.gotmpl -d "$$(cat docs/examples/castings.json)" -o docs/examples/README.md
           git diff --compact-summary --exit-code || (echo; echo "Unexpected difference in README.md. Run 'make docs' locally and commit."; exit 1)

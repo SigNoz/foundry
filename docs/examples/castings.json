@@ -1,0 +1,58 @@
+{
+  "Castings": [
+    {
+      "Platform": "-",
+      "Mode": "Systemd",
+      "Flavor": "Binary",
+      "Path": "systemd/binary"
+    },
+    {
+      "Platform": "Render",
+      "Mode": "-",
+      "Flavor": "Blueprint",
+      "Path": "render/blueprint"
+    },
+    {
+      "Platform": "Railway",
+      "Mode": "-",
+      "Flavor": "Template",
+      "Path": "railway/template"
+    },
+    {
+      "Platform": "-",
+      "Mode": "Kubernetes",
+      "Flavor": "Kustomize",
+      "Path": "kubernetes/kustomize"
+    },
+    {
+      "Platform": "-",
+      "Mode": "Kubernetes",
+      "Flavor": "Helm",
+      "Path": "kubernetes/helm"
+    },
+    {
+      "Platform": "Ecs",
+      "Mode": "Ec2",
+      "Flavor": "Terraform",
+      "Path": "ecs/ec2/terraform"
+    },
+    {
+      "Platform": "-",
+      "Mode": "Docker",
+      "Flavor": "Swarm",
+      "Path": "docker/swarm"
+    },
+    {
+      "Platform": "-",
+      "Mode": "Docker",
+      "Flavor": "Compose",
+      "Path": "docker/compose"
+    },
+    {
+      "Platform": "Coolify",
+      "Mode": "-",
+      "Flavor": "Stack",
+      "Path": "coolify/stack"
+    }
+  ]
+}
