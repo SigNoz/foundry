@@ -123,7 +123,7 @@ foundryctl cast -f casting.yaml
 
 ## Examples
 
-| Platform | Mode | Flavor | Path |
+| Platform | Mode | Flavor | Example |
 | --- | --- | --- | --- |
 | - | Systemd | Binary | [systemd/binary](docs/examples/systemd/binary/) |
 | Render | - | Blueprint | [render/blueprint](docs/examples/render/blueprint/) |

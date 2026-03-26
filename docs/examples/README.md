@@ -1,6 +1,6 @@
 ### Examples
 
-| Platform | Mode | Flavor | Path |
+| Platform | Mode | Flavor | Example |
 | --- | --- | --- | --- |
 | - | Systemd | Binary | [systemd/binary](systemd/binary/) |
 | Render | - | Blueprint | [render/blueprint](render/blueprint/) |
