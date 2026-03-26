@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
@@ -58,6 +61,13 @@ func registerGenSchemas(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(genSchemasCmd)
 }
 
+type castingEntry struct {
+	Platform string `json:"Platform"`
+	Mode     string `json:"Mode"`
+	Flavor   string `json:"Flavor"`
+	Path     string `json:"Path"`
+}
+
 func runGenExamples(ctx context.Context, logger *slog.Logger) error {
 	foundry, err := foundry.New(logger)
 	if err != nil {
@@ -65,6 +75,7 @@ func runGenExamples(ctx context.Context, logger *slog.Logger) error {
 		return err
 	}
 
+	var entries []castingEntry
 	for deployment := range foundry.Registry.CastingItems() {
 		logger.InfoContext(ctx, "generating example files for deployment", slog.Any("deployment", deployment))
 
@@ -87,9 +98,36 @@ func runGenExamples(ctx context.Context, logger *slog.Logger) error {
 			logger.ErrorContext(ctx, "failed to forge casting", slog.Any("deployment", deployment), foundryerrors.LogAttr(err))
 			continue
 		}
+
+		p := filepath.Join(deployment.Platform, deployment.Mode, deployment.Flavor)
+		entries = append(entries, castingEntry{
+			Platform: valOrDash(deployment.Platform),
+			Mode:     valOrDash(deployment.Mode),
+			Flavor:   valOrDash(deployment.Flavor),
+			Path:     p,
+		})
 	}
 
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Path > entries[j].Path
+	})
+
+	castingsJSON, err := json.MarshalIndent(map[string]any{"Castings": entries}, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join("docs", "examples/", "castings.json"), castingsJSON, 0644); err != nil {
+		return err
+	}
+	logger.InfoContext(ctx, "generated castings.json")
+
 	return nil
+}
+func valOrDash(s string) string {
+	if s == "" {
+		return "-"
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
 }
 
 func runGenSchemas(context.Context, *slog.Logger) error {

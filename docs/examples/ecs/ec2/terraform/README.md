@@ -1,11 +1,10 @@
 # ECS EC2 with Terraform
 
-| | |
-|---|---|
-| Deployment Platform | `ecs` |
-| Deployment Mode | `ec2` |
-| Deployment Flavor | `terraform` |
-| Use Case | AWS ECS on EC2 with Terraform-managed infrastructure |
+| Field | Value |
+| --- | --- |
+| **Mode** | `ec2` |
+| **Flavor** | `terraform` |
+| **Platform** | `ecs` |
 
 ## Overview
 
@@ -15,7 +14,7 @@ Components:
 - ClickHouse Keeper (telemetry keeper)
 - ClickHouse (telemetry store)
 - PostgreSQL (metadata store)
-- SigNoz (UI + API server)
+- SigNoz (UI + API server on port 8080)
 - OTel Collector (ingester)
 - Schema migrator (Fargate one-shot task)
 
@@ -25,14 +24,11 @@ Components:
 - A VPC with private subnets
 - An S3 bucket for storing component configs
 - IAM roles for ECS task and task execution
-- Terraform >= 1.0
+- [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.0
 
-## Quick Start
-
-### With Foundry
+## Configuration
 
 ```yaml
-# casting.yaml
 apiVersion: v1alpha1
 metadata:
   name: signoz
@@ -53,52 +49,85 @@ spec:
     flavor: terraform
 ```
 
-#### Metadata Annotations
+## Deploy
 
-Annotations populate `terraform.tfvars.json` so Foundry can generate a ready-to-apply Terraform configuration:
-
-| Annotation | Maps to tfvar | Description |
-|---|---|---|
-| `foundry.signoz.io/ecs/region` | `region` | AWS region |
-| `foundry.signoz.io/ecs/cluster-id` | `ecs_cluster_id` | ECS cluster ARN or ID |
-| `foundry.signoz.io/ecs/subnet-ids` | `subnet_ids` | Comma-separated subnet IDs |
-| `foundry.signoz.io/ecs/security-group-ids` | `security_group_ids` | Comma-separated security group IDs |
-| `foundry.signoz.io/ecs/vpc-id` | `vpc_id` | VPC ID for Cloud Map namespace |
-| `foundry.signoz.io/ecs/config-bucket` | `config_bucket` | S3 bucket for component configs |
-| `foundry.signoz.io/ecs/task-role-arn` | `task_role_arn` | IAM role ARN for ECS tasks |
-| `foundry.signoz.io/ecs/task-execution-role-arn` | `task_execution_role_arn` | IAM role ARN for task execution |
-| `foundry.signoz.io/ecs/capacity-provider` | `capacity_provider` | ECS capacity provider name |
-
-
-#### Run
+Run the full pipeline (generate Terraform files and apply):
 
 ```bash
-# Generate Terraform files only
-foundryctl forge -f casting.yaml
-
-# Or generate and apply in one step (runs terraform init + apply)
 foundryctl cast -f casting.yaml
 ```
 
-Foundry generates the Terraform files into `pours/deployment/`. You can also run `forge` first and apply manually:
+Step-by-step alternative:
 
 ```bash
+# 1. Generate Terraform files
+foundryctl forge -f casting.yaml
+
+# 2. Initialize and apply Terraform
 cd pours/deployment
 terraform init
 terraform apply
 ```
 
-#### Customizing with Patches
+## Generated output
+
+```text
+pours/deployment/
+  main.tf.json
+  variables.tf.json
+  terraform.tfvars.json
+  module/
+    main.tf.json
+    variables.tf.json
+    outputs.tf.json
+    telemetrykeeper.tf.json
+    telemetrystore.tf.json
+    telemetrystore_migrator.tf.json
+    metastore.tf.json
+    signoz.tf.json
+    ingester.tf.json
+    telemetrykeeper/
+      clickhousekeeper/
+        keeper-0.yaml
+    telemetrystore/
+      clickhouse/
+        config.yaml
+        functions.yaml
+    ingester/
+      ingester.yaml
+      opamp.yaml
+```
+
+## After deployment
+
+Verify the ECS services are running:
+
+```bash
+aws ecs list-services --cluster my-cluster --region us-east-1
+aws ecs describe-services \
+  --cluster my-cluster \
+  --services signoz-signoz signoz-ingester signoz-telemetrystore-clickhouse \
+  --region us-east-1
+```
+
+Check that Cloud Map service discovery is healthy:
+
+```bash
+aws servicediscovery list-services --region us-east-1
+```
+
+Access the SigNoz UI by setting up an ALB pointing to the SigNoz service on port 8080.
+
+## Customization
 
 The module ships with sensible defaults for CPU and memory. To override them, use `spec.patches` on the generated module files:
 
 ```yaml
-# casting.yaml
 apiVersion: v1alpha1
 metadata:
   name: signoz
   annotations:
-    # ...
+    # ... (same annotations as above)
 spec:
   deployment:
     platform: ecs
@@ -133,37 +162,36 @@ spec:
 
 Run `foundryctl forge` to see the generated files and identify the JSON paths you want to patch.
 
-## Architecture
+## Annotations
 
-```text
-pours/deployment/
-  main.tf.json              # Root module: provider, module call
-  variables.tf.json         # Root variables (passed through to module)
-  terraform.tfvars.json     # User-provided values
-  module/
-    main.tf.json            # Cloud Map namespace
-    variables.tf.json       # Module input variables
-    outputs.tf.json         # Service ARNs, namespace info
-    telemetrykeeper.tf.json # ClickHouse Keeper: task def, service, SD
-    telemetrystore.tf.json  # ClickHouse: task def, service, SD, S3 configs
-    telemetrystore_migrator.tf.json  # Schema migrator (Fargate task)
-    metastore.tf.json       # PostgreSQL: task def, service, SD
-    signoz.tf.json          # SigNoz: task def, service, SD
-    ingester.tf.json        # OTel Collector: task def, service, SD
-```
+Annotations populate `terraform.tfvars.json` so Foundry can generate a ready-to-apply Terraform configuration.
 
-## Providers
+| Annotation | Maps to tfvar | Description |
+| --- | --- | --- |
+| `foundry.signoz.io/ecs/region` | `region` | AWS region |
+| `foundry.signoz.io/ecs/cluster-id` | `ecs_cluster_id` | ECS cluster ARN or ID |
+| `foundry.signoz.io/ecs/subnet-ids` | `subnet_ids` | Comma-separated subnet IDs |
+| `foundry.signoz.io/ecs/security-group-ids` | `security_group_ids` | Comma-separated security group IDs |
+| `foundry.signoz.io/ecs/vpc-id` | `vpc_id` | VPC ID for Cloud Map namespace |
+| `foundry.signoz.io/ecs/config-bucket` | `config_bucket` | S3 bucket for component configs |
+| `foundry.signoz.io/ecs/task-role-arn` | `task_role_arn` | IAM role ARN for ECS tasks |
+| `foundry.signoz.io/ecs/task-execution-role-arn` | `task_execution_role_arn` | IAM role ARN for task execution |
+| `foundry.signoz.io/ecs/capacity-provider` | `capacity_provider` | ECS capacity provider name |
+
+## Platform details
+
+### Providers
 
 | Provider | Version | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `hashicorp/aws` | `>= 5.0` | ECS, Cloud Map, S3 |
 
-## Resources
+### Resources
 
 The module creates the following AWS resources:
 
 | Resource | Count | Description |
-|---|---|---|
+| --- | --- | --- |
 | `aws_service_discovery_private_dns_namespace` | 1 | Cloud Map namespace (`{name}.local`) |
 | `aws_ecs_task_definition` | 6 | One per component (including migrator) |
 | `aws_ecs_service` | 5 | One per long-running component |
@@ -171,12 +199,10 @@ The module creates the following AWS resources:
 | `aws_s3_object` | N | Config files for ClickHouse, Keeper, and Ingester |
 | `aws_ecs_task_execution` (data) | 1 | Runs the migrator as a Fargate task |
 
-## Variables
-
-### Required
+### Variables
 
 | Variable | Type | Description |
-|---|---|---|
+| --- | --- | --- |
 | `region` | `string` | AWS region |
 | `ecs_cluster_id` | `string` | ID of the existing ECS cluster |
 | `subnet_ids` | `list(string)` | Subnet IDs for ECS service networking (awsvpc) |
@@ -187,10 +213,10 @@ The module creates the following AWS resources:
 | `task_execution_role_arn` | `string` | IAM role ARN for ECS task execution (pull images, write logs) |
 | `capacity_provider` | `string` | Name of the ECS capacity provider |
 
-## Outputs
+### Outputs
 
 | Output | Description |
-|---|---|
+| --- | --- |
 | `namespace_id` | Cloud Map private DNS namespace ID |
 | `namespace_name` | Cloud Map private DNS namespace name |
 | `signoz_service_arn` | SigNoz ECS service ARN (target for ALB on port 8080) |
@@ -201,20 +227,19 @@ The module creates the following AWS resources:
 | `telemetrykeeper_service_name` | ClickHouse Keeper ECS service name |
 | `metastore_service_name` | PostgreSQL ECS service name |
 
-## Service Discovery
+### Service discovery
 
 Components communicate via Cloud Map DNS within the `{name}.local` namespace:
 
 | Component | DNS name | Port |
-|---|---|---|
+| --- | --- | --- |
 | ClickHouse Keeper | `telemetrykeeper-clickhousekeeper.{name}.local` | 9181 (client), 9234 (raft) |
 | ClickHouse | `telemetrystore-clickhouse.{name}.local` | 9000 (native), 8123 (HTTP) |
 | PostgreSQL | `metastore-postgresql.{name}.local` | 5432 |
 | SigNoz | `signoz.{name}.local` | 8080 (API), 4320 (OpAMP) |
 | Ingester | `ingester.{name}.local` | 4317 (gRPC), 4318 (HTTP) |
 
-
-## IAM Requirements
+### IAM requirements
 
 The **task execution role** (`task_execution_role_arn`) needs:
 - `ecr:GetAuthorizationToken`, `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer` (pull images)
@@ -223,12 +248,12 @@ The **task execution role** (`task_execution_role_arn`) needs:
 The **task role** (`task_role_arn`) needs:
 - `s3:GetObject` on the config bucket (config-fetcher sidecar reads configs from S3)
 
-## Security Groups
+### Security groups
 
 ECS services use `awsvpc` networking. Security groups must allow:
 
 | From | To | Port | Purpose |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Ingester | ClickHouse | 9000 | Telemetry writes |
 | SigNoz | ClickHouse | 9000 | Query reads |
 | SigNoz | PostgreSQL | 5432 | Metadata |

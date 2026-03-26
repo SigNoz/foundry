@@ -1,4 +1,8 @@
-.PHONY: clean gauge forge cast test docs
+.PHONY: clean gauge forge cast test gen-examples gen-schemas gen-docs docs
+
+FOUNDRYCTL   := go run ./cmd/foundryctl
+GOTMPL       := go run go.opentelemetry.io/build-tools/gotmpl@latest
+CASTINGS_JSON = $$(cat docs/examples/castings.json)
 
 clean:
 	cd pours/deployment && docker compose -p dev down --remove-orphans --volumes
@@ -6,18 +10,26 @@ clean:
 	rm -rf ./pours
 
 gauge:
-	go run ./cmd/foundryctl gauge --debug -f ./tmp/casting.yaml
+	$(FOUNDRYCTL) gauge --debug -f ./tmp/casting.yaml
 
 forge:
-	go run ./cmd/foundryctl forge --debug -f ./tmp/casting.yaml
+	$(FOUNDRYCTL) forge --debug -f ./tmp/casting.yaml
 
 cast:
-	go run ./cmd/foundryctl cast --debug -f ./tmp/casting.yaml
+	$(FOUNDRYCTL) cast --debug -f ./tmp/casting.yaml
 
 test:
 	make forge
 	make docker
 
-docs:
-	go run ./cmd/foundryctl gen --debug examples
-	go run ./cmd/foundryctl gen --debug schemas
+gen-examples:
+	$(FOUNDRYCTL) gen --debug examples
+
+gen-schemas:
+	$(FOUNDRYCTL) gen --debug schemas
+
+gen-docs:
+	$(GOTMPL) -b README.md.gotmpl -d "$(CASTINGS_JSON)" -o README.md
+	$(GOTMPL) -b docs/examples/README.md.gotmpl -d "$(CASTINGS_JSON)" -o docs/examples/README.md
+
+docs: gen-examples gen-schemas gen-docs
