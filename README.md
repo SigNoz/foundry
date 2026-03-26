@@ -38,41 +38,21 @@ Foundry abstracts away the complexities of the installation process so you can s
 
 **1. Install foundryctl**
 
-You can install `foundryctl` by downloading a release from [GitHub Releases](https://github.com/signoz/foundry/releases).
-
-To quickly get the correct binary for your architecture via the command line, run
-
-**Linux:**
+Download a release from [GitHub Releases](https://github.com/signoz/foundry/releases), or use the command line:
 
 ```bash
+# Linux
 curl -L "https://github.com/SigNoz/foundry/releases/latest/download/foundry_linux_$(uname -m | sed 's/x86_64/amd64/g' | sed 's/aarch64/arm64/g').tar.gz" -o foundry.tar.gz
 tar -xzf foundry.tar.gz
-```
 
-**macOS:**
-
-```bash
+# macOS
 curl -L "https://github.com/SigNoz/foundry/releases/latest/download/foundry_darwin_$(uname -m | sed 's/x86_64/amd64/g' | sed 's/arm64/arm64/g').tar.gz" -o foundry.tar.gz
 tar -xzf foundry.tar.gz
 ```
 
-**Windows (PowerShell):**
+See [Getting Started](docs/getting-started.md) for full install instructions (including Windows) and a step-by-step walkthrough.
 
-```bash
-$ARCH = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "arm64" } else { "amd64" }
-Invoke-WebRequest -Uri "https://github.com/SigNoz/foundry/releases/latest/download/foundry_windows_${ARCH}.tar.gz" -OutFile foundry.tar.gz -UseBasicParsing
-tar -xzf foundry.tar.gz
-```
-
-After extracting, use `foundryctl` from the unpacked directory:
-
-```bash
-./foundry/bin/foundryctl <COMMAND> <OPTIONS>
-```
-
-**2. Create a Casting**
-
-Create a `casting.yaml` file (see [How to write a casting](docs/casting.md) for the full guide). Minimal example:
+**2. Create a casting**
 
 ```yaml
 apiVersion: v1alpha1
@@ -89,6 +69,7 @@ spec:
 ```bash
 foundryctl cast -f casting.yaml
 ```
+
 ## The Foundry Model
 
 Foundry uses a metalworking metaphor: you define a **Casting**, which contains **Moldings** (components), and Foundry **forges** them into **Pours** (generated files).
@@ -113,15 +94,25 @@ graph LR
 ```
 ### Casting
 
-A Casting is a complete SigNoz deployment definition: one YAML file that Foundry merges with built-in defaults. For a step-by-step guide (metadata, deployment target, moldings, config, and examples), see **[How to write a casting](docs/casting.md)**.
+A Casting is a complete SigNoz deployment definition: one YAML file that Foundry merges with built-in defaults. See [What is a Casting](docs/concepts/casting.md) for the full explanation, or [Casting File Reference](docs/reference/casting-file.md) for the field-by-field spec.
 
 ### Examples
 
-| Deployment | Example |
-|------------|---------|
-| Docker Compose | [examples/docker/compose/](docs/examples/docker/compose/) |
-| Systemd (binary) | [examples/systemd/binary/](docs/examples/systemd/binary/) |
-| Render Blueprint | [examples/render/blueprint/](docs/examples/render/blueprint/) |
+| Deployment | Path |
+|---|---|
+| Docker Compose | [docker/compose](docs/examples/docker/compose/) |
+| Docker Swarm | [docker/swarm](docs/examples/docker/swarm/) |
+| Systemd (binary) | [systemd/binary](docs/examples/systemd/binary/) |
+| Kubernetes (Kustomize) | [kubernetes/kustomize](docs/examples/kubernetes/kustomize/) |
+| Kubernetes (Kustomize + patches) | [kubernetes/kustomize-patches](docs/examples/kubernetes/kustomize-patches/) |
+| Kubernetes (Helm) | [kubernetes/helm](docs/examples/kubernetes/helm/) |
+| Kubernetes (Helm + patches) | [kubernetes/helm-patches](docs/examples/kubernetes/helm-patches/) |
+| Render Blueprint | [render/blueprint](docs/examples/render/blueprint/) |
+| Coolify Stack | [coolify/stack](docs/examples/coolify/stack/) |
+| Railway Template | [railway/template](docs/examples/railway/template/) |
+| AWS ECS (EC2 + Terraform) | [ecs/ec2/terraform](docs/examples/ecs/ec2/terraform/) |
+
+See [Examples](docs/examples/) for the full index with descriptions.
 
 ### Moldings
 
@@ -135,89 +126,53 @@ A Casting is a complete SigNoz deployment definition: one YAML file that Foundry
 | **Ingester** | SigNoz OTel Collector |
 | **SigNoz** | SigNoz |
 
+See [Moldings](docs/concepts/moldings.md) for processing order, spec fields, and configuration details.
+
 ### Pours
 
-**Pours** are the generated deployment and configuration files. When you run `forge`, Foundry creates the `pours/` directory containing everything needed to run SigNoz.
-
-```
-pours/
-└── deployment/
-    ├── compose.yaml
-    └── configs/
-        ├── ingester/
-        │   ├── ingester.yaml
-        │   └── opamp.yaml
-        ├── telemetrykeeper/
-        │   └── keeper-0.yaml
-        └── telemetrystore/
-            ├── config.yaml
-            └── functions.yaml
-```
+**Pours** are the generated deployment and configuration files. `forge` creates the `pours/` directory containing everything needed to run SigNoz. The structure varies by deployment mode - see each [example](docs/examples/) for its generated output.
 
 ## CLI reference
 
 ```
-Usage:
-  foundryctl [command]
+foundryctl [command]
 
-Available Commands:
-  gauge       Gauge whether required tools are available
-  forge       Forge configuration and deployment files
-  cast        Cast to the target environment
-  gen         Generate example files for all supported deployments
-  help        Help about any command
+Commands:
+  gauge       Validate required tools for your deployment mode
+  forge       Generate deployment and configuration files
+  cast        Full pipeline: gauge + forge + deploy
+  gen         Generate example casting files for all modes
 
 Flags:
-  -d, --debug          Enable debug mode
-  -f, --file string    Path to the Casting configuration file (default "casting.yaml")
-  -p, --pours string   Directory for Pours (default "./pours")
-  -h, --help           Help for foundryctl
+  -d, --debug          Enable debug logging
+  -f, --file string    Casting file path (default "casting.yaml")
+  -p, --pours string   Output directory (default "./pours")
 ```
 
-### gauge
-
-Validates that all required tools are installed for your deployment mode:
-
 ```bash
+# Validate tools
 foundryctl gauge -f casting.yaml
-```
 
-### forge
+# Generate files only
+foundryctl forge -f casting.yaml
 
-Generates deployment and configuration files based on your Casting:
-
-```bash
-foundryctl forge -f casting.yaml -p ./pours
-```
-
-### cast
-
-Deploys SigNoz to your target environment. Runs `gauge` and `forge` automatically unless skipped:
-
-```bash
+# Full deploy
 foundryctl cast -f casting.yaml
 
-# Skip gauge check
-foundryctl cast --no-gauge
-
-# Skip forge (use existing Pours)
-foundryctl cast --no-forge
-```
-
-### gen
-
-Generates example Casting configurations for all supported deployment modes:
-
-```bash
+# Generate examples for all deployment modes
 foundryctl gen
 ```
 
+See [CLI Reference](docs/reference/cli.md) for the full command reference with all flags and examples.
+
 ## What's next
 
-- [How to write a casting](docs/casting.md): step-by-step guide to casting files
-- [Example configurations](docs/examples/): Docker, systemd, and Render
-- [SigNoz documentation](https://signoz.io/docs/): learn more about SigNoz
-- [SigNoz Slack](https://signoz.io/slack): community and support
+- [Getting Started](docs/getting-started.md) - install and deploy your first SigNoz instance
+- [Concepts](docs/concepts/) - understand castings, moldings, and patches
+- [Examples](docs/examples/) - deployment configurations for all supported platforms
+- [Reference](docs/reference/) - CLI commands and casting file spec
+- [SigNoz documentation](https://signoz.io/docs/) - learn more about SigNoz
+- [SigNoz Slack](https://signoz.io/slack) - community and support
 
 ## How can I get help?
 

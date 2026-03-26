@@ -138,3 +138,27 @@ pours/deployment/
 ```
 
 The generated `values.yaml` configures the SigNoz Helm chart with component images, replicas, environment variables, and cluster settings derived from the casting spec.
+
+---
+
+## After deployment
+
+After running `foundryctl cast` or applying the generated manifests, pods may take a few minutes to become fully ready.
+
+**Verify the deployment:**
+
+```bash
+# Check pod status
+kubectl get pods -n signoz
+
+# Port-forward the SigNoz UI
+kubectl port-forward svc/signoz -n signoz 8080:8080
+# Then open http://localhost:8080 in your browser
+```
+
+If pods remain unhealthy beyond a few minutes:
+
+```bash
+kubectl describe pod <pod-name> -n signoz
+kubectl logs <pod-name> -n signoz
+```
