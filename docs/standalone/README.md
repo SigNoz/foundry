@@ -12,12 +12,11 @@ Runs SigNoz in a single Docker container using systemd casting. On first boot, `
 ## Quick Start
 
 ```bash
-docker build -t signoz/signoz:standalone -f docs/examples/standalone/Dockerfile .
 docker run -d --name signoz --privileged \
     -p 8080:8080 \
     -p 4317:4317 \
     -p 4318:4318 \
-    signoz/signoz:standalone
+    signoz/signoz-standalone:latest
 ```
 
 Access SigNoz UI at `http://localhost:8080`.
@@ -36,7 +35,7 @@ docker build \
     --build-arg INGESTER_VERSION=v0.144.2 \
     --build-arg FOUNDRY_VERSION=v0.0.7 \
     -t signoz/signoz:standalone \
-    -f docs/examples/standalone/Dockerfile .
+    -f docs/standalone/Dockerfile .
 ```
 
 
