@@ -120,7 +120,7 @@ func (casting *dockerComposeCasting) Cast(ctx context.Context, config v1alpha1.C
 		return fmt.Errorf("docker compose not available: %w", err)
 	}
 
-	// Build command arguments: "up -d"
+	// Build command arguments: set project name to metadata name and run "up -d"
 	args := append(composeCmd[1:], "-p", config.Metadata.Name, "-f", composeFile, "up", "-d")
 
 	casting.logger.DebugContext(runctx, "Running command", slog.String("command", strings.Join(append([]string{composeCmd[0]}, args...), " ")))

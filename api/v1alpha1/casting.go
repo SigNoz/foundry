@@ -17,6 +17,8 @@ type CastingSpec struct {
 	// Mode platform in which the platform will run.
 	Deployment TypeDeployment `json:"deployment" yaml:"deployment" description:"Deployment configuration for the platform"`
 
+	// Infrastructure configuration for generating infrastructure manifests (e.g., Terraform).
+	Infrastructure Infrastructure `json:"infrastructure,omitzero" yaml:"infrastructure,omitzero"`
 	// Patches are patch operations applied to generated output files.
 	Patches []PatchEntry `json:"patches,omitempty" yaml:"patches,omitempty" description:"Patch operations to apply to generated materials"`
 
@@ -114,6 +116,7 @@ func DefaultCasting() Casting {
 			Name: "signoz",
 		},
 		Spec: CastingSpec{
+			Infrastructure:  DefaultInfrastructure(),
 			Signoz:          DefaultSigNoz(),
 			TelemetryStore:  DefaultTelemetryStore(),
 			TelemetryKeeper: DefaultTelemetryKeeper(),
@@ -123,6 +126,9 @@ func DefaultCasting() Casting {
 	}
 }
 
+// ExampleCasting returns a minimal casting with only the deployment spec set.
+// The forge pipeline enriches and expands defaults; the full state is written
+// to the lock file, not the casting.yaml.
 func ExampleCasting() Casting {
 	return Casting{
 		TypeVersion: TypeVersion{
@@ -131,5 +137,6 @@ func ExampleCasting() Casting {
 		Metadata: TypeMetadata{
 			Name: "signoz",
 		},
+		Spec: CastingSpec{},
 	}
 }

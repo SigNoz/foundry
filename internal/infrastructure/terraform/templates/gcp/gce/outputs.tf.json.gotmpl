@@ -1,0 +1,64 @@
+{
+  "output": {
+    "network_id": {
+      "description": "ID of the VPC network",
+      "value": "${google_compute_network.main.id}"
+    },
+    "private_subnetwork_id": {
+      "description": "ID of the private subnetwork",
+      "value": "${google_compute_subnetwork.private.id}"
+    },
+    "public_subnetwork_id": {
+      "description": "ID of the public subnetwork",
+      "value": "${google_compute_subnetwork.public.id}"
+    },
+    "telemetrykeeper_instance_ids": {
+      "description": "IDs of the TelemetryKeeper GCE instances",
+      "value": "${google_compute_instance.telemetrykeeper[*].id}"
+    },
+    "telemetrykeeper_private_ips": {
+      "description": "Private IP addresses of the TelemetryKeeper GCE instances",
+      "value": "${[for i in google_compute_instance.telemetrykeeper : i.network_interface[0].network_ip]}"
+    },
+    "telemetrystore_instance_ids": {
+      "description": "IDs of the TelemetryStore GCE instances",
+      "value": "${google_compute_instance.telemetrystore[*].id}"
+    },
+    "telemetrystore_private_ips": {
+      "description": "Private IP addresses of the TelemetryStore GCE instances",
+      "value": "${[for i in google_compute_instance.telemetrystore : i.network_interface[0].network_ip]}"
+    },
+    "metastore_instance_ids": {
+      "description": "IDs of the MetaStore GCE instances",
+      "value": "${google_compute_instance.metastore[*].id}"
+    },
+    "metastore_private_ips": {
+      "description": "Private IP addresses of the MetaStore GCE instances",
+      "value": "${[for i in google_compute_instance.metastore : i.network_interface[0].network_ip]}"
+    },
+    "ingester_instance_ids": {
+      "description": "IDs of the Ingester GCE instances",
+      "value": "${google_compute_instance.ingester[*].id}"
+    },
+    "ingester_public_ips": {
+      "description": "Public IP addresses of the Ingester GCE instances",
+      "value": "${[for i in google_compute_instance.ingester : i.network_interface[0].access_config[0].nat_ip]}"
+    },
+    "ingester_private_ips": {
+      "description": "Private IP addresses of the Ingester GCE instances",
+      "value": "${[for i in google_compute_instance.ingester : i.network_interface[0].network_ip]}"
+    },
+    "signoz_instance_ids": {
+      "description": "IDs of the SigNoz GCE instances",
+      "value": "${google_compute_instance.signoz[*].id}"
+    },
+    "signoz_public_ips": {
+      "description": "Public IP addresses of the SigNoz GCE instances",
+      "value": "${[for i in google_compute_instance.signoz : i.network_interface[0].access_config[0].nat_ip]}"
+    },
+    "signoz_private_ips": {
+      "description": "Private IP addresses of the SigNoz GCE instances",
+      "value": "${[for i in google_compute_instance.signoz : i.network_interface[0].network_ip]}"
+    }
+  }
+}

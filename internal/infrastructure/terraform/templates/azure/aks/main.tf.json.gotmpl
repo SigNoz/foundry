@@ -1,0 +1,149 @@
+{
+  "locals": {
+    "name": "{{ .Metadata.Name }}",
+    "common_tags": {
+      "app.kubernetes.io/managed-by": "foundry",
+      "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+    }
+  },
+  "resource": {
+    "azurerm_resource_group": {
+      "main": {
+        "name": "${var.resource_group_name}",
+        "location": "${var.location}",
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      }
+    },
+    "azurerm_virtual_network": {
+      "main": {
+        "name": "${local.name}-vnet",
+        "location": "${azurerm_resource_group.main.location}",
+        "resource_group_name": "${azurerm_resource_group.main.name}",
+        "address_space": ["${var.vnet_cidr}"],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      }
+    },
+    "azurerm_subnet": {
+      "aks": {
+        "name": "${local.name}-aks",
+        "resource_group_name": "${azurerm_resource_group.main.name}",
+        "virtual_network_name": "${azurerm_virtual_network.main.name}",
+        "address_prefixes": ["${var.aks_subnet_cidr}"]
+      }
+    },
+    "azurerm_kubernetes_cluster": {
+      "main": {
+        "name": "${local.name}",
+        "location": "${azurerm_resource_group.main.location}",
+        "resource_group_name": "${azurerm_resource_group.main.name}",
+        "dns_prefix": "${local.name}",
+        "kubernetes_version": "${var.kubernetes_version}",
+        "default_node_pool": [{
+          "name": "system",
+          "node_count": 1,
+          "vm_size": "Standard_D2s_v3",
+          "vnet_subnet_id": "${azurerm_subnet.aks.id}",
+          "upgrade_settings": [{"max_surge": "10%"}]
+        }],
+        "identity": [{"type": "SystemAssigned"}],
+        "network_profile": [{
+          "network_plugin": "azure",
+          "load_balancer_sku": "standard",
+          "outbound_type": "loadBalancer"
+        }],
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      }
+    },
+    "azurerm_kubernetes_cluster_node_pool": {
+      "telemetrykeeper": {
+        "count": {{ if .Spec.TelemetryKeeper.Spec.Enabled }}1{{ else }}0{{ end }},
+        "name": "tkeepr",
+        "kubernetes_cluster_id": "${azurerm_kubernetes_cluster.main.id}",
+        "vm_size": "${var.telemetrykeeper_vm_size}",
+        "node_count": {{ derefInt .Spec.TelemetryKeeper.Spec.Cluster.Replicas }},
+        "vnet_subnet_id": "${azurerm_subnet.aks.id}",
+        "os_disk_size_gb": "${var.telemetrykeeper_disk_size}",
+        "node_labels": {
+          "role": "telemetrykeeper"
+        },
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      },
+      "telemetrystore": {
+        "count": {{ if .Spec.TelemetryStore.Spec.Enabled }}1{{ else }}0{{ end }},
+        "name": "tstore",
+        "kubernetes_cluster_id": "${azurerm_kubernetes_cluster.main.id}",
+        "vm_size": "${var.telemetrystore_vm_size}",
+        "node_count": {{ derefInt .Spec.TelemetryStore.Spec.Cluster.Replicas }},
+        "vnet_subnet_id": "${azurerm_subnet.aks.id}",
+        "os_disk_size_gb": "${var.telemetrystore_disk_size}",
+        "node_labels": {
+          "role": "telemetrystore"
+        },
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      },
+      "metastore": {
+        "count": {{ if .Spec.MetaStore.Spec.Enabled }}1{{ else }}0{{ end }},
+        "name": "metastore",
+        "kubernetes_cluster_id": "${azurerm_kubernetes_cluster.main.id}",
+        "vm_size": "${var.metastore_vm_size}",
+        "node_count": {{ derefInt .Spec.MetaStore.Spec.Cluster.Replicas }},
+        "vnet_subnet_id": "${azurerm_subnet.aks.id}",
+        "os_disk_size_gb": "${var.metastore_disk_size}",
+        "node_labels": {
+          "role": "metastore"
+        },
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      },
+      "ingester": {
+        "count": {{ if .Spec.Ingester.Spec.Enabled }}1{{ else }}0{{ end }},
+        "name": "ingester",
+        "kubernetes_cluster_id": "${azurerm_kubernetes_cluster.main.id}",
+        "vm_size": "${var.ingester_vm_size}",
+        "node_count": {{ derefInt .Spec.Ingester.Spec.Cluster.Replicas }},
+        "vnet_subnet_id": "${azurerm_subnet.aks.id}",
+        "os_disk_size_gb": "${var.ingester_disk_size}",
+        "node_labels": {
+          "role": "ingester"
+        },
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      },
+      "signoz": {
+        "count": {{ if .Spec.Signoz.Spec.Enabled }}1{{ else }}0{{ end }},
+        "name": "signoz",
+        "kubernetes_cluster_id": "${azurerm_kubernetes_cluster.main.id}",
+        "vm_size": "${var.signoz_vm_size}",
+        "node_count": {{ derefInt .Spec.Signoz.Spec.Cluster.Replicas }},
+        "vnet_subnet_id": "${azurerm_subnet.aks.id}",
+        "os_disk_size_gb": "${var.signoz_disk_size}",
+        "node_labels": {
+          "role": "signoz"
+        },
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "app.kubernetes.io/name": "{{ .Metadata.Name }}"
+        }
+      }
+    }
+  }
+}

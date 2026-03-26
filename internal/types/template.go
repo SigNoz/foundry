@@ -20,6 +20,18 @@ type Template struct {
 // templateFuncMap returns the function map for templates (sprig + toYaml).
 func templateFuncMap() template.FuncMap {
 	fm := template.FuncMap(sprig.FuncMap())
+	fm["derefInt"] = func(p *int) int {
+		if p == nil {
+			return 0
+		}
+		return *p
+	}
+	fm["derefIntDefault"] = func(p *int, defaultVal int) int {
+		if p == nil {
+			return defaultVal
+		}
+		return *p
+	}
 	fm["toYaml"] = func(v any) (string, error) {
 		if v == nil {
 			return "", nil

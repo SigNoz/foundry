@@ -1,0 +1,32 @@
+{
+  "terraform": {
+    "required_version": ">= 1.0.0",
+    "required_providers": {
+      {{- if eq .Spec.Deployment.Platform "aws" }}
+      "aws": {
+        "source": "hashicorp/aws",
+        "version": "~> 5.0"
+      }
+      {{- else if eq .Spec.Deployment.Platform "gcp" }}
+      "google": {
+        "source": "hashicorp/google",
+        "version": "~> 5.0"
+      }
+      {{- else if eq .Spec.Deployment.Platform "azure" }}
+      "azurerm": {
+        "source": "hashicorp/azurerm",
+        "version": "~> 3.0"
+      }
+      {{- end }}
+    }
+  },
+  "provider": {
+    {{- if eq .Spec.Deployment.Platform "aws" }}
+    "aws": [{}]
+    {{- else if eq .Spec.Deployment.Platform "gcp" }}
+    "google": [{}]
+    {{- else if eq .Spec.Deployment.Platform "azure" }}
+    "azurerm": [{"features": [{}]}]
+    {{- end }}
+  }
+}

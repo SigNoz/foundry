@@ -8,6 +8,7 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
+	"github.com/signoz/foundry/internal/tooler/terraformtooler"
 )
 
 func (foundry *Foundry) Gauge(ctx context.Context, config v1alpha1.Casting) error {
@@ -16,6 +17,10 @@ func (foundry *Foundry) Gauge(ctx context.Context, config v1alpha1.Casting) erro
 	toolers, err := foundry.Registry.Toolers(config.Spec.Deployment)
 	if err != nil {
 		return err
+	}
+
+	if config.Spec.Infrastructure.Enabled {
+		toolers = append(toolers, terraformtooler.New())
 	}
 
 	unavailableTools := []string{}

@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
+	"github.com/signoz/foundry/internal/types"
 	"github.com/signoz/foundry/internal/writer"
 )
 
@@ -72,15 +74,35 @@ func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, path
 		}
 	}
 
-	// writing the merged config to the config file
-	foundry.Logger.InfoContext(ctx, "writing lock file", slog.String("casting.metadata.name", config.Metadata.Name))
+	// Generate infrastructure-as-code manifests if enabled, before writing the lock file
+	// so that the generated file contents are captured in the lock's infrastructure.status.
+	var infraMaterials []types.Material
+	if config.Spec.Infrastructure.Enabled {
+		foundry.Logger.InfoContext(ctx, "generating infrastructure manifests",
+			slog.String("casting.metadata.name", config.Metadata.Name),
+			slog.String("deployment.platform", config.Spec.Deployment.Platform))
 
-	err = foundry.Config.CreateV1Alpha1Lock(ctx, config, path)
-	if err != nil {
+		infraMaterials, err = foundry.InfrastructureGenerator.Generate(ctx, config)
+		if err != nil {
+			return fmt.Errorf("failed to generate infrastructure manifests: %w", err)
+		}
+
+		// Populate infrastructure status with generated file contents keyed by filename.
+		if len(infraMaterials) > 0 {
+			config.Spec.Infrastructure.Status = make(map[string]string, len(infraMaterials))
+			for _, m := range infraMaterials {
+				config.Spec.Infrastructure.Status[filepath.Base(m.Path())] = string(m.FmtContents())
+			}
+		}
+	}
+
+	// writing the merged config (including infrastructure status) to the lock file
+	foundry.Logger.InfoContext(ctx, "writing lock file", slog.String("casting.metadata.name", config.Metadata.Name))
+	if err = foundry.Config.CreateV1Alpha1Lock(ctx, config, path); err != nil {
 		return err
 	}
 
-	if len(materials) == 0 {
+	if len(materials) == 0 && len(infraMaterials) == 0 {
 		foundry.Logger.WarnContext(ctx, "casting did not generate any materials for writing")
 		return nil
 	}
@@ -90,10 +112,16 @@ func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, path
 		return err
 	}
 
-	// Writing the materials
+	if len(infraMaterials) > 0 {
+		foundry.Logger.InfoContext(ctx, "writing infrastructure materials", slog.Int("count", len(infraMaterials)))
+		if err = poursWriter.WriteMany(ctx, infraMaterials...); err != nil {
+			return err
+		}
+	}
+
+	// Writing the deployment materials
 	foundry.Logger.InfoContext(ctx, "writing materials", slog.String("casting.metadata.name", config.Metadata.Name))
-	err = poursWriter.WriteMany(ctx, materials...)
-	if err != nil {
+	if err = poursWriter.WriteMany(ctx, materials...); err != nil {
 		return err
 	}
 

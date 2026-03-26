@@ -1,0 +1,261 @@
+{
+  "locals": {
+    "name": "{{ .Metadata.Name }}",
+    "common_labels": {
+      "app-kubernetes-io-managed-by": "foundry",
+      "app-kubernetes-io-name": "{{ .Metadata.Name }}"
+    }
+  },
+  "data": {
+    "google_compute_image": {
+      "ubuntu": {
+        "family": "ubuntu-2204-lts",
+        "project": "ubuntu-os-cloud"
+      }
+    }
+  },
+  "resource": {
+    "google_compute_network": {
+      "main": {
+        "name": "${local.name}-vpc",
+        "auto_create_subnetworks": false,
+        "project": "${var.project_id}"
+      }
+    },
+    "google_compute_subnetwork": {
+      "private": {
+        "name": "${local.name}-private",
+        "ip_cidr_range": "${var.private_subnet_cidr}",
+        "region": "${var.region}",
+        "network": "${google_compute_network.main.id}",
+        "project": "${var.project_id}",
+        "private_ip_google_access": true
+      },
+      "public": {
+        "name": "${local.name}-public",
+        "ip_cidr_range": "${var.public_subnet_cidr}",
+        "region": "${var.region}",
+        "network": "${google_compute_network.main.id}",
+        "project": "${var.project_id}"
+      }
+    },
+    "google_compute_router": {
+      "main": {
+        "name": "${local.name}-router",
+        "region": "${var.region}",
+        "network": "${google_compute_network.main.id}",
+        "project": "${var.project_id}"
+      }
+    },
+    "google_compute_router_nat": {
+      "main": {
+        "name": "${local.name}-nat",
+        "router": "${google_compute_router.main.name}",
+        "region": "${var.region}",
+        "project": "${var.project_id}",
+        "nat_ip_allocate_option": "AUTO_ONLY",
+        "source_subnetwork_ip_ranges_to_nat": "LIST_OF_SUBNETWORKS",
+        "subnetwork": [{
+          "name": "${google_compute_subnetwork.private.id}",
+          "source_ip_ranges_to_nat": ["ALL_IP_RANGES"]
+        }]
+      }
+    },
+    "google_compute_firewall": {
+      "telemetrykeeper": {
+        "name": "${local.name}-telemetrykeeper",
+        "network": "${google_compute_network.main.id}",
+        "project": "${var.project_id}",
+        "allow": [
+          {"protocol": "tcp", "ports": ["9181", "9234"]},
+          {"protocol": "tcp", "ports": ["22"]}
+        ],
+        "source_ranges": ["${var.private_subnet_cidr}"],
+        "target_tags": ["telemetrykeeper"],
+        "description": "Allow TelemetryKeeper (ClickHouse Keeper) traffic"
+      },
+      "telemetrystore": {
+        "name": "${local.name}-telemetrystore",
+        "network": "${google_compute_network.main.id}",
+        "project": "${var.project_id}",
+        "allow": [
+          {"protocol": "tcp", "ports": ["9000", "8123"]},
+          {"protocol": "tcp", "ports": ["22"]}
+        ],
+        "source_ranges": ["${var.private_subnet_cidr}"],
+        "target_tags": ["telemetrystore"],
+        "description": "Allow TelemetryStore (ClickHouse) traffic"
+      },
+      "metastore": {
+        "name": "${local.name}-metastore",
+        "network": "${google_compute_network.main.id}",
+        "project": "${var.project_id}",
+        "allow": [
+          {"protocol": "tcp", "ports": ["5432"]},
+          {"protocol": "tcp", "ports": ["22"]}
+        ],
+        "source_ranges": ["${var.private_subnet_cidr}"],
+        "target_tags": ["metastore"],
+        "description": "Allow MetaStore (PostgreSQL) traffic"
+      },
+      "ingester": {
+        "name": "${local.name}-ingester",
+        "network": "${google_compute_network.main.id}",
+        "project": "${var.project_id}",
+        "allow": [
+          {"protocol": "tcp", "ports": ["4317", "4318"]},
+          {"protocol": "tcp", "ports": ["22"]}
+        ],
+        "source_ranges": ["0.0.0.0/0"],
+        "target_tags": ["ingester"],
+        "description": "Allow Ingester (OpenTelemetry Collector) traffic"
+      },
+      "signoz": {
+        "name": "${local.name}-signoz",
+        "network": "${google_compute_network.main.id}",
+        "project": "${var.project_id}",
+        "allow": [
+          {"protocol": "tcp", "ports": ["8080", "3301"]},
+          {"protocol": "tcp", "ports": ["22"]}
+        ],
+        "source_ranges": ["0.0.0.0/0"],
+        "target_tags": ["signoz"],
+        "description": "Allow SigNoz UI and API traffic"
+      }
+    },
+    "google_compute_instance": {
+      "telemetrykeeper": {
+        "count": {{ if .Spec.TelemetryKeeper.Spec.Enabled }}{{ derefInt .Spec.TelemetryKeeper.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "name": "${local.name}-telemetrykeeper-${count.index}",
+        "machine_type": "${var.telemetrykeeper_machine_type}",
+        "zone": "${var.region}-${element([\"a\", \"b\", \"c\"], count.index)}",
+        "project": "${var.project_id}",
+        "tags": ["telemetrykeeper"],
+        "boot_disk": [{
+          "initialize_params": [{
+            "image": "${data.google_compute_image.ubuntu.self_link}",
+            "size": "${var.telemetrykeeper_disk_size}",
+            "type": "pd-ssd"
+          }]
+        }],
+        "network_interface": [{
+          "subnetwork": "${google_compute_subnetwork.private.id}"
+        }],
+        "labels": {
+          "app-kubernetes-io-managed-by": "foundry",
+          "app-kubernetes-io-name": "{{ .Metadata.Name }}",
+          "role": "telemetrykeeper"
+        },
+        "metadata": {
+          "enable-oslogin": "TRUE"
+        }
+      },
+      "telemetrystore": {
+        "count": {{ if .Spec.TelemetryStore.Spec.Enabled }}{{ derefInt .Spec.TelemetryStore.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "name": "${local.name}-telemetrystore-${count.index}",
+        "machine_type": "${var.telemetrystore_machine_type}",
+        "zone": "${var.region}-${element([\"a\", \"b\", \"c\"], count.index)}",
+        "project": "${var.project_id}",
+        "tags": ["telemetrystore"],
+        "boot_disk": [{
+          "initialize_params": [{
+            "image": "${data.google_compute_image.ubuntu.self_link}",
+            "size": "${var.telemetrystore_disk_size}",
+            "type": "pd-ssd"
+          }]
+        }],
+        "network_interface": [{
+          "subnetwork": "${google_compute_subnetwork.private.id}"
+        }],
+        "labels": {
+          "app-kubernetes-io-managed-by": "foundry",
+          "app-kubernetes-io-name": "{{ .Metadata.Name }}",
+          "role": "telemetrystore"
+        },
+        "metadata": {
+          "enable-oslogin": "TRUE"
+        }
+      },
+      "metastore": {
+        "count": {{ if .Spec.MetaStore.Spec.Enabled }}{{ derefInt .Spec.MetaStore.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "name": "${local.name}-metastore-${count.index}",
+        "machine_type": "${var.metastore_machine_type}",
+        "zone": "${var.region}-${element([\"a\", \"b\", \"c\"], count.index)}",
+        "project": "${var.project_id}",
+        "tags": ["metastore"],
+        "boot_disk": [{
+          "initialize_params": [{
+            "image": "${data.google_compute_image.ubuntu.self_link}",
+            "size": "${var.metastore_disk_size}",
+            "type": "pd-ssd"
+          }]
+        }],
+        "network_interface": [{
+          "subnetwork": "${google_compute_subnetwork.private.id}"
+        }],
+        "labels": {
+          "app-kubernetes-io-managed-by": "foundry",
+          "app-kubernetes-io-name": "{{ .Metadata.Name }}",
+          "role": "metastore"
+        },
+        "metadata": {
+          "enable-oslogin": "TRUE"
+        }
+      },
+      "ingester": {
+        "count": {{ if .Spec.Ingester.Spec.Enabled }}{{ derefInt .Spec.Ingester.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "name": "${local.name}-ingester-${count.index}",
+        "machine_type": "${var.ingester_machine_type}",
+        "zone": "${var.region}-${element([\"a\", \"b\", \"c\"], count.index)}",
+        "project": "${var.project_id}",
+        "tags": ["ingester"],
+        "boot_disk": [{
+          "initialize_params": [{
+            "image": "${data.google_compute_image.ubuntu.self_link}",
+            "size": "${var.ingester_disk_size}",
+            "type": "pd-ssd"
+          }]
+        }],
+        "network_interface": [{
+          "subnetwork": "${google_compute_subnetwork.public.id}",
+          "access_config": [{}]
+        }],
+        "labels": {
+          "app-kubernetes-io-managed-by": "foundry",
+          "app-kubernetes-io-name": "{{ .Metadata.Name }}",
+          "role": "ingester"
+        },
+        "metadata": {
+          "enable-oslogin": "TRUE"
+        }
+      },
+      "signoz": {
+        "count": {{ if .Spec.Signoz.Spec.Enabled }}{{ derefInt .Spec.Signoz.Spec.Cluster.Replicas }}{{ else }}0{{ end }},
+        "name": "${local.name}-signoz-${count.index}",
+        "machine_type": "${var.signoz_machine_type}",
+        "zone": "${var.region}-${element([\"a\", \"b\", \"c\"], count.index)}",
+        "project": "${var.project_id}",
+        "tags": ["signoz"],
+        "boot_disk": [{
+          "initialize_params": [{
+            "image": "${data.google_compute_image.ubuntu.self_link}",
+            "size": "${var.signoz_disk_size}",
+            "type": "pd-ssd"
+          }]
+        }],
+        "network_interface": [{
+          "subnetwork": "${google_compute_subnetwork.public.id}",
+          "access_config": [{}]
+        }],
+        "labels": {
+          "app-kubernetes-io-managed-by": "foundry",
+          "app-kubernetes-io-name": "{{ .Metadata.Name }}",
+          "role": "signoz"
+        },
+        "metadata": {
+          "enable-oslogin": "TRUE"
+        }
+      }
+    }
+  }
+}

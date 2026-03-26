@@ -1,0 +1,46 @@
+{
+  "output": {
+    "cluster_name": {
+      "description": "Name of the GKE cluster",
+      "value": "${google_container_cluster.main.name}"
+    },
+    "cluster_endpoint": {
+      "description": "Endpoint for the GKE cluster master",
+      "value": "${google_container_cluster.main.endpoint}",
+      "sensitive": true
+    },
+    "cluster_ca_certificate": {
+      "description": "Base64-encoded public certificate of the cluster's certificate authority",
+      "value": "${google_container_cluster.main.master_auth[0].cluster_ca_certificate}",
+      "sensitive": true
+    },
+    "network_id": {
+      "description": "ID of the VPC network",
+      "value": "${google_compute_network.main.id}"
+    },
+    "private_subnetwork_id": {
+      "description": "ID of the private subnetwork",
+      "value": "${google_compute_subnetwork.private.id}"
+    },
+    "telemetrykeeper_node_pool_id": {
+      "description": "ID of the TelemetryKeeper node pool",
+      "value": "${google_container_node_pool.telemetrykeeper[*].id}"
+    },
+    "telemetrystore_node_pool_id": {
+      "description": "ID of the TelemetryStore node pool",
+      "value": "${google_container_node_pool.telemetrystore[*].id}"
+    },
+    "metastore_node_pool_id": {
+      "description": "ID of the MetaStore node pool",
+      "value": "${google_container_node_pool.metastore[*].id}"
+    },
+    "ingester_node_pool_id": {
+      "description": "ID of the Ingester node pool",
+      "value": "${google_container_node_pool.ingester[*].id}"
+    },
+    "signoz_node_pool_id": {
+      "description": "ID of the SigNoz node pool",
+      "value": "${google_container_node_pool.signoz[*].id}"
+    }
+  }
+}

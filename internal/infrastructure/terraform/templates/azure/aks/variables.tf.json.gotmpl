@@ -1,0 +1,83 @@
+{
+  "variable": {
+    "resource_group_name": {
+      "description": "Azure resource group name",
+      "type": "string"
+    },
+    "location": {
+      "description": "Azure region to deploy resources",
+      "type": "string",
+      "default": "eastus"
+    },
+    "name": {
+      "description": "The name of the deployment",
+      "type": "string",
+      "default": "{{ .Metadata.Name }}"
+    },
+    "vnet_cidr": {
+      "description": "CIDR block for the virtual network",
+      "type": "string",
+      "default": "10.0.0.0/8"
+    },
+    "aks_subnet_cidr": {
+      "description": "CIDR block for the AKS subnet",
+      "type": "string",
+      "default": "10.240.0.0/16"
+    },
+    "kubernetes_version": {
+      "description": "Kubernetes version for the AKS cluster (leave empty for latest)",
+      "type": "string",
+      "default": ""
+    },
+    "telemetrykeeper_vm_size": {
+      "description": "Azure VM size for TelemetryKeeper node pool",
+      "type": "string",
+      "default": "Standard_B2s"
+    },
+    "telemetrykeeper_disk_size": {
+      "description": "OS disk size (GB) for TelemetryKeeper nodes",
+      "type": "number",
+      "default": 20
+    },
+    "telemetrystore_vm_size": {
+      "description": "Azure VM size for TelemetryStore node pool",
+      "type": "string",
+      "default": "Standard_E4s_v3"
+    },
+    "telemetrystore_disk_size": {
+      "description": "OS disk size (GB) for TelemetryStore nodes",
+      "type": "number",
+      "default": 100
+    },
+    "metastore_vm_size": {
+      "description": "Azure VM size for MetaStore node pool",
+      "type": "string",
+      "default": "Standard_B2s"
+    },
+    "metastore_disk_size": {
+      "description": "OS disk size (GB) for MetaStore nodes",
+      "type": "number",
+      "default": 20
+    },
+    "ingester_vm_size": {
+      "description": "Azure VM size for Ingester node pool",
+      "type": "string",
+      "default": "Standard_B4ms"
+    },
+    "ingester_disk_size": {
+      "description": "OS disk size (GB) for Ingester nodes",
+      "type": "number",
+      "default": 50
+    },
+    "signoz_vm_size": {
+      "description": "Azure VM size for SigNoz node pool",
+      "type": "string",
+      "default": "Standard_B4ms"
+    },
+    "signoz_disk_size": {
+      "description": "OS disk size (GB) for SigNoz nodes",
+      "type": "number",
+      "default": 50
+    }
+  }
+}

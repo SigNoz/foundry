@@ -105,11 +105,11 @@ func (m Material) IsMultiDoc() bool {
 func (m Material) FmtContents() []byte {
 	switch m.format {
 	case FormatYAML:
-		out, err := m.ToYaml()
+		fmtContents, err := m.ToYaml()
 		if err != nil {
 			return nil
 		}
-		return out
+		return fmtContents
 	case FormatINI:
 		fmtContents, err := JSONToINI(m.contents)
 		if err != nil {

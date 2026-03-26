@@ -1,0 +1,79 @@
+{
+  "variable": {
+    "aws_region": {
+      "description": "AWS region to deploy resources",
+      "type": "string",
+      "default": "us-east-1"
+    },
+    "vpc_cidr": {
+      "description": "CIDR block for the VPC",
+      "type": "string",
+      "default": "10.0.0.0/16"
+    },
+    "az_count": {
+      "description": "Number of availability zones to use",
+      "type": "number",
+      "default": 2
+    },
+    "name": {
+      "description": "The name of the deployment",
+      "type": "string",
+      "default": "{{ .Metadata.Name }}"
+    },
+    "ssh_public_key": {
+      "description": "SSH public key for EC2 instance access. Leave empty to disable SSH key pair creation.",
+      "type": "string",
+      "default": ""
+    },
+    "telemetrykeeper_instance_type": {
+      "description": "EC2 instance type for TelemetryKeeper",
+      "type": "string",
+      "default": "t3.small"
+    },
+    "telemetrykeeper_volume_size": {
+      "description": "Root volume size (GB) for TelemetryKeeper instances",
+      "type": "number",
+      "default": 20
+    },
+    "telemetrystore_instance_type": {
+      "description": "EC2 instance type for TelemetryStore",
+      "type": "string",
+      "default": "r6i.xlarge"
+    },
+    "telemetrystore_volume_size": {
+      "description": "Root volume size (GB) for TelemetryStore instances",
+      "type": "number",
+      "default": 100
+    },
+    "metastore_instance_type": {
+      "description": "EC2 instance type for MetaStore",
+      "type": "string",
+      "default": "t3.small"
+    },
+    "metastore_volume_size": {
+      "description": "Root volume size (GB) for MetaStore instances",
+      "type": "number",
+      "default": 20
+    },
+    "ingester_instance_type": {
+      "description": "EC2 instance type for Ingester",
+      "type": "string",
+      "default": "t3.medium"
+    },
+    "ingester_volume_size": {
+      "description": "Root volume size (GB) for Ingester instances",
+      "type": "number",
+      "default": 50
+    },
+    "signoz_instance_type": {
+      "description": "EC2 instance type for SigNoz",
+      "type": "string",
+      "default": "t3.medium"
+    },
+    "signoz_volume_size": {
+      "description": "Root volume size (GB) for SigNoz instances",
+      "type": "number",
+      "default": 50
+    }
+  }
+}

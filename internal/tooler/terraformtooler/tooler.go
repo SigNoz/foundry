@@ -23,5 +23,8 @@ func (t *terraformTooler) Gauge(ctx context.Context) error {
 }
 
 func (t *terraformTooler) Install(ctx context.Context) error {
+	// Terraform installation is platform-specific and typically requires manual installation
+	// or use of a package manager. We return nil here as users are expected to have
+	// terraform installed.
 	return nil
 }
