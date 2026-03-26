@@ -77,6 +77,11 @@ docker compose -f pours/deployment/compose.yaml logs -f signoz
 cd pours/deployment && docker compose down
 ```
 
+## Notes
+
+- `foundryctl cast` detects whether `docker compose` (v2 plugin) or `docker-compose` (legacy standalone) is available and uses whichever it finds, preferring the v2 plugin.
+- The `metadata.name` is used as the Compose project name (`-p` flag).
+
 ## Customization
 
 Override component images, replicas, or environment variables in the casting spec. For platform-level changes to the generated `compose.yaml` (memory limits, networks, volumes), use [patches](../../concepts/patches.md).

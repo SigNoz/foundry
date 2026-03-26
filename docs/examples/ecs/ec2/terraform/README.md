@@ -57,6 +57,9 @@ Run the full pipeline (generate Terraform files and apply):
 foundryctl cast -f casting.yaml
 ```
 
+> [!NOTE]
+> `foundryctl cast` runs `terraform init` followed by `terraform apply -auto-approve`. If you prefer to review the plan before applying, use the step-by-step approach below.
+
 Step-by-step alternative:
 
 ```bash

@@ -40,9 +40,15 @@ Or step by step:
 # Generate values.yaml
 foundryctl forge -f casting.yaml
 
+# Add the SigNoz Helm repo
+helm repo add signoz https://charts.signoz.io
+
 # Install with Helm
 helm install signoz signoz/signoz -f pours/deployment/values.yaml -n signoz --create-namespace
 ```
+
+> [!NOTE]
+> `foundryctl cast` is idempotent. It detects whether a Helm release already exists and runs `helm upgrade` instead of `helm install` accordingly.
 
 ## Generated output
 

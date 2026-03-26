@@ -45,6 +45,9 @@ Run the full pipeline (validate prerequisites, generate files, install and start
 sudo foundryctl cast -f casting.yaml
 ```
 
+> [!NOTE]
+> `foundryctl cast` requires `sudo` because it manages systemd services, creates system users, and writes to system directories.
+
 Step-by-step alternative:
 
 ```bash
