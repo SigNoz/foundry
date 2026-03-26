@@ -21,3 +21,6 @@ test:
 docs:
 	go run ./cmd/foundryctl gen --debug examples
 	go run ./cmd/foundryctl gen --debug schemas
+	go run go.opentelemetry.io/build-tools/gotmpl@latest -b README.md.gotmpl -d "$$(cat castings.json)" -o README.md
+	go run go.opentelemetry.io/build-tools/gotmpl@latest -b docs/examples/README.md.gotmpl -d "$$(cat castings.json)" -o docs/examples/README.md
+

@@ -1,0 +1,7 @@
+### Examples
+
+| Platform | Mode | Flavor | Path |
+| --- | --- | --- | --- |
+{{- range .Castings }}
+| {{ .Platform }} | {{ .Mode }} | {{ .Flavor }} | [{{ .Path }}]({{ .Path }}/) |
+{{- end }}
