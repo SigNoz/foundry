@@ -29,7 +29,7 @@ gen-schemas:
 	$(FOUNDRYCTL) gen --debug schemas
 
 gen-docs:
-	$(FOUNDRYCTL) catalog --debug -o json --out-path "docs/examples/castings.json"
+	$(FOUNDRYCTL) catalog --debug --format json --output "docs/examples/castings.json"
 	$(GOTMPL) -b README.md.gotmpl -d "$(CASTINGS_JSON)" -o README.md
 	$(GOTMPL) -b docs/examples/README.md.gotmpl -d "$(CASTINGS_JSON)" -o docs/examples/README.md
 

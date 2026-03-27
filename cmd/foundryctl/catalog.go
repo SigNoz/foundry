@@ -2,12 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"os"
 	"sort"
-	"text/tabwriter"
 
+	"github.com/olekukonko/tablewriter"
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/foundry"
 	"github.com/signoz/foundry/internal/instrumentation"
@@ -21,7 +20,7 @@ func registerCatalogCmd(rootCmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := instrumentation.NewLogger(commonCfg.Debug)
 
-			return runList(logger)
+			return runCatalog(logger)
 		},
 	}
 
@@ -62,7 +61,7 @@ func catalogGroup(e castingEntry) int {
 	}
 }
 
-func runList(logger *slog.Logger) error {
+func runCatalog(logger *slog.Logger) error {
 	f, err := foundry.New(logger)
 	if err != nil {
 		return err
@@ -86,7 +85,7 @@ func runList(logger *slog.Logger) error {
 		return entries[i].Example < entries[j].Example
 	})
 
-	if catalogCfg.Output == "json" {
+	if catalogCfg.Format == "json" {
 		data, err := json.MarshalIndent(map[string]any{"Castings": entries}, "", "  ")
 		if err != nil {
 			return err
@@ -98,11 +97,11 @@ func runList(logger *slog.Logger) error {
 		return err
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	_, _ = fmt.Fprintln(w, "MODE\tFLAVOR\tPLATFORM\tEXAMPLE")
+	table := tablewriter.NewWriter(os.Stdout)
+	table.Header("Mode", "Flavor", "Platform", "Example")
 	for _, e := range entries {
-		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", e.Mode, e.Flavor, e.Platform, e.Example)
+		_ = table.Append(e.Mode, e.Flavor, e.Platform, e.Example)
 	}
 
-	return w.Flush()
+	return table.Render()
 }
