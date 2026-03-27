@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/foundry"
 	"github.com/signoz/foundry/internal/instrumentation"
+	"github.com/signoz/foundry/internal/ledger"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +22,7 @@ func registerCatalogCmd(rootCmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := instrumentation.NewLogger(commonCfg.Debug)
 
-			return runCatalog(logger)
+			return runCatalog(cmd.Context(), logger)
 		},
 	}
 
@@ -61,9 +63,10 @@ func catalogGroup(e castingEntry) int {
 	}
 }
 
-func runCatalog(logger *slog.Logger) error {
+func runCatalog(ctx context.Context, logger *slog.Logger) error {
 	f, err := foundry.New(logger)
 	if err != nil {
+		tracker.Track(ctx, ledger.WithError(ledger.CommandProperties("catalog"), err))
 		return err
 	}
 
@@ -88,13 +91,25 @@ func runCatalog(logger *slog.Logger) error {
 	if catalogCfg.Format == "json" {
 		data, err := json.MarshalIndent(map[string]any{"Castings": entries}, "", "  ")
 		if err != nil {
+			tracker.Track(ctx, ledger.WithError(ledger.CommandProperties("catalog"), err))
 			return err
 		}
 		if catalogCfg.OutPath != "" {
-			return os.WriteFile(catalogCfg.OutPath, data, 0644)
+			err = os.WriteFile(catalogCfg.OutPath, data, 0644)
+			if err != nil {
+				tracker.Track(ctx, ledger.WithError(ledger.CommandProperties("catalog"), err))
+				return err
+			}
+			tracker.Track(ctx, ledger.WithSuccess(ledger.CommandProperties("catalog")))
+			return nil
 		}
 		_, err = os.Stdout.Write(data)
-		return err
+		if err != nil {
+			tracker.Track(ctx, ledger.WithError(ledger.CommandProperties("catalog"), err))
+			return err
+		}
+		tracker.Track(ctx, ledger.WithSuccess(ledger.CommandProperties("catalog")))
+		return nil
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
@@ -103,5 +118,12 @@ func runCatalog(logger *slog.Logger) error {
 		_ = table.Append(e.Mode, e.Flavor, e.Platform, e.Example)
 	}
 
-	return table.Render()
+	err = table.Render()
+	if err != nil {
+		tracker.Track(ctx, ledger.WithError(ledger.CommandProperties("catalog"), err))
+		return err
+	}
+
+	tracker.Track(ctx, ledger.WithSuccess(ledger.CommandProperties("catalog")))
+	return nil
 }

@@ -10,6 +10,7 @@ import (
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/foundry"
 	"github.com/signoz/foundry/internal/instrumentation"
+	"github.com/signoz/foundry/internal/ledger"
 	"github.com/spf13/cobra"
 )
 
@@ -59,8 +60,18 @@ func runCast(ctx context.Context, logger *slog.Logger, poursPath string, configP
 	lock, err := foundry.Config.GetV1Alpha1Lock(ctx, configPath)
 	if err != nil {
 		logger.ErrorContext(ctx, "failed to load generated casting.yaml.lock", foundryerrors.LogAttr(err))
+		tracker.Track(ctx, ledger.WithError(ledger.CommandProperties("cast"), err))
 		return err
 	}
 
-	return foundry.Cast(ctx, lock, poursPath)
+	props := ledger.CastingProperties("cast", lock)
+
+	err = foundry.Cast(ctx, lock, poursPath)
+	if err != nil {
+		tracker.Track(ctx, ledger.WithError(props, err))
+		return err
+	}
+
+	tracker.Track(ctx, ledger.WithSuccess(props))
+	return nil
 }

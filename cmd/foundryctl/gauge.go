@@ -7,6 +7,7 @@ import (
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/foundry"
 	"github.com/signoz/foundry/internal/instrumentation"
+	"github.com/signoz/foundry/internal/ledger"
 	"github.com/spf13/cobra"
 )
 
@@ -35,14 +36,19 @@ func runGauge(ctx context.Context, logger *slog.Logger, path string) error {
 	casting, err := foundry.Config.GetV1Alpha1(ctx, path)
 	if err != nil {
 		logger.ErrorContext(ctx, err.Error())
+		tracker.Track(ctx, ledger.WithError(ledger.CommandProperties("gauge"), err))
 		return err
 	}
+
+	props := ledger.CastingProperties("gauge", casting)
 
 	err = foundry.Gauge(ctx, casting)
 	if err != nil {
 		logger.ErrorContext(ctx, err.Error())
+		tracker.Track(ctx, ledger.WithError(props, err))
 		return err
 	}
 
+	tracker.Track(ctx, ledger.WithSuccess(props))
 	return nil
 }

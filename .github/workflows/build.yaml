@@ -16,7 +16,11 @@ jobs:
       PRIMUS_REF: main
       GO_BUILD_CONTEXT: ./cmd/foundryctl
       GO_VERSION: 1.25
-      GO_BUILD_FLAGS: ""
+      GO_BUILD_FLAGS: >-
+        -ldflags='-s -w
+        -X github.com/signoz/foundry/internal/version.version=${{ github.ref_name }}
+        -X github.com/signoz/foundry/internal/version.hash=${{ github.sha }}
+        -X github.com/signoz/foundry/internal/ledger.key=YPscRxkyHv2Fn0aOucmLrMYBBVAC1AFu"
       GO_NAME: foundryctl
       DOCKER_BASE_IMAGES: '{"distroless":"gcr.io/distroless/base:latest"}'
       DOCKER_DOCKERFILE_PATH: Dockerfile.multi-arch

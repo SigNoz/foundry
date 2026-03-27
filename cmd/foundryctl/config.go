@@ -17,13 +17,15 @@ var (
 )
 
 type commonConfig struct {
-	File  string
-	Debug bool
+	File     string
+	Debug    bool
+	NoLedger bool
 }
 
 func (c *commonConfig) RegisterFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVarP(&c.File, "file", "f", "casting.yaml", "Path to the casting configuration file.")
 	cmd.PersistentFlags().BoolVarP(&c.Debug, "debug", "d", false, "Enable debug mode.")
+	cmd.PersistentFlags().BoolVar(&c.NoLedger, "no-ledger", false, "Disable anonymous usage ledger.")
 }
 
 type poursConfig struct {

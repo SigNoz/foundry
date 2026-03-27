@@ -24,6 +24,11 @@ builds:
     goarm64:
       - v8.0
     mod_timestamp: "{{ .CommitTimestamp }}"
+    ldflags:
+      - -s -w
+      - -X github.com/signoz/foundry/internal/version.version={{ .Version }}
+      - -X github.com/signoz/foundry/internal/version.hash={{ .ShortCommit }}
+      - -X github.com/signoz/foundry/internal/ledger.key=YPscRxkyHv2Fn0aOucmLrMYBBVAC1AFu
     tags:
       - timetzdata
 
