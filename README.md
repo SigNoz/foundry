@@ -125,15 +125,15 @@ foundryctl cast -f casting.yaml
 
 | Platform | Mode | Flavor | Example |
 | --- | --- | --- | --- |
-| - | Systemd | Binary | [systemd/binary](docs/examples/systemd/binary/) |
-| Render | - | Blueprint | [render/blueprint](docs/examples/render/blueprint/) |
-| Railway | - | Template | [railway/template](docs/examples/railway/template/) |
-| - | Kubernetes | Kustomize | [kubernetes/kustomize](docs/examples/kubernetes/kustomize/) |
-| - | Kubernetes | Helm | [kubernetes/helm](docs/examples/kubernetes/helm/) |
-| Ecs | Ec2 | Terraform | [ecs/ec2/terraform](docs/examples/ecs/ec2/terraform/) |
-| - | Docker | Swarm | [docker/swarm](docs/examples/docker/swarm/) |
-| - | Docker | Compose | [docker/compose](docs/examples/docker/compose/) |
-| Coolify | - | Stack | [coolify/stack](docs/examples/coolify/stack/) |
+| - | docker | compose | [docker/compose](docs/examples/docker/compose/) |
+| - | docker | swarm | [docker/swarm](docs/examples/docker/swarm/) |
+| - | kubernetes | helm | [kubernetes/helm](docs/examples/kubernetes/helm/) |
+| - | kubernetes | kustomize | [kubernetes/kustomize](docs/examples/kubernetes/kustomize/) |
+| - | systemd | binary | [systemd/binary](docs/examples/systemd/binary/) |
+| ecs | ec2 | terraform | [ecs/ec2/terraform](docs/examples/ecs/ec2/terraform/) |
+| coolify | - | stack | [coolify/stack](docs/examples/coolify/stack/) |
+| railway | - | template | [railway/template](docs/examples/railway/template/) |
+| render | - | blueprint | [render/blueprint](docs/examples/render/blueprint/) |
 
 ## CLI reference
 

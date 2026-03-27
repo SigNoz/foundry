@@ -3,5 +3,5 @@
 | Platform | Mode | Flavor | Example |
 | --- | --- | --- | --- |
 {{- range .Castings }}
-| {{ .Platform }} | {{ .Mode }} | {{ .Flavor }} | [{{ .Path }}]({{ .Path }}/) |
+| {{ or .platform "-" }} | {{ or .mode "-" }} | {{ or .flavor "-" }} | [{{ .example }}]({{ .example }}/) |
 {{- end }}

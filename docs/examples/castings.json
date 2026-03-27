@@ -1,58 +1,58 @@
 {
   "Castings": [
     {
-      "Platform": "-",
-      "Mode": "Systemd",
-      "Flavor": "Binary",
-      "Path": "systemd/binary"
+      "platform": "",
+      "mode": "docker",
+      "flavor": "compose",
+      "example": "docker/compose"
     },
     {
-      "Platform": "Render",
-      "Mode": "-",
-      "Flavor": "Blueprint",
-      "Path": "render/blueprint"
+      "platform": "",
+      "mode": "docker",
+      "flavor": "swarm",
+      "example": "docker/swarm"
     },
     {
-      "Platform": "Railway",
-      "Mode": "-",
-      "Flavor": "Template",
-      "Path": "railway/template"
+      "platform": "",
+      "mode": "kubernetes",
+      "flavor": "helm",
+      "example": "kubernetes/helm"
     },
     {
-      "Platform": "-",
-      "Mode": "Kubernetes",
-      "Flavor": "Kustomize",
-      "Path": "kubernetes/kustomize"
+      "platform": "",
+      "mode": "kubernetes",
+      "flavor": "kustomize",
+      "example": "kubernetes/kustomize"
     },
     {
-      "Platform": "-",
-      "Mode": "Kubernetes",
-      "Flavor": "Helm",
-      "Path": "kubernetes/helm"
+      "platform": "",
+      "mode": "systemd",
+      "flavor": "binary",
+      "example": "systemd/binary"
     },
     {
-      "Platform": "Ecs",
-      "Mode": "Ec2",
-      "Flavor": "Terraform",
-      "Path": "ecs/ec2/terraform"
+      "platform": "ecs",
+      "mode": "ec2",
+      "flavor": "terraform",
+      "example": "ecs/ec2/terraform"
     },
     {
-      "Platform": "-",
-      "Mode": "Docker",
-      "Flavor": "Swarm",
-      "Path": "docker/swarm"
+      "platform": "coolify",
+      "mode": "",
+      "flavor": "stack",
+      "example": "coolify/stack"
     },
     {
-      "Platform": "-",
-      "Mode": "Docker",
-      "Flavor": "Compose",
-      "Path": "docker/compose"
+      "platform": "railway",
+      "mode": "",
+      "flavor": "template",
+      "example": "railway/template"
     },
     {
-      "Platform": "Coolify",
-      "Mode": "-",
-      "Flavor": "Stack",
-      "Path": "coolify/stack"
+      "platform": "render",
+      "mode": "",
+      "flavor": "blueprint",
+      "example": "render/blueprint"
     }
   ]
 }

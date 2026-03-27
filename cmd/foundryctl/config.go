@@ -41,3 +41,17 @@ func (c *castConfig) RegisterFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().BoolVar(&c.NoGauge, "no-gauge", false, "Do not run gauge before forge and cast.")
 	cmd.PersistentFlags().BoolVar(&c.NoForge, "no-forge", false, "Do not run forge before cast.")
 }
+
+var (
+	catalogCfg catalogConfig
+)
+
+type catalogConfig struct {
+	Output  string
+	OutPath string
+}
+
+func (c *catalogConfig) RegisterFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVarP(&c.Output, "output", "o", "", "Output format (json)")
+	cmd.Flags().StringVar(&c.OutPath, "out-path", "", "Write output to file")
+}

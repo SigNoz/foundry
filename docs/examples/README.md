@@ -2,12 +2,12 @@
 
 | Platform | Mode | Flavor | Example |
 | --- | --- | --- | --- |
-| - | Systemd | Binary | [systemd/binary](systemd/binary/) |
-| Render | - | Blueprint | [render/blueprint](render/blueprint/) |
-| Railway | - | Template | [railway/template](railway/template/) |
-| - | Kubernetes | Kustomize | [kubernetes/kustomize](kubernetes/kustomize/) |
-| - | Kubernetes | Helm | [kubernetes/helm](kubernetes/helm/) |
-| Ecs | Ec2 | Terraform | [ecs/ec2/terraform](ecs/ec2/terraform/) |
-| - | Docker | Swarm | [docker/swarm](docker/swarm/) |
-| - | Docker | Compose | [docker/compose](docker/compose/) |
-| Coolify | - | Stack | [coolify/stack](coolify/stack/) |
+| - | docker | compose | [docker/compose](docker/compose/) |
+| - | docker | swarm | [docker/swarm](docker/swarm/) |
+| - | kubernetes | helm | [kubernetes/helm](kubernetes/helm/) |
+| - | kubernetes | kustomize | [kubernetes/kustomize](kubernetes/kustomize/) |
+| - | systemd | binary | [systemd/binary](systemd/binary/) |
+| ecs | ec2 | terraform | [ecs/ec2/terraform](ecs/ec2/terraform/) |
+| coolify | - | stack | [coolify/stack](coolify/stack/) |
+| railway | - | template | [railway/template](railway/template/) |
+| render | - | blueprint | [render/blueprint](render/blueprint/) |

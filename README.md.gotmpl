@@ -126,7 +126,7 @@ foundryctl cast -f casting.yaml
 | Platform | Mode | Flavor | Example |
 | --- | --- | --- | --- |
 {{- range .Castings }}
-| {{ .Platform }} | {{ .Mode }} | {{ .Flavor }} | [{{ .Path }}](docs/examples/{{ .Path }}/) |
+| {{ or .platform "-" }} | {{ or .mode "-" }} | {{ or .flavor "-" }} | [{{ .example }}](docs/examples/{{ .example }}/) |
 {{- end }}
 
 ## CLI reference

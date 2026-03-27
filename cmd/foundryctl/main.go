@@ -28,6 +28,7 @@ func main() {
 	registerForgeCmd(rootCmd)
 	registerCastCmd(rootCmd)
 	registerGenCmd(rootCmd)
+	registerCatalogCmd(rootCmd)
 
 	logger := instrumentation.NewLogger(false)
 
