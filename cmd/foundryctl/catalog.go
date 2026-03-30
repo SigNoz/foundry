@@ -21,8 +21,12 @@ func registerCatalogCmd(rootCmd *cobra.Command) {
 		Short: "Show available castings",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := instrumentation.NewLogger(commonCfg.Debug)
+			tracker := newTracker()
+			defer func() {
+				_ = tracker.Close()
+			}()
 
-			return runCatalog(cmd.Context(), logger)
+			return runCatalog(cmd.Context(), logger, tracker)
 		},
 	}
 
@@ -63,7 +67,7 @@ func catalogGroup(e castingEntry) int {
 	}
 }
 
-func runCatalog(ctx context.Context, logger *slog.Logger) error {
+func runCatalog(ctx context.Context, logger *slog.Logger, tracker ledger.Ledger) error {
 	f, err := foundry.New(logger)
 	if err != nil {
 		tracker.Track(ctx, ledger.WithError(ledger.CommandProperties("catalog"), err))

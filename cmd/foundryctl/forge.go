@@ -22,15 +22,19 @@ func registerForgeCmd(rootCmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			logger := instrumentation.NewLogger(commonCfg.Debug)
+			tracker := newTracker()
+			defer func() {
+				_ = tracker.Close()
+			}()
 
-			return runForge(ctx, logger, commonCfg.File, poursCfg.Path)
+			return runForge(ctx, logger, tracker, commonCfg.File, poursCfg.Path)
 		},
 	}
 
 	rootCmd.AddCommand(forgeCmd)
 }
 
-func runForge(ctx context.Context, logger *slog.Logger, path string, poursPath string) error {
+func runForge(ctx context.Context, logger *slog.Logger, tracker ledger.Ledger, path string, poursPath string) error {
 	foundry, err := foundry.New(logger)
 	if err != nil {
 		logger.ErrorContext(ctx, "failed to create foundry, please report this issues to developers at https://github.com/signoz/foundry/issues", foundryerrors.LogAttr(err))

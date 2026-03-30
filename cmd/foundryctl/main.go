@@ -12,9 +12,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// tracker is the global ledger instance, initialised in PersistentPreRun.
-var tracker ledger.Ledger
-
 func main() {
 	rootCmd := &cobra.Command{
 		Use:           "foundryctl",
@@ -22,19 +19,6 @@ func main() {
 		SilenceErrors: true,
 		CompletionOptions: cobra.CompletionOptions{
 			DisableDefaultCmd: true,
-		},
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			config := ledger.NewConfig()
-			if commonCfg.NoLedger || os.Getenv("FOUNDRY_LEDGER_ENABLED") == "false" {
-				config.Enabled = false
-			}
-
-			switch config.Provider() {
-			case "segment":
-				tracker = segmentledger.New(instrumentation.NewLogger(commonCfg.Debug), config)
-			default:
-				tracker = noopledger.New()
-			}
 		},
 	}
 
@@ -56,9 +40,20 @@ func main() {
 		logger.ErrorContext(context.Background(), "failed to run foundryctl", foundryerrors.LogAttr(err))
 		os.Exit(1)
 	}
+}
 
-	// Flush any pending ledger events.
-	if tracker != nil {
-		_ = tracker.Close()
+// newTracker creates a Ledger based on config.
+// Returns a no-op ledger when --no-ledger is passed.
+func newTracker() ledger.Ledger {
+	config := ledger.NewConfig()
+	if commonCfg.NoLedger {
+		config.Enabled = false
+	}
+
+	switch config.Provider() {
+	case "segment":
+		return segmentledger.New(config)
+	default:
+		return noopledger.New()
 	}
 }

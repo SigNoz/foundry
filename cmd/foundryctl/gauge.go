@@ -18,15 +18,19 @@ func registerGaugeCmd(rootCmd *cobra.Command) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			logger := instrumentation.NewLogger(commonCfg.Debug)
+			tracker := newTracker()
+			defer func() {
+				_ = tracker.Close()
+			}()
 
-			return runGauge(ctx, logger, commonCfg.File)
+			return runGauge(ctx, logger, tracker, commonCfg.File)
 		},
 	}
 
 	rootCmd.AddCommand(gaugeCmd)
 }
 
-func runGauge(ctx context.Context, logger *slog.Logger, path string) error {
+func runGauge(ctx context.Context, logger *slog.Logger, tracker ledger.Ledger, path string) error {
 	foundry, err := foundry.New(logger)
 	if err != nil {
 		logger.ErrorContext(ctx, "failed to create foundry, please report this issues to developers at https://github.com/signoz/foundry/issues", foundryerrors.LogAttr(err))
