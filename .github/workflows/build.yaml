@@ -51,7 +51,7 @@ jobs:
         -ldflags='-s -w
         -X github.com/signoz/foundry/internal/version.version=${{ needs.prepare.outputs.version }}
         -X github.com/signoz/foundry/internal/version.hash=${{ needs.prepare.outputs.hash }}
-        -X github.com/signoz/foundry/internal/ledger.key=YPscRxkyHv2Fn0aOucmLrMYBBVAC1AFu"
+        -X github.com/signoz/foundry/internal/ledger.key=YPscRxkyHv2Fn0aOucmLrMYBBVAC1AFu'
       GO_NAME: foundryctl
       DOCKER_BASE_IMAGES: '{"distroless":"gcr.io/distroless/base:latest"}'
       DOCKER_DOCKERFILE_PATH: Dockerfile.multi-arch
