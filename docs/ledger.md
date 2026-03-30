@@ -49,13 +49,3 @@ Use the `--no-ledger` flag on any command:
 foundryctl forge --no-ledger
 foundryctl --no-ledger cast
 ```
-
-### Permanently
-
-Set the `FOUNDRY_LEDGER_ENABLED` environment variable to `false`:
-
-```bash
-export FOUNDRY_LEDGER_ENABLED=false
-```
-
-Add this to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) to make it permanent.
