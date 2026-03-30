@@ -8,9 +8,40 @@ permissions:
   contents: write
   id-token: write
 
+env:
+  MAKE: make --no-print-directory --makefile=.primus/src/make/main.mk
+
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.build-info.outputs.version }}
+      hash: ${{ steps.build-info.outputs.hash }}
+    steps:
+      - name: self-checkout
+        uses: actions/checkout@v4
+      - id: token
+        name: github-token-gen
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.PRIMUS_APP_ID }}
+          private-key: ${{ secrets.PRIMUS_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+      - name: primus-checkout
+        uses: actions/checkout@v4
+        with:
+          repository: signoz/primus
+          ref: main
+          path: .primus
+          token: ${{ steps.token.outputs.token }}
+      - name: build-info
+        id: build-info
+        run: |
+          echo "version=$($MAKE info-version)" >> $GITHUB_OUTPUT
+          echo "hash=$($MAKE info-commit-short)" >> $GITHUB_OUTPUT
   docker:
     uses: signoz/primus.workflows/.github/workflows/go-build.yaml@main
+    needs: [prepare]
     secrets: inherit
     with:
       PRIMUS_REF: main
@@ -18,8 +49,8 @@ jobs:
       GO_VERSION: 1.25
       GO_BUILD_FLAGS: >-
         -ldflags='-s -w
-        -X github.com/signoz/foundry/internal/version.version=${{ github.ref_name }}
-        -X github.com/signoz/foundry/internal/version.hash=${{ github.sha }}
+        -X github.com/signoz/foundry/internal/version.version=${{ needs.prepare.outputs.version }}
+        -X github.com/signoz/foundry/internal/version.hash=${{ needs.prepare.outputs.hash }}
         -X github.com/signoz/foundry/internal/ledger.key=YPscRxkyHv2Fn0aOucmLrMYBBVAC1AFu"
       GO_NAME: foundryctl
       DOCKER_BASE_IMAGES: '{"distroless":"gcr.io/distroless/base:latest"}'
