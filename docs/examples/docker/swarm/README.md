@@ -76,4 +76,4 @@ docker stack rm signoz
 
 ## Customization
 
-For platform-level changes to the generated `compose.yaml`, use [patches](../../concepts/patches.md).
+For platform-level changes to the generated `compose.yaml`, use [patches](../../../concepts/patches.md).

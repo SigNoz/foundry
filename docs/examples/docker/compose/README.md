@@ -83,4 +83,4 @@ cd pours/deployment && docker compose down
 
 ## Customization
 
-Override component images, replicas, or environment variables in the casting spec. For platform-level changes to the generated `compose.yaml` (memory limits, networks, volumes), use [patches](../../concepts/patches.md).
+Override component images, replicas, or environment variables in the casting spec. For platform-level changes to the generated `compose.yaml` (memory limits, networks, volumes), use [patches](../../../concepts/patches.md).

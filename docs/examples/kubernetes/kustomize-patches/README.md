@@ -10,7 +10,7 @@
 
 Extends the base [kubernetes/kustomize](../kustomize/) example with production patches for AWS. Demonstrates setting storage classes, resource limits, dedicated node scheduling, and a LoadBalancer service using `spec.patches`.
 
-For patch reference, see [Patches](../../concepts/patches.md).
+For patch reference, see [Patches](../../../concepts/patches.md).
 
 ## Prerequisites
 

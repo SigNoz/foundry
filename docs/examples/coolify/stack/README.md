@@ -47,4 +47,4 @@ pours/deployment/
 
 ## Customization
 
-For changes to the generated `coolify.yaml`, use [patches](../../concepts/patches.md).
+For changes to the generated `coolify.yaml`, use [patches](../../../concepts/patches.md).

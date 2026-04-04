@@ -111,7 +111,7 @@ Open `http://localhost:8080` to access the SigNoz UI.
 
 ## Customization
 
-To set resource limits, storage classes, or scheduling constraints on the generated manifests, use [patches](../../concepts/patches.md). See the [kustomize-patches](../kustomize-patches/) example for a complete working configuration.
+To set resource limits, storage classes, or scheduling constraints on the generated manifests, use [patches](../../../concepts/patches.md). See the [kustomize-patches](../kustomize-patches/) example for a complete working configuration.
 
 ### Native Kustomize patches
 

@@ -10,7 +10,7 @@
 
 Extends the base [kubernetes/helm](../helm/) example with production patches for AWS. Demonstrates setting resource limits, dedicated node scheduling, and persistence configuration on the generated `values.yaml` using `spec.patches`.
 
-For patch reference, see [Patches](../../concepts/patches.md).
+For patch reference, see [Patches](../../../concepts/patches.md).
 
 ## Prerequisites
 

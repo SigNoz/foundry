@@ -71,7 +71,7 @@ Open `http://localhost:8080` to access the SigNoz UI.
 
 ## Customization
 
-To set resource limits, storage classes, or scheduling constraints on the generated `values.yaml`, use [patches](../../concepts/patches.md). See the [helm-patches](../helm-patches/) example for a complete working configuration.
+To set resource limits, storage classes, or scheduling constraints on the generated `values.yaml`, use [patches](../../../concepts/patches.md). See the [helm-patches](../helm-patches/) example for a complete working configuration.
 
 ## Annotations
 
