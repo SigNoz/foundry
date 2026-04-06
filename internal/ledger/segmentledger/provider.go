@@ -2,6 +2,7 @@ package segmentledger
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"runtime"
 
@@ -33,7 +34,7 @@ func New(config ledger.Config) ledger.Ledger {
 	}
 }
 
-func (p *provider) Track(_ context.Context, properties map[string]any) {
+func (p *provider) Track(_ context.Context, event string, properties map[string]any) {
 	if properties == nil {
 		properties = make(map[string]any)
 	}
@@ -49,7 +50,7 @@ func (p *provider) Track(_ context.Context, properties map[string]any) {
 
 	_ = p.client.Enqueue(segment.Track{
 		AnonymousId: getDistinctID(),
-		Event:       "foundryctl",
+		Event:       fmt.Sprintf("foundryctl: %s", event),
 		Properties:  props,
 	})
 }

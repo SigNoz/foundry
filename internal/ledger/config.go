@@ -38,7 +38,6 @@ func (c Config) Provider() string {
 
 // Property keys for casting details.
 const (
-	PropCommand               = "command"
 	PropPlatform              = "platform"
 	PropMode                  = "mode"
 	PropFlavor                = "flavor"
@@ -52,17 +51,9 @@ const (
 	PropError                 = "error"
 )
 
-// CommandProperties returns a minimal property map with just the command name.
-func CommandProperties(command string) map[string]any {
-	return map[string]any{
-		PropCommand: command,
-	}
-}
-
 // CastingProperties extracts trackable properties from a Casting config.
-func CastingProperties(command string, casting v1alpha1.Casting) map[string]any {
+func CastingProperties(casting v1alpha1.Casting) map[string]any {
 	return map[string]any{
-		PropCommand:               command,
 		PropPlatform:              casting.Spec.Deployment.Platform,
 		PropMode:                  casting.Spec.Deployment.Mode,
 		PropFlavor:                casting.Spec.Deployment.Flavor,
@@ -77,12 +68,18 @@ func CastingProperties(command string, casting v1alpha1.Casting) map[string]any 
 
 // WithSuccess adds success=true to the properties.
 func WithSuccess(props map[string]any) map[string]any {
+	if props == nil {
+		props = make(map[string]any)
+	}
 	props[PropSuccess] = true
 	return props
 }
 
 // WithError adds success=false and the error message to the properties.
 func WithError(props map[string]any, err error) map[string]any {
+	if props == nil {
+		props = make(map[string]any)
+	}
 	props[PropSuccess] = false
 	props[PropError] = err.Error()
 	return props

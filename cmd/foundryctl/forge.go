@@ -43,24 +43,24 @@ func runForge(ctx context.Context, logger *slog.Logger, tracker ledger.Ledger, p
 
 	config, err := foundry.Config.GetV1Alpha1(ctx, path)
 	if err != nil {
-		tracker.Track(ctx, ledger.WithError(ledger.CommandProperties("forge"), err))
+		tracker.Track(ctx, "forge", ledger.WithError(nil, err))
 		return err
 	}
 
-	props := ledger.CastingProperties("forge", config)
+	props := ledger.CastingProperties(config)
 
 	poursAbsPath, err := filepath.Abs(poursPath)
 	if err != nil {
-		tracker.Track(ctx, ledger.WithError(props, err))
+		tracker.Track(ctx, "forge", ledger.WithError(props, err))
 		return err
 	}
 
 	err = foundry.Forge(ctx, config, path, &writer.Options{Output: &os.File{}, TargetDirectory: poursAbsPath})
 	if err != nil {
-		tracker.Track(ctx, ledger.WithError(props, err))
+		tracker.Track(ctx, "forge", ledger.WithError(props, err))
 		return err
 	}
 
-	tracker.Track(ctx, ledger.WithSuccess(props))
+	tracker.Track(ctx, "forge", ledger.WithSuccess(props))
 	return nil
 }

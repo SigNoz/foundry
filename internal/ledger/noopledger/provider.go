@@ -14,5 +14,5 @@ func New() ledger.Ledger {
 	return &provider{}
 }
 
-func (p *provider) Track(_ context.Context, _ map[string]any) {}
-func (p *provider) Close() error                              { return nil }
+func (p *provider) Track(_ context.Context, _ string, _ map[string]any) {}
+func (p *provider) Close() error                                        { return nil }

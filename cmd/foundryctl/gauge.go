@@ -40,19 +40,19 @@ func runGauge(ctx context.Context, logger *slog.Logger, tracker ledger.Ledger, p
 	casting, err := foundry.Config.GetV1Alpha1(ctx, path)
 	if err != nil {
 		logger.ErrorContext(ctx, err.Error())
-		tracker.Track(ctx, ledger.WithError(ledger.CommandProperties("gauge"), err))
+		tracker.Track(ctx, "gauge", ledger.WithError(nil, err))
 		return err
 	}
 
-	props := ledger.CastingProperties("gauge", casting)
+	props := ledger.CastingProperties(casting)
 
 	err = foundry.Gauge(ctx, casting)
 	if err != nil {
 		logger.ErrorContext(ctx, err.Error())
-		tracker.Track(ctx, ledger.WithError(props, err))
+		tracker.Track(ctx, "gauge", ledger.WithError(props, err))
 		return err
 	}
 
-	tracker.Track(ctx, ledger.WithSuccess(props))
+	tracker.Track(ctx, "gauge", ledger.WithSuccess(props))
 	return nil
 }
