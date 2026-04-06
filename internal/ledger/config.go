@@ -36,6 +36,14 @@ func (c Config) Provider() string {
 	return "noop"
 }
 
+// Event names for foundryctl commands.
+const (
+	EventGauge   = "gauge"
+	EventForge   = "forge"
+	EventCast    = "cast"
+	EventCatalog = "catalog"
+)
+
 // Property keys for casting details.
 const (
 	PropPlatform              = "platform"

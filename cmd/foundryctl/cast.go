@@ -64,7 +64,7 @@ func runCast(ctx context.Context, logger *slog.Logger, tracker ledger.Ledger, po
 	lock, err := foundry.Config.GetV1Alpha1Lock(ctx, configPath)
 	if err != nil {
 		logger.ErrorContext(ctx, "failed to load generated casting.yaml.lock", foundryerrors.LogAttr(err))
-		tracker.Track(ctx, "cast", ledger.WithError(nil, err))
+		tracker.Track(ctx, ledger.EventCast, ledger.WithError(nil, err))
 		return err
 	}
 
@@ -72,10 +72,10 @@ func runCast(ctx context.Context, logger *slog.Logger, tracker ledger.Ledger, po
 
 	err = foundry.Cast(ctx, lock, poursPath)
 	if err != nil {
-		tracker.Track(ctx, "cast", ledger.WithError(props, err))
+		tracker.Track(ctx, ledger.EventCast, ledger.WithError(props, err))
 		return err
 	}
 
-	tracker.Track(ctx, "cast", ledger.WithSuccess(props))
+	tracker.Track(ctx, ledger.EventCast, ledger.WithSuccess(props))
 	return nil
 }

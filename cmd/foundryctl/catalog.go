@@ -70,7 +70,7 @@ func catalogGroup(e castingEntry) int {
 func runCatalog(ctx context.Context, logger *slog.Logger, tracker ledger.Ledger) error {
 	f, err := foundry.New(logger)
 	if err != nil {
-		tracker.Track(ctx, "catalog", ledger.WithError(nil, err))
+		tracker.Track(ctx, ledger.EventCatalog, ledger.WithError(nil, err))
 		return err
 	}
 
@@ -95,24 +95,24 @@ func runCatalog(ctx context.Context, logger *slog.Logger, tracker ledger.Ledger)
 	if catalogCfg.Format == "json" {
 		data, err := json.MarshalIndent(map[string]any{"Castings": entries}, "", "  ")
 		if err != nil {
-			tracker.Track(ctx, "catalog", ledger.WithError(nil, err))
+			tracker.Track(ctx, ledger.EventCatalog, ledger.WithError(nil, err))
 			return err
 		}
 		if catalogCfg.OutPath != "" {
 			err = os.WriteFile(catalogCfg.OutPath, data, 0644)
 			if err != nil {
-				tracker.Track(ctx, "catalog", ledger.WithError(nil, err))
+				tracker.Track(ctx, ledger.EventCatalog, ledger.WithError(nil, err))
 				return err
 			}
-			tracker.Track(ctx, "catalog", ledger.WithSuccess(nil))
+			tracker.Track(ctx, ledger.EventCatalog, ledger.WithSuccess(nil))
 			return nil
 		}
 		_, err = os.Stdout.Write(data)
 		if err != nil {
-			tracker.Track(ctx, "catalog", ledger.WithError(nil, err))
+			tracker.Track(ctx, ledger.EventCatalog, ledger.WithError(nil, err))
 			return err
 		}
-		tracker.Track(ctx, "catalog", ledger.WithSuccess(nil))
+		tracker.Track(ctx, ledger.EventCatalog, ledger.WithSuccess(nil))
 		return nil
 	}
 
@@ -124,10 +124,10 @@ func runCatalog(ctx context.Context, logger *slog.Logger, tracker ledger.Ledger)
 
 	err = table.Render()
 	if err != nil {
-		tracker.Track(ctx, "catalog", ledger.WithError(nil, err))
+		tracker.Track(ctx, ledger.EventCatalog, ledger.WithError(nil, err))
 		return err
 	}
 
-	tracker.Track(ctx, "catalog", ledger.WithSuccess(nil))
+	tracker.Track(ctx, ledger.EventCatalog, ledger.WithSuccess(nil))
 	return nil
 }

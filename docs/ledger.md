@@ -4,11 +4,10 @@ Foundryctl maintains an anonymous usage ledger to help the SigNoz team understan
 
 ## What is collected
 
-Each command execution sends a single `foundryctl` event with the following properties:
+Each command execution sends a single event with the following properties:
 
 | Property | Description | Example |
 |---|---|---|
-| `command` | The command that was run | `forge`, `cast` |
 | `platform` | Deployment platform from casting.yaml | `aws`, `docker`, `linux` |
 | `mode` | Deployment mode | `docker`, `systemd`, `kubernetes` |
 | `flavor` | Deployment flavor | `compose`, `binary`, `helm` |
@@ -35,8 +34,6 @@ All commands send the same `foundryctl` event, differentiated by the `command` p
 - `gauge`
 - `forge`
 - `cast`
-- `gen.examples`
-- `gen.schemas`
 - `catalog`
 
 ## How to disable the ledger
