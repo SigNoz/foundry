@@ -3,9 +3,9 @@ package segmentledger
 import (
 	"context"
 	"fmt"
-	"os"
 	"runtime"
 
+	"github.com/denisbrodbeck/machineid"
 	segment "github.com/segmentio/analytics-go/v3"
 	"github.com/signoz/foundry/internal/ledger"
 	"github.com/signoz/foundry/internal/ledger/noopledger"
@@ -59,12 +59,15 @@ func (p *provider) Close() error {
 	return p.client.Close()
 }
 
-// getDistinctID returns a stable anonymous identifier for the machine.
-// It uses the hostname so there is no PII stored.
+// getDistinctID returns a hashed machine ID for anonymous attribution.
+// The ID is stable across sessions and not reversible to the original machine ID.
 func getDistinctID() string {
-	hostname, err := os.Hostname()
+	id, err := machineid.ProtectedID("foundryctl")
 	if err != nil {
 		return "unknown"
 	}
-	return hostname
+	if len(id) > 32 {
+		return id[:32]
+	}
+	return id
 }

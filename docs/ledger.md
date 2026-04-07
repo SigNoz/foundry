@@ -25,7 +25,7 @@ Each command execution sends a single event with the following properties:
 
 ### Identity
 
-Events are attributed to the machine hostname as an anonymous identifier. No usernames, emails, IP addresses, or file contents are sent.
+Events are attributed using a hashed machine ID (HMAC-SHA256 of the OS machine ID with an application-specific salt). The hash is not reversible and cannot be correlated across different applications. No usernames, emails, IP addresses, hostnames, or file contents are sent.
 
 ## Tracked commands
 
