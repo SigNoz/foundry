@@ -1,0 +1,48 @@
+name: Distribution
+description: Request a new way to install or distribute foundryctl.
+title: "[distribution] <title>"
+labels: ["distribution", "enhancement"]
+body:
+  - type: input
+    id: platform
+    attributes:
+      label: Target platforms
+      description: What OS and architectures should this support?
+      placeholder: "e.g., Linux (amd64, arm64), macOS (amd64, arm64), Windows"
+    validations:
+      required: false
+
+  - type: textarea
+    id: install_command
+    attributes:
+      label: Proposed install command
+      description: Show how a user would install foundryctl with this method.
+      render: bash
+      placeholder: |
+        curl -LsSf https://signoz.io/foundry/install.sh | sh
+    validations:
+      required: false
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Who benefits and what problem does it solve over existing methods?
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Implementation notes, nice-to-haves, or any other relevant context.
+    validations:
+      required: false
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Links to similar installers, package registry docs, or prior art.
+    validations:
+      required: false
