@@ -44,14 +44,18 @@ services:
               http:
                 endpoint: "0.0.0.0:4318"
         processors:
+          memory_limiter:
+            check_interval: 1s
+            limit_percentage: 75
+            spike_limit_percentage: 20
           batch:
             send_batch_size: 20000
             send_batch_max_size: 25000
-            timeout: 1s
+            timeout: 5s
           batch/meter:
             send_batch_size: 20000
             send_batch_max_size: 25000
-            timeout: 1s
+            timeout: 5s
           signozspanmetrics/delta:
             metrics_exporter: signozclickhousemetrics
             metrics_flush_interval: 60s
@@ -107,6 +111,12 @@ services:
             timeout: 45s
             sending_queue:
               enabled: false
+          metadataexporter:
+            enabled: true
+            dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_metadata
+            timeout: 10s
+            cache:
+              provider: in_memory
         extensions:
           signoz_health_check:
             endpoint: "0.0.0.0:13133"
@@ -124,31 +134,38 @@ services:
               receivers:
                 - otlp
               processors:
+                - memory_limiter
                 - signozspanmetrics/delta
                 - batch
               exporters:
                 - clickhousetraces
                 - signozmeter
+                - metadataexporter
             metrics:
               receivers:
                 - otlp
               processors:
+                - memory_limiter
                 - batch
               exporters:
                 - signozclickhousemetrics
                 - signozmeter
+                - metadataexporter
             logs:
               receivers:
                 - otlp
               processors:
+                - memory_limiter
                 - batch
               exporters:
                 - clickhouselogsexporter
                 - signozmeter
+                - metadataexporter
             metrics/meter:
               receivers:
                 - signozmeter
               processors:
+                - memory_limiter
                 - batch/meter
               exporters:
                 - signozclickhousemeter
