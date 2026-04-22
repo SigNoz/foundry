@@ -152,13 +152,6 @@ services:
       retries: 3
       start_period: 30s
     deploy:
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: 50M
-        reservations:
-          cpus: '0.25'
-          memory: 20M
       replicas: {{ int $.Spec.Ingester.Spec.Cluster.Replicas }}
       restart_policy:
         condition: on-failure
