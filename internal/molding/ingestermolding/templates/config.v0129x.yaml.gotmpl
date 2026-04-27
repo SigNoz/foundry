@@ -79,7 +79,7 @@ exporters:
   metadataexporter:
     enabled: true
     dsn: {{ .TelemetryStoreMetadataAddress }}
-    timeout: 10s
+    timeout: 45s
     cache:
       provider: in_memory
 extensions:
