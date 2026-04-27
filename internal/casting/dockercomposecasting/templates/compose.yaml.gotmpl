@@ -118,6 +118,13 @@ services:
     image: {{ $.Spec.Ingester.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
+    depends_on:
+      {{- range $shardIdx := until (int $.Spec.TelemetryStore.Spec.Cluster.Shards) }}
+      {{- range $replicaIdx := until (int (add 1 (int $.Spec.TelemetryStore.Spec.Cluster.Replicas))) }}
+      {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}:
+        condition: service_healthy
+      {{- end }}
+      {{- end }}
     entrypoint:
       - /bin/sh
     command:
@@ -155,6 +162,13 @@ services:
       replicas: {{ int $.Spec.Ingester.Spec.Cluster.Replicas }}
       restart_policy:
         condition: on-failure
+      resources:
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+        limits:
+          cpus: '1'
+          memory: 512M
   {{ $.Metadata.Name }}-signoz:
     image: {{ $.Spec.Signoz.Spec.Image }}
     networks:

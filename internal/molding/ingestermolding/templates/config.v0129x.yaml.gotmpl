@@ -13,6 +13,15 @@ receivers:
       http:
         endpoint: "0.0.0.0:4318"
 processors:
+  memory_limiter:
+    check_interval: 1s
+    {{- if .IsContainer }}
+    limit_percentage: 75
+    spike_limit_percentage: 15
+    {{- else }}
+    limit_mib: 512
+    spike_limit_mib: 128
+    {{- end }}
   batch:
     send_batch_size: 20000
     send_batch_max_size: 25000
@@ -99,6 +108,7 @@ service:
       receivers:
         - otlp
       processors:
+        - memory_limiter
         - signozspanmetrics/delta
         - batch
       exporters:
@@ -109,6 +119,7 @@ service:
       receivers:
         - otlp
       processors:
+        - memory_limiter
         - batch
       exporters:
         - signozclickhousemetrics
@@ -118,6 +129,7 @@ service:
       receivers:
         - otlp
       processors:
+        - memory_limiter
         - batch
       exporters:
         - clickhouselogsexporter
@@ -127,6 +139,7 @@ service:
       receivers:
         - signozmeter
       processors:
+        - memory_limiter
         - batch/meter
       exporters:
         - signozclickhousemeter

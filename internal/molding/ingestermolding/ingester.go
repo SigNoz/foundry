@@ -92,11 +92,12 @@ func (molding *ingester) getData(config *v1alpha1.Casting) (Data, error) {
 	}
 
 	return Data{
-		SignozOpampAddress:             signozAddress,
-		TelemetryStoreTracesAddress:    strings.Join(telemetryStoreTracesAddresses, ","),
-		TelemetryStoreMetricsAddress:   strings.Join(telemetryStoreMetricsAddresses, ","),
-		TelemetryStoreLogsAddress:      strings.Join(telemetryStoreLogsAddresses, ","),
-		TelemetryStoreMeterAddress:     strings.Join(telemetryStoreMeterAddresses, ","),
-		TelemetryStoreMetadataAddress:  strings.Join(telemetryStoreMetadataAddresses, ","),
+		SignozOpampAddress:            signozAddress,
+		TelemetryStoreTracesAddress:  strings.Join(telemetryStoreTracesAddresses, ","),
+		TelemetryStoreMetricsAddress: strings.Join(telemetryStoreMetricsAddresses, ","),
+		TelemetryStoreLogsAddress:    strings.Join(telemetryStoreLogsAddresses, ","),
+		TelemetryStoreMeterAddress:   strings.Join(telemetryStoreMeterAddresses, ","),
+		TelemetryStoreMetadataAddress: strings.Join(telemetryStoreMetadataAddresses, ","),
+		IsContainer:                  config.Spec.Deployment.Platform != "linux",
 	}, nil
 }
