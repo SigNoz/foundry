@@ -401,6 +401,8 @@ spec:
         data:
           config.yaml: |
             async_load_databases: false
+            asynchronous_metric_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
             dictionaries_config: '*_dictionary.xml'
             display_name: cluster
             distributed_ddl:
@@ -435,6 +437,11 @@ spec:
               shard: "01"
             merge_tree:
               storage_policy: data
+            metric_log:
+              flush_interval_milliseconds: 30000
+              ttl: event_date + INTERVAL 1 DAY DELETE
+            part_log:
+              ttl: event_date + INTERVAL 3 DAY DELETE
             path: /var/lib/clickhouse/
             profiles:
               admin:
@@ -444,17 +451,23 @@ spec:
               default:
                 allow_experimental_window_functions: "1"
                 allow_nondeterministic_mutations: "1"
+                allow_simdjson: 0
                 load_balancing: random
                 log_queries: 1
-                max_memory_usage: 10000000000
                 max_threads: 16
                 query_plan_max_limit_for_lazy_materialization: "0"
                 secondary_indices_enable_bulk_filtering: "0"
             prometheus:
               endpoint: /metrics
               port: 9363
+            query_log:
+              flush_interval_milliseconds: 30000
+              partition_by: toYYYYMM(event_date)
+              ttl: event_date + INTERVAL 3 DAY DELETE
             query_metric_log:
               ttl: event_date + INTERVAL 3 DAY DELETE
+            query_thread_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
             quotas:
               default:
                 interval:
@@ -491,6 +504,9 @@ spec:
             text_log:
               ttl: event_date + INTERVAL 3 DAY DELETE
             tmp_path: /var/lib/clickhouse/tmp/
+            trace_log:
+              flush_interval_milliseconds: 30000
+              ttl: event_date + INTERVAL 1 DAY DELETE
             user_defined_executable_functions_config: /etc/clickhouse-server/functions/custom-functions.xml
             user_directories:
               users_xml:
@@ -549,6 +565,8 @@ spec:
         data:
           config.yaml: |
             async_load_databases: false
+            asynchronous_metric_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
             dictionaries_config: '*_dictionary.xml'
             display_name: cluster
             distributed_ddl:
@@ -583,6 +601,11 @@ spec:
               shard: "01"
             merge_tree:
               storage_policy: data
+            metric_log:
+              flush_interval_milliseconds: 30000
+              ttl: event_date + INTERVAL 1 DAY DELETE
+            part_log:
+              ttl: event_date + INTERVAL 3 DAY DELETE
             path: /var/lib/clickhouse/
             profiles:
               admin:
@@ -592,17 +615,23 @@ spec:
               default:
                 allow_experimental_window_functions: "1"
                 allow_nondeterministic_mutations: "1"
+                allow_simdjson: 0
                 load_balancing: random
                 log_queries: 1
-                max_memory_usage: 10000000000
                 max_threads: 16
                 query_plan_max_limit_for_lazy_materialization: "0"
                 secondary_indices_enable_bulk_filtering: "0"
             prometheus:
               endpoint: /metrics
               port: 9363
+            query_log:
+              flush_interval_milliseconds: 30000
+              partition_by: toYYYYMM(event_date)
+              ttl: event_date + INTERVAL 3 DAY DELETE
             query_metric_log:
               ttl: event_date + INTERVAL 3 DAY DELETE
+            query_thread_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
             quotas:
               default:
                 interval:
@@ -639,6 +668,9 @@ spec:
             text_log:
               ttl: event_date + INTERVAL 3 DAY DELETE
             tmp_path: /var/lib/clickhouse/tmp/
+            trace_log:
+              flush_interval_milliseconds: 30000
+              ttl: event_date + INTERVAL 1 DAY DELETE
             user_defined_executable_functions_config: /etc/clickhouse-server/functions/custom-functions.xml
             user_directories:
               users_xml:

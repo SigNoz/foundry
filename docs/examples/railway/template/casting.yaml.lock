@@ -418,6 +418,8 @@ spec:
       config:
         data:
           config.yaml: |
+            asynchronous_metric_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
             dictionaries_config: '*_dictionary.xml'
             display_name: cluster
             distributed_ddl:
@@ -436,12 +438,23 @@ spec:
             macros:
               replica: "01"
               shard: "01"
+            metric_log:
+              flush_interval_milliseconds: 30000
+              ttl: event_date + INTERVAL 1 DAY DELETE
+            part_log:
+              ttl: event_date + INTERVAL 3 DAY DELETE
             path: /var/lib/clickhouse/
             profiles:
               default:
+                allow_simdjson: 0
                 load_balancing: random
                 log_queries: 1
-                max_memory_usage: 10000000000
+            query_log:
+              flush_interval_milliseconds: 30000
+              partition_by: toYYYYMM(event_date)
+              ttl: event_date + INTERVAL 3 DAY DELETE
+            query_thread_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
             quotas:
               default:
                 interval:
@@ -459,6 +472,9 @@ spec:
                     port: 9000
             tcp_port: 9000
             tmp_path: /var/lib/clickhouse/tmp/
+            trace_log:
+              flush_interval_milliseconds: 30000
+              ttl: event_date + INTERVAL 1 DAY DELETE
             user_defined_executable_functions_config: '*function.yaml'
             user_directories:
               users_xml:
@@ -504,6 +520,8 @@ spec:
       config:
         data:
           config.yaml: |
+            asynchronous_metric_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
             dictionaries_config: '*_dictionary.xml'
             display_name: cluster
             distributed_ddl:
@@ -522,12 +540,23 @@ spec:
             macros:
               replica: "01"
               shard: "01"
+            metric_log:
+              flush_interval_milliseconds: 30000
+              ttl: event_date + INTERVAL 1 DAY DELETE
+            part_log:
+              ttl: event_date + INTERVAL 3 DAY DELETE
             path: /var/lib/clickhouse/
             profiles:
               default:
+                allow_simdjson: 0
                 load_balancing: random
                 log_queries: 1
-                max_memory_usage: 10000000000
+            query_log:
+              flush_interval_milliseconds: 30000
+              partition_by: toYYYYMM(event_date)
+              ttl: event_date + INTERVAL 3 DAY DELETE
+            query_thread_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
             quotas:
               default:
                 interval:
@@ -545,6 +574,9 @@ spec:
                     port: 9000
             tcp_port: 9000
             tmp_path: /var/lib/clickhouse/tmp/
+            trace_log:
+              flush_interval_milliseconds: 30000
+              ttl: event_date + INTERVAL 1 DAY DELETE
             user_defined_executable_functions_config: '*function.yaml'
             user_directories:
               users_xml:
