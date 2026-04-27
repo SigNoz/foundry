@@ -323,9 +323,9 @@ services:
             shard: "01"
         profiles:
             default:
+                allow_simdjson: 0
                 load_balancing: random
                 log_queries: 1
-                max_memory_usage: 10000000000
         quotas:
             default:
                 interval:
@@ -348,6 +348,22 @@ services:
           node:
             - host: signoz-telemetrykeeper-clickhousekeeper-0
               port: 9181
+        query_log:
+            flush_interval_milliseconds: 30000
+            partition_by: toYYYYMM(event_date)
+            ttl: "event_date + INTERVAL 3 DAY DELETE"
+        query_thread_log:
+            ttl: "event_date + INTERVAL 1 DAY DELETE"
+        part_log:
+            ttl: "event_date + INTERVAL 3 DAY DELETE"
+        metric_log:
+            flush_interval_milliseconds: 30000
+            ttl: "event_date + INTERVAL 1 DAY DELETE"
+        asynchronous_metric_log:
+            ttl: "event_date + INTERVAL 1 DAY DELETE"
+        trace_log:
+            flush_interval_milliseconds: 30000
+            ttl: "event_date + INTERVAL 1 DAY DELETE"
         tcp_port: 9000
         user_defined_executable_functions_config: '*function.yaml'
         user_scripts_path: /var/lib/clickhouse/user_scripts/
