@@ -31,9 +31,13 @@ spec:
                   http:
                     endpoint: "0.0.0.0:4318"
             processors:
+              memory_limiter:
+                check_interval: 1s
+                limit_percentage: 75
+                spike_limit_percentage: 15
               batch:
-                send_batch_size: 20000
-                send_batch_max_size: 25000
+                send_batch_size: 50000
+                send_batch_max_size: 55000
                 timeout: 1s
               batch/meter:
                 send_batch_size: 20000
@@ -111,6 +115,7 @@ spec:
                   receivers:
                     - otlp
                   processors:
+                    - memory_limiter
                     - signozspanmetrics/delta
                     - batch
                   exporters:
@@ -120,6 +125,7 @@ spec:
                   receivers:
                     - otlp
                   processors:
+                    - memory_limiter
                     - batch
                   exporters:
                     - signozclickhousemetrics
@@ -128,6 +134,7 @@ spec:
                   receivers:
                     - otlp
                   processors:
+                    - memory_limiter
                     - batch
                   exporters:
                     - clickhouselogsexporter
@@ -136,6 +143,7 @@ spec:
                   receivers:
                     - signozmeter
                   processors:
+                    - memory_limiter
                     - batch/meter
                   exporters:
                     - signozclickhousemeter
@@ -168,9 +176,13 @@ spec:
                   http:
                     endpoint: "0.0.0.0:4318"
             processors:
+              memory_limiter:
+                check_interval: 1s
+                limit_percentage: 75
+                spike_limit_percentage: 15
               batch:
-                send_batch_size: 20000
-                send_batch_max_size: 25000
+                send_batch_size: 50000
+                send_batch_max_size: 55000
                 timeout: 1s
               batch/meter:
                 send_batch_size: 20000
@@ -248,6 +260,7 @@ spec:
                   receivers:
                     - otlp
                   processors:
+                    - memory_limiter
                     - signozspanmetrics/delta
                     - batch
                   exporters:
@@ -257,6 +270,7 @@ spec:
                   receivers:
                     - otlp
                   processors:
+                    - memory_limiter
                     - batch
                   exporters:
                     - signozclickhousemetrics
@@ -265,6 +279,7 @@ spec:
                   receivers:
                     - otlp
                   processors:
+                    - memory_limiter
                     - batch
                   exporters:
                     - clickhouselogsexporter
@@ -273,6 +288,7 @@ spec:
                   receivers:
                     - signozmeter
                   processors:
+                    - memory_limiter
                     - batch/meter
                   exporters:
                     - signozclickhousemeter

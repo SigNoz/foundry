@@ -36,13 +36,17 @@ extensions:
     endpoint: 0.0.0.0:13133
 processors:
   batch:
-    send_batch_max_size: 25000
-    send_batch_size: 20000
+    send_batch_max_size: 55000
+    send_batch_size: 50000
     timeout: 1s
   batch/meter:
     send_batch_max_size: 25000
     send_batch_size: 20000
     timeout: 1s
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 75
+    spike_limit_percentage: 15
   signozspanmetrics/delta:
     aggregation_temporality: AGGREGATION_TEMPORALITY_DELTA
     dimensions:
@@ -91,6 +95,7 @@ service:
       - clickhouselogsexporter
       - signozmeter
       processors:
+      - memory_limiter
       - batch
       receivers:
       - otlp
@@ -99,6 +104,7 @@ service:
       - signozclickhousemetrics
       - signozmeter
       processors:
+      - memory_limiter
       - batch
       receivers:
       - otlp
@@ -106,6 +112,7 @@ service:
       exporters:
       - signozclickhousemeter
       processors:
+      - memory_limiter
       - batch/meter
       receivers:
       - signozmeter
@@ -114,6 +121,7 @@ service:
       - clickhousetraces
       - signozmeter
       processors:
+      - memory_limiter
       - signozspanmetrics/delta
       - batch
       receivers:
