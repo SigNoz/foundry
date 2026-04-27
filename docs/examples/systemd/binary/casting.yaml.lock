@@ -97,7 +97,7 @@ spec:
               metadataexporter:
                 enabled: true
                 dsn: tcp://localhost:9000/signoz_metadata
-                timeout: 10s
+                timeout: 45s
                 cache:
                   provider: in_memory
             extensions:
@@ -243,7 +243,7 @@ spec:
               metadataexporter:
                 enabled: true
                 dsn: tcp://localhost:9000/signoz_metadata
-                timeout: 10s
+                timeout: 45s
                 cache:
                   provider: in_memory
             extensions:

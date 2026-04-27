@@ -94,7 +94,7 @@ spec:
               metadataexporter:
                 enabled: true
                 dsn: tcp://telemetrystore-clickhouse.signoz.local:9000/signoz_metadata
-                timeout: 10s
+                timeout: 45s
                 cache:
                   provider: in_memory
             extensions:
@@ -237,7 +237,7 @@ spec:
               metadataexporter:
                 enabled: true
                 dsn: tcp://telemetrystore-clickhouse.signoz.local:9000/signoz_metadata
-                timeout: 10s
+                timeout: 45s
                 cache:
                   provider: in_memory
             extensions:

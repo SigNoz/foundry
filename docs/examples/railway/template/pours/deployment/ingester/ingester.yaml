@@ -24,7 +24,7 @@ exporters:
       provider: in_memory
     dsn: tcp://signoz-telemetrystore-clickhouse.railway.internal:9000/signoz_metadata
     enabled: true
-    timeout: 10s
+    timeout: 45s
   signozclickhousemeter:
     dsn: tcp://signoz-telemetrystore-clickhouse.railway.internal:9000/signoz_meter
     sending_queue:
