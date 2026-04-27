@@ -92,5 +92,6 @@ func (molding *ingester) getData(config *v1alpha1.Casting) (Data, error) {
 		TelemetryStoreMetricsAddress: strings.Join(telemetryStoreMetricsAddresses, ","),
 		TelemetryStoreLogsAddress:    strings.Join(telemetryStoreLogsAddresses, ","),
 		TelemetryStoreMeterAddress:   strings.Join(telemetryStoreMeterAddresses, ","),
+		IsContainer:                  config.Spec.Deployment.Platform != "linux",
 	}, nil
 }

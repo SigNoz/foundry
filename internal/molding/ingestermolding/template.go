@@ -20,4 +20,5 @@ type Data struct {
 	TelemetryStoreMetricsAddress string
 	TelemetryStoreLogsAddress    string
 	TelemetryStoreMeterAddress   string
+	IsContainer                  bool
 }
