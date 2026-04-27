@@ -1,8 +1,11 @@
 keeper_server:
   coordination_settings:
+    force_sync: false
     operation_timeout_ms: 10000
     raft_logs_level: warning
     session_timeout_ms: 30000
+    snapshot_distance: 100000
+    snapshots_to_keep: 3
   four_letter_word_white_list: '*'
   http_control:
     endpoint: /ready

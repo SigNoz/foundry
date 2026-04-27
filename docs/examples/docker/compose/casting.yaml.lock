@@ -337,6 +337,9 @@ spec:
                 operation_timeout_ms: 10000
                 raft_logs_level: warning
                 session_timeout_ms: 30000
+                force_sync: false
+                snapshot_distance: 100000
+                snapshots_to_keep: 3
               log_storage_path: /var/lib/clickhouse/coordination/log
               raft_configuration:
                 server:
@@ -368,6 +371,9 @@ spec:
                 operation_timeout_ms: 10000
                 raft_logs_level: warning
                 session_timeout_ms: 30000
+                force_sync: false
+                snapshot_distance: 100000
+                snapshots_to_keep: 3
               log_storage_path: /var/lib/clickhouse/coordination/log
               raft_configuration:
                 server:
