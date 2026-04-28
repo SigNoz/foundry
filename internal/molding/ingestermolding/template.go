@@ -15,10 +15,10 @@ var (
 )
 
 type Data struct {
-	SignozOpampAddress              string
-	TelemetryStoreTracesAddress    string
-	TelemetryStoreMetricsAddress   string
-	TelemetryStoreLogsAddress      string
-	TelemetryStoreMeterAddress     string
-	TelemetryStoreMetadataAddress  string
+	SignozOpampAddress            string
+	TelemetryStoreTracesAddress   string
+	TelemetryStoreMetricsAddress  string
+	TelemetryStoreLogsAddress     string
+	TelemetryStoreMeterAddress    string
+	TelemetryStoreMetadataAddress string
 }

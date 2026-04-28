@@ -42,8 +42,8 @@ extensions:
     endpoint: 0.0.0.0:13133
 processors:
   batch:
-    send_batch_max_size: 25000
-    send_batch_size: 20000
+    send_batch_max_size: 55000
+    send_batch_size: 50000
     timeout: 5s
   batch/meter:
     send_batch_max_size: 25000

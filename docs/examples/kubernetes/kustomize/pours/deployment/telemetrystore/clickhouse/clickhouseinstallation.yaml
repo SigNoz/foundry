@@ -21,18 +21,43 @@ spec:
         send_crash_reports:
           enabled: false
       config.d/extra.yaml: |
+        asynchronous_metric_log:
+          ttl: event_date + INTERVAL 1 DAY DELETE
         dictionaries_config: '*_dictionary.xml'
         format_schema_path: /etc/clickhouse-server/config.d/
+        metric_log:
+          flush_interval_milliseconds: 30000
+          ttl: event_date + INTERVAL 1 DAY DELETE
+        part_log:
+          ttl: event_date + INTERVAL 1 DAY DELETE
+        processors_profile_log:
+          flush_interval_milliseconds: 30000
+          ttl: event_date + INTERVAL 1 DAY DELETE
         prometheus:
           endpoint: /metrics
           port: 9363
+        query_log:
+          flush_interval_milliseconds: 30000
+          partition_by: toYYYYMM(event_date)
+          ttl: event_date + INTERVAL 1 DAY DELETE
+        query_thread_log:
+          ttl: event_date + INTERVAL 1 DAY DELETE
+        query_views_log:
+          ttl: event_date + INTERVAL 1 DAY DELETE
+        session_log:
+          ttl: event_date + INTERVAL 1 DAY DELETE
         tmp_path: /var/lib/clickhouse/tmp/
+        trace_log:
+          flush_interval_milliseconds: 30000
+          ttl: event_date + INTERVAL 1 DAY DELETE
         user_defined_executable_functions_config: /etc/clickhouse-server/functions/custom-functions.xml
         user_directories:
           users_xml:
             path: users.xml
         user_files_path: /var/lib/clickhouse/user_files/
         user_scripts_path: /var/lib/clickhouse/user_scripts/
+        zookeeper_log:
+          ttl: event_date + INTERVAL 1 DAY DELETE
       config.d/formatting.yaml: |
         logger:
           console: 1
@@ -81,6 +106,7 @@ spec:
         query_metric_log:
           ttl: event_date + INTERVAL 3 DAY DELETE
         text_log:
+          flush_interval_milliseconds: 30000
           ttl: event_date + INTERVAL 3 DAY DELETE
       events.proto: |
         syntax = "proto3";
@@ -100,9 +126,9 @@ spec:
       admin/secondary_indices_enable_bulk_filtering: "0"
       default/allow_experimental_window_functions: "1"
       default/allow_nondeterministic_mutations: "1"
+      default/allow_simdjson: 0
       default/load_balancing: random
       default/log_queries: 1
-      default/max_memory_usage: 10000000000
       default/max_threads: 16
       default/query_plan_max_limit_for_lazy_materialization: "0"
       default/secondary_indices_enable_bulk_filtering: "0"
