@@ -86,11 +86,17 @@ func (molding *ingester) getData(config *v1alpha1.Casting) (Data, error) {
 		telemetryStoreMeterAddresses = append(telemetryStoreMeterAddresses, address+"/signoz_meter")
 	}
 
+	var telemetryStoreMetadataAddresses []string
+	for _, address := range telemetryStoreAddresses {
+		telemetryStoreMetadataAddresses = append(telemetryStoreMetadataAddresses, address+"/signoz_metadata")
+	}
+
 	return Data{
-		SignozOpampAddress:           signozAddress,
-		TelemetryStoreTracesAddress:  strings.Join(telemetryStoreTracesAddresses, ","),
-		TelemetryStoreMetricsAddress: strings.Join(telemetryStoreMetricsAddresses, ","),
-		TelemetryStoreLogsAddress:    strings.Join(telemetryStoreLogsAddresses, ","),
-		TelemetryStoreMeterAddress:   strings.Join(telemetryStoreMeterAddresses, ","),
+		SignozOpampAddress:             signozAddress,
+		TelemetryStoreTracesAddress:    strings.Join(telemetryStoreTracesAddresses, ","),
+		TelemetryStoreMetricsAddress:   strings.Join(telemetryStoreMetricsAddresses, ","),
+		TelemetryStoreLogsAddress:      strings.Join(telemetryStoreLogsAddresses, ","),
+		TelemetryStoreMeterAddress:     strings.Join(telemetryStoreMeterAddresses, ","),
+		TelemetryStoreMetadataAddress:  strings.Join(telemetryStoreMetadataAddresses, ","),
 	}, nil
 }
