@@ -225,6 +225,8 @@ services:
         condition: service_healthy
       {{- end }}
       {{- end }}
+    environment:
+      - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
     restart: on-failure
     exclude_from_hc: true
     {{- $clickhouseDSN := printf "%s-telemetrystore-%s-0-0" $.Metadata.Name $.Spec.TelemetryStore.Kind }}

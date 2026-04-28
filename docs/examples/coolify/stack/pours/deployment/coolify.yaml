@@ -408,6 +408,8 @@ services:
     entrypoint:
     - /bin/sh
     - -c
+    environment:
+    - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
     exclude_from_hc: true
     image: signoz/signoz-otel-collector:latest
     logging:

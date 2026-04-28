@@ -12,6 +12,7 @@
         {{- if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
         {{- $env = append $env (dict "name" "SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN" "value" (index $.Spec.TelemetryStore.Status.Addresses.TCP 0)) }}
         {{- end }}
+        {{- $env = append $env (dict "name" "SIGNOZ_OTEL_COLLECTOR_TIMEOUT" "value" "10m") }}
         "environment": {{ toJson $env }},
         "cpu": 256,
         "memory": 512
