@@ -443,7 +443,7 @@ spec:
               flush_interval_milliseconds: 30000
               ttl: event_date + INTERVAL 1 DAY DELETE
             part_log:
-              ttl: event_date + INTERVAL 3 DAY DELETE
+              ttl: event_date + INTERVAL 1 DAY DELETE
             path: /var/lib/clickhouse/
             processors_profile_log:
               flush_interval_milliseconds: 30000
@@ -468,7 +468,7 @@ spec:
             query_log:
               flush_interval_milliseconds: 30000
               partition_by: toYYYYMM(event_date)
-              ttl: event_date + INTERVAL 3 DAY DELETE
+              ttl: event_date + INTERVAL 1 DAY DELETE
             query_metric_log:
               ttl: event_date + INTERVAL 3 DAY DELETE
             query_thread_log:
@@ -617,7 +617,7 @@ spec:
               flush_interval_milliseconds: 30000
               ttl: event_date + INTERVAL 1 DAY DELETE
             part_log:
-              ttl: event_date + INTERVAL 3 DAY DELETE
+              ttl: event_date + INTERVAL 1 DAY DELETE
             path: /var/lib/clickhouse/
             processors_profile_log:
               flush_interval_milliseconds: 30000
@@ -642,7 +642,7 @@ spec:
             query_log:
               flush_interval_milliseconds: 30000
               partition_by: toYYYYMM(event_date)
-              ttl: event_date + INTERVAL 3 DAY DELETE
+              ttl: event_date + INTERVAL 1 DAY DELETE
             query_metric_log:
               ttl: event_date + INTERVAL 3 DAY DELETE
             query_thread_log:
