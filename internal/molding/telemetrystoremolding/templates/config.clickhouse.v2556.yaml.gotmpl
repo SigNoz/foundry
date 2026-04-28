@@ -57,7 +57,7 @@ zookeeper:
 query_log:
     flush_interval_milliseconds: 30000
     partition_by: toYYYYMM(event_date)
-    ttl: "event_date + INTERVAL 3 DAY DELETE"
+    ttl: "event_date + INTERVAL 1 DAY DELETE"
 query_thread_log:
     ttl: "event_date + INTERVAL 1 DAY DELETE"
 query_metric_log:
@@ -65,7 +65,7 @@ query_metric_log:
 query_views_log:
     ttl: "event_date + INTERVAL 1 DAY DELETE"
 part_log:
-    ttl: "event_date + INTERVAL 3 DAY DELETE"
+    ttl: "event_date + INTERVAL 1 DAY DELETE"
 metric_log:
     flush_interval_milliseconds: 30000
     ttl: "event_date + INTERVAL 1 DAY DELETE"
