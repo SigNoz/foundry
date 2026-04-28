@@ -39,7 +39,7 @@ spec:
               batch/meter:
                 send_batch_size: 20000
                 send_batch_max_size: 25000
-                timeout: 1s
+                timeout: 5s
               signozspanmetrics/delta:
                 metrics_exporter: signozclickhousemetrics
                 metrics_flush_interval: 60s
@@ -95,6 +95,12 @@ spec:
                 timeout: 45s
                 sending_queue:
                   enabled: false
+              metadataexporter:
+                enabled: true
+                dsn: tcp://telemetrystore-clickhouse.signoz.local:9000/signoz_metadata
+                timeout: 45s
+                cache:
+                  provider: in_memory
             extensions:
               signoz_health_check:
                 endpoint: "0.0.0.0:13133"
@@ -118,6 +124,7 @@ spec:
                   exporters:
                     - clickhousetraces
                     - signozmeter
+                    - metadataexporter
                 metrics:
                   receivers:
                     - otlp
@@ -127,6 +134,7 @@ spec:
                   exporters:
                     - signozclickhousemetrics
                     - signozmeter
+                    - metadataexporter
                 logs:
                   receivers:
                     - otlp
@@ -136,6 +144,7 @@ spec:
                   exporters:
                     - clickhouselogsexporter
                     - signozmeter
+                    - metadataexporter
                 metrics/meter:
                   receivers:
                     - signozmeter
@@ -181,7 +190,7 @@ spec:
               batch/meter:
                 send_batch_size: 20000
                 send_batch_max_size: 25000
-                timeout: 1s
+                timeout: 5s
               signozspanmetrics/delta:
                 metrics_exporter: signozclickhousemetrics
                 metrics_flush_interval: 60s
@@ -237,6 +246,12 @@ spec:
                 timeout: 45s
                 sending_queue:
                   enabled: false
+              metadataexporter:
+                enabled: true
+                dsn: tcp://telemetrystore-clickhouse.signoz.local:9000/signoz_metadata
+                timeout: 45s
+                cache:
+                  provider: in_memory
             extensions:
               signoz_health_check:
                 endpoint: "0.0.0.0:13133"
@@ -260,6 +275,7 @@ spec:
                   exporters:
                     - clickhousetraces
                     - signozmeter
+                    - metadataexporter
                 metrics:
                   receivers:
                     - otlp
@@ -269,6 +285,7 @@ spec:
                   exporters:
                     - signozclickhousemetrics
                     - signozmeter
+                    - metadataexporter
                 logs:
                   receivers:
                     - otlp
@@ -278,6 +295,7 @@ spec:
                   exporters:
                     - clickhouselogsexporter
                     - signozmeter
+                    - metadataexporter
                 metrics/meter:
                   receivers:
                     - signozmeter

@@ -19,6 +19,12 @@ exporters:
       enabled: false
     timeout: 45s
     use_new_schema: true
+  metadataexporter:
+    cache:
+      provider: in_memory
+    dsn: tcp://localhost:9000/signoz_metadata
+    enabled: true
+    timeout: 45s
   signozclickhousemeter:
     dsn: tcp://localhost:9000/signoz_meter
     sending_queue:
@@ -42,11 +48,7 @@ processors:
   batch/meter:
     send_batch_max_size: 25000
     send_batch_size: 20000
-    timeout: 1s
-  memory_limiter:
-    check_interval: 1s
-    limit_percentage: 75
-    spike_limit_percentage: 15
+    timeout: 5s
   signozspanmetrics/delta:
     aggregation_temporality: AGGREGATION_TEMPORALITY_DELTA
     dimensions:
@@ -94,6 +96,7 @@ service:
       exporters:
       - clickhouselogsexporter
       - signozmeter
+      - metadataexporter
       processors:
       - memory_limiter
       - batch
@@ -103,6 +106,7 @@ service:
       exporters:
       - signozclickhousemetrics
       - signozmeter
+      - metadataexporter
       processors:
       - memory_limiter
       - batch
@@ -120,6 +124,7 @@ service:
       exporters:
       - clickhousetraces
       - signozmeter
+      - metadataexporter
       processors:
       - memory_limiter
       - signozspanmetrics/delta
