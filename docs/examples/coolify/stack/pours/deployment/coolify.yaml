@@ -1,7 +1,10 @@
 services:
   signoz-ingester:
     command:
-    - --config=/etc/otel-collector-config.yaml
+    - -c
+    - |
+      /signoz-otel-collector migrate sync check &&
+      /signoz-otel-collector --config=/etc/otel-collector-config.yaml
     depends_on:
       signoz-signoz:
         condition: service_healthy
@@ -9,9 +12,12 @@ services:
         condition: service_healthy
       signoz-telemetrystore-migrator:
         condition: service_completed_successfully
+    entrypoint:
+    - /bin/sh
     environment:
     - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
     - LOW_CARDINAL_EXCEPTION_GROUPING=false
+    - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
     healthcheck:
       interval: 30s
       retries: 3

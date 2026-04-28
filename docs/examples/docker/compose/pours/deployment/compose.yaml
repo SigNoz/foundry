@@ -16,6 +16,7 @@ services:
     - /bin/sh
     environment:
     - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://signoz-telemetrystore-clickhouse-0-0:9000
+    - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
     healthcheck:
       interval: 30s
       retries: 3

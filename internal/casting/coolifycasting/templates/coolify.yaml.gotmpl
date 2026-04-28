@@ -199,13 +199,19 @@ services:
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
       - LOW_CARDINAL_EXCEPTION_GROUPING=false
+      - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
       {{- if $.Spec.Ingester.Spec.Env }}
       {{- range $key, $value := $.Spec.Ingester.Spec.Env }}
       - {{ $key }}={{ $value }}
       {{- end }}
       {{- end }}
+    entrypoint:
+      - /bin/sh
     command:
-      - --config=/etc/otel-collector-config.yaml
+      - -c
+      - |
+        /signoz-otel-collector migrate sync check &&
+        /signoz-otel-collector --config=/etc/otel-collector-config.yaml
     volumes:
       - type: bind
         source: ./configs/ingester/ingester.yaml
