@@ -15,11 +15,10 @@ var (
 )
 
 type Data struct {
-	SignozOpampAddress             string
+	SignozOpampAddress            string
 	TelemetryStoreTracesAddress   string
 	TelemetryStoreMetricsAddress  string
 	TelemetryStoreLogsAddress     string
 	TelemetryStoreMeterAddress    string
 	TelemetryStoreMetadataAddress string
-	IsContainer                   bool
 }
