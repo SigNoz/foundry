@@ -155,13 +155,6 @@ services:
       replicas: {{ int $.Spec.Ingester.Spec.Cluster.Replicas }}
       restart_policy:
         condition: on-failure
-      resources:
-        reservations:
-          cpus: '0.1'
-          memory: 128M
-        limits:
-          cpus: '1'
-          memory: 512M
   {{ $.Metadata.Name }}-signoz:
     image: {{ $.Spec.Signoz.Spec.Image }}
     networks:

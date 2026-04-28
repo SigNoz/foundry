@@ -10,13 +10,6 @@ services:
       /signoz-otel-collector --config=/etc/otel-collector-config.yaml --manager-config=/etc/opamp-config.yaml --copy-path=/var/tmp/collector-config.yaml
     deploy:
       replicas: 1
-      resources:
-        limits:
-          cpus: "1"
-          memory: 512M
-        reservations:
-          cpus: "0.1"
-          memory: 128M
       restart_policy:
         condition: on-failure
     entrypoint:
