@@ -443,6 +443,9 @@ spec:
             part_log:
               ttl: event_date + INTERVAL 3 DAY DELETE
             path: /var/lib/clickhouse/
+            processors_profile_log:
+              flush_interval_milliseconds: 30000
+              ttl: event_date + INTERVAL 1 DAY DELETE
             profiles:
               admin:
                 max_threads: 16
@@ -468,6 +471,8 @@ spec:
               ttl: event_date + INTERVAL 3 DAY DELETE
             query_thread_log:
               ttl: event_date + INTERVAL 1 DAY DELETE
+            query_views_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
             quotas:
               default:
                 interval:
@@ -485,6 +490,8 @@ spec:
                     port: 9000
             send_crash_reports:
               enabled: false
+            session_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
             storage_configuration:
               disks:
                 data0:
@@ -502,6 +509,7 @@ spec:
                       disk: default
             tcp_port: 9000
             text_log:
+              flush_interval_milliseconds: 30000
               ttl: event_date + INTERVAL 3 DAY DELETE
             tmp_path: /var/lib/clickhouse/tmp/
             trace_log:
@@ -540,6 +548,8 @@ spec:
               node:
               - host: signoz-clickhouse-keeper-0
                 port: 9181
+            zookeeper_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
           functions.yaml: |
             functions:
               argument:
@@ -607,6 +617,9 @@ spec:
             part_log:
               ttl: event_date + INTERVAL 3 DAY DELETE
             path: /var/lib/clickhouse/
+            processors_profile_log:
+              flush_interval_milliseconds: 30000
+              ttl: event_date + INTERVAL 1 DAY DELETE
             profiles:
               admin:
                 max_threads: 16
@@ -632,6 +645,8 @@ spec:
               ttl: event_date + INTERVAL 3 DAY DELETE
             query_thread_log:
               ttl: event_date + INTERVAL 1 DAY DELETE
+            query_views_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
             quotas:
               default:
                 interval:
@@ -649,6 +664,8 @@ spec:
                     port: 9000
             send_crash_reports:
               enabled: false
+            session_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
             storage_configuration:
               disks:
                 data0:
@@ -666,6 +683,7 @@ spec:
                       disk: default
             tcp_port: 9000
             text_log:
+              flush_interval_milliseconds: 30000
               ttl: event_date + INTERVAL 3 DAY DELETE
             tmp_path: /var/lib/clickhouse/tmp/
             trace_log:
@@ -704,6 +722,8 @@ spec:
               node:
               - host: signoz-clickhouse-keeper-0
                 port: 9181
+            zookeeper_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
           functions.yaml: |
             functions:
               argument:

@@ -353,6 +353,10 @@ services:
             ttl: "event_date + INTERVAL 3 DAY DELETE"
         query_thread_log:
             ttl: "event_date + INTERVAL 1 DAY DELETE"
+        query_metric_log:
+            ttl: "event_date + INTERVAL 1 DAY DELETE"
+        query_views_log:
+            ttl: "event_date + INTERVAL 1 DAY DELETE"
         part_log:
             ttl: "event_date + INTERVAL 3 DAY DELETE"
         metric_log:
@@ -362,6 +366,20 @@ services:
             ttl: "event_date + INTERVAL 1 DAY DELETE"
         trace_log:
             flush_interval_milliseconds: 30000
+            ttl: "event_date + INTERVAL 1 DAY DELETE"
+        error_log:
+            ttl: "event_date + INTERVAL 1 DAY DELETE"
+        latency_log:
+            ttl: "event_date + INTERVAL 1 DAY DELETE"
+        processors_profile_log:
+            flush_interval_milliseconds: 30000
+            ttl: "event_date + INTERVAL 1 DAY DELETE"
+        session_log:
+            ttl: "event_date + INTERVAL 1 DAY DELETE"
+        text_log:
+            flush_interval_milliseconds: 30000
+            ttl: "event_date + INTERVAL 1 DAY DELETE"
+        zookeeper_log:
             ttl: "event_date + INTERVAL 1 DAY DELETE"
         tcp_port: 9000
         user_defined_executable_functions_config: '*function.yaml'
