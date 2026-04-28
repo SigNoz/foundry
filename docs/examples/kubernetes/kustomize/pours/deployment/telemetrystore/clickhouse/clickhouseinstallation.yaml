@@ -30,6 +30,9 @@ spec:
           ttl: event_date + INTERVAL 1 DAY DELETE
         part_log:
           ttl: event_date + INTERVAL 3 DAY DELETE
+        processors_profile_log:
+          flush_interval_milliseconds: 30000
+          ttl: event_date + INTERVAL 1 DAY DELETE
         prometheus:
           endpoint: /metrics
           port: 9363
@@ -38,6 +41,10 @@ spec:
           partition_by: toYYYYMM(event_date)
           ttl: event_date + INTERVAL 3 DAY DELETE
         query_thread_log:
+          ttl: event_date + INTERVAL 1 DAY DELETE
+        query_views_log:
+          ttl: event_date + INTERVAL 1 DAY DELETE
+        session_log:
           ttl: event_date + INTERVAL 1 DAY DELETE
         tmp_path: /var/lib/clickhouse/tmp/
         trace_log:
@@ -49,6 +56,8 @@ spec:
             path: users.xml
         user_files_path: /var/lib/clickhouse/user_files/
         user_scripts_path: /var/lib/clickhouse/user_scripts/
+        zookeeper_log:
+          ttl: event_date + INTERVAL 1 DAY DELETE
       config.d/formatting.yaml: |
         logger:
           console: 1
@@ -97,6 +106,7 @@ spec:
         query_metric_log:
           ttl: event_date + INTERVAL 3 DAY DELETE
         text_log:
+          flush_interval_milliseconds: 30000
           ttl: event_date + INTERVAL 3 DAY DELETE
       events.proto: |
         syntax = "proto3";

@@ -426,9 +426,13 @@ spec:
             display_name: cluster
             distributed_ddl:
               path: /clickhouse/task_queue/ddl
+            error_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
             format_schema_path: /var/lib/clickhouse/format_schemas/
             http_port: 8123
             interserver_http_port: 9009
+            latency_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
             listen_host: '::'
             logger:
               console: 1
@@ -446,6 +450,9 @@ spec:
             part_log:
               ttl: event_date + INTERVAL 3 DAY DELETE
             path: /var/lib/clickhouse/
+            processors_profile_log:
+              flush_interval_milliseconds: 30000
+              ttl: event_date + INTERVAL 1 DAY DELETE
             profiles:
               default:
                 allow_simdjson: 0
@@ -455,7 +462,11 @@ spec:
               flush_interval_milliseconds: 30000
               partition_by: toYYYYMM(event_date)
               ttl: event_date + INTERVAL 3 DAY DELETE
+            query_metric_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
             query_thread_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
+            query_views_log:
               ttl: event_date + INTERVAL 1 DAY DELETE
             quotas:
               default:
@@ -472,7 +483,12 @@ spec:
                 - replica:
                     host: localhost
                     port: 9000
+            session_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
             tcp_port: 9000
+            text_log:
+              flush_interval_milliseconds: 30000
+              ttl: event_date + INTERVAL 1 DAY DELETE
             tmp_path: /var/lib/clickhouse/tmp/
             trace_log:
               flush_interval_milliseconds: 30000
@@ -498,6 +514,8 @@ spec:
               node:
               - host: signoz-telemetrykeeper-clickhousekeeper.railway.internal
                 port: 9181
+            zookeeper_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
           functions.yaml: |
             functions:
               argument:
@@ -528,9 +546,13 @@ spec:
             display_name: cluster
             distributed_ddl:
               path: /clickhouse/task_queue/ddl
+            error_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
             format_schema_path: /var/lib/clickhouse/format_schemas/
             http_port: 8123
             interserver_http_port: 9009
+            latency_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
             listen_host: '::'
             logger:
               console: 1
@@ -548,6 +570,9 @@ spec:
             part_log:
               ttl: event_date + INTERVAL 3 DAY DELETE
             path: /var/lib/clickhouse/
+            processors_profile_log:
+              flush_interval_milliseconds: 30000
+              ttl: event_date + INTERVAL 1 DAY DELETE
             profiles:
               default:
                 allow_simdjson: 0
@@ -557,7 +582,11 @@ spec:
               flush_interval_milliseconds: 30000
               partition_by: toYYYYMM(event_date)
               ttl: event_date + INTERVAL 3 DAY DELETE
+            query_metric_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
             query_thread_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
+            query_views_log:
               ttl: event_date + INTERVAL 1 DAY DELETE
             quotas:
               default:
@@ -574,7 +603,12 @@ spec:
                 - replica:
                     host: localhost
                     port: 9000
+            session_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
             tcp_port: 9000
+            text_log:
+              flush_interval_milliseconds: 30000
+              ttl: event_date + INTERVAL 1 DAY DELETE
             tmp_path: /var/lib/clickhouse/tmp/
             trace_log:
               flush_interval_milliseconds: 30000
@@ -600,6 +634,8 @@ spec:
               node:
               - host: signoz-telemetrykeeper-clickhousekeeper.railway.internal
                 port: 9181
+            zookeeper_log:
+              ttl: event_date + INTERVAL 1 DAY DELETE
           functions.yaml: |
             functions:
               argument:
