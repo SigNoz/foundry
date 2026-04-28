@@ -8,9 +8,6 @@ services:
     - |
       /signoz-otel-collector migrate sync check &&
       /signoz-otel-collector --config=/etc/otel-collector-config.yaml --manager-config=/etc/opamp-config.yaml --copy-path=/var/tmp/collector-config.yaml
-    depends_on:
-      signoz-telemetrystore-clickhouse-0-0:
-        condition: service_healthy
     deploy:
       replicas: 1
       resources:
