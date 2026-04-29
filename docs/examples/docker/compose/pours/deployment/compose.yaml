@@ -8,6 +8,7 @@ services:
     - |
       /signoz-otel-collector migrate sync check &&
       /signoz-otel-collector --config=/etc/otel-collector-config.yaml --manager-config=/etc/opamp-config.yaml --copy-path=/var/tmp/collector-config.yaml
+    container_name: signoz-ingester
     deploy:
       replicas: 1
       restart_policy:
@@ -17,17 +18,6 @@ services:
     environment:
     - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://signoz-telemetrystore-clickhouse-0-0:9000
     - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test:
-      - CMD
-      - wget
-      - --spider
-      - -q
-      - http://localhost:13133/health
-      timeout: 10s
     image: signoz/signoz-otel-collector:latest
     networks:
     - signoz-network
@@ -57,6 +47,7 @@ services:
     volumes:
     - signoz-metastore-0-data:/var/lib/postgresql/data
   signoz-signoz:
+    container_name: signoz-signoz
     deploy:
       restart_policy:
         condition: on-failure
@@ -172,7 +163,11 @@ services:
     networks:
     - signoz-network
 volumes:
-  signoz-metastore-0-data: null
-  signoz-telemetrykeeper-0-data: null
-  signoz-telemetrystore-0-0-data: null
-  signoz-telemetrystore-user-scripts: null
+  signoz-metastore-0-data:
+    name: signoz-metastore-0-data
+  signoz-telemetrykeeper-0-data:
+    name: signoz-telemetrykeeper-0-data
+  signoz-telemetrystore-0-0-data:
+    name: signoz-telemetrystore-0-0-data
+  signoz-telemetrystore-user-scripts:
+    name: signoz-telemetrystore-user-scripts
