@@ -30,6 +30,8 @@ spec:
           value: "true"
         - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
           value: tcp://signoz-clickhouse:9000
+        - name: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
+          value: 10m
         image: signoz/signoz-otel-collector:latest
         imagePullPolicy: IfNotPresent
         name: async
@@ -50,6 +52,8 @@ spec:
           value: "true"
         - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
           value: tcp://signoz-clickhouse:9000
+        - name: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
+          value: 10m
         image: signoz/signoz-otel-collector:latest
         imagePullPolicy: IfNotPresent
         name: ready
@@ -69,6 +73,8 @@ spec:
           value: "true"
         - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
           value: tcp://signoz-clickhouse:9000
+        - name: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
+          value: 10m
         image: signoz/signoz-otel-collector:latest
         imagePullPolicy: IfNotPresent
         name: bootstrap
@@ -89,6 +95,8 @@ spec:
           value: "true"
         - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
           value: tcp://signoz-clickhouse:9000
+        - name: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
+          value: 10m
         image: signoz/signoz-otel-collector:latest
         imagePullPolicy: IfNotPresent
         name: sync

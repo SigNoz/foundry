@@ -115,6 +115,7 @@ services:
       start_period: 30s
   {{- end }}
   {{ $.Metadata.Name }}-ingester:
+    container_name: {{ $.Metadata.Name }}-ingester
     image: {{ $.Spec.Ingester.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
@@ -135,28 +136,17 @@ services:
 {{ if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
       - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN={{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
 {{ end }}
-      - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
     {{- if $.Spec.Ingester.Spec.Env }}
       {{- range $key, $value := $.Spec.Ingester.Spec.Env }}
       - {{ $key }}={{ $value }}
       {{- end }}
     {{- end }}
-    healthcheck:
-      test:
-      - "CMD"
-      - "wget"
-      - "--spider"
-      - "-q"
-      - "http://localhost:13133/health"
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
     deploy:
       replicas: {{ int $.Spec.Ingester.Spec.Cluster.Replicas }}
       restart_policy:
         condition: on-failure
   {{ $.Metadata.Name }}-signoz:
+    container_name: {{ $.Metadata.Name }}-signoz
     image: {{ $.Spec.Signoz.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network

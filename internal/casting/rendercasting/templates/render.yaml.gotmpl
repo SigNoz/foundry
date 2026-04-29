@@ -54,8 +54,6 @@ services:
     dockerfilePath: configs/ingester/Dockerfile
     dockerContext: configs/ingester
     envVars:
-      - key: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
-        value: 10m
       {{ if $.Spec.Ingester.Spec.Env }}
       {{ range $key, $value := $.Spec.Ingester.Spec.Env }}
       - key: {{ $key }}
