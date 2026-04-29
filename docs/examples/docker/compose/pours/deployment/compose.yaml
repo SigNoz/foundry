@@ -163,7 +163,11 @@ services:
     networks:
     - signoz-network
 volumes:
-  signoz-metastore-0-data: null
-  signoz-telemetrykeeper-0-data: null
-  signoz-telemetrystore-0-0-data: null
-  signoz-telemetrystore-user-scripts: null
+  signoz-metastore-0-data:
+    name: signoz-metastore-0-data
+  signoz-telemetrykeeper-0-data:
+    name: signoz-telemetrykeeper-0-data
+  signoz-telemetrystore-0-0-data:
+    name: signoz-telemetrystore-0-0-data
+  signoz-telemetrystore-user-scripts:
+    name: signoz-telemetrystore-user-scripts

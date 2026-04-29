@@ -116,8 +116,10 @@ services:
       - key: CLICKHOUSE_DSN
         value: {{ index $.Spec.Signoz.Spec.Env "SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN" }}
       {{ end }}
-      - key: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
-        value: 10m
+      {{ range $key, $value := $.Spec.Ingester.Spec.Env }}
+      - key: {{ $key }}
+        value: {{ $value }}
+      {{ end }}
       {{ if index $.Spec.TelemetryStore.Status.Extras "service_names" }}
       {{ range $index, $serviceName := splitList "," (index $.Spec.TelemetryStore.Status.Extras "service_names") }}
       - key: DEPENDENCY_LINK_{{ $index }}

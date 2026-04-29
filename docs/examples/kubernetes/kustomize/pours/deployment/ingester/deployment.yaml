@@ -104,8 +104,6 @@ spec:
         env:
         - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER
           value: cluster
-        - name: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
-          value: 10m
         - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION
           value: "true"
         - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN

@@ -190,20 +190,28 @@ services:
 {{ if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
       - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN={{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
 {{ end }}
-      - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
+    {{- if $.Spec.Ingester.Spec.Env }}
+      {{- range $key, $value := $.Spec.Ingester.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    {{- end }}
 networks:
   {{ $.Metadata.Name }}-network:
     name: {{ $.Metadata.Name }}-network
 volumes:
   {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-telemetrykeeper-{{ $replicaIdx  }}-data:
+    name: {{ $.Metadata.Name }}-telemetrykeeper-{{ $replicaIdx }}-data
   {{- end }}
   {{- range $shardIdx := until (int $.Spec.TelemetryStore.Spec.Cluster.Shards) }}
   {{- range $replicaIdx := until (int (add 1 (int $.Spec.TelemetryStore.Spec.Cluster.Replicas))) }}
   {{ $.Metadata.Name }}-telemetrystore-{{ $shardIdx }}-{{ $replicaIdx }}-data:
+    name: {{ $.Metadata.Name }}-telemetrystore-{{ $shardIdx }}-{{ $replicaIdx }}-data
   {{- end }}
   {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-user-scripts:
+    name: {{ $.Metadata.Name }}-telemetrystore-user-scripts
   {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data:
+    name: {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data
   {{- end }}
