@@ -4,7 +4,7 @@ services:
     - -c
     - |
       /signoz-otel-collector migrate sync check &&
-      /signoz-otel-collector --config=/etc/otel-collector-config.yaml
+      /signoz-otel-collector --config=/etc/otel-collector-config.yaml --manager-config=/etc/opamp-config.yaml --copy-path=/var/tmp/collector-config.yaml
     container_name: signoz-ingester
     depends_on:
       signoz-signoz:
@@ -160,6 +160,11 @@ services:
                 - signozclickhousemeter
       source: ./configs/ingester/ingester.yaml
       target: /etc/otel-collector-config.yaml
+      type: bind
+    - content: |
+        server_endpoint: ws://signoz-signoz:4320/v1/opamp
+      source: ./configs/ingester/opamp.yaml
+      target: /etc/opamp-config.yaml
       type: bind
   signoz-metastore-postgres-0:
     environment:
