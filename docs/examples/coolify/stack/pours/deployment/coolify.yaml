@@ -4,8 +4,7 @@ services:
     - -c
     - |
       /signoz-otel-collector migrate sync check &&
-      /signoz-otel-collector --config=/etc/otel-collector-config.yaml --manager-config=/etc/opamp-config.yaml --copy-path=/var/tmp/collector-config.yaml
-    container_name: signoz-ingester
+      /signoz-otel-collector --config=/etc/otel-collector-config.yaml
     depends_on:
       signoz-signoz:
         condition: service_healthy
@@ -19,6 +18,16 @@ services:
     - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
     - LOW_CARDINAL_EXCEPTION_GROUPING=false
     - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
+    healthcheck:
+      interval: 30s
+      retries: 3
+      test:
+      - CMD
+      - wget
+      - --spider
+      - -q
+      - http://localhost:13133/health
+      timeout: 5s
     image: signoz/signoz-otel-collector:latest
     logging:
       options:
@@ -161,11 +170,6 @@ services:
       source: ./configs/ingester/ingester.yaml
       target: /etc/otel-collector-config.yaml
       type: bind
-    - content: |
-        server_endpoint: ws://signoz-signoz:4320/v1/opamp
-      source: ./configs/ingester/opamp.yaml
-      target: /etc/opamp-config.yaml
-      type: bind
   signoz-metastore-postgres-0:
     environment:
     - POSTGRES_USER=signoz
@@ -188,7 +192,6 @@ services:
       target: /var/lib/postgresql/data
       type: volume
   signoz-signoz:
-    container_name: signoz-signoz
     depends_on:
       signoz-metastore-postgres-0:
         condition: service_healthy
