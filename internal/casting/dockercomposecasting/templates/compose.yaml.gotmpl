@@ -115,7 +115,6 @@ services:
       start_period: 30s
   {{- end }}
   {{ $.Metadata.Name }}-ingester:
-    container_name: {{ $.Metadata.Name }}-ingester
     image: {{ $.Spec.Ingester.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
@@ -141,12 +140,22 @@ services:
       - {{ $key }}={{ $value }}
       {{- end }}
     {{- end }}
+    healthcheck:
+      test:
+      - "CMD"
+      - "wget"
+      - "--spider"
+      - "-q"
+      - "http://localhost:13133/health"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     deploy:
       replicas: {{ int $.Spec.Ingester.Spec.Cluster.Replicas }}
       restart_policy:
         condition: on-failure
   {{ $.Metadata.Name }}-signoz:
-    container_name: {{ $.Metadata.Name }}-signoz
     image: {{ $.Spec.Signoz.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
@@ -201,17 +210,13 @@ networks:
 volumes:
   {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-telemetrykeeper-{{ $replicaIdx  }}-data:
-    name: {{ $.Metadata.Name }}-telemetrykeeper-{{ $replicaIdx }}-data
   {{- end }}
   {{- range $shardIdx := until (int $.Spec.TelemetryStore.Spec.Cluster.Shards) }}
   {{- range $replicaIdx := until (int (add 1 (int $.Spec.TelemetryStore.Spec.Cluster.Replicas))) }}
   {{ $.Metadata.Name }}-telemetrystore-{{ $shardIdx }}-{{ $replicaIdx }}-data:
-    name: {{ $.Metadata.Name }}-telemetrystore-{{ $shardIdx }}-{{ $replicaIdx }}-data
   {{- end }}
   {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-user-scripts:
-    name: {{ $.Metadata.Name }}-telemetrystore-user-scripts
   {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data:
-    name: {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data
   {{- end }}

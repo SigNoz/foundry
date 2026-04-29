@@ -135,7 +135,6 @@ services:
         max-file: "3"
   {{- end }}
   {{ $.Metadata.Name }}-signoz:
-    container_name: {{ $.Metadata.Name }}-signoz
     image: {{ $.Spec.Signoz.Spec.Image }}
     depends_on:
       {{- range $metaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
@@ -175,7 +174,6 @@ services:
         max-size: 50m
         max-file: "3"
   {{ $.Metadata.Name }}-ingester:
-    container_name: {{ $.Metadata.Name }}-ingester
     image: {{ $.Spec.Ingester.Spec.Image }}
     depends_on:
       {{- range $shardIdx := $.Spec.TelemetryStore.Spec.Cluster.Shards }}
@@ -188,6 +186,16 @@ services:
         condition: service_completed_successfully
       {{ $.Metadata.Name }}-signoz:
         condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --spider
+        - -q
+        - http://localhost:13133/health
+      interval: 30s
+      timeout: 5s
+      retries: 3
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
       - LOW_CARDINAL_EXCEPTION_GROUPING=false
@@ -202,18 +210,13 @@ services:
       - -c
       - |
         /signoz-otel-collector migrate sync check &&
-        /signoz-otel-collector --config=/etc/otel-collector-config.yaml --manager-config=/etc/opamp-config.yaml --copy-path=/var/tmp/collector-config.yaml
+        /signoz-otel-collector --config=/etc/otel-collector-config.yaml
     volumes:
       - type: bind
         source: ./configs/ingester/ingester.yaml
         target: /etc/otel-collector-config.yaml
         content: |
 {{ index $.Spec.Ingester.Spec.Config.Data "ingester.yaml" | indent 10 }}
-      - type: bind
-        source: ./configs/ingester/opamp.yaml
-        target: /etc/opamp-config.yaml
-        content: |
-{{ index $.Spec.Ingester.Spec.Config.Data "opamp.yaml" | indent 10 }}
     logging:
       options:
         max-size: 50m
