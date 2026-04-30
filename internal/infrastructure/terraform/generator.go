@@ -119,23 +119,23 @@ func (g *Generator) Validate(ctx context.Context, poursPath string) error {
 }
 
 // templatesFor returns the provider+compute-type specific templates.
-func (g *Generator) templatesFor(provider v1alpha1.InfrastructureProvider, computeType infrastructure.ComputeType) (main, vars, outputs *types.Template, err error) {
+func (g *Generator) templatesFor(provider v1alpha1.Platform, computeType infrastructure.ComputeType) (main, vars, outputs *types.Template, err error) {
 	switch provider {
-	case v1alpha1.InfrastructureProviderAWS:
+	case v1alpha1.PlatformAWS:
 		switch computeType {
 		case infrastructure.ComputeTypeEC2:
 			return awsEC2MainTFTemplate, awsEC2VariablesTFTemplate, awsEC2OutputsTFTemplate, nil
 		case infrastructure.ComputeTypeEKS:
 			return awsEKSMainTFTemplate, awsEKSVariablesTFTemplate, awsEKSOutputsTFTemplate, nil
 		}
-	case v1alpha1.InfrastructureProviderGCP:
+	case v1alpha1.PlatformGCP:
 		switch computeType {
 		case infrastructure.ComputeTypeGCE:
 			return gcpGCEMainTFTemplate, gcpGCEVariablesTFTemplate, gcpGCEOutputsTFTemplate, nil
 		case infrastructure.ComputeTypeGKE:
 			return gcpGKEMainTFTemplate, gcpGKEVariablesTFTemplate, gcpGKEOutputsTFTemplate, nil
 		}
-	case v1alpha1.InfrastructureProviderAzure:
+	case v1alpha1.PlatformAzure:
 		switch computeType {
 		case infrastructure.ComputeTypeVM:
 			return azureVMMainTFTemplate, azureVMVariablesTFTemplate, azureVMOutputsTFTemplate, nil
