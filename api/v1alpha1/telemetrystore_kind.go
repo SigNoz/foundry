@@ -50,10 +50,12 @@ func (kind *TelemetryStoreKind) UnmarshalText(text []byte) error {
 			return nil
 		}
 	}
+
 	if text == nil {
 		*kind = TelemetryStoreKind{s: ""}
 		return nil
 	}
+
 	return errors.New("invalid telemetry store kind: " + string(text))
 }
 

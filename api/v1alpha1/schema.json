@@ -1,13 +1,23 @@
 {
+  "required": [
+    "apiVersion",
+    "metadata",
+    "spec"
+  ],
+  "additionalProperties": false,
   "definitions": {
     "V1Alpha1CastingSpec": {
+      "required": [
+        "deployment"
+      ],
       "properties": {
         "deployment": {
           "$ref": "#/definitions/V1Alpha1TypeDeployment",
           "description": "Deployment configuration for the platform"
         },
         "infrastructure": {
-          "$ref": "#/definitions/V1Alpha1Infrastructure"
+          "$ref": "#/definitions/V1Alpha1Infrastructure",
+          "description": "Infrastructure configuration for generating infrastructure manifests (e.g., Terraform)."
         },
         "ingester": {
           "$ref": "#/definitions/V1Alpha1Ingester",
@@ -116,12 +126,12 @@
     "V1Alpha1MetaStore": {
       "properties": {
         "kind": {
+          "$ref": "#/definitions/V1Alpha1MetaStoreKind",
           "description": "Kind of the meta store to use",
           "examples": [
             "postgres",
             "sqlite"
-          ],
-          "type": "string"
+          ]
         },
         "spec": {
           "$ref": "#/definitions/V1Alpha1MoldingSpec",
@@ -133,6 +143,13 @@
         }
       },
       "type": "object"
+    },
+    "V1Alpha1MetaStoreKind": {
+      "enum": [
+        "postgres",
+        "sqlite"
+      ],
+      "type": "string"
     },
     "V1Alpha1MetaStoreStatus": {
       "properties": {
@@ -479,7 +496,7 @@
     "V1Alpha1TypeCluster": {
       "properties": {
         "replicas": {
-          "description": "Number of replicas for the component",
+          "description": "Number of replicas for the molding.",
           "examples": [
             1
           ],
@@ -489,7 +506,7 @@
           ]
         },
         "shards": {
-          "description": "Number of shards for the component",
+          "description": "Number of shards for the molding",
           "examples": [
             1
           ],
@@ -504,7 +521,7 @@
     "V1Alpha1TypeConfig": {
       "properties": {
         "data": {
-          "description": "Configuration data as key-value pairs",
+          "description": "Configuration data as key-value pairs.",
           "additionalProperties": {
             "type": "string"
           },
@@ -560,18 +577,25 @@
       "type": "object"
     },
     "V1Alpha1TypeMetadata": {
+      "required": [
+        "name"
+      ],
       "properties": {
         "annotations": {
-          "description": "Unstructured key-value map for arbitrary metadata",
+          "description": "Annotations is an unstructured key-value map for arbitrary metadata. Can be used to specify deployment-specific settings.",
           "additionalProperties": {
             "type": "string"
           },
-          "type": "object"
+          "type": [
+            "object",
+            "null"
+          ]
         },
         "name": {
-          "description": "The name of this installation",
+          "description": "The name of this installation. This name is used to identify the installation.",
+          "default": "signoz",
           "examples": [
-            "signoz-dev"
+            "signoz"
           ],
           "type": "string"
         }
@@ -581,8 +605,12 @@
   },
   "properties": {
     "apiVersion": {
-      "description": "API Version of the casting configuration schema",
+      "description": "API Version of the configuration schema.",
+      "default": "v1alpha1",
       "examples": [
+        "v1alpha1"
+      ],
+      "enum": [
         "v1alpha1"
       ],
       "type": "string"

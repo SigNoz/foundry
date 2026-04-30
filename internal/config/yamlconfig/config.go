@@ -10,6 +10,7 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/config"
+	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/types"
 )
 
@@ -54,7 +55,7 @@ func (config *yamlConfig) GetV1Alpha1(ctx context.Context, path string) (v1alpha
 
 	// validate the casting against the schema
 	if err := config.v1alphaSchema.Validate(toValidate); err != nil {
-		return v1alpha1.Casting{}, fmt.Errorf("failed to validate casting: %s", err.Error())
+		return v1alpha1.Casting{}, errors.Wrapf(err, errors.TypeInvalidInput, "invalid casting file %s", path)
 	}
 
 	return defaultCasting, nil

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/swaggest/jsonschema-go"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -13,6 +14,7 @@ var _ yaml.Unmarshaler = (*MetaStoreKind)(nil)
 var _ json.Marshaler = (*MetaStoreKind)(nil)
 var _ json.Unmarshaler = (*MetaStoreKind)(nil)
 var _ fmt.Stringer = (*MetaStoreKind)(nil)
+var _ jsonschema.Enum = (*MetaStoreKind)(nil)
 
 var (
 	MetaStoreKindPostgres MetaStoreKind = MetaStoreKind{s: "postgres"}
@@ -68,4 +70,13 @@ func (kind *MetaStoreKind) UnmarshalYAML(node *yaml.Node) error {
 
 func (kind MetaStoreKind) MarshalYAML() (any, error) {
 	return kind.String(), nil
+}
+
+func (kind MetaStoreKind) Enum() []any {
+	kinds := []any{}
+	for _, kind := range MetaStoreKinds() {
+		kinds = append(kinds, kind.String())
+	}
+
+	return kinds
 }
