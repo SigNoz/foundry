@@ -15,6 +15,8 @@ type PatchEntry struct {
 
 	// Operations is a list of JSON Patch (RFC 6902) operations to apply. Used by the jsonpatch driver.
 	Operations []PatchOperation `json:"operations" yaml:"operations" required:"true" minItems:"1" description:"JSON Patch (RFC 6902) operations to apply. Used by the jsonpatch driver."`
+
+	_ struct{} `additionalProperties:"false"`
 }
 
 // PatchType returns the patch type, defaulting to PatchTypeJSONPatch if empty.
@@ -39,4 +41,6 @@ type PatchOperation struct {
 
 	// From is a JSON Pointer for the source location in move and copy operations.
 	From string `json:"from,omitempty" yaml:"from,omitempty" pattern:"^/" description:"Source JSON Pointer for move and copy operations" example:"/services/clickhouse/old_field"`
+
+	_ struct{} `additionalProperties:"false"`
 }

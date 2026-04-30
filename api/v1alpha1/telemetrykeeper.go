@@ -13,6 +13,8 @@ type TelemetryKeeper struct {
 
 	// Status of the telemetry keeper.
 	Status TelemetryKeeperStatus `json:"status" yaml:"status,omitempty" description:"Status of the telemetry keeper"`
+
+	_ struct{} `additionalProperties:"false"`
 }
 
 type TelemetryKeeperStatus struct {
@@ -20,6 +22,8 @@ type TelemetryKeeperStatus struct {
 
 	// Addresses of the telemetry keeper.
 	Addresses TelemetryKeeperStatusAddresses `json:"addresses" yaml:"addresses,omitempty" description:"Addresses of the telemetry keeper"`
+
+	_ struct{} `additionalProperties:"false"`
 }
 
 type TelemetryKeeperStatusAddresses struct {
@@ -28,6 +32,8 @@ type TelemetryKeeperStatusAddresses struct {
 
 	// Client addresses.
 	Client []string `json:"client" yaml:"client,omitempty" description:"Client addresses"`
+
+	_ struct{} `additionalProperties:"false"`
 }
 
 func DefaultTelemetryKeeper() TelemetryKeeper {

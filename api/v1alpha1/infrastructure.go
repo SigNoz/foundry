@@ -12,6 +12,8 @@ type Infrastructure struct {
 	// Status holds the generated IaC file contents keyed by filename (e.g. "main.tf.json").
 	// This is populated by foundry after generation and written to the lock file.
 	Status map[string]string `json:"status,omitempty" yaml:"status,omitempty"`
+
+	_ struct{} `additionalProperties:"false"`
 }
 
 // MarshalJSON implements json.Marshaler. It manually omits Status when zero

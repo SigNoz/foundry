@@ -8,12 +8,16 @@ type SigNoz struct {
 
 	// Status of signoz.
 	Status SigNozStatus `json:"status" yaml:"status,omitempty" jsonschema:"description=Status of SigNoz"`
+
+	_ struct{} `additionalProperties:"false"`
 }
 
 type SigNozStatus struct {
 	MoldingStatus `json:",inline" yaml:",inline"`
 
 	Addresses SigNozStatusAddresses `json:"addresses" yaml:"addresses,omitempty" jsonschema:"description=Addresses of SigNoz"`
+
+	_ struct{} `additionalProperties:"false"`
 }
 
 type SigNozStatusAddresses struct {
@@ -22,6 +26,8 @@ type SigNozStatusAddresses struct {
 
 	// Opamp server addresses.
 	Opamp []string `json:"opamp" yaml:"opamp" jsonschema:"description=Opamp server addresses"`
+
+	_ struct{} `additionalProperties:"false"`
 }
 
 func DefaultSigNoz() SigNoz {

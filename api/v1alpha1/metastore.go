@@ -13,17 +13,22 @@ type MetaStore struct {
 
 	// Status of the meta store.
 	Status MetaStoreStatus `json:"status" yaml:"status,omitempty" description:"Status of the meta store"`
+
+	_ struct{} `additionalProperties:"false"`
 }
 
 type MetaStoreStatus struct {
 	MoldingStatus `json:",inline" yaml:",inline"`
 
 	Addresses MetaStoreStatusAddresses `json:"addresses" yaml:"addresses,omitempty" description:"Addresses of the meta store"`
+
+	_ struct{} `additionalProperties:"false"`
 }
 
 type MetaStoreStatusAddresses struct {
 	// DSN addresses.
-	DSN []string `json:"dsn" yaml:"dsn" description:"DSN addresses"`
+	DSN []string  `json:"dsn" yaml:"dsn" description:"DSN addresses"`
+	_   struct{}  `additionalProperties:"false"`
 }
 
 func DefaultMetaStore() MetaStore {

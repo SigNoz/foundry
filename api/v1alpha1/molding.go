@@ -20,6 +20,8 @@ type MoldingSpec struct {
 
 	// Configuration for the molding
 	Config TypeConfig `json:"config" yaml:"config,omitempty" description:"Configuration for the molding"`
+
+	_ struct{} `additionalProperties:"false"`
 }
 
 type MoldingStatus struct {
@@ -31,6 +33,8 @@ type MoldingStatus struct {
 
 	// Configuration for the molding
 	Config TypeConfig `json:"config" yaml:"config,omitempty" description:"Configuration for the molding"`
+
+	_ struct{} `additionalProperties:"false"`
 }
 
 // IsEnabled returns whether the molding is enabled.

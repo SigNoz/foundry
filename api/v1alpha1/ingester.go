@@ -8,16 +8,22 @@ type Ingester struct {
 
 	// Status of the ingester.
 	Status IngesterStatus `json:"status" yaml:"status,omitempty" jsonschema:"description=Status of the ingester"`
+
+	_ struct{} `additionalProperties:"false"`
 }
 
 type IngesterStatus struct {
 	MoldingStatus `json:",inline" yaml:",inline"`
 
 	Addresses IngesterStatusAddresses `json:"addresses" yaml:"addresses,omitempty" jsonschema:"description=Addresses of the ingester"`
+
+	_ struct{} `additionalProperties:"false"`
 }
 
 type IngesterStatusAddresses struct {
 	OTLP []string `json:"otlp" yaml:"otlp" jsonschema:"description=OTLP addresses"`
+
+	_ struct{} `additionalProperties:"false"`
 }
 
 func DefaultIngester() Ingester {

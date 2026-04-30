@@ -13,17 +13,23 @@ type TelemetryStore struct {
 
 	// Status of the telemetry store.
 	Status TelemetryStoreStatus `json:"status" yaml:"status,omitempty" description:"Status of the telemetry store"`
+
+	_ struct{} `additionalProperties:"false"`
 }
 
 type TelemetryStoreStatus struct {
 	MoldingStatus `json:",inline" yaml:",inline"`
 
 	Addresses TelemetryStoreStatusAddresses `json:"addresses" yaml:"addresses,omitempty" description:"Addresses of the telemetry store"`
+
+	_ struct{} `additionalProperties:"false"`
 }
 
 type TelemetryStoreStatusAddresses struct {
 	// TCP addresses.
 	TCP []string `json:"tcp" yaml:"tcp" description:"TCP addresses"`
+
+	_ struct{} `additionalProperties:"false"`
 }
 
 func DefaultTelemetryStore() TelemetryStore {

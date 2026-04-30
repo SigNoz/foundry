@@ -10,6 +10,7 @@
       "required": [
         "deployment"
       ],
+      "additionalProperties": false,
       "properties": {
         "deployment": {
           "$ref": "#/definitions/V1Alpha1TypeDeployment",
@@ -50,6 +51,7 @@
       "type": "object"
     },
     "V1Alpha1CastingStatus": {
+      "additionalProperties": false,
       "properties": {
         "checksum": {
           "description": "Checksum of the casting file",
@@ -59,6 +61,7 @@
       "type": "object"
     },
     "V1Alpha1Infrastructure": {
+      "additionalProperties": false,
       "properties": {
         "enabled": {
           "type": "boolean"
@@ -73,6 +76,7 @@
       "type": "object"
     },
     "V1Alpha1Ingester": {
+      "additionalProperties": false,
       "properties": {
         "spec": {
           "$ref": "#/definitions/V1Alpha1MoldingSpec"
@@ -84,6 +88,7 @@
       "type": "object"
     },
     "V1Alpha1IngesterStatus": {
+      "additionalProperties": false,
       "properties": {
         "addresses": {
           "$ref": "#/definitions/V1Alpha1IngesterStatusAddresses"
@@ -110,6 +115,7 @@
       "type": "object"
     },
     "V1Alpha1IngesterStatusAddresses": {
+      "additionalProperties": false,
       "properties": {
         "otlp": {
           "items": {
@@ -124,6 +130,7 @@
       "type": "object"
     },
     "V1Alpha1MetaStore": {
+      "additionalProperties": false,
       "properties": {
         "kind": {
           "$ref": "#/definitions/V1Alpha1MetaStoreKind",
@@ -152,6 +159,7 @@
       "type": "string"
     },
     "V1Alpha1MetaStoreStatus": {
+      "additionalProperties": false,
       "properties": {
         "addresses": {
           "$ref": "#/definitions/V1Alpha1MetaStoreStatusAddresses",
@@ -179,6 +187,7 @@
       "type": "object"
     },
     "V1Alpha1MetaStoreStatusAddresses": {
+      "additionalProperties": false,
       "properties": {
         "dsn": {
           "description": "DSN addresses",
@@ -194,6 +203,7 @@
       "type": "object"
     },
     "V1Alpha1MoldingSpec": {
+      "additionalProperties": false,
       "properties": {
         "cluster": {
           "$ref": "#/definitions/V1Alpha1TypeCluster",
@@ -241,6 +251,7 @@
         "target",
         "operations"
       ],
+      "additionalProperties": false,
       "properties": {
         "operations": {
           "description": "JSON Patch (RFC 6902) operations to apply. Used by the jsonpatch driver.",
@@ -284,6 +295,7 @@
         "op",
         "path"
       ],
+      "additionalProperties": false,
       "properties": {
         "from": {
           "description": "Source JSON Pointer for move and copy operations",
@@ -320,6 +332,7 @@
       "type": "object"
     },
     "V1Alpha1SigNoz": {
+      "additionalProperties": false,
       "properties": {
         "spec": {
           "$ref": "#/definitions/V1Alpha1MoldingSpec"
@@ -331,6 +344,7 @@
       "type": "object"
     },
     "V1Alpha1SigNozStatus": {
+      "additionalProperties": false,
       "properties": {
         "addresses": {
           "$ref": "#/definitions/V1Alpha1SigNozStatusAddresses"
@@ -357,6 +371,7 @@
       "type": "object"
     },
     "V1Alpha1SigNozStatusAddresses": {
+      "additionalProperties": false,
       "properties": {
         "apiserver": {
           "items": {
@@ -380,6 +395,7 @@
       "type": "object"
     },
     "V1Alpha1TelemetryKeeper": {
+      "additionalProperties": false,
       "properties": {
         "kind": {
           "$ref": "#/definitions/V1Alpha1TelemetryKeeperKind",
@@ -406,6 +422,7 @@
       "type": "string"
     },
     "V1Alpha1TelemetryKeeperStatus": {
+      "additionalProperties": false,
       "properties": {
         "addresses": {
           "$ref": "#/definitions/V1Alpha1TelemetryKeeperStatusAddresses",
@@ -433,6 +450,7 @@
       "type": "object"
     },
     "V1Alpha1TelemetryKeeperStatusAddresses": {
+      "additionalProperties": false,
       "properties": {
         "client": {
           "description": "Client addresses",
@@ -458,6 +476,7 @@
       "type": "object"
     },
     "V1Alpha1TelemetryStore": {
+      "additionalProperties": false,
       "properties": {
         "kind": {
           "$ref": "#/definitions/V1Alpha1TelemetryStoreKind",
@@ -484,6 +503,7 @@
       "type": "string"
     },
     "V1Alpha1TelemetryStoreStatus": {
+      "additionalProperties": false,
       "properties": {
         "addresses": {
           "$ref": "#/definitions/V1Alpha1TelemetryStoreStatusAddresses",
@@ -511,6 +531,7 @@
       "type": "object"
     },
     "V1Alpha1TelemetryStoreStatusAddresses": {
+      "additionalProperties": false,
       "properties": {
         "tcp": {
           "description": "TCP addresses",
@@ -526,6 +547,7 @@
       "type": "object"
     },
     "V1Alpha1TypeCluster": {
+      "additionalProperties": false,
       "properties": {
         "replicas": {
           "description": "Number of replicas for the molding.",
@@ -553,6 +575,7 @@
       "type": "object"
     },
     "V1Alpha1TypeConfig": {
+      "additionalProperties": false,
       "properties": {
         "data": {
           "description": "Configuration data as key-value pairs.",
@@ -565,6 +588,7 @@
       "type": "object"
     },
     "V1Alpha1TypeDeployment": {
+      "additionalProperties": false,
       "properties": {
         "flavor": {
           "description": "Flavor of mode for the deployment",
@@ -614,6 +638,7 @@
       "required": [
         "name"
       ],
+      "additionalProperties": false,
       "properties": {
         "annotations": {
           "description": "Annotations is an unstructured key-value map for arbitrary metadata. Can be used to specify deployment-specific settings.",

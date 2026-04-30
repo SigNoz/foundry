@@ -17,11 +17,13 @@ type CastingSpec struct {
 	MetaStore       MetaStore       `json:"metastore,omitzero" yaml:"metastore,omitempty" description:"The configuration for the meta store molding"`
 	Ingester        Ingester        `json:"ingester,omitzero" yaml:"ingester,omitempty" description:"The configuration for the ingester molding"`
 	Patches         []PatchEntry    `json:"patches,omitempty" yaml:"patches,omitempty" description:"Patch operations to apply to generated materials"`
+	_               struct{}        `additionalProperties:"false"`
 }
 
 type CastingStatus struct {
 	// Checksum of the casting file.
-	Checksum string `json:"checksum" yaml:"checksum" description:"Checksum of the casting file"`
+	Checksum string   `json:"checksum" yaml:"checksum" description:"Checksum of the casting file"`
+	_        struct{} `additionalProperties:"false"`
 }
 
 func DefaultCasting() Casting {
