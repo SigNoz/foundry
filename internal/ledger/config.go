@@ -62,9 +62,9 @@ const (
 // CastingProperties extracts trackable properties from a Casting config.
 func CastingProperties(casting v1alpha1.Casting) map[string]any {
 	return map[string]any{
-		PropPlatform:              casting.Spec.Deployment.Platform,
-		PropMode:                  casting.Spec.Deployment.Mode,
-		PropFlavor:                casting.Spec.Deployment.Flavor,
+		PropPlatform:              casting.Spec.Deployment.Platform.String(),
+		PropMode:                  casting.Spec.Deployment.Mode.String(),
+		PropFlavor:                casting.Spec.Deployment.Flavor.String(),
 		PropPatchesConfigured:     len(casting.Spec.Patches) > 0,
 		PropPatchCount:            len(casting.Spec.Patches),
 		PropInfrastructureEnabled: casting.Spec.Infrastructure.Enabled,

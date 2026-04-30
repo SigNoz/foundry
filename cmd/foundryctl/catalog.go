@@ -42,13 +42,14 @@ type castingEntry struct {
 }
 
 func castingExample(d v1alpha1.TypeDeployment) string {
+	platform, mode, flavor := d.Platform.String(), d.Mode.String(), d.Flavor.String()
 	switch {
-	case d.Platform != "" && d.Mode != "":
-		return d.Platform + "/" + d.Mode + "/" + d.Flavor
-	case d.Platform != "":
-		return d.Platform + "/" + d.Flavor
+	case platform != "" && mode != "":
+		return platform + "/" + mode + "/" + flavor
+	case platform != "":
+		return platform + "/" + flavor
 	default:
-		return d.Mode + "/" + d.Flavor
+		return mode + "/" + flavor
 	}
 }
 
@@ -77,9 +78,9 @@ func runCatalog(ctx context.Context, logger *slog.Logger, tracker ledger.Ledger)
 	var entries []castingEntry
 	for d := range f.Registry.CastingItems() {
 		entries = append(entries, castingEntry{
-			Platform: d.Platform,
-			Mode:     d.Mode,
-			Flavor:   d.Flavor,
+			Platform: d.Platform.String(),
+			Mode:     d.Mode.String(),
+			Flavor:   d.Flavor.String(),
 			Example:  castingExample(d),
 		})
 	}

@@ -60,6 +60,20 @@
       },
       "type": "object"
     },
+    "V1Alpha1Flavor": {
+      "enum": [
+        "compose",
+        "swarm",
+        "binary",
+        "kustomize",
+        "helm",
+        "blueprint",
+        "stack",
+        "template",
+        "terraform"
+      ],
+      "type": "string"
+    },
     "V1Alpha1Infrastructure": {
       "additionalProperties": false,
       "properties": {
@@ -202,6 +216,15 @@
       },
       "type": "object"
     },
+    "V1Alpha1Mode": {
+      "enum": [
+        "docker",
+        "systemd",
+        "kubernetes",
+        "ec2"
+      ],
+      "type": "string"
+    },
     "V1Alpha1MoldingSpec": {
       "additionalProperties": false,
       "properties": {
@@ -330,6 +353,15 @@
         }
       },
       "type": "object"
+    },
+    "V1Alpha1Platform": {
+      "enum": [
+        "render",
+        "coolify",
+        "railway",
+        "ecs"
+      ],
+      "type": "string"
     },
     "V1Alpha1SigNoz": {
       "additionalProperties": false,
@@ -591,45 +623,16 @@
       "additionalProperties": false,
       "properties": {
         "flavor": {
-          "description": "Flavor of mode for the deployment",
-          "examples": [
-            "compose",
-            "swarm",
-            "helmfile",
-            "helm",
-            "kustomize",
-            "binary",
-            "rpm",
-            "deb",
-            "chocolatey"
-          ],
-          "type": "string"
+          "$ref": "#/definitions/V1Alpha1Flavor",
+          "description": "Flavor of mode for the deployment"
         },
         "mode": {
-          "description": "Type of installation method",
-          "examples": [
-            "binary",
-            "docker",
-            "kubernetes",
-            "helm",
-            "nomad",
-            "windows",
-            "systemctl"
-          ],
-          "type": "string"
+          "$ref": "#/definitions/V1Alpha1Mode",
+          "description": "Type of installation method"
         },
         "platform": {
-          "description": "Provider where an installation runs on",
-          "examples": [
-            "aws",
-            "gcp",
-            "azure",
-            "digitalocean",
-            "railway",
-            "docker",
-            "linux"
-          ],
-          "type": "string"
+          "$ref": "#/definitions/V1Alpha1Platform",
+          "description": "Provider where an installation runs on"
         }
       },
       "type": "object"

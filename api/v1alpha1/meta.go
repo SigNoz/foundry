@@ -22,15 +22,14 @@ type TypeConfig struct {
 }
 
 type TypeDeployment struct {
-	// Platform: Provider where an installation runs on using various cloud vendors
-	// Example values: aws|gcp|azure|digitalocean|railway
-	Platform string `json:"platform,omitempty" yaml:"platform,omitempty" description:"Provider where an installation runs on" examples:"[\"aws\",\"gcp\",\"azure\",\"digitalocean\",\"railway\",\"docker\",\"linux\"]"`
+	// Platform: cloud or hosting provider where an installation runs.
+	Platform Platform `json:"platform,omitzero" yaml:"platform,omitempty" description:"Provider where an installation runs on"`
 
-	// Mode: Type of installation method that we support, currently identifies the engine or technology behind a deployment
-	Mode string `json:"mode,omitempty" yaml:"mode,omitempty" description:"Type of installation method" examples:"[\"binary\",\"docker\",\"kubernetes\",\"helm\",\"nomad\",\"windows\",\"systemctl\"]"`
+	// Mode: type of installation method (engine or technology behind the deployment).
+	Mode Mode `json:"mode,omitzero" yaml:"mode,omitempty" description:"Type of installation method"`
 
-	// Flavor: Defines the flavor of mode for the deployment, allows the user the pattern to deploy on
-	Flavor string `json:"flavor,omitempty" yaml:"flavor,omitempty" description:"Flavor of mode for the deployment" examples:"[\"compose\",\"swarm\",\"helmfile\",\"helm\",\"kustomize\",\"binary\",\"rpm\",\"deb\",\"chocolatey\"]"`
+	// Flavor: variant of the mode for the deployment.
+	Flavor Flavor `json:"flavor,omitzero" yaml:"flavor,omitempty" description:"Flavor of mode for the deployment"`
 
 	_ struct{} `additionalProperties:"false"`
 }

@@ -35,7 +35,7 @@ func ResolveProvider(platform string) (v1alpha1.InfrastructureProvider, error) {
 //	Azure + kubernetes (any flavor) → AKS
 //	Azure + anything else           → VM
 func ResolveComputeType(provider v1alpha1.InfrastructureProvider, deployment v1alpha1.TypeDeployment) (ComputeType, error) {
-	isKubernetes := deployment.Mode == "kubernetes"
+	isKubernetes := deployment.Mode == v1alpha1.ModeKubernetes
 
 	switch provider {
 	case v1alpha1.InfrastructureProviderAWS:

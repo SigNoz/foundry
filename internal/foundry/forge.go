@@ -18,7 +18,7 @@ func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, path
 
 	casting, err := foundry.Registry.Casting(config.Spec.Deployment)
 	if err != nil {
-		foundry.Logger.ErrorContext(ctx, "casting not found", slog.String("casting.spec.deployment.mode", config.Spec.Deployment.Mode))
+		foundry.Logger.ErrorContext(ctx, "casting not found", slog.String("casting.spec.deployment.mode", config.Spec.Deployment.Mode.String()))
 		return err
 	}
 
@@ -80,7 +80,7 @@ func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, path
 	if config.Spec.Infrastructure.Enabled {
 		foundry.Logger.InfoContext(ctx, "generating infrastructure manifests",
 			slog.String("casting.metadata.name", config.Metadata.Name),
-			slog.String("deployment.platform", config.Spec.Deployment.Platform))
+			slog.String("deployment.platform", config.Spec.Deployment.Platform.String()))
 
 		infraMaterials, err = foundry.InfrastructureGenerator.Generate(ctx, config)
 		if err != nil {
