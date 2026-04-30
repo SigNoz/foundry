@@ -359,7 +359,10 @@
         "render",
         "coolify",
         "railway",
-        "ecs"
+        "ecs",
+        "aws",
+        "gcp",
+        "azure"
       ],
       "type": "string"
     },

@@ -36,7 +36,7 @@ func (g *Generator) Generate(ctx context.Context, config v1alpha1.Casting) ([]ty
 		return nil, nil
 	}
 
-	provider, err := infrastructure.ResolveProvider(config.Spec.Deployment.Platform.String())
+	provider, err := infrastructure.ResolveProvider(config.Spec.Deployment.Platform)
 	if err != nil {
 		return nil, err
 	}

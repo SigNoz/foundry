@@ -21,6 +21,9 @@ var (
 	PlatformCoolify Platform = Platform{s: "coolify"}
 	PlatformRailway Platform = Platform{s: "railway"}
 	PlatformECS     Platform = Platform{s: "ecs"}
+	PlatformAWS     Platform = Platform{s: "aws"}
+	PlatformGCP     Platform = Platform{s: "gcp"}
+	PlatformAzure   Platform = Platform{s: "azure"}
 )
 
 type Platform struct {
@@ -32,7 +35,15 @@ func (platform Platform) String() string {
 }
 
 func Platforms() []Platform {
-	return []Platform{PlatformRender, PlatformCoolify, PlatformRailway, PlatformECS}
+	return []Platform{
+		PlatformRender,
+		PlatformCoolify,
+		PlatformRailway,
+		PlatformECS,
+		PlatformAWS,
+		PlatformGCP,
+		PlatformAzure,
+	}
 }
 
 func (platform Platform) MarshalJSON() ([]byte, error) {
