@@ -6,6 +6,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/evanphx/json-patch/v5 v5.9.11
+	github.com/google/jsonschema-go v0.4.3
 	github.com/olekukonko/tablewriter v1.1.4
 	github.com/segmentio/analytics-go/v3 v3.3.0
 	github.com/spf13/cobra v1.10.2

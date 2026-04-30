@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"log/slog"
 	"os"
@@ -103,7 +104,12 @@ func runGenSchemas(_ context.Context) error {
 		log.Fatal(err)
 	}
 
-	err = os.WriteFile(filepath.Join("docs", "schemas", "v1alpha1.yaml"), types.MustMarshalYAML(schema), 0644)
+	contents, err := json.MarshalIndent(schema, "", "  ")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = os.WriteFile(filepath.Join("api", "v1alpha1", "schema.json"), contents, 0644)
 	if err != nil {
 		return err
 	}
