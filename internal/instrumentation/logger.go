@@ -14,8 +14,8 @@ func NewLogger(debug bool) *slog.Logger {
 }
 
 func newLoggerWithLevel(level slog.Level) *slog.Logger {
-	return slog.New(newPrettyHandler(os.Stdout, &Options{
-		AddSource: true,
+	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level:     level,
+		AddSource: false,
 	}))
 }
