@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/swaggest/jsonschema-go"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -13,6 +14,7 @@ var _ yaml.Unmarshaler = (*TelemetryKeeperKind)(nil)
 var _ json.Marshaler = (*TelemetryKeeperKind)(nil)
 var _ json.Unmarshaler = (*TelemetryKeeperKind)(nil)
 var _ fmt.Stringer = (*TelemetryKeeperKind)(nil)
+var _ jsonschema.Enum = (*TelemetryKeeperKind)(nil)
 
 var (
 	TelemetryKeeperKindClickhouseKeeper TelemetryKeeperKind = TelemetryKeeperKind{s: "clickhousekeeper"}
@@ -67,4 +69,13 @@ func (kind *TelemetryKeeperKind) UnmarshalYAML(node *yaml.Node) error {
 
 func (kind TelemetryKeeperKind) MarshalYAML() (any, error) {
 	return kind.String(), nil
+}
+
+func (kind TelemetryKeeperKind) Enum() []any {
+	kinds := []any{}
+	for _, kind := range TelemetryKeeperKinds() {
+		kinds = append(kinds, kind.String())
+	}
+
+	return kinds
 }

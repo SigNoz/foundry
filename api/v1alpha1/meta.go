@@ -5,13 +5,13 @@ type TypeVersion struct {
 }
 
 type TypeMetadata struct {
-	Name        string            `json:"name" yaml:"name" required:"true" nullable:"false" description:"The name of this installation. This name is used to identify the installation." default:"signoz" example:"signoz"`
+	Name        string            `json:"name" yaml:"name" required:"true" nullable:"false" pattern:"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" maxLength:"63" description:"The name of this installation. This name is used to identify the installation." default:"signoz" example:"signoz"`
 	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty" nullable:"true" description:"Annotations is an unstructured key-value map for arbitrary metadata. Can be used to specify deployment-specific settings."`
 }
 
 type TypeCluster struct {
-	Replicas *int `json:"replicas,omitempty" yaml:"replicas,omitempty" description:"Number of replicas for the molding." example:"1"`
-	Shards   *int `json:"shards,omitempty" yaml:"shards,omitempty" description:"Number of shards for the molding" example:"1"`
+	Replicas *int `json:"replicas,omitempty" yaml:"replicas,omitempty" minimum:"0" description:"Number of replicas for the molding." example:"1"`
+	Shards   *int `json:"shards,omitempty" yaml:"shards,omitempty" minimum:"1" description:"Number of shards for the molding" example:"1"`
 }
 
 type TypeConfig struct {

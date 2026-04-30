@@ -223,6 +223,7 @@
           "examples": [
             "signoz/signoz:latest"
           ],
+          "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*(/[a-z0-9]+([._-][a-z0-9]+)*)*(:[a-zA-Z0-9._-]+)?(@sha256:[a-f0-9]{64})?$",
           "type": "string"
         },
         "version": {
@@ -236,13 +237,21 @@
       "type": "object"
     },
     "V1Alpha1PatchEntry": {
+      "required": [
+        "target",
+        "operations"
+      ],
       "properties": {
         "operations": {
           "description": "JSON Patch (RFC 6902) operations to apply. Used by the jsonpatch driver.",
           "items": {
             "$ref": "#/definitions/V1Alpha1PatchOperation"
           },
-          "type": "array"
+          "minItems": 1,
+          "type": [
+            "array",
+            "null"
+          ]
         },
         "target": {
           "description": "Target output file to patch",
@@ -252,6 +261,7 @@
             "values.yaml",
             "telemetrystore/telemtrystore-clickhouse-0-*.yaml"
           ],
+          "minLength": 1,
           "type": "string"
         },
         "type": {
@@ -260,23 +270,32 @@
           "examples": [
             "jsonpatch"
           ],
+          "enum": [
+            "",
+            "jsonpatch"
+          ],
           "type": "string"
         }
       },
       "type": "object"
     },
     "V1Alpha1PatchOperation": {
+      "required": [
+        "op",
+        "path"
+      ],
       "properties": {
         "from": {
           "description": "Source JSON Pointer for move and copy operations",
           "examples": [
             "/services/clickhouse/old_field"
           ],
+          "pattern": "^/",
           "type": "string"
         },
         "op": {
           "description": "JSON Patch (RFC 6902) operation type",
-          "examples": [
+          "enum": [
             "add",
             "remove",
             "replace",
@@ -291,6 +310,7 @@
           "examples": [
             "/services/clickhouse/mem_limit"
           ],
+          "pattern": "^/",
           "type": "string"
         },
         "value": {
@@ -362,11 +382,11 @@
     "V1Alpha1TelemetryKeeper": {
       "properties": {
         "kind": {
+          "$ref": "#/definitions/V1Alpha1TelemetryKeeperKind",
           "description": "Kind of the telemetry keeper to use",
           "examples": [
             "clickhousekeeper"
-          ],
-          "type": "string"
+          ]
         },
         "spec": {
           "$ref": "#/definitions/V1Alpha1MoldingSpec",
@@ -378,6 +398,12 @@
         }
       },
       "type": "object"
+    },
+    "V1Alpha1TelemetryKeeperKind": {
+      "enum": [
+        "clickhousekeeper"
+      ],
+      "type": "string"
     },
     "V1Alpha1TelemetryKeeperStatus": {
       "properties": {
@@ -434,11 +460,11 @@
     "V1Alpha1TelemetryStore": {
       "properties": {
         "kind": {
+          "$ref": "#/definitions/V1Alpha1TelemetryStoreKind",
           "description": "Kind of the telemetry store to use",
           "examples": [
             "clickhouse"
-          ],
-          "type": "string"
+          ]
         },
         "spec": {
           "$ref": "#/definitions/V1Alpha1MoldingSpec",
@@ -450,6 +476,12 @@
         }
       },
       "type": "object"
+    },
+    "V1Alpha1TelemetryStoreKind": {
+      "enum": [
+        "clickhouse"
+      ],
+      "type": "string"
     },
     "V1Alpha1TelemetryStoreStatus": {
       "properties": {
@@ -500,6 +532,7 @@
           "examples": [
             1
           ],
+          "minimum": 0,
           "type": [
             "null",
             "integer"
@@ -510,6 +543,7 @@
           "examples": [
             1
           ],
+          "minimum": 1,
           "type": [
             "null",
             "integer"
@@ -597,6 +631,8 @@
           "examples": [
             "signoz"
           ],
+          "maxLength": 63,
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
           "type": "string"
         }
       },
