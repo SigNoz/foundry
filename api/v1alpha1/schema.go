@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 
 	"github.com/google/jsonschema-go/jsonschema"
-	_ "github.com/google/jsonschema-go/jsonschema"
 )
 
 var (
