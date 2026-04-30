@@ -13,23 +13,28 @@ var (
 	schema embed.FS
 
 	// JSONSchema is the JSON schema for the API.
-	jsonSchema jsonschema.Schema = mustNewJSONSchema()
+	jsonSchema *jsonschema.Resolved = mustNewJSONSchema()
 )
 
-func JSONSchema() jsonschema.Schema {
+func JSONSchema() *jsonschema.Resolved {
 	return jsonSchema
 }
 
-func mustNewJSONSchema() jsonschema.Schema {
+func mustNewJSONSchema() *jsonschema.Resolved {
 	contents, err := schema.ReadFile("schema.json")
 	if err != nil {
 		panic(err)
 	}
 
-	var schema jsonschema.Schema
-	if err := json.Unmarshal(contents, &schema); err != nil {
+	schema := new(jsonschema.Schema)
+	if err := json.Unmarshal(contents, schema); err != nil {
 		panic(err)
 	}
 
-	return schema
+	resolved, err := schema.Resolve(nil)
+	if err != nil {
+		panic(err)
+	}
+
+	return resolved
 }
