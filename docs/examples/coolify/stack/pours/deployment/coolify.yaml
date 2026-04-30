@@ -1,27 +1,24 @@
 services:
   signoz-ingester:
     command:
-    - --config=/etc/otel-collector-config.yaml
+    - -c
+    - |
+      /signoz-otel-collector migrate sync check &&
+      /signoz-otel-collector --config=/etc/otel-collector-config.yaml --manager-config=/etc/opamp-config.yaml --copy-path=/var/tmp/collector-config.yaml
+    container_name: signoz-ingester
     depends_on:
       signoz-signoz:
-        condition: service_healthy
+        condition: service_started
       signoz-telemetrystore-clickhouse-0-0:
         condition: service_healthy
       signoz-telemetrystore-migrator:
         condition: service_completed_successfully
+    entrypoint:
+    - /bin/sh
     environment:
     - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
     - LOW_CARDINAL_EXCEPTION_GROUPING=false
-    healthcheck:
-      interval: 30s
-      retries: 3
-      test:
-      - CMD
-      - wget
-      - --spider
-      - -q
-      - http://localhost:13133/health
-      timeout: 5s
+    - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
     image: signoz/signoz-otel-collector:latest
     logging:
       options:
@@ -164,6 +161,11 @@ services:
       source: ./configs/ingester/ingester.yaml
       target: /etc/otel-collector-config.yaml
       type: bind
+    - content: |
+        server_endpoint: ws://signoz-signoz:4320/v1/opamp
+      source: ./configs/ingester/opamp.yaml
+      target: /etc/opamp-config.yaml
+      type: bind
   signoz-metastore-postgres-0:
     environment:
     - POSTGRES_USER=signoz
@@ -186,6 +188,7 @@ services:
       target: /var/lib/postgresql/data
       type: volume
   signoz-signoz:
+    container_name: signoz-signoz
     depends_on:
       signoz-metastore-postgres-0:
         condition: service_healthy
@@ -454,6 +457,8 @@ services:
     entrypoint:
     - /bin/sh
     - -c
+    environment:
+    - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
     exclude_from_hc: true
     image: signoz/signoz-otel-collector:latest
     logging:
@@ -462,8 +467,13 @@ services:
         max-size: 50m
     restart: on-failure
 volumes:
-  signoz-metastore-0-data: null
-  signoz-signoz-data: null
-  signoz-telemetrykeeper-0-data: null
-  signoz-telemetrystore-0-0-data: null
-  signoz-telemetrystore-user-scripts: null
+  signoz-metastore-0-data:
+    name: signoz-metastore-0-data
+  signoz-signoz-data:
+    name: signoz-signoz-data
+  signoz-telemetrykeeper-0-data:
+    name: signoz-telemetrykeeper-0-data
+  signoz-telemetrystore-0-0-data:
+    name: signoz-telemetrystore-0-0-data
+  signoz-telemetrystore-user-scripts:
+    name: signoz-telemetrystore-user-scripts

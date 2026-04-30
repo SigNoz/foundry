@@ -195,6 +195,11 @@ services:
 {{ if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
       - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN={{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
 {{ end }}
+    {{- if $.Spec.Ingester.Spec.Env }}
+      {{- range $key, $value := $.Spec.Ingester.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    {{- end }}
     deploy:
       replicas: 1
       restart_policy:

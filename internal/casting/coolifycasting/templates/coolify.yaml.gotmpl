@@ -135,6 +135,7 @@ services:
         max-file: "3"
   {{- end }}
   {{ $.Metadata.Name }}-signoz:
+    container_name: {{ $.Metadata.Name }}-signoz
     image: {{ $.Spec.Signoz.Spec.Image }}
     depends_on:
       {{- range $metaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
@@ -174,6 +175,7 @@ services:
         max-size: 50m
         max-file: "3"
   {{ $.Metadata.Name }}-ingester:
+    container_name: {{ $.Metadata.Name }}-ingester
     image: {{ $.Spec.Ingester.Spec.Image }}
     depends_on:
       {{- range $shardIdx := $.Spec.TelemetryStore.Spec.Cluster.Shards }}
@@ -185,17 +187,7 @@ services:
       {{ $.Metadata.Name }}-telemetrystore-migrator:
         condition: service_completed_successfully
       {{ $.Metadata.Name }}-signoz:
-        condition: service_healthy
-    healthcheck:
-      test:
-        - CMD
-        - wget
-        - --spider
-        - -q
-        - http://localhost:13133/health
-      interval: 30s
-      timeout: 5s
-      retries: 3
+        condition: service_started
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
       - LOW_CARDINAL_EXCEPTION_GROUPING=false
@@ -204,14 +196,24 @@ services:
       - {{ $key }}={{ $value }}
       {{- end }}
       {{- end }}
+    entrypoint:
+      - /bin/sh
     command:
-      - --config=/etc/otel-collector-config.yaml
+      - -c
+      - |
+        /signoz-otel-collector migrate sync check &&
+        /signoz-otel-collector --config=/etc/otel-collector-config.yaml --manager-config=/etc/opamp-config.yaml --copy-path=/var/tmp/collector-config.yaml
     volumes:
       - type: bind
         source: ./configs/ingester/ingester.yaml
         target: /etc/otel-collector-config.yaml
         content: |
 {{ index $.Spec.Ingester.Spec.Config.Data "ingester.yaml" | indent 10 }}
+      - type: bind
+        source: ./configs/ingester/opamp.yaml
+        target: /etc/opamp-config.yaml
+        content: |
+{{ index $.Spec.Ingester.Spec.Config.Data "opamp.yaml" | indent 10 }}
     logging:
       options:
         max-size: 50m
@@ -225,6 +227,12 @@ services:
         condition: service_healthy
       {{- end }}
       {{- end }}
+    {{- if $.Spec.Ingester.Spec.Env }}
+    environment:
+      {{- range $key, $value := $.Spec.Ingester.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    {{- end }}
     restart: on-failure
     exclude_from_hc: true
     {{- $clickhouseDSN := printf "%s-telemetrystore-%s-0-0" $.Metadata.Name $.Spec.TelemetryStore.Kind }}
@@ -242,14 +250,19 @@ services:
 volumes:
   {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-telemetrykeeper-{{ $replicaIdx }}-data:
+    name: {{ $.Metadata.Name }}-telemetrykeeper-{{ $replicaIdx }}-data
   {{- end }}
   {{- range $shardIdx := $.Spec.TelemetryStore.Spec.Cluster.Shards }}
   {{- range $replicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
   {{ $.Metadata.Name }}-telemetrystore-{{ $shardIdx }}-{{ $replicaIdx }}-data:
+    name: {{ $.Metadata.Name }}-telemetrystore-{{ $shardIdx }}-{{ $replicaIdx }}-data
   {{- end }}
   {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-user-scripts:
+    name: {{ $.Metadata.Name }}-telemetrystore-user-scripts
   {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data:
+    name: {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data
   {{- end }}
   {{ $.Metadata.Name }}-signoz-data:
+    name: {{ $.Metadata.Name }}-signoz-data

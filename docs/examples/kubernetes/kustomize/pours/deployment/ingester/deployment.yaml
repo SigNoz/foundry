@@ -54,6 +54,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
+          value: 10m
         image: signoz/signoz-otel-collector:latest
         imagePullPolicy: IfNotPresent
         livenessProbe:
@@ -102,12 +104,12 @@ spec:
         env:
         - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER
           value: cluster
-        - name: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
-          value: 10m
         - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION
           value: "true"
         - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
           value: tcp://signoz-clickhouse:9000
+        - name: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
+          value: 10m
         image: signoz/signoz-otel-collector:latest
         imagePullPolicy: IfNotPresent
         name: check
