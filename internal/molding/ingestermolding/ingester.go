@@ -51,6 +51,11 @@ func (molding *ingester) MoldV1Alpha1(ctx context.Context, config *v1alpha1.Cast
 		"opamp.yaml":    opampBuf.String(),
 	}
 
+	if config.Spec.Ingester.Status.Env == nil {
+		config.Spec.Ingester.Status.Env = make(map[string]string)
+	}
+	config.Spec.Ingester.Status.Env["SIGNOZ_OTEL_COLLECTOR_TIMEOUT"] = "10m"
+
 	return nil
 }
 

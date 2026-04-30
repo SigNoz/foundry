@@ -191,7 +191,6 @@ services:
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
       - LOW_CARDINAL_EXCEPTION_GROUPING=false
-      - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
       {{- if $.Spec.Ingester.Spec.Env }}
       {{- range $key, $value := $.Spec.Ingester.Spec.Env }}
       - {{ $key }}={{ $value }}
@@ -228,8 +227,12 @@ services:
         condition: service_healthy
       {{- end }}
       {{- end }}
+    {{- if $.Spec.Ingester.Spec.Env }}
     environment:
-      - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
+      {{- range $key, $value := $.Spec.Ingester.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    {{- end }}
     restart: on-failure
     exclude_from_hc: true
     {{- $clickhouseDSN := printf "%s-telemetrystore-%s-0-0" $.Metadata.Name $.Spec.TelemetryStore.Kind }}

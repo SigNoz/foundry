@@ -108,14 +108,12 @@ spec:
           env:
             - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER
               value: "cluster"
-            - name: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
-              value: "10m"
             - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION
               value: "true"
             {{- if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
             - name: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN
               value: {{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
-            {{ end }} 
+            {{ end }}
             {{- range $key, $val := $.Spec.Ingester.Spec.Env }}
             - name: {{ $key }}
               value: {{ $val }}

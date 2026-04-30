@@ -147,6 +147,8 @@ spec:
           opamp.yaml: |
             server_endpoint: tcp://signoz:4320/v1/opamp
       enabled: true
+      env:
+        SIGNOZ_OTEL_COLLECTOR_TIMEOUT: 10m
       image: signoz/signoz-otel-collector:latest
       version: latest
     status:
@@ -289,6 +291,8 @@ spec:
                     - signozclickhousemeter
           opamp.yaml: |
             server_endpoint: tcp://signoz:4320/v1/opamp
+      env:
+        SIGNOZ_OTEL_COLLECTOR_TIMEOUT: 10m
   metastore:
     kind: postgres
     spec:

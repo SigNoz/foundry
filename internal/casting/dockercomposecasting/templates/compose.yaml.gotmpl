@@ -136,7 +136,6 @@ services:
 {{ if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
       - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN={{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
 {{ end }}
-      - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
     {{- if $.Spec.Ingester.Spec.Env }}
       {{- range $key, $value := $.Spec.Ingester.Spec.Env }}
       - {{ $key }}={{ $value }}
@@ -191,7 +190,11 @@ services:
 {{ if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
       - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN={{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
 {{ end }}
-      - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
+    {{- if $.Spec.Ingester.Spec.Env }}
+      {{- range $key, $value := $.Spec.Ingester.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    {{- end }}
 networks:
   {{ $.Metadata.Name }}-network:
     name: {{ $.Metadata.Name }}-network

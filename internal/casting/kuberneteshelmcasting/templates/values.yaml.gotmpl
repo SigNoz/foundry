@@ -99,3 +99,9 @@ postgresql:
 telemetryStoreMigrator:
   enabled: true
   name: {{ $.Metadata.Name }}-telemetrystore-migrator
+  {{- if $.Spec.Ingester.Spec.Env }}
+  env:
+    {{- with $.Spec.Ingester.Spec.Env }}
+{{ toYaml . | indent 4 }}
+    {{- end }}
+  {{- end }}

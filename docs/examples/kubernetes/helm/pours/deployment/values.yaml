@@ -17,6 +17,8 @@ clickhouse:
 fullnameOverride: signoz
 otelCollector:
   enabled: true
+  env:
+    SIGNOZ_OTEL_COLLECTOR_TIMEOUT: 10m
   image:
     repository: signoz/signoz-otel-collector
     tag: latest
@@ -61,4 +63,6 @@ signoz:
     type: ClusterIP
 telemetryStoreMigrator:
   enabled: true
+  env:
+    SIGNOZ_OTEL_COLLECTOR_TIMEOUT: 10m
   name: signoz-telemetrystore-migrator
