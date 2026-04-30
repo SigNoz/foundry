@@ -1,9 +1,10 @@
-<h1 align="center" style="border-bottom: none">
+<p align="center">
     <a href="https://signoz.io" target="_blank">
         <img alt="Foundry" src="https://github.com/user-attachments/assets/ef9a33f7-12d7-4c94-8908-0a02b22f0c18" width="100" height="100">
     </a>
-    <br>Foundry
-</h1>
+</p>
+
+<h1 align="center" style="border-bottom: none">Foundry</h1>
 
 <p align="center">
 <img alt="GitHub Release" src="https://img.shields.io/github/v/release/signoz/foundry?include_prereleases">
