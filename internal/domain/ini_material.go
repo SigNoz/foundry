@@ -75,7 +75,7 @@ func (m INIMaterial) JSONContents() []byte {
 	return m.contents
 }
 
-func (m INIMaterial) IsMultiDoc() bool {
+func (m INIMaterial) HasMultipleDocuments() bool {
 	return false
 }
 

@@ -15,7 +15,7 @@ var _ StructuredMaterial = YAMLMaterial{}
 type YAMLMaterial struct {
 	path     string
 	contents []byte
-	multiDoc bool
+	hasMultipleDocuments bool
 }
 
 func NewYAMLMaterial(contents []byte, path string) (YAMLMaterial, error) {
@@ -36,7 +36,7 @@ func NewYAMLMaterial(contents []byte, path string) (YAMLMaterial, error) {
 		return YAMLMaterial{
 			contents: jsonContents,
 			path:     path,
-			multiDoc: false,
+			hasMultipleDocuments: false,
 		}, nil
 	}
 
@@ -58,7 +58,7 @@ func NewYAMLMaterial(contents []byte, path string) (YAMLMaterial, error) {
 	return YAMLMaterial{
 		contents: jsonContents,
 		path:     path,
-		multiDoc: len(nodes) > 1,
+		hasMultipleDocuments: len(nodes) > 1,
 	}, nil
 }
 
@@ -79,12 +79,12 @@ func (m YAMLMaterial) JSONContents() []byte {
 	return m.contents
 }
 
-func (m YAMLMaterial) IsMultiDoc() bool {
-	return m.multiDoc
+func (m YAMLMaterial) HasMultipleDocuments() bool {
+	return m.hasMultipleDocuments
 }
 
 func (m YAMLMaterial) FmtContents() []byte {
-	if !m.IsMultiDoc() {
+	if !m.HasMultipleDocuments() {
 		node, err := kyaml.JSONToYAML(m.contents)
 		if err != nil {
 			return nil
@@ -122,7 +122,7 @@ func (m YAMLMaterial) CloneWithJSONContents(contents []byte) StructuredMaterial 
 	return YAMLMaterial{
 		contents: contents,
 		path:     m.path,
-		multiDoc: m.multiDoc,
+		hasMultipleDocuments: m.hasMultipleDocuments,
 	}
 }
 

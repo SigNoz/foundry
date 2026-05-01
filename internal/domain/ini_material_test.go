@@ -8,31 +8,31 @@ import (
 
 func TestNewINIMaterial(t *testing.T) {
 	tests := []struct {
-		name                string
-		contents            []byte
-		path                string
-		pass                bool
-		expectedJSON        []byte
-		expectedFmtContents []byte
-		expectedMultiDoc    bool
+		name                         string
+		contents                     []byte
+		path                         string
+		pass                         bool
+		expectedJSON                 []byte
+		expectedFmtContents          []byte
+		expectedHasMultipleDocuments bool
 	}{
 		{
-			name:                "OneSection_Valid",
-			contents:            []byte("[Service]\nRestart=always\nEnvironment=SIGNOZ=1\nEnvironment=OTEL=1\n"),
-			path:                "service.ini",
-			pass:                true,
-			expectedJSON:        []byte(`{"Service":{"Restart":"always","Environment":["SIGNOZ=1","OTEL=1"]}}`),
-			expectedFmtContents: []byte("[Service]\nEnvironment=SIGNOZ=1\nEnvironment=OTEL=1\nRestart=always\n"),
-			expectedMultiDoc:    false,
+			name:                         "OneSection_Valid",
+			contents:                     []byte("[Service]\nRestart=always\nEnvironment=SIGNOZ=1\nEnvironment=OTEL=1\n"),
+			path:                         "service.ini",
+			pass:                         true,
+			expectedJSON:                 []byte(`{"Service":{"Restart":"always","Environment":["SIGNOZ=1","OTEL=1"]}}`),
+			expectedFmtContents:          []byte("[Service]\nEnvironment=SIGNOZ=1\nEnvironment=OTEL=1\nRestart=always\n"),
+			expectedHasMultipleDocuments: false,
 		},
 		{
-			name:                "TwoSections_Valid",
-			contents:            []byte("[Service]\nRestart=always\nEnvironment=SIGNOZ=1\nEnvironment=OTEL=1\n[Database]\nHost=localhost\nPort=5432\n"),
-			path:                "service.ini",
-			pass:                true,
-			expectedJSON:        []byte(`{"Service":{"Restart":"always","Environment":["SIGNOZ=1","OTEL=1"]},"Database":{"Host":"localhost","Port":"5432"}}`),
-			expectedFmtContents: []byte("[Database]\nHost=localhost\nPort=5432\n\n[Service]\nEnvironment=SIGNOZ=1\nEnvironment=OTEL=1\nRestart=always\n"),
-			expectedMultiDoc:    false,
+			name:                         "TwoSections_Valid",
+			contents:                     []byte("[Service]\nRestart=always\nEnvironment=SIGNOZ=1\nEnvironment=OTEL=1\n[Database]\nHost=localhost\nPort=5432\n"),
+			path:                         "service.ini",
+			pass:                         true,
+			expectedJSON:                 []byte(`{"Service":{"Restart":"always","Environment":["SIGNOZ=1","OTEL=1"]},"Database":{"Host":"localhost","Port":"5432"}}`),
+			expectedFmtContents:          []byte("[Database]\nHost=localhost\nPort=5432\n\n[Service]\nEnvironment=SIGNOZ=1\nEnvironment=OTEL=1\nRestart=always\n"),
+			expectedHasMultipleDocuments: false,
 		},
 		{
 			name:     "Invalid",
@@ -52,7 +52,7 @@ func TestNewINIMaterial(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, tt.path, material.Path())
-			assert.Equal(t, tt.expectedMultiDoc, material.IsMultiDoc())
+			assert.Equal(t, tt.expectedHasMultipleDocuments, material.HasMultipleDocuments())
 			assert.JSONEq(t, string(tt.expectedJSON), string(material.JSONContents()))
 			assert.Equal(t, tt.expectedFmtContents, material.FmtContents())
 		})

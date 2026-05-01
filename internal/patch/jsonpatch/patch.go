@@ -43,7 +43,7 @@ func (p *jsonPatch) Apply(ctx context.Context, materials []domain.Material, pe v
 			return nil, fmt.Errorf("json patch on blob material %q is not supported", mat.Path())
 		}
 
-		if structured.IsMultiDoc() {
+		if structured.HasMultipleDocuments() {
 			return nil, fmt.Errorf("json patch on multi-doc yaml material %q is not supported", mat.Path())
 		}
 

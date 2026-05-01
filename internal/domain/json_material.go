@@ -41,7 +41,7 @@ func (m JSONMaterial) JSONContents() []byte {
 	return m.contents
 }
 
-func (m JSONMaterial) IsMultiDoc() bool {
+func (m JSONMaterial) HasMultipleDocuments() bool {
 	return false
 }
 

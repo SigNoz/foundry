@@ -12,35 +12,46 @@ var (
 	FormatText Format = Format{s: "text"}
 )
 
-// Represents the format of a material's contents, which can be used to determine how to write it to disk or how to traverse and patch it.
+// Format identifies the syntax of a Material's contents.
 type Format struct{ s string }
 
-// Represents a material that foundry can write. It's typically a file, but could be something else in the future (e.g. a secret in a vault).
+// Material is a unit of output that Foundry produces. It carries the path it
+// should be written to and the bytes to write there.
 type Material interface {
-	// Returns the output path for the material.
 	Path() string
 
-	// Returns the bytes in a format that should be written to disk. This is well indented and formatted for human readability.
+	// FmtContents returns the bytes in their human-readable, on-disk form. This
+	// is the form Foundry writes out, distinct from the canonical form used for
+	// traversal and patching.
 	FmtContents() []byte
 }
 
-// Represents a Material whose contents can be traversed and patched.
+// StructuredMaterial is a Material whose contents are structured data with a
+// navigable shape, supporting in-place reads and patches against a canonical
+// representation.
 type StructuredMaterial interface {
 	Material
 
-	// Returns the canonical JSON representation used for traversal and patching.
+	// JSONContents returns the canonical JSON form used for traversal and
+	// patching. JSON is the contract: callers (e.g. jsonpatch) operate on it
+	// directly.
 	JSONContents() []byte
 
-	// IsMultiDoc reports whether the material represents multiple documents (e.g. multiple YAML documents separated by ---) or a single document. This is used to determine how to traverse and patch the material.
-	IsMultiDoc() bool
+	// HasMultipleDocuments reports whether the material groups multiple
+	// top-level documents under one path (currently only multi-document YAML).
+	// Callers use this to choose between scalar and array traversal of
+	// JSONContents.
+	HasMultipleDocuments() bool
 
-	// Returns a copy of the material with replacement canonical JSON contents.
 	CloneWithJSONContents(contents []byte) StructuredMaterial
 
-	// Returns the value at the given path as bytes. Returns an error if the path does not exist.
+	// GetBytes returns the value at the given path as bytes. The path uses
+	// gjson dotted-key syntax (e.g. "service.name", "service.names.0"), not
+	// JSON Pointer.
 	GetBytes(path string) ([]byte, error)
 
-	// Returns the slice at the given path as strings. Returns an error if the path does not exist.
+	// GetStringSlice returns the slice at the given path as strings. See
+	// GetBytes for path syntax.
 	GetStringSlice(path string) ([]string, error)
 }
 

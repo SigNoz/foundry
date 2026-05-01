@@ -8,31 +8,31 @@ import (
 
 func TestNewYAMLMaterial(t *testing.T) {
 	tests := []struct {
-		name                string
-		contents            []byte
-		path                string
-		pass                bool
-		expectedJSON        []byte
-		expectedFmtContents []byte
-		expectedMultiDoc    bool
+		name                         string
+		contents                     []byte
+		path                         string
+		pass                         bool
+		expectedJSON                 []byte
+		expectedFmtContents          []byte
+		expectedHasMultipleDocuments bool
 	}{
 		{
-			name:                "SingleDocument_Valid",
-			contents:            []byte("service:\n  names:\n    - query-service\n    - frontend\n"),
-			path:                "service.yaml",
-			pass:                true,
-			expectedJSON:        []byte(`{"service":{"names":["query-service","frontend"]}}`),
-			expectedFmtContents: []byte("service:\n  names:\n  - query-service\n  - frontend\n"),
-			expectedMultiDoc:    false,
+			name:                         "SingleDocument_Valid",
+			contents:                     []byte("service:\n  names:\n    - query-service\n    - frontend\n"),
+			path:                         "service.yaml",
+			pass:                         true,
+			expectedJSON:                 []byte(`{"service":{"names":["query-service","frontend"]}}`),
+			expectedFmtContents:          []byte("service:\n  names:\n  - query-service\n  - frontend\n"),
+			expectedHasMultipleDocuments: false,
 		},
 		{
-			name:                "MultiDocument_Valid",
-			contents:            []byte("---\nname: one\n---\nname: two\n"),
-			path:                "service.yaml",
-			pass:                true,
-			expectedJSON:        []byte(`[{"name":"one"},{"name":"two"}]`),
-			expectedFmtContents: []byte("name: one\n---\nname: two\n"),
-			expectedMultiDoc:    true,
+			name:                         "MultiDocument_Valid",
+			contents:                     []byte("---\nname: one\n---\nname: two\n"),
+			path:                         "service.yaml",
+			pass:                         true,
+			expectedJSON:                 []byte(`[{"name":"one"},{"name":"two"}]`),
+			expectedFmtContents:          []byte("name: one\n---\nname: two\n"),
+			expectedHasMultipleDocuments: true,
 		},
 		{
 			name:     "Invalid",
@@ -52,7 +52,7 @@ func TestNewYAMLMaterial(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, tt.path, material.Path())
-			assert.Equal(t, tt.expectedMultiDoc, material.IsMultiDoc())
+			assert.Equal(t, tt.expectedHasMultipleDocuments, material.HasMultipleDocuments())
 			assert.JSONEq(t, string(tt.expectedJSON), string(material.JSONContents()))
 			assert.Equal(t, tt.expectedFmtContents, material.FmtContents())
 		})
