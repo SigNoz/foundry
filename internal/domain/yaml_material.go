@@ -23,7 +23,7 @@ func NewYAMLMaterial(contents []byte, path string) (YAMLMaterial, error) {
 
 	nodes, err := reader.Read()
 	if err != nil {
-		return YAMLMaterial{}, errors.Wrapf(err, errors.TypeInvalidInput, "failed to create YAML material for path %q, the contents are not valid YAML", path)
+		return YAMLMaterial{}, errors.Wrapf(err, errors.TypeInvalidInput, "failed to create YAML material for path %q: contents are not valid YAML", path)
 	}
 
 	var jsonContents []byte

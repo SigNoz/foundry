@@ -24,7 +24,7 @@ type INIMaterial struct {
 func NewINIMaterial(contents []byte, path string) (INIMaterial, error) {
 	cfg, err := ini.LoadSources(ini.LoadOptions{AllowShadows: true}, contents)
 	if err != nil {
-		return INIMaterial{}, err
+		return INIMaterial{}, errors.Wrapf(err, errors.TypeInvalidInput, "failed to create INI material for path %q: contents are not valid INI", path)
 	}
 
 	data := make(map[string]map[string]any)
@@ -49,7 +49,7 @@ func NewINIMaterial(contents []byte, path string) (INIMaterial, error) {
 
 	jsonContents, err := json.Marshal(data)
 	if err != nil {
-		return INIMaterial{}, errors.Wrapf(err, errors.TypeInvalidInput, "failed to create INI material for path %q, the contents are not valid INI", path)
+		return INIMaterial{}, errors.Wrapf(err, errors.TypeInternal, "failed to convert INI material to canonical JSON for path %q", path)
 	}
 
 	return INIMaterial{

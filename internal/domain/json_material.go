@@ -15,7 +15,7 @@ type JSONMaterial struct {
 
 func NewJSONMaterial(contents []byte, path string) (JSONMaterial, error) {
 	if !json.Valid(contents) {
-		return JSONMaterial{}, errors.Newf(errors.TypeInvalidInput, "failed to create JSON material for path %q, the contents are not valid JSON", path)
+		return JSONMaterial{}, errors.Newf(errors.TypeInvalidInput, "failed to create JSON material for path %q: contents are not valid JSON", path)
 	}
 
 	return JSONMaterial{
