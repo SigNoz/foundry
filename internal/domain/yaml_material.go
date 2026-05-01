@@ -13,7 +13,8 @@ import (
 var _ StructuredMaterial = YAMLMaterial{}
 
 type YAMLMaterial struct {
-	structuredData
+	path     string
+	contents []byte
 	multiDoc bool
 }
 
@@ -48,12 +49,18 @@ func NewYAMLMaterial(contents []byte, path string) (YAMLMaterial, error) {
 	}
 
 	return YAMLMaterial{
-		structuredData: structuredData{
-			contents: jsonContents,
-			path:     path,
-		},
+		contents: jsonContents,
+		path:     path,
 		multiDoc: len(nodes) > 1,
 	}, nil
+}
+
+func (m YAMLMaterial) Path() string {
+	return m.path
+}
+
+func (m YAMLMaterial) Contents() []byte {
+	return m.contents
 }
 
 func (m YAMLMaterial) IsMultiDoc() bool {
@@ -70,12 +77,18 @@ func (m YAMLMaterial) FmtContents() []byte {
 
 func (m YAMLMaterial) WithContents(contents []byte) StructuredMaterial {
 	return YAMLMaterial{
-		structuredData: structuredData{
-			contents: contents,
-			path:     m.path,
-		},
+		contents: contents,
+		path:     m.path,
 		multiDoc: m.multiDoc,
 	}
+}
+
+func (m YAMLMaterial) GetBytes(path string) ([]byte, error) {
+	return getBytes(m.contents, path)
+}
+
+func (m YAMLMaterial) GetStringSlice(path string) ([]string, error) {
+	return getStringSlice(m.contents, path)
 }
 
 func (m YAMLMaterial) toYAML() ([]byte, error) {

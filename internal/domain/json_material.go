@@ -8,7 +8,8 @@ import (
 var _ StructuredMaterial = JSONMaterial{}
 
 type JSONMaterial struct {
-	structuredData
+	path     string
+	contents []byte
 }
 
 func NewJSONMaterial(contents []byte, path string) (JSONMaterial, error) {
@@ -17,11 +18,17 @@ func NewJSONMaterial(contents []byte, path string) (JSONMaterial, error) {
 	}
 
 	return JSONMaterial{
-		structuredData: structuredData{
-			contents: contents,
-			path:     path,
-		},
+		contents: contents,
+		path:     path,
 	}, nil
+}
+
+func (m JSONMaterial) Path() string {
+	return m.path
+}
+
+func (m JSONMaterial) Contents() []byte {
+	return m.contents
 }
 
 func (m JSONMaterial) IsMultiDoc() bool {
@@ -34,9 +41,15 @@ func (m JSONMaterial) FmtContents() []byte {
 
 func (m JSONMaterial) WithContents(contents []byte) StructuredMaterial {
 	return JSONMaterial{
-		structuredData: structuredData{
-			contents: contents,
-			path:     m.path,
-		},
+		contents: contents,
+		path:     m.path,
 	}
+}
+
+func (m JSONMaterial) GetBytes(path string) ([]byte, error) {
+	return getBytes(m.contents, path)
+}
+
+func (m JSONMaterial) GetStringSlice(path string) ([]string, error) {
+	return getStringSlice(m.contents, path)
 }

@@ -5,7 +5,8 @@ import "fmt"
 var _ StructuredMaterial = INIMaterial{}
 
 type INIMaterial struct {
-	structuredData
+	path     string
+	contents []byte
 }
 
 func NewINIMaterial(contents []byte, path string) (INIMaterial, error) {
@@ -15,11 +16,17 @@ func NewINIMaterial(contents []byte, path string) (INIMaterial, error) {
 	}
 
 	return INIMaterial{
-		structuredData: structuredData{
-			contents: jsonContents,
-			path:     path,
-		},
+		contents: jsonContents,
+		path:     path,
 	}, nil
+}
+
+func (m INIMaterial) Path() string {
+	return m.path
+}
+
+func (m INIMaterial) Contents() []byte {
+	return m.contents
 }
 
 func (m INIMaterial) IsMultiDoc() bool {
@@ -36,9 +43,15 @@ func (m INIMaterial) FmtContents() []byte {
 
 func (m INIMaterial) WithContents(contents []byte) StructuredMaterial {
 	return INIMaterial{
-		structuredData: structuredData{
-			contents: contents,
-			path:     m.path,
-		},
+		contents: contents,
+		path:     m.path,
 	}
+}
+
+func (m INIMaterial) GetBytes(path string) ([]byte, error) {
+	return getBytes(m.contents, path)
+}
+
+func (m INIMaterial) GetStringSlice(path string) ([]string, error) {
+	return getStringSlice(m.contents, path)
 }

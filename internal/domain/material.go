@@ -20,21 +20,8 @@ type StructuredMaterial interface {
 	GetStringSlice(path string) ([]string, error)
 }
 
-type structuredData struct {
-	path     string
-	contents []byte
-}
-
-func (m structuredData) Path() string {
-	return m.path
-}
-
-func (m structuredData) Contents() []byte {
-	return m.contents
-}
-
-func (m structuredData) GetBytes(path string) ([]byte, error) {
-	result := gjson.GetBytes(m.contents, path)
+func getBytes(contents []byte, path string) ([]byte, error) {
+	result := gjson.GetBytes(contents, path)
 	if !result.Exists() {
 		return nil, fmt.Errorf("path %q does not exist", path)
 	}
@@ -42,8 +29,8 @@ func (m structuredData) GetBytes(path string) ([]byte, error) {
 	return []byte(result.String()), nil
 }
 
-func (m structuredData) GetStringSlice(path string) ([]string, error) {
-	result := gjson.GetBytes(m.contents, path)
+func getStringSlice(contents []byte, path string) ([]string, error) {
+	result := gjson.GetBytes(contents, path)
 	if !result.Exists() {
 		return nil, fmt.Errorf("path %q does not exist", path)
 	}
