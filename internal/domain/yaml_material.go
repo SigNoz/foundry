@@ -36,7 +36,7 @@ func NewYAMLMaterial(contents []byte, path string) (YAMLMaterial, error) {
 		return YAMLMaterial{
 			contents: jsonContents,
 			path:     path,
-			multiDoc: len(nodes) > 1,
+			multiDoc: false,
 		}, nil
 	}
 

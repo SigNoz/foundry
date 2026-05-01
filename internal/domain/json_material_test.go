@@ -73,7 +73,6 @@ func TestJSONMaterialGetBytes(t *testing.T) {
 			if !tt.pass {
 				assert.Error(t, err)
 				return
-
 			}
 
 			assert.Equal(t, tt.expected, output)

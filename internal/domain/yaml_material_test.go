@@ -82,7 +82,6 @@ func TestYAMLMaterialGetBytes(t *testing.T) {
 			if !tt.pass {
 				assert.Error(t, err)
 				return
-
 			}
 
 			assert.Equal(t, tt.expected, output)

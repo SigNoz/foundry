@@ -10,6 +10,10 @@ import (
 	"gopkg.in/ini.v1"
 )
 
+func init() {
+	ini.PrettyFormat = false
+}
+
 var _ StructuredMaterial = INIMaterial{}
 
 type INIMaterial struct {
@@ -26,28 +30,24 @@ func NewINIMaterial(contents []byte, path string) (INIMaterial, error) {
 	data := make(map[string]map[string]any)
 
 	for _, section := range cfg.Sections() {
-		// Skip the default section if it's empty (common in systemd files)
 		if section.Name() == ini.DefaultSection && len(section.Keys()) == 0 {
 			continue
 		}
 
 		sectionData := make(map[string]any)
 		for _, key := range section.Keys() {
-			// Use ValueWithShadows() to get all values for this key
 			vals := key.ValueWithShadows()
 
 			if len(vals) > 1 {
-				// If multiple values exist, store as an array
 				sectionData[key.Name()] = vals
 			} else {
-				// If only one value exists, store as a string
 				sectionData[key.Name()] = key.String()
 			}
 		}
 		data[section.Name()] = sectionData
 	}
 
-	jsonContents, err := json.MarshalIndent(data, "", "  ")
+	jsonContents, err := json.Marshal(data)
 	if err != nil {
 		return INIMaterial{}, errors.Wrapf(err, errors.TypeInvalidInput, "failed to create INI material for path %q, the contents are not valid INI", path)
 	}
@@ -90,12 +90,9 @@ func (m INIMaterial) FmtContents() []byte {
 		return nil
 	}
 
-	ini.PrettyFormat = false
-	// Process Sections
 	for _, sName := range getSortedKeys(data) {
 		section, _ := cfg.NewSection(sName)
 
-		// Process Keys (Sorted)
 		for _, kName := range getSortedKeys(data[sName]) {
 			if err := writeEntry(section, kName, data[sName][kName]); err != nil {
 				return nil
@@ -104,7 +101,9 @@ func (m INIMaterial) FmtContents() []byte {
 	}
 
 	var buf bytes.Buffer
-	_, err = cfg.WriteTo(&buf)
+	if _, err := cfg.WriteTo(&buf); err != nil {
+		return nil
+	}
 
 	return buf.Bytes()
 }
@@ -148,7 +147,6 @@ func writeEntry(sec *ini.Section, key string, value any) error {
 	return nil
 }
 
-// Ensures generated files have stable output regardless of map iteration order.
 func getSortedKeys[V any](m map[string]V) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {

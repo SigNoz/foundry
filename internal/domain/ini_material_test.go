@@ -69,7 +69,7 @@ func TestINIMaterialGetBytes(t *testing.T) {
 	}{
 		{
 			name:     "OneSection_Exists",
-			material: MustNewINIMaterial([]byte("[Service]\nRestart=always\nEnvironment=SIGNOZ=1\nEnvironment=OTEL=1\n"), "service.yaml"),
+			material: MustNewINIMaterial([]byte("[Service]\nRestart=always\nEnvironment=SIGNOZ=1\nEnvironment=OTEL=1\n"), "service.ini"),
 			path:     "Service.Restart",
 			pass:     true,
 			expected: []byte("always"),
@@ -82,7 +82,6 @@ func TestINIMaterialGetBytes(t *testing.T) {
 			if !tt.pass {
 				assert.Error(t, err)
 				return
-
 			}
 
 			assert.Equal(t, tt.expected, output)
