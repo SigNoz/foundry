@@ -20,8 +20,9 @@ import (
 
 func registerGenCmd(rootCmd *cobra.Command) {
 	genCmd := &cobra.Command{
-		Use:   "gen",
-		Short: "Generate example files for all supported deployments.",
+		Use:    "gen",
+		Short:  "Generate example files for all supported deployments.",
+		Hidden: true,
 	}
 
 	registerGenExamples(genCmd)
