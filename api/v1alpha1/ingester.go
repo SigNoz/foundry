@@ -1,6 +1,6 @@
 package v1alpha1
 
-import "github.com/signoz/foundry/internal/types"
+import "github.com/signoz/foundry/internal/domain"
 
 type Ingester struct {
 	// Specification for the ingester.
@@ -29,9 +29,9 @@ type IngesterStatusAddresses struct {
 func DefaultIngester() Ingester {
 	return Ingester{
 		Spec: MoldingSpec{
-			Enabled: types.NewBoolPtr(true),
+			Enabled: domain.NewBoolPtr(true),
 			Cluster: TypeCluster{
-				Replicas: types.NewIntPtr(1),
+				Replicas: domain.NewIntPtr(1),
 			},
 			Version: "latest",
 			Image:   "signoz/signoz-otel-collector:latest",

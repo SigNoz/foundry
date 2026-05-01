@@ -10,8 +10,8 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/config"
+	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/errors"
-	"github.com/signoz/foundry/internal/types"
 )
 
 type yamlConfig struct {
@@ -32,7 +32,7 @@ func (config *yamlConfig) GetV1Alpha1(ctx context.Context, path string) (v1alpha
 
 	var casting v1alpha1.Casting
 
-	err = types.UnmarshalYAML(bytes, &casting)
+	err = domain.UnmarshalYAML(bytes, &casting)
 	if err != nil {
 		return v1alpha1.Casting{}, fmt.Errorf("failed to unmarshal yaml: %w", err)
 	}
@@ -62,7 +62,7 @@ func (config *yamlConfig) GetV1Alpha1(ctx context.Context, path string) (v1alpha
 }
 
 func (*yamlConfig) CreateV1Alpha1Lock(ctx context.Context, config v1alpha1.Casting, path string) error {
-	contents, err := types.MarshalYAML(config)
+	contents, err := domain.MarshalYAML(config)
 	if err != nil {
 		return fmt.Errorf("failed to marshal yaml: %w", err)
 	}
@@ -83,7 +83,7 @@ func (*yamlConfig) GetV1Alpha1Lock(ctx context.Context, path string) (v1alpha1.C
 
 	var casting v1alpha1.Casting
 
-	err = types.UnmarshalYAML(bytes, &casting)
+	err = domain.UnmarshalYAML(bytes, &casting)
 	if err != nil {
 		return v1alpha1.Casting{}, fmt.Errorf("failed to unmarshal yaml: %w", err)
 	}

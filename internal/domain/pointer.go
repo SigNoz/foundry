@@ -1,4 +1,4 @@
-package types
+package domain
 
 func NewIntPtr(i int) *int {
 	return &i

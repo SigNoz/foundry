@@ -5,14 +5,14 @@ import (
 	"testing"
 
 	"github.com/signoz/foundry/api/v1alpha1"
-	"github.com/signoz/foundry/internal/types"
+	"github.com/signoz/foundry/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func newYAMLMaterial(t *testing.T, yamlContent string, path string) types.Material {
+func newYAMLMaterial(t *testing.T, yamlContent string, path string) domain.Material {
 	t.Helper()
-	mat, err := types.NewYAMLMaterial([]byte(yamlContent), path)
+	mat, err := domain.NewYAMLMaterial([]byte(yamlContent), path)
 	require.NoError(t, err)
 	return mat
 }
@@ -32,7 +32,7 @@ services:
 		},
 	}
 
-	result, err := p.Apply(context.Background(), []types.Material{mat}, pe)
+	result, err := p.Apply(context.Background(), []domain.Material{mat}, pe)
 	require.NoError(t, err)
 	require.Len(t, result, 1)
 
@@ -58,7 +58,7 @@ services:
 		},
 	}
 
-	result, err := p.Apply(context.Background(), []types.Material{mat}, pe)
+	result, err := p.Apply(context.Background(), []domain.Material{mat}, pe)
 	require.NoError(t, err)
 
 	contents, err := result[0].ToYaml()
@@ -83,7 +83,7 @@ services:
 		},
 	}
 
-	result, err := p.Apply(context.Background(), []types.Material{mat}, pe)
+	result, err := p.Apply(context.Background(), []domain.Material{mat}, pe)
 	require.NoError(t, err)
 
 	contents, err := result[0].ToYaml()
@@ -105,7 +105,7 @@ func TestApply_GlobTarget(t *testing.T) {
 		},
 	}
 
-	result, err := p.Apply(context.Background(), []types.Material{mat1, mat2, mat3}, pe)
+	result, err := p.Apply(context.Background(), []domain.Material{mat1, mat2, mat3}, pe)
 	require.NoError(t, err)
 	require.Len(t, result, 3)
 
@@ -131,7 +131,7 @@ func TestApply_FullPathMatch(t *testing.T) {
 		},
 	}
 
-	result, err := p.Apply(context.Background(), []types.Material{mat}, pe)
+	result, err := p.Apply(context.Background(), []domain.Material{mat}, pe)
 	require.NoError(t, err)
 
 	contents, err := result[0].ToYaml()
@@ -150,7 +150,7 @@ func TestApply_UnmatchedTargetReturnsError(t *testing.T) {
 		},
 	}
 
-	_, err := p.Apply(context.Background(), []types.Material{mat}, pe)
+	_, err := p.Apply(context.Background(), []domain.Material{mat}, pe)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "did not match any generated material")
 }
@@ -166,7 +166,7 @@ func TestApply_InvalidPathReturnsError(t *testing.T) {
 		},
 	}
 
-	_, err := p.Apply(context.Background(), []types.Material{mat}, pe)
+	_, err := p.Apply(context.Background(), []domain.Material{mat}, pe)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to apply")
 }
@@ -193,7 +193,7 @@ spec:
 		},
 	}
 
-	result, err := p.Apply(context.Background(), []types.Material{mat}, pe)
+	result, err := p.Apply(context.Background(), []domain.Material{mat}, pe)
 	require.NoError(t, err)
 
 	contents, err := result[0].ToYaml()

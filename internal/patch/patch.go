@@ -5,13 +5,13 @@ import (
 	"path/filepath"
 
 	"github.com/signoz/foundry/api/v1alpha1"
-	"github.com/signoz/foundry/internal/types"
+	"github.com/signoz/foundry/internal/domain"
 )
 
 // Patch applies a single patch entry to generated materials.
 type Patch interface {
 	// Apply applies a single patch entry to matching materials and returns the patched materials.
-	Apply(ctx context.Context, materials []types.Material, patch v1alpha1.PatchEntry) ([]types.Material, error)
+	Apply(ctx context.Context, materials []domain.Material, patch v1alpha1.PatchEntry) ([]domain.Material, error)
 }
 
 // MatchTarget checks if a material path matches a target pattern.

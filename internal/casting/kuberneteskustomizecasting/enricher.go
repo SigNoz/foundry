@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/molding"
-	"github.com/signoz/foundry/internal/types"
 )
 
 const (
@@ -19,8 +19,8 @@ const (
 var _ molding.MoldingEnricher = (*kustomizeMoldingEnricher)(nil)
 
 type kustomizeMoldingEnricher struct {
-	materials         []types.Material
-	overrideMaterials []types.Material
+	materials         []domain.Material
+	overrideMaterials []domain.Material
 }
 
 func newKustomizeMoldingEnricher(config *v1alpha1.Casting) (*kustomizeMoldingEnricher, error) {
@@ -61,7 +61,7 @@ func (e *kustomizeMoldingEnricher) enrichTelemetryStore(config *v1alpha1.Casting
 	if err != nil {
 		return fmt.Errorf("failed to get telemetrystore service names: %w", err)
 	}
-	config.Spec.TelemetryStore.Status.Addresses.TCP = []string{types.FormatAddress("tcp", string(name), telemetryStorePort)}
+	config.Spec.TelemetryStore.Status.Addresses.TCP = []string{domain.FormatAddress("tcp", string(name), telemetryStorePort)}
 
 	if config.Spec.TelemetryStore.Status.Extras == nil {
 		config.Spec.TelemetryStore.Status.Extras = make(map[string]string)
@@ -85,8 +85,8 @@ func (e *kustomizeMoldingEnricher) enrichTelemetryKeeper(config *v1alpha1.Castin
 	base := config.Metadata.Name + "-clickhouse-keeper"
 	var client, raft []string
 	for i := 0; i < replicas; i++ {
-		client = append(client, types.FormatAddress("tcp", fmt.Sprintf("%s-%d", base, i), telemetryKeeperClientPort))
-		raft = append(raft, types.FormatAddress("tcp", fmt.Sprintf("%s-%d", base, i), telemetryKeeperRaftPort))
+		client = append(client, domain.FormatAddress("tcp", fmt.Sprintf("%s-%d", base, i), telemetryKeeperClientPort))
+		raft = append(raft, domain.FormatAddress("tcp", fmt.Sprintf("%s-%d", base, i), telemetryKeeperRaftPort))
 	}
 	config.Spec.TelemetryKeeper.Status.Addresses.Client = client
 	config.Spec.TelemetryKeeper.Status.Addresses.Raft = raft
@@ -106,7 +106,7 @@ func (e *kustomizeMoldingEnricher) enrichMetaStore(config *v1alpha1.Casting) err
 
 func (e *kustomizeMoldingEnricher) enrichSignoz(config *v1alpha1.Casting) error {
 	name := config.Metadata.Name + "-signoz"
-	config.Spec.Signoz.Status.Addresses.Opamp = []string{types.FormatAddress("ws", name, signozOpampPort)}
+	config.Spec.Signoz.Status.Addresses.Opamp = []string{domain.FormatAddress("ws", name, signozOpampPort)}
 	return nil
 }
 

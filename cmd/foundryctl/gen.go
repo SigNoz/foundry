@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/foundry"
 	"github.com/signoz/foundry/internal/instrumentation"
 	"github.com/signoz/foundry/internal/ledger/noopledger"
-	"github.com/signoz/foundry/internal/types"
 	"github.com/spf13/cobra"
 	"github.com/swaggest/jsonschema-go"
 )
@@ -81,7 +81,7 @@ func runGenExamples(ctx context.Context, logger *slog.Logger) error {
 			return err
 		}
 
-		err = os.WriteFile(filepath.Join(rootPath, "casting.yaml"), types.MustMarshalYAML(config), 0644)
+		err = os.WriteFile(filepath.Join(rootPath, "casting.yaml"), domain.MustMarshalYAML(config), 0644)
 		if err != nil {
 			return err
 		}

@@ -13,21 +13,21 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	rootcasting "github.com/signoz/foundry/internal/casting"
+	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/molding"
-	"github.com/signoz/foundry/internal/types"
 )
 
 var _ rootcasting.Casting = (*kustomizeCasting)(nil)
 
 type kustomizeCasting struct {
 	logger   *slog.Logger
-	castings []*types.Template
+	castings []*domain.Template
 }
 
 func New(logger *slog.Logger) *kustomizeCasting {
 	return &kustomizeCasting{
 		logger: logger,
-		castings: []*types.Template{
+		castings: []*domain.Template{
 			clickhouseOperatorClusterrole,
 			clickhouseOperatorClusterrolebinding,
 			clickhouseOperatorConfigmap,
@@ -65,8 +65,8 @@ func (c *kustomizeCasting) Enricher(ctx context.Context, config *v1alpha1.Castin
 	return newKustomizeMoldingEnricher(config)
 }
 
-func (c *kustomizeCasting) Forge(ctx context.Context, cfg v1alpha1.Casting, poursPath string) ([]types.Material, error) {
-	var materials []types.Material
+func (c *kustomizeCasting) Forge(ctx context.Context, cfg v1alpha1.Casting, poursPath string) ([]domain.Material, error) {
+	var materials []domain.Material
 	for _, tmpl := range c.castings {
 		m, err := c.forgeCasting(tmpl, &cfg, poursPath)
 		if err != nil {
@@ -141,7 +141,7 @@ func (c *kustomizeCasting) applyCRDs(ctx context.Context) error {
 	return nil
 }
 
-func (c *kustomizeCasting) forgeCasting(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
+func (c *kustomizeCasting) forgeCasting(tmpl *domain.Template, cfg *v1alpha1.Casting, poursPath string) ([]domain.Material, error) {
 	templatePath := tmpl.GetPath()
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, cfg); err != nil {
@@ -150,21 +150,21 @@ func (c *kustomizeCasting) forgeCasting(tmpl *types.Template, cfg *v1alpha1.Cast
 	relPath := strings.TrimPrefix(templatePath, "templates/")
 	relPath = strings.TrimSuffix(relPath, filepath.Ext(relPath))
 	path := filepath.Join(rootcasting.DeploymentDir, relPath)
-	material, err := types.NewYAMLMaterial(buf.Bytes(), path)
+	material, err := domain.NewYAMLMaterial(buf.Bytes(), path)
 	if err != nil {
 		return nil, fmt.Errorf("create material %s: %w", templatePath, err)
 	}
-	return []types.Material{material}, nil
+	return []domain.Material{material}, nil
 }
 
-func getOverrideMaterials(config *v1alpha1.Casting) ([]types.Material, error) {
-	var materials []types.Material
+func getOverrideMaterials(config *v1alpha1.Casting) ([]domain.Material, error) {
+	var materials []domain.Material
 
 	storeBuf := bytes.NewBuffer(nil)
 	if err := telemetryStoreOverrideTemplate.Execute(storeBuf, config); err != nil {
 		return nil, fmt.Errorf("failed to execute store override template: %w", err)
 	}
-	storeMaterial, err := types.NewYAMLMaterial(storeBuf.Bytes(), "store_overrides.yaml")
+	storeMaterial, err := domain.NewYAMLMaterial(storeBuf.Bytes(), "store_overrides.yaml")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create store override material: %w", err)
 	}
@@ -173,14 +173,14 @@ func getOverrideMaterials(config *v1alpha1.Casting) ([]types.Material, error) {
 	return materials, nil
 }
 
-func getServiceMaterials(config *v1alpha1.Casting) ([]types.Material, error) {
-	var materials []types.Material
+func getServiceMaterials(config *v1alpha1.Casting) ([]domain.Material, error) {
+	var materials []domain.Material
 
 	telemetryStoreInstallationBuf := bytes.NewBuffer(nil)
 	if err := clickhouseInstanceInstallation.Execute(telemetryStoreInstallationBuf, config); err != nil {
 		return nil, fmt.Errorf("failed to execute store installation template: %w", err)
 	}
-	telemetryStoreInstallationMaterial, err := types.NewYAMLMaterial(telemetryStoreInstallationBuf.Bytes(), "clickhouseInstallation.yaml")
+	telemetryStoreInstallationMaterial, err := domain.NewYAMLMaterial(telemetryStoreInstallationBuf.Bytes(), "clickhouseInstallation.yaml")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create keeper override material: %w", err)
 	}
@@ -190,7 +190,7 @@ func getServiceMaterials(config *v1alpha1.Casting) ([]types.Material, error) {
 	if err := metastoreService.Execute(metaStoreServiceBuf, config); err != nil {
 		return nil, fmt.Errorf("failed to execute store installation template: %w", err)
 	}
-	metaStoreServiceMaterial, err := types.NewYAMLMaterial(metaStoreServiceBuf.Bytes(), "metastoreServie.yaml")
+	metaStoreServiceMaterial, err := domain.NewYAMLMaterial(metaStoreServiceBuf.Bytes(), "metastoreServie.yaml")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metastore service material: %w", err)
 	}

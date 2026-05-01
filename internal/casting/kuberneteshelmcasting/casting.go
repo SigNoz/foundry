@@ -11,8 +11,8 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	rootcasting "github.com/signoz/foundry/internal/casting"
+	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/molding"
-	"github.com/signoz/foundry/internal/types"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
@@ -37,7 +37,7 @@ var _ rootcasting.Casting = (*helmCasting)(nil)
 
 type helmCasting struct {
 	logger  *slog.Logger
-	casting *types.Template
+	casting *domain.Template
 }
 
 func New(logger *slog.Logger) *helmCasting {
@@ -51,7 +51,7 @@ func (c *helmCasting) Enricher(ctx context.Context, config *v1alpha1.Casting) (m
 	return newHelmMoldingEnricher(config), nil
 }
 
-func (c *helmCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPath string) ([]types.Material, error) {
+func (c *helmCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPath string) ([]domain.Material, error) {
 	buf := bytes.NewBuffer(nil)
 	err := valuesYAMLTemplate.Execute(buf, config)
 	if err != nil {
@@ -60,12 +60,12 @@ func (c *helmCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursP
 
 	valuesBytes := buf.Bytes()
 
-	valuesMaterial, err := types.NewYAMLMaterial(valuesBytes, filepath.Join(rootcasting.DeploymentDir, "values.yaml"))
+	valuesMaterial, err := domain.NewYAMLMaterial(valuesBytes, filepath.Join(rootcasting.DeploymentDir, "values.yaml"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create values yaml material: %w", err)
 	}
 
-	return []types.Material{valuesMaterial}, nil
+	return []domain.Material{valuesMaterial}, nil
 }
 
 func (c *helmCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPath string) error {

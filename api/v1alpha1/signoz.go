@@ -1,6 +1,6 @@
 package v1alpha1
 
-import "github.com/signoz/foundry/internal/types"
+import "github.com/signoz/foundry/internal/domain"
 
 type SigNoz struct {
 	// Specification for signoz.
@@ -33,9 +33,9 @@ type SigNozStatusAddresses struct {
 func DefaultSigNoz() SigNoz {
 	return SigNoz{
 		Spec: MoldingSpec{
-			Enabled: types.NewBoolPtr(true),
+			Enabled: domain.NewBoolPtr(true),
 			Cluster: TypeCluster{
-				Replicas: types.NewIntPtr(1),
+				Replicas: domain.NewIntPtr(1),
 			},
 			Version: "latest",
 			Image:   "signoz/signoz:latest",

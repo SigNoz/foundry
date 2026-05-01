@@ -1,7 +1,7 @@
 package v1alpha1
 
 import (
-	"github.com/signoz/foundry/internal/types"
+	"github.com/signoz/foundry/internal/domain"
 )
 
 type TelemetryKeeper struct {
@@ -40,9 +40,9 @@ func DefaultTelemetryKeeper() TelemetryKeeper {
 	return TelemetryKeeper{
 		Kind: TelemetryKeeperKindClickhouseKeeper,
 		Spec: MoldingSpec{
-			Enabled: types.NewBoolPtr(true),
+			Enabled: domain.NewBoolPtr(true),
 			Cluster: TypeCluster{
-				Replicas: types.NewIntPtr(1),
+				Replicas: domain.NewIntPtr(1),
 			},
 			Version: "25.5.6",
 			Image:   "clickhouse/clickhouse-keeper:25.5.6",

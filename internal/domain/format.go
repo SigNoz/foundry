@@ -1,4 +1,4 @@
-package types
+package domain
 
 var (
 	FormatYAML Format = Format{s: "yaml"}

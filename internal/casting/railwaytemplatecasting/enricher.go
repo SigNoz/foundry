@@ -5,14 +5,14 @@ import (
 	"fmt"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/molding"
-	"github.com/signoz/foundry/internal/types"
 )
 
 var _ molding.MoldingEnricher = (*railwayTemplateMoldingEnricher)(nil)
 
 type railwayTemplateMoldingEnricher struct {
-	material []types.Material
+	material []domain.Material
 }
 
 func newRailwayTemplateMoldingEnricher(config *v1alpha1.Casting) (*railwayTemplateMoldingEnricher, error) {
@@ -40,7 +40,7 @@ func (enricher *railwayTemplateMoldingEnricher) EnrichStatus(ctx context.Context
 			return nil
 		}
 		svc := name + "-telemetrystore-" + config.Spec.TelemetryStore.Kind.String()
-		config.Spec.TelemetryStore.Status.Addresses.TCP = []string{types.FormatAddress("tcp", railwayInternalHost(svc), 9000)}
+		config.Spec.TelemetryStore.Status.Addresses.TCP = []string{domain.FormatAddress("tcp", railwayInternalHost(svc), 9000)}
 		if config.Spec.TelemetryStore.Status.Extras == nil {
 			config.Spec.TelemetryStore.Status.Extras = make(map[string]string)
 		}
@@ -52,16 +52,16 @@ func (enricher *railwayTemplateMoldingEnricher) EnrichStatus(ctx context.Context
 			return nil
 		}
 		svc := name + "-signoz"
-		config.Spec.Signoz.Status.Addresses.APIServer = []string{types.FormatAddress("tcp", railwayInternalHost(svc), 8080)}
-		config.Spec.Signoz.Status.Addresses.Opamp = []string{types.FormatAddress("ws", railwayInternalHost(svc), 4320)}
+		config.Spec.Signoz.Status.Addresses.APIServer = []string{domain.FormatAddress("tcp", railwayInternalHost(svc), 8080)}
+		config.Spec.Signoz.Status.Addresses.Opamp = []string{domain.FormatAddress("ws", railwayInternalHost(svc), 4320)}
 
 	case v1alpha1.MoldingKindTelemetryKeeper:
 		if !config.Spec.TelemetryKeeper.Spec.IsEnabled() {
 			return nil
 		}
 		svc := name + "-telemetrykeeper-" + config.Spec.TelemetryKeeper.Kind.String()
-		config.Spec.TelemetryKeeper.Status.Addresses.Client = []string{types.FormatAddress("tcp", railwayInternalHost(svc), 9181)}
-		config.Spec.TelemetryKeeper.Status.Addresses.Raft = []string{types.FormatAddress("tcp", railwayInternalHost(svc), 9234)}
+		config.Spec.TelemetryKeeper.Status.Addresses.Client = []string{domain.FormatAddress("tcp", railwayInternalHost(svc), 9181)}
+		config.Spec.TelemetryKeeper.Status.Addresses.Raft = []string{domain.FormatAddress("tcp", railwayInternalHost(svc), 9234)}
 		if config.Spec.TelemetryKeeper.Status.Extras == nil {
 			config.Spec.TelemetryKeeper.Status.Extras = make(map[string]string)
 		}
@@ -72,7 +72,7 @@ func (enricher *railwayTemplateMoldingEnricher) EnrichStatus(ctx context.Context
 			return nil
 		}
 		svc := name + "-ingester"
-		config.Spec.Ingester.Status.Addresses.OTLP = []string{types.FormatAddress("tcp", railwayInternalHost(svc), 4318)}
+		config.Spec.Ingester.Status.Addresses.OTLP = []string{domain.FormatAddress("tcp", railwayInternalHost(svc), 4318)}
 	}
 
 	return nil

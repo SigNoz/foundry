@@ -9,21 +9,21 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	rootcasting "github.com/signoz/foundry/internal/casting"
+	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/molding"
-	"github.com/signoz/foundry/internal/types"
 )
 
 var _ rootcasting.Casting = (*coolifyCasting)(nil)
 
 type coolifyCasting struct {
 	logger   *slog.Logger
-	castings []*types.Template
+	castings []*domain.Template
 }
 
 func New(logger *slog.Logger) *coolifyCasting {
 	return &coolifyCasting{
 		logger: logger,
-		castings: []*types.Template{
+		castings: []*domain.Template{
 			coolifyYAMLTemplate,
 		},
 	}
@@ -33,19 +33,19 @@ func (c *coolifyCasting) Enricher(ctx context.Context, config *v1alpha1.Casting)
 	return newCoolifyMoldingEnricher(config)
 }
 
-func (c *coolifyCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPath string) ([]types.Material, error) {
+func (c *coolifyCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPath string) ([]domain.Material, error) {
 	buf := bytes.NewBuffer(nil)
 	err := coolifyYAMLTemplate.Execute(buf, config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute coolify yaml template: %w", err)
 	}
 
-	coolifyMaterial, err := types.NewYAMLMaterial(buf.Bytes(), filepath.Join(rootcasting.DeploymentDir, "coolify.yaml"))
+	coolifyMaterial, err := domain.NewYAMLMaterial(buf.Bytes(), filepath.Join(rootcasting.DeploymentDir, "coolify.yaml"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create coolify yaml material: %w", err)
 	}
 
-	return []types.Material{coolifyMaterial}, nil
+	return []domain.Material{coolifyMaterial}, nil
 }
 
 func (c *coolifyCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPath string) error {
@@ -56,11 +56,11 @@ func (c *coolifyCasting) Cast(ctx context.Context, config v1alpha1.Casting, pour
 	return nil
 }
 
-func getCoolifyMaterial(config *v1alpha1.Casting, path string) (types.Material, error) {
+func getCoolifyMaterial(config *v1alpha1.Casting, path string) (domain.Material, error) {
 	buf := bytes.NewBuffer(nil)
 	err := coolifyYAMLTemplate.Execute(buf, config)
 	if err != nil {
-		return types.Material{}, fmt.Errorf("failed to execute coolify yaml template: %w", err)
+		return domain.Material{}, fmt.Errorf("failed to execute coolify yaml template: %w", err)
 	}
-	return types.NewYAMLMaterial(buf.Bytes(), path)
+	return domain.NewYAMLMaterial(buf.Bytes(), path)
 }

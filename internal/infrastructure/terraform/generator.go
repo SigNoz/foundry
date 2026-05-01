@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/infrastructure"
-	"github.com/signoz/foundry/internal/types"
 )
 
 var _ infrastructure.Generator = (*Generator)(nil)
@@ -37,7 +37,7 @@ func New(logger *slog.Logger) *Generator {
 
 // Generate creates Terraform manifests based on the casting configuration.
 // The compute type is resolved automatically from the provider and deployment mode.
-func (g *Generator) Generate(ctx context.Context, config v1alpha1.Casting) ([]types.Material, error) {
+func (g *Generator) Generate(ctx context.Context, config v1alpha1.Casting) ([]domain.Material, error) {
 	if !config.Spec.Infrastructure.Enabled {
 		return nil, nil
 	}
@@ -67,14 +67,14 @@ func (g *Generator) Generate(ctx context.Context, config v1alpha1.Casting) ([]ty
 		return nil, err
 	}
 
-	var materials []types.Material
+	var materials []domain.Material
 
 	// main.tf.json
 	mainBuf := bytes.NewBuffer(nil)
 	if err := mainTemplate.Execute(mainBuf, data); err != nil {
 		return nil, fmt.Errorf("failed to execute main.tf.json template: %w", err)
 	}
-	mainMaterial, err := types.NewJSONMaterial(mainBuf.Bytes(), filepath.Join(infrastructureDir, "main.tf.json"))
+	mainMaterial, err := domain.NewJSONMaterial(mainBuf.Bytes(), filepath.Join(infrastructureDir, "main.tf.json"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create main.tf.json material: %w", err)
 	}
@@ -85,7 +85,7 @@ func (g *Generator) Generate(ctx context.Context, config v1alpha1.Casting) ([]ty
 	if err := varsTemplate.Execute(varsBuf, data); err != nil {
 		return nil, fmt.Errorf("failed to execute variables.tf.json template: %w", err)
 	}
-	varsMaterial, err := types.NewJSONMaterial(varsBuf.Bytes(), filepath.Join(infrastructureDir, "variables.tf.json"))
+	varsMaterial, err := domain.NewJSONMaterial(varsBuf.Bytes(), filepath.Join(infrastructureDir, "variables.tf.json"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create variables.tf.json material: %w", err)
 	}
@@ -96,7 +96,7 @@ func (g *Generator) Generate(ctx context.Context, config v1alpha1.Casting) ([]ty
 	if err := providersTFTemplate.Execute(providersBuf, data); err != nil {
 		return nil, fmt.Errorf("failed to execute providers.tf.json template: %w", err)
 	}
-	providersMaterial, err := types.NewJSONMaterial(providersBuf.Bytes(), filepath.Join(infrastructureDir, "providers.tf.json"))
+	providersMaterial, err := domain.NewJSONMaterial(providersBuf.Bytes(), filepath.Join(infrastructureDir, "providers.tf.json"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create providers.tf.json material: %w", err)
 	}
@@ -107,7 +107,7 @@ func (g *Generator) Generate(ctx context.Context, config v1alpha1.Casting) ([]ty
 	if err := outputsTemplate.Execute(outputsBuf, data); err != nil {
 		return nil, fmt.Errorf("failed to execute outputs.tf.json template: %w", err)
 	}
-	outputsMaterial, err := types.NewJSONMaterial(outputsBuf.Bytes(), filepath.Join(infrastructureDir, "outputs.tf.json"))
+	outputsMaterial, err := domain.NewJSONMaterial(outputsBuf.Bytes(), filepath.Join(infrastructureDir, "outputs.tf.json"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create outputs.tf.json material: %w", err)
 	}
@@ -131,7 +131,7 @@ func (g *Generator) Validate(ctx context.Context, poursPath string) error {
 }
 
 // templatesFor returns the provider+compute-type specific templates.
-func (g *Generator) templatesFor(provider v1alpha1.Platform, computeType infrastructure.ComputeType) (main, vars, outputs *types.Template, err error) {
+func (g *Generator) templatesFor(provider v1alpha1.Platform, computeType infrastructure.ComputeType) (main, vars, outputs *domain.Template, err error) {
 	switch provider {
 	case v1alpha1.PlatformAWS:
 		switch computeType {

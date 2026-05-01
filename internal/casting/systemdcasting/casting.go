@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/signoz/foundry/api/v1alpha1"
-	"github.com/signoz/foundry/internal/types"
+	"github.com/signoz/foundry/internal/domain"
 )
 
 const svcSuffix = ".service"
@@ -26,13 +26,13 @@ var _ rootcasting.Casting = (*systemdCasting)(nil)
 
 type systemdCasting struct {
 	logger   *slog.Logger
-	castings []*types.Template
+	castings []*domain.Template
 }
 
 func New(logger *slog.Logger) *systemdCasting {
 	return &systemdCasting{
 		logger: logger,
-		castings: []*types.Template{
+		castings: []*domain.Template{
 			telemetryKeeperServiceTemplate,
 			telemetryStoreServiceTemplate,
 			metaStoreServiceTemplate,
@@ -47,8 +47,8 @@ func (c *systemdCasting) Enricher(ctx context.Context, config *v1alpha1.Casting)
 	return newLinuxMoldingEnricher(config), nil
 }
 
-func (c *systemdCasting) Forge(ctx context.Context, cfg v1alpha1.Casting, poursPath string) ([]types.Material, error) {
-	var materials []types.Material
+func (c *systemdCasting) Forge(ctx context.Context, cfg v1alpha1.Casting, poursPath string) ([]domain.Material, error) {
+	var materials []domain.Material
 	for _, tmpl := range c.castings {
 		m, err := c.forgeCasting(tmpl, &cfg)
 		if err != nil {
@@ -103,7 +103,7 @@ func (c *systemdCasting) Cast(ctx context.Context, config v1alpha1.Casting, pour
 	return nil
 }
 
-func (c *systemdCasting) forgeCasting(tmpl *types.Template, cfg *v1alpha1.Casting) ([]types.Material, error) {
+func (c *systemdCasting) forgeCasting(tmpl *domain.Template, cfg *v1alpha1.Casting) ([]domain.Material, error) {
 	switch tmpl {
 	case signozServiceTemplate:
 		if !cfg.Spec.Signoz.Spec.IsEnabled() {
@@ -140,7 +140,7 @@ func (c *systemdCasting) forgeCasting(tmpl *types.Template, cfg *v1alpha1.Castin
 	}
 }
 
-func (c *systemdCasting) forgeIngester(tmpl *types.Template, cfg *v1alpha1.Casting) ([]types.Material, error) {
+func (c *systemdCasting) forgeIngester(tmpl *domain.Template, cfg *v1alpha1.Casting) ([]domain.Material, error) {
 	spec := &cfg.Spec.Ingester
 
 	if spec.Status.Extras == nil {
@@ -150,7 +150,7 @@ func (c *systemdCasting) forgeIngester(tmpl *types.Template, cfg *v1alpha1.Casti
 	spec.Status.Extras["cfgOpampPath"] = filepath.Join("ingester", "opamp.yaml")
 	spec.Status.Extras["workingDir"] = "/opt/ingester"
 
-	var materials []types.Material
+	var materials []domain.Material
 
 	svcMat, err := c.renderTemplate(tmpl, cfg, cfg.Metadata.Name+"-ingester"+svcSuffix)
 	if err != nil {
@@ -167,7 +167,7 @@ func (c *systemdCasting) forgeIngester(tmpl *types.Template, cfg *v1alpha1.Casti
 	return materials, nil
 }
 
-func (c *systemdCasting) forgeSignoz(tmpl *types.Template, cfg *v1alpha1.Casting) ([]types.Material, error) {
+func (c *systemdCasting) forgeSignoz(tmpl *domain.Template, cfg *v1alpha1.Casting) ([]domain.Material, error) {
 	spec := &cfg.Spec.Signoz
 
 	if spec.Status.Extras == nil {
@@ -175,7 +175,7 @@ func (c *systemdCasting) forgeSignoz(tmpl *types.Template, cfg *v1alpha1.Casting
 	}
 	spec.Status.Extras["workingDir"] = "/opt/signoz"
 
-	var materials []types.Material
+	var materials []domain.Material
 
 	svcMat, err := c.renderTemplate(tmpl, cfg, cfg.Metadata.Name+"-signoz"+svcSuffix)
 	if err != nil {
@@ -186,14 +186,14 @@ func (c *systemdCasting) forgeSignoz(tmpl *types.Template, cfg *v1alpha1.Casting
 	return materials, nil
 }
 
-func (c *systemdCasting) forgeMetaStore(tmpl *types.Template, cfg *v1alpha1.Casting) ([]types.Material, error) {
+func (c *systemdCasting) forgeMetaStore(tmpl *domain.Template, cfg *v1alpha1.Casting) ([]domain.Material, error) {
 	spec := &cfg.Spec.MetaStore
 
 	if spec.Status.Extras == nil {
 		spec.Status.Extras = make(map[string]string)
 	}
 
-	var materials []types.Material
+	var materials []domain.Material
 
 	switch spec.Kind {
 	case v1alpha1.MetaStoreKindPostgres:
@@ -207,7 +207,7 @@ func (c *systemdCasting) forgeMetaStore(tmpl *types.Template, cfg *v1alpha1.Cast
 	return materials, nil
 }
 
-func (c *systemdCasting) forgeTelemetryStore(tmpl *types.Template, cfg *v1alpha1.Casting) ([]types.Material, error) {
+func (c *systemdCasting) forgeTelemetryStore(tmpl *domain.Template, cfg *v1alpha1.Casting) ([]domain.Material, error) {
 	spec := &cfg.Spec.TelemetryStore
 
 	if spec.Status.Extras == nil {
@@ -218,7 +218,7 @@ func (c *systemdCasting) forgeTelemetryStore(tmpl *types.Template, cfg *v1alpha1
 	reps := max(1, *spec.Spec.Cluster.Replicas+1)
 	shards := max(1, *spec.Spec.Cluster.Shards)
 
-	var materials []types.Material
+	var materials []domain.Material
 
 	for s := range shards {
 		for r := range reps {
@@ -239,7 +239,7 @@ func (c *systemdCasting) forgeTelemetryStore(tmpl *types.Template, cfg *v1alpha1
 	return materials, nil
 }
 
-func (c *systemdCasting) forgeTelemetryKeeper(tmpl *types.Template, cfg *v1alpha1.Casting) ([]types.Material, error) {
+func (c *systemdCasting) forgeTelemetryKeeper(tmpl *domain.Template, cfg *v1alpha1.Casting) ([]domain.Material, error) {
 	spec := &cfg.Spec.TelemetryKeeper
 
 	if spec.Status.Extras == nil {
@@ -258,7 +258,7 @@ func (c *systemdCasting) forgeTelemetryKeeper(tmpl *types.Template, cfg *v1alpha
 		spec.Status.Extras["cfgPath"] = filepath.Join("/etc/clickhouse-keeper/", filepath.Base(cfgMats[0].Path()))
 	}
 
-	var materials []types.Material
+	var materials []domain.Material
 
 	for r := range reps {
 		svcMat, err := c.renderTemplate(tmpl, cfg, fmt.Sprintf("%s-telemetrykeeper-%s-%d%s", cfg.Metadata.Name, kind, r, svcSuffix))
@@ -273,8 +273,8 @@ func (c *systemdCasting) forgeTelemetryKeeper(tmpl *types.Template, cfg *v1alpha
 	return materials, nil
 }
 
-func (c *systemdCasting) forgeMigrator(tmpl *types.Template, cfg *v1alpha1.Casting) ([]types.Material, error) {
-	var materials []types.Material
+func (c *systemdCasting) forgeMigrator(tmpl *domain.Template, cfg *v1alpha1.Casting) ([]domain.Material, error) {
+	var materials []domain.Material
 
 	svcMat, err := c.renderTemplate(tmpl, cfg, cfg.Metadata.Name+"-telemetrystore-migrator"+svcSuffix)
 	if err != nil {
@@ -285,10 +285,10 @@ func (c *systemdCasting) forgeMigrator(tmpl *types.Template, cfg *v1alpha1.Casti
 	return materials, nil
 }
 
-func (c *systemdCasting) configMaterials(data map[string]string, component string, kind string) ([]types.Material, error) {
-	mats := make([]types.Material, 0, len(data))
+func (c *systemdCasting) configMaterials(data map[string]string, component string, kind string) ([]domain.Material, error) {
+	mats := make([]domain.Material, 0, len(data))
 	for filename, content := range data {
-		m, err := types.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, component, kind, filename))
+		m, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, component, kind, filename))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create %s config material %s: %w", component, filename, err)
 		}
@@ -297,12 +297,12 @@ func (c *systemdCasting) configMaterials(data map[string]string, component strin
 	return mats, nil
 }
 
-func (c *systemdCasting) renderTemplate(tmpl *types.Template, cfg *v1alpha1.Casting, path string) (types.Material, error) {
+func (c *systemdCasting) renderTemplate(tmpl *domain.Template, cfg *v1alpha1.Casting, path string) (domain.Material, error) {
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, cfg); err != nil {
-		return types.Material{}, fmt.Errorf("execute template %s: %w", path, err)
+		return domain.Material{}, fmt.Errorf("execute template %s: %w", path, err)
 	}
-	return types.NewINIMaterial(buf.Bytes(), filepath.Join(rootcasting.DeploymentDir, path))
+	return domain.NewINIMaterial(buf.Bytes(), filepath.Join(rootcasting.DeploymentDir, path))
 }
 
 // execCommand executes a command and returns an error if it fails.

@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
-	"github.com/signoz/foundry/internal/types"
 )
 
 type Options struct {
@@ -46,7 +46,7 @@ func New(logger *slog.Logger, options *Options) (*Writer, error) {
 	}, nil
 }
 
-func (w *Writer) Write(ctx context.Context, material types.Material) error {
+func (w *Writer) Write(ctx context.Context, material domain.Material) error {
 	if _, ok := w.options.Output.(*os.File); ok {
 		path := filepath.Join(w.options.TargetDirectory, material.Path())
 
@@ -75,7 +75,7 @@ func (w *Writer) Write(ctx context.Context, material types.Material) error {
 	return nil
 }
 
-func (w *Writer) WriteMany(ctx context.Context, materials ...types.Material) error {
+func (w *Writer) WriteMany(ctx context.Context, materials ...domain.Material) error {
 	for _, material := range materials {
 		if err := w.Write(ctx, material); err != nil {
 			return err

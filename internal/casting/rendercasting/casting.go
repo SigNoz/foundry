@@ -9,21 +9,21 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/casting"
+	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/molding"
-	"github.com/signoz/foundry/internal/types"
 )
 
 var _ casting.Casting = (*renderCasting)(nil)
 
 type renderCasting struct {
 	logger   *slog.Logger
-	castings []*types.Template
+	castings []*domain.Template
 }
 
 func New(logger *slog.Logger) *renderCasting {
 	return &renderCasting{
 		logger: logger,
-		castings: []*types.Template{
+		castings: []*domain.Template{
 			renderYAMLTemplate,
 			telemetryKeeperDockerfileTemplate,
 			telemetryStoreDockerfileTemplate,
@@ -36,8 +36,8 @@ func (c *renderCasting) Enricher(ctx context.Context, config *v1alpha1.Casting) 
 	return newRenderMoldingEnricher(config)
 }
 
-func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPath string) ([]types.Material, error) {
-	var materials []types.Material
+func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPath string) ([]domain.Material, error) {
+	var materials []domain.Material
 
 	configsDir := filepath.Join(casting.DeploymentDir, "configs/")
 	// Generate render.yaml
@@ -54,12 +54,12 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute dockerfile keeper template: %w", err)
 		}
-		dockerfileMaterial := types.NewTextMaterial(dockerfileBuf.Bytes(), filepath.Join(configsDir, "telemetrykeeper/Dockerfile"))
+		dockerfileMaterial := domain.NewTextMaterial(dockerfileBuf.Bytes(), filepath.Join(configsDir, "telemetrykeeper/Dockerfile"))
 		materials = append(materials, dockerfileMaterial)
 
 		// Add telemetrykeeper config files (for dockerfile to copy)
 		for filename, content := range config.Spec.TelemetryKeeper.Spec.Config.Data {
-			material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(configsDir, fmt.Sprintf("telemetrykeeper/keeper.d/%s", filename)))
+			material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(configsDir, fmt.Sprintf("telemetrykeeper/keeper.d/%s", filename)))
 			if err != nil {
 				return nil, fmt.Errorf("failed to create telemetrykeeper config material: %w", err)
 			}
@@ -74,12 +74,12 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute dockerfile clickhouse template: %w", err)
 		}
-		dockerfileMaterial := types.NewTextMaterial(dockerfileBuf.Bytes(), filepath.Join(configsDir, "telemetrystore/Dockerfile"))
+		dockerfileMaterial := domain.NewTextMaterial(dockerfileBuf.Bytes(), filepath.Join(configsDir, "telemetrystore/Dockerfile"))
 		materials = append(materials, dockerfileMaterial)
 
 		// Add telemetrystore config files (for dockerfile to copy)
 		for filename, content := range config.Spec.TelemetryStore.Spec.Config.Data {
-			material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(configsDir, fmt.Sprintf("telemetrystore/config.d/%s", filename)))
+			material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(configsDir, fmt.Sprintf("telemetrystore/config.d/%s", filename)))
 			if err != nil {
 				return nil, fmt.Errorf("failed to create telemetrystore config material: %w", err)
 			}
@@ -94,11 +94,11 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute dockerfile otel template: %w", err)
 		}
-		dockerfileMaterial := types.NewTextMaterial(dockerfileBuf.Bytes(), filepath.Join(configsDir, "ingester/Dockerfile"))
+		dockerfileMaterial := domain.NewTextMaterial(dockerfileBuf.Bytes(), filepath.Join(configsDir, "ingester/Dockerfile"))
 		materials = append(materials, dockerfileMaterial)
 
 		for filename, content := range config.Spec.Ingester.Spec.Config.Data {
-			material, err := types.NewYAMLMaterial([]byte(content), filepath.Join(configsDir, fmt.Sprintf("ingester/%s", filename)))
+			material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(configsDir, fmt.Sprintf("ingester/%s", filename)))
 			if err != nil {
 				return nil, fmt.Errorf("failed to create ingester config material: %w", err)
 			}
@@ -117,11 +117,11 @@ func (c *renderCasting) Cast(ctx context.Context, config v1alpha1.Casting, pours
 	return nil
 }
 
-func getRenderMaterial(config *v1alpha1.Casting, path string) (types.Material, error) {
+func getRenderMaterial(config *v1alpha1.Casting, path string) (domain.Material, error) {
 	buf := bytes.NewBuffer(nil)
 	err := renderYAMLTemplate.Execute(buf, config)
 	if err != nil {
-		return types.Material{}, fmt.Errorf("failed to execute render yaml template: %w", err)
+		return domain.Material{}, fmt.Errorf("failed to execute render yaml template: %w", err)
 	}
-	return types.NewYAMLMaterial(buf.Bytes(), path)
+	return domain.NewYAMLMaterial(buf.Bytes(), path)
 }

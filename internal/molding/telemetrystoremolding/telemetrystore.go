@@ -7,9 +7,9 @@ import (
 	"log/slog"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
-	"github.com/signoz/foundry/internal/types"
 )
 
 var _ molding.Molding = (*telemetrystore)(nil)
@@ -51,7 +51,7 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *v1alpha
 	base := configBuf.String()
 
 	if overrides != "" {
-		merged, err := types.MergeYAML(base, overrides)
+		merged, err := domain.MergeYAML(base, overrides)
 		if err != nil {
 			return fmt.Errorf("failed to merge config overrides for config.yaml: %w", err)
 		}
@@ -92,7 +92,7 @@ func (molding *telemetrystore) getData(config *v1alpha1.Casting) (Data, error) {
 		)
 	}
 
-	newStoreAddrs, err := types.NewAddresses(storeAddresses[:expectedNodes])
+	newStoreAddrs, err := domain.NewAddresses(storeAddresses[:expectedNodes])
 	if err != nil {
 		return Data{}, fmt.Errorf("failed to parse addresses: %w", err)
 	}
@@ -102,7 +102,7 @@ func (molding *telemetrystore) getData(config *v1alpha1.Casting) (Data, error) {
 		return Data{}, fmt.Errorf("telemetry keeper addresses not set in status")
 	}
 
-	newKeeperAddrs, err := types.NewAddresses(keeperAddresses)
+	newKeeperAddrs, err := domain.NewAddresses(keeperAddresses)
 	if err != nil {
 		return Data{}, fmt.Errorf("failed to parse addresses: %w", err)
 	}

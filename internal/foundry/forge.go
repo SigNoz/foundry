@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
-	"github.com/signoz/foundry/internal/types"
 	"github.com/signoz/foundry/internal/writer"
 )
 
@@ -76,7 +76,7 @@ func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, path
 
 	// Generate infrastructure-as-code manifests if enabled, before writing the lock file
 	// so that the generated file contents are captured in the lock's infrastructure.status.
-	var infraMaterials []types.Material
+	var infraMaterials []domain.Material
 	if config.Spec.Infrastructure.Enabled {
 		foundry.Logger.InfoContext(ctx, "generating infrastructure manifests",
 			slog.String("casting.metadata.name", config.Metadata.Name),

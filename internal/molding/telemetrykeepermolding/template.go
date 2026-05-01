@@ -5,20 +5,20 @@ import (
 	"fmt"
 
 	"github.com/signoz/foundry/api/v1alpha1"
-	"github.com/signoz/foundry/internal/types"
+	"github.com/signoz/foundry/internal/domain"
 )
 
 //go:embed templates/*.gotmpl
 var templates embed.FS
 
 var (
-	KeeperClickhousev2556YAML *types.Template = types.MustNewTemplateFromFS(templates, "templates/keeper.clickhouse.v2556.yaml.gotmpl", types.FormatYAML)
+	KeeperClickhousev2556YAML *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/keeper.clickhouse.v2556.yaml.gotmpl", domain.FormatYAML)
 )
 
 // Data is the template data for rendering ClickHouse Keeper configs.
 type Data struct {
-	RaftAddresses   []types.Address // Inter-keeper consensus addresses
-	ClientAddresses []types.Address // Client-facing addresses
+	RaftAddresses   []domain.Address // Inter-keeper consensus addresses
+	ClientAddresses []domain.Address // Client-facing addresses
 	ServerCount     int
 	ServerID        int // Current server ID for per-node config generation
 }
@@ -42,13 +42,13 @@ func newData(config *v1alpha1.Casting) (Data, error) {
 		return Data{}, fmt.Errorf("insufficient client addresses: have %d, need %d servers", len(clientAddresses), data.ServerCount)
 	}
 
-	newRaftAddrs, err := types.NewAddresses(raftAddresses[:data.ServerCount])
+	newRaftAddrs, err := domain.NewAddresses(raftAddresses[:data.ServerCount])
 	if err != nil {
 		return Data{}, fmt.Errorf("failed to parse raft addresses: %w", err)
 	}
 	data.RaftAddresses = newRaftAddrs
 
-	newClientAddrs, err := types.NewAddresses(clientAddresses[:data.ServerCount])
+	newClientAddrs, err := domain.NewAddresses(clientAddresses[:data.ServerCount])
 	if err != nil {
 		return Data{}, fmt.Errorf("failed to parse client addresses: %w", err)
 	}
