@@ -1,0 +1,1267 @@
+apiVersion: v1alpha1
+metadata:
+  name: signoz
+spec:
+  deployment:
+    flavor: compose
+    mode: docker
+    platform: aws
+  infrastructure:
+    enabled: true
+    status:
+      main.tf.json: |
+        {
+          "locals": {
+            "name": "signoz",
+            "common_tags": {
+              "app.kubernetes.io/managed-by": "foundry",
+              "app.kubernetes.io/name": "signoz"
+            }
+          },
+          "data": {
+            "aws_availability_zones": {
+              "available": {
+                "state": "available"
+              }
+            },
+            "aws_ami": {
+              "ubuntu": {
+                "most_recent": true,
+                "owners": ["099720109477"],
+                "filter": [
+                  {
+                    "name": "name",
+                    "values": ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+                  },
+                  {
+                    "name": "virtualization-type",
+                    "values": ["hvm"]
+                  }
+                ]
+              }
+            }
+          },
+          "resource": {
+            "aws_vpc": {
+              "main": {
+                "cidr_block": "${var.vpc_cidr}",
+                "enable_dns_hostnames": true,
+                "enable_dns_support": true,
+                "tags": {
+                  "app.kubernetes.io/managed-by": "foundry",
+                  "app.kubernetes.io/name": "signoz",
+                  "Name": "${local.name}-vpc"
+                }
+              }
+            },
+            "aws_subnet": {
+              "private": {
+                "count": "${var.az_count}",
+                "vpc_id": "${aws_vpc.main.id}",
+                "cidr_block": "${cidrsubnet(var.vpc_cidr, 8, count.index)}",
+                "availability_zone": "${data.aws_availability_zones.available.names[count.index]}",
+                "tags": {
+                  "app.kubernetes.io/managed-by": "foundry",
+                  "app.kubernetes.io/name": "signoz",
+                  "Name": "${local.name}-private-${count.index}"
+                }
+              },
+              "public": {
+                "count": "${var.az_count}",
+                "vpc_id": "${aws_vpc.main.id}",
+                "cidr_block": "${cidrsubnet(var.vpc_cidr, 8, count.index + var.az_count)}",
+                "availability_zone": "${data.aws_availability_zones.available.names[count.index]}",
+                "map_public_ip_on_launch": true,
+                "tags": {
+                  "app.kubernetes.io/managed-by": "foundry",
+                  "app.kubernetes.io/name": "signoz",
+                  "Name": "${local.name}-public-${count.index}"
+                }
+              }
+            },
+            "aws_internet_gateway": {
+              "main": {
+                "vpc_id": "${aws_vpc.main.id}",
+                "tags": {
+                  "app.kubernetes.io/managed-by": "foundry",
+                  "app.kubernetes.io/name": "signoz",
+                  "Name": "${local.name}-igw"
+                }
+              }
+            },
+            "aws_eip": {
+              "nat": {
+                "count": "${var.az_count}",
+                "domain": "vpc",
+                "tags": {
+                  "app.kubernetes.io/managed-by": "foundry",
+                  "app.kubernetes.io/name": "signoz",
+                  "Name": "${local.name}-nat-eip-${count.index}"
+                }
+              }
+            },
+            "aws_nat_gateway": {
+              "main": {
+                "count": "${var.az_count}",
+                "allocation_id": "${aws_eip.nat[count.index].id}",
+                "subnet_id": "${aws_subnet.public[count.index].id}",
+                "tags": {
+                  "app.kubernetes.io/managed-by": "foundry",
+                  "app.kubernetes.io/name": "signoz",
+                  "Name": "${local.name}-nat-${count.index}"
+                },
+                "depends_on": ["${aws_internet_gateway.main}"]
+              }
+            },
+            "aws_route_table": {
+              "public": {
+                "vpc_id": "${aws_vpc.main.id}",
+                "route": [
+                  {
+                    "cidr_block": "0.0.0.0/0",
+                    "gateway_id": "${aws_internet_gateway.main.id}"
+                  }
+                ],
+                "tags": {
+                  "app.kubernetes.io/managed-by": "foundry",
+                  "app.kubernetes.io/name": "signoz",
+                  "Name": "${local.name}-public-rt"
+                }
+              },
+              "private": {
+                "count": "${var.az_count}",
+                "vpc_id": "${aws_vpc.main.id}",
+                "route": [
+                  {
+                    "cidr_block": "0.0.0.0/0",
+                    "nat_gateway_id": "${aws_nat_gateway.main[count.index].id}"
+                  }
+                ],
+                "tags": {
+                  "app.kubernetes.io/managed-by": "foundry",
+                  "app.kubernetes.io/name": "signoz",
+                  "Name": "${local.name}-private-rt-${count.index}"
+                }
+              }
+            },
+            "aws_route_table_association": {
+              "public": {
+                "count": "${var.az_count}",
+                "subnet_id": "${aws_subnet.public[count.index].id}",
+                "route_table_id": "${aws_route_table.public.id}"
+              },
+              "private": {
+                "count": "${var.az_count}",
+                "subnet_id": "${aws_subnet.private[count.index].id}",
+                "route_table_id": "${aws_route_table.private[count.index].id}"
+              }
+            },
+            "aws_security_group": {
+              "telemetrykeeper": {
+                "name": "${local.name}-telemetrykeeper-sg",
+                "description": "Security group for TelemetryKeeper (ClickHouse Keeper)",
+                "vpc_id": "${aws_vpc.main.id}",
+                "ingress": [
+                  {
+                    "from_port": 9181,
+                    "to_port": 9181,
+                    "protocol": "tcp",
+                    "cidr_blocks": ["${var.vpc_cidr}"],
+                    "description": "ClickHouse Keeper client port"
+                  },
+                  {
+                    "from_port": 9234,
+                    "to_port": 9234,
+                    "protocol": "tcp",
+                    "cidr_blocks": ["${var.vpc_cidr}"],
+                    "description": "ClickHouse Keeper raft port"
+                  },
+                  {
+                    "from_port": 22,
+                    "to_port": 22,
+                    "protocol": "tcp",
+                    "cidr_blocks": ["${var.vpc_cidr}"],
+                    "description": "SSH access from VPC"
+                  }
+                ],
+                "egress": [
+                  {
+                    "from_port": 0,
+                    "to_port": 0,
+                    "protocol": "-1",
+                    "cidr_blocks": ["0.0.0.0/0"]
+                  }
+                ],
+                "tags": {
+                  "app.kubernetes.io/managed-by": "foundry",
+                  "app.kubernetes.io/name": "signoz",
+                  "Name": "${local.name}-telemetrykeeper-sg"
+                }
+              },
+              "telemetrystore": {
+                "name": "${local.name}-telemetrystore-sg",
+                "description": "Security group for TelemetryStore (ClickHouse)",
+                "vpc_id": "${aws_vpc.main.id}",
+                "ingress": [
+                  {
+                    "from_port": 9000,
+                    "to_port": 9000,
+                    "protocol": "tcp",
+                    "cidr_blocks": ["${var.vpc_cidr}"],
+                    "description": "ClickHouse native port"
+                  },
+                  {
+                    "from_port": 8123,
+                    "to_port": 8123,
+                    "protocol": "tcp",
+                    "cidr_blocks": ["${var.vpc_cidr}"],
+                    "description": "ClickHouse HTTP port"
+                  },
+                  {
+                    "from_port": 22,
+                    "to_port": 22,
+                    "protocol": "tcp",
+                    "cidr_blocks": ["${var.vpc_cidr}"],
+                    "description": "SSH access from VPC"
+                  }
+                ],
+                "egress": [
+                  {
+                    "from_port": 0,
+                    "to_port": 0,
+                    "protocol": "-1",
+                    "cidr_blocks": ["0.0.0.0/0"]
+                  }
+                ],
+                "tags": {
+                  "app.kubernetes.io/managed-by": "foundry",
+                  "app.kubernetes.io/name": "signoz",
+                  "Name": "${local.name}-telemetrystore-sg"
+                }
+              },
+              "metastore": {
+                "name": "${local.name}-metastore-sg",
+                "description": "Security group for MetaStore (PostgreSQL)",
+                "vpc_id": "${aws_vpc.main.id}",
+                "ingress": [
+                  {
+                    "from_port": 5432,
+                    "to_port": 5432,
+                    "protocol": "tcp",
+                    "cidr_blocks": ["${var.vpc_cidr}"],
+                    "description": "PostgreSQL port"
+                  },
+                  {
+                    "from_port": 22,
+                    "to_port": 22,
+                    "protocol": "tcp",
+                    "cidr_blocks": ["${var.vpc_cidr}"],
+                    "description": "SSH access from VPC"
+                  }
+                ],
+                "egress": [
+                  {
+                    "from_port": 0,
+                    "to_port": 0,
+                    "protocol": "-1",
+                    "cidr_blocks": ["0.0.0.0/0"]
+                  }
+                ],
+                "tags": {
+                  "app.kubernetes.io/managed-by": "foundry",
+                  "app.kubernetes.io/name": "signoz",
+                  "Name": "${local.name}-metastore-sg"
+                }
+              },
+              "ingester": {
+                "name": "${local.name}-ingester-sg",
+                "description": "Security group for Ingester (OpenTelemetry Collector)",
+                "vpc_id": "${aws_vpc.main.id}",
+                "ingress": [
+                  {
+                    "from_port": 4317,
+                    "to_port": 4317,
+                    "protocol": "tcp",
+                    "cidr_blocks": ["0.0.0.0/0"],
+                    "description": "OTLP gRPC port"
+                  },
+                  {
+                    "from_port": 4318,
+                    "to_port": 4318,
+                    "protocol": "tcp",
+                    "cidr_blocks": ["0.0.0.0/0"],
+                    "description": "OTLP HTTP port"
+                  },
+                  {
+                    "from_port": 22,
+                    "to_port": 22,
+                    "protocol": "tcp",
+                    "cidr_blocks": ["${var.vpc_cidr}"],
+                    "description": "SSH access from VPC"
+                  }
+                ],
+                "egress": [
+                  {
+                    "from_port": 0,
+                    "to_port": 0,
+                    "protocol": "-1",
+                    "cidr_blocks": ["0.0.0.0/0"]
+                  }
+                ],
+                "tags": {
+                  "app.kubernetes.io/managed-by": "foundry",
+                  "app.kubernetes.io/name": "signoz",
+                  "Name": "${local.name}-ingester-sg"
+                }
+              },
+              "signoz": {
+                "name": "${local.name}-signoz-sg",
+                "description": "Security group for SigNoz",
+                "vpc_id": "${aws_vpc.main.id}",
+                "ingress": [
+                  {
+                    "from_port": 8080,
+                    "to_port": 8080,
+                    "protocol": "tcp",
+                    "cidr_blocks": ["0.0.0.0/0"],
+                    "description": "SigNoz UI port"
+                  },
+                  {
+                    "from_port": 3301,
+                    "to_port": 3301,
+                    "protocol": "tcp",
+                    "cidr_blocks": ["${var.vpc_cidr}"],
+                    "description": "SigNoz API port"
+                  },
+                  {
+                    "from_port": 22,
+                    "to_port": 22,
+                    "protocol": "tcp",
+                    "cidr_blocks": ["${var.vpc_cidr}"],
+                    "description": "SSH access from VPC"
+                  }
+                ],
+                "egress": [
+                  {
+                    "from_port": 0,
+                    "to_port": 0,
+                    "protocol": "-1",
+                    "cidr_blocks": ["0.0.0.0/0"]
+                  }
+                ],
+                "tags": {
+                  "app.kubernetes.io/managed-by": "foundry",
+                  "app.kubernetes.io/name": "signoz",
+                  "Name": "${local.name}-signoz-sg"
+                }
+              }
+            },
+            "aws_key_pair": {
+              "main": {
+                "count": "${var.ssh_public_key != \"\" ? 1 : 0}",
+                "key_name": "${local.name}-key",
+                "public_key": "${var.ssh_public_key}",
+                "tags": {
+                  "app.kubernetes.io/managed-by": "foundry",
+                  "app.kubernetes.io/name": "signoz"
+                }
+              }
+            },
+            "aws_instance": {
+              "telemetrykeeper": {
+                "count": 1,
+                "ami": "${data.aws_ami.ubuntu.id}",
+                "instance_type": "${var.telemetrykeeper_instance_type}",
+                "subnet_id": "${aws_subnet.private[count.index % var.az_count].id}",
+                "vpc_security_group_ids": ["${aws_security_group.telemetrykeeper.id}"],
+                "key_name": "${var.ssh_public_key != \"\" ? aws_key_pair.main[0].key_name : null}",
+                "root_block_device": [{
+                  "volume_size": "${var.telemetrykeeper_volume_size}",
+                  "volume_type": "gp3",
+                  "encrypted": true
+                }],
+                "tags": {
+                  "app.kubernetes.io/managed-by": "foundry",
+                  "app.kubernetes.io/name": "signoz",
+                  "Name": "${local.name}-telemetrykeeper-${count.index}",
+                  "Role": "telemetrykeeper"
+                }
+              },
+              "telemetrystore": {
+                "count": 0,
+                "ami": "${data.aws_ami.ubuntu.id}",
+                "instance_type": "${var.telemetrystore_instance_type}",
+                "subnet_id": "${aws_subnet.private[count.index % var.az_count].id}",
+                "vpc_security_group_ids": ["${aws_security_group.telemetrystore.id}"],
+                "key_name": "${var.ssh_public_key != \"\" ? aws_key_pair.main[0].key_name : null}",
+                "root_block_device": [{
+                  "volume_size": "${var.telemetrystore_volume_size}",
+                  "volume_type": "gp3",
+                  "encrypted": true
+                }],
+                "tags": {
+                  "app.kubernetes.io/managed-by": "foundry",
+                  "app.kubernetes.io/name": "signoz",
+                  "Name": "${local.name}-telemetrystore-${count.index}",
+                  "Role": "telemetrystore"
+                }
+              },
+              "metastore": {
+                "count": 1,
+                "ami": "${data.aws_ami.ubuntu.id}",
+                "instance_type": "${var.metastore_instance_type}",
+                "subnet_id": "${aws_subnet.private[count.index % var.az_count].id}",
+                "vpc_security_group_ids": ["${aws_security_group.metastore.id}"],
+                "key_name": "${var.ssh_public_key != \"\" ? aws_key_pair.main[0].key_name : null}",
+                "root_block_device": [{
+                  "volume_size": "${var.metastore_volume_size}",
+                  "volume_type": "gp3",
+                  "encrypted": true
+                }],
+                "tags": {
+                  "app.kubernetes.io/managed-by": "foundry",
+                  "app.kubernetes.io/name": "signoz",
+                  "Name": "${local.name}-metastore-${count.index}",
+                  "Role": "metastore"
+                }
+              },
+              "ingester": {
+                "count": 1,
+                "ami": "${data.aws_ami.ubuntu.id}",
+                "instance_type": "${var.ingester_instance_type}",
+                "subnet_id": "${aws_subnet.public[count.index % var.az_count].id}",
+                "vpc_security_group_ids": ["${aws_security_group.ingester.id}"],
+                "key_name": "${var.ssh_public_key != \"\" ? aws_key_pair.main[0].key_name : null}",
+                "root_block_device": [{
+                  "volume_size": "${var.ingester_volume_size}",
+                  "volume_type": "gp3",
+                  "encrypted": true
+                }],
+                "tags": {
+                  "app.kubernetes.io/managed-by": "foundry",
+                  "app.kubernetes.io/name": "signoz",
+                  "Name": "${local.name}-ingester-${count.index}",
+                  "Role": "ingester"
+                }
+              },
+              "signoz": {
+                "count": 1,
+                "ami": "${data.aws_ami.ubuntu.id}",
+                "instance_type": "${var.signoz_instance_type}",
+                "subnet_id": "${aws_subnet.public[count.index % var.az_count].id}",
+                "vpc_security_group_ids": ["${aws_security_group.signoz.id}"],
+                "key_name": "${var.ssh_public_key != \"\" ? aws_key_pair.main[0].key_name : null}",
+                "root_block_device": [{
+                  "volume_size": "${var.signoz_volume_size}",
+                  "volume_type": "gp3",
+                  "encrypted": true
+                }],
+                "tags": {
+                  "app.kubernetes.io/managed-by": "foundry",
+                  "app.kubernetes.io/name": "signoz",
+                  "Name": "${local.name}-signoz-${count.index}",
+                  "Role": "signoz"
+                }
+              }
+            }
+          }
+        }
+      outputs.tf.json: |
+        {
+          "output": {
+            "vpc_id": {
+              "description": "ID of the VPC",
+              "value": "${aws_vpc.main.id}"
+            },
+            "private_subnet_ids": {
+              "description": "IDs of the private subnets",
+              "value": "${aws_subnet.private[*].id}"
+            },
+            "public_subnet_ids": {
+              "description": "IDs of the public subnets",
+              "value": "${aws_subnet.public[*].id}"
+            },
+            "telemetrykeeper_instance_ids": {
+              "description": "IDs of the TelemetryKeeper EC2 instances",
+              "value": "${aws_instance.telemetrykeeper[*].id}"
+            },
+            "telemetrykeeper_private_ips": {
+              "description": "Private IP addresses of the TelemetryKeeper EC2 instances",
+              "value": "${aws_instance.telemetrykeeper[*].private_ip}"
+            },
+            "telemetrystore_instance_ids": {
+              "description": "IDs of the TelemetryStore EC2 instances",
+              "value": "${aws_instance.telemetrystore[*].id}"
+            },
+            "telemetrystore_private_ips": {
+              "description": "Private IP addresses of the TelemetryStore EC2 instances",
+              "value": "${aws_instance.telemetrystore[*].private_ip}"
+            },
+            "metastore_instance_ids": {
+              "description": "IDs of the MetaStore EC2 instances",
+              "value": "${aws_instance.metastore[*].id}"
+            },
+            "metastore_private_ips": {
+              "description": "Private IP addresses of the MetaStore EC2 instances",
+              "value": "${aws_instance.metastore[*].private_ip}"
+            },
+            "ingester_instance_ids": {
+              "description": "IDs of the Ingester EC2 instances",
+              "value": "${aws_instance.ingester[*].id}"
+            },
+            "ingester_public_ips": {
+              "description": "Public IP addresses of the Ingester EC2 instances",
+              "value": "${aws_instance.ingester[*].public_ip}"
+            },
+            "ingester_private_ips": {
+              "description": "Private IP addresses of the Ingester EC2 instances",
+              "value": "${aws_instance.ingester[*].private_ip}"
+            },
+            "signoz_instance_ids": {
+              "description": "IDs of the SigNoz EC2 instances",
+              "value": "${aws_instance.signoz[*].id}"
+            },
+            "signoz_public_ips": {
+              "description": "Public IP addresses of the SigNoz EC2 instances",
+              "value": "${aws_instance.signoz[*].public_ip}"
+            },
+            "signoz_private_ips": {
+              "description": "Private IP addresses of the SigNoz EC2 instances",
+              "value": "${aws_instance.signoz[*].private_ip}"
+            }
+          }
+        }
+      providers.tf.json: |
+        {
+          "terraform": {
+            "required_version": ">= 1.0.0",
+            "required_providers": {
+              "aws": {
+                "source": "hashicorp/aws",
+                "version": "~> 5.0"
+              }
+            }
+          },
+          "provider": {
+            "aws": [{}]
+          }
+        }
+      variables.tf.json: |
+        {
+          "variable": {
+            "aws_region": {
+              "description": "AWS region to deploy resources",
+              "type": "string",
+              "default": "us-east-1"
+            },
+            "vpc_cidr": {
+              "description": "CIDR block for the VPC",
+              "type": "string",
+              "default": "10.0.0.0/16"
+            },
+            "az_count": {
+              "description": "Number of availability zones to use",
+              "type": "number",
+              "default": 2
+            },
+            "name": {
+              "description": "The name of the deployment",
+              "type": "string",
+              "default": "signoz"
+            },
+            "ssh_public_key": {
+              "description": "SSH public key for EC2 instance access. Leave empty to disable SSH key pair creation.",
+              "type": "string",
+              "default": ""
+            },
+            "telemetrykeeper_instance_type": {
+              "description": "EC2 instance type for TelemetryKeeper",
+              "type": "string",
+              "default": "t3.small"
+            },
+            "telemetrykeeper_volume_size": {
+              "description": "Root volume size (GB) for TelemetryKeeper instances",
+              "type": "number",
+              "default": 20
+            },
+            "telemetrystore_instance_type": {
+              "description": "EC2 instance type for TelemetryStore",
+              "type": "string",
+              "default": "r6i.xlarge"
+            },
+            "telemetrystore_volume_size": {
+              "description": "Root volume size (GB) for TelemetryStore instances",
+              "type": "number",
+              "default": 100
+            },
+            "metastore_instance_type": {
+              "description": "EC2 instance type for MetaStore",
+              "type": "string",
+              "default": "t3.small"
+            },
+            "metastore_volume_size": {
+              "description": "Root volume size (GB) for MetaStore instances",
+              "type": "number",
+              "default": 20
+            },
+            "ingester_instance_type": {
+              "description": "EC2 instance type for Ingester",
+              "type": "string",
+              "default": "t3.medium"
+            },
+            "ingester_volume_size": {
+              "description": "Root volume size (GB) for Ingester instances",
+              "type": "number",
+              "default": 50
+            },
+            "signoz_instance_type": {
+              "description": "EC2 instance type for SigNoz",
+              "type": "string",
+              "default": "t3.medium"
+            },
+            "signoz_volume_size": {
+              "description": "Root volume size (GB) for SigNoz instances",
+              "type": "number",
+              "default": 50
+            }
+          }
+        }
+  ingester:
+    spec:
+      cluster:
+        replicas: 1
+      config:
+        data:
+          ingester.yaml: |
+            connectors:
+              signozmeter:
+                metrics_flush_interval: 1h
+                dimensions:
+                  - name: service.name
+                  - name: deployment.environment
+                  - name: host.name
+            receivers:
+              otlp:
+                protocols:
+                  grpc:
+                    endpoint: "0.0.0.0:4317"
+                  http:
+                    endpoint: "0.0.0.0:4318"
+            processors:
+              batch:
+                send_batch_size: 50000
+                send_batch_max_size: 55000
+                timeout: 5s
+              batch/meter:
+                send_batch_size: 20000
+                send_batch_max_size: 25000
+                timeout: 5s
+              signozspanmetrics/delta:
+                metrics_exporter: signozclickhousemetrics
+                metrics_flush_interval: 60s
+                latency_histogram_buckets:
+                  - 100us
+                  - 1ms
+                  - 2ms
+                  - 6ms
+                  - 10ms
+                  - 50ms
+                  - 100ms
+                  - 250ms
+                  - 500ms
+                  - 1000ms
+                  - 1400ms
+                  - 2000ms
+                  - 5s
+                  - 10s
+                  - 20s
+                  - 40s
+                  - 60s
+                dimensions_cache_size: 100000
+                aggregation_temporality: AGGREGATION_TEMPORALITY_DELTA
+                enable_exp_histogram: true
+                dimensions:
+                  - name: service.namespace
+                    default: default
+                  - name: deployment.environment
+                    default: default
+                  - name: signoz.collector.id
+                  - name: service.version
+            exporters:
+              clickhousetraces:
+                datasource: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_traces
+                low_cardinal_exception_grouping: ${env:LOW_CARDINAL_EXCEPTION_GROUPING}
+                use_new_schema: true
+                timeout: 45s
+                sending_queue:
+                  enabled: false
+              signozclickhousemetrics:
+                dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_metrics
+                timeout: 45s
+                sending_queue:
+                  enabled: false
+              clickhouselogsexporter:
+                dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_logs
+                use_new_schema: true
+                timeout: 45s
+                sending_queue:
+                  enabled: false
+              signozclickhousemeter:
+                dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_meter
+                timeout: 45s
+                sending_queue:
+                  enabled: false
+              metadataexporter:
+                enabled: true
+                dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_metadata
+                timeout: 45s
+                cache:
+                  provider: in_memory
+            extensions:
+              signoz_health_check:
+                endpoint: "0.0.0.0:13133"
+              pprof:
+                endpoint: "0.0.0.0:1777"
+            service:
+              telemetry:
+                logs:
+                  encoding: json
+              extensions:
+                - signoz_health_check
+                - pprof
+              pipelines:
+                traces:
+                  receivers:
+                    - otlp
+                  processors:
+                    - signozspanmetrics/delta
+                    - batch
+                  exporters:
+                    - clickhousetraces
+                    - signozmeter
+                    - metadataexporter
+                metrics:
+                  receivers:
+                    - otlp
+                  processors:
+                    - batch
+                  exporters:
+                    - signozclickhousemetrics
+                    - signozmeter
+                    - metadataexporter
+                logs:
+                  receivers:
+                    - otlp
+                  processors:
+                    - batch
+                  exporters:
+                    - clickhouselogsexporter
+                    - signozmeter
+                    - metadataexporter
+                metrics/meter:
+                  receivers:
+                    - signozmeter
+                  processors:
+                    - batch/meter
+                  exporters:
+                    - signozclickhousemeter
+          opamp.yaml: |
+            server_endpoint: ws://signoz-signoz:4320/v1/opamp
+      enabled: true
+      env:
+        SIGNOZ_OTEL_COLLECTOR_TIMEOUT: 10m
+      image: signoz/signoz-otel-collector:latest
+      version: latest
+    status:
+      addresses:
+        otlp:
+        - tcp://signoz-ingester:4317
+      config:
+        data:
+          ingester.yaml: |
+            connectors:
+              signozmeter:
+                metrics_flush_interval: 1h
+                dimensions:
+                  - name: service.name
+                  - name: deployment.environment
+                  - name: host.name
+            receivers:
+              otlp:
+                protocols:
+                  grpc:
+                    endpoint: "0.0.0.0:4317"
+                  http:
+                    endpoint: "0.0.0.0:4318"
+            processors:
+              batch:
+                send_batch_size: 50000
+                send_batch_max_size: 55000
+                timeout: 5s
+              batch/meter:
+                send_batch_size: 20000
+                send_batch_max_size: 25000
+                timeout: 5s
+              signozspanmetrics/delta:
+                metrics_exporter: signozclickhousemetrics
+                metrics_flush_interval: 60s
+                latency_histogram_buckets:
+                  - 100us
+                  - 1ms
+                  - 2ms
+                  - 6ms
+                  - 10ms
+                  - 50ms
+                  - 100ms
+                  - 250ms
+                  - 500ms
+                  - 1000ms
+                  - 1400ms
+                  - 2000ms
+                  - 5s
+                  - 10s
+                  - 20s
+                  - 40s
+                  - 60s
+                dimensions_cache_size: 100000
+                aggregation_temporality: AGGREGATION_TEMPORALITY_DELTA
+                enable_exp_histogram: true
+                dimensions:
+                  - name: service.namespace
+                    default: default
+                  - name: deployment.environment
+                    default: default
+                  - name: signoz.collector.id
+                  - name: service.version
+            exporters:
+              clickhousetraces:
+                datasource: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_traces
+                low_cardinal_exception_grouping: ${env:LOW_CARDINAL_EXCEPTION_GROUPING}
+                use_new_schema: true
+                timeout: 45s
+                sending_queue:
+                  enabled: false
+              signozclickhousemetrics:
+                dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_metrics
+                timeout: 45s
+                sending_queue:
+                  enabled: false
+              clickhouselogsexporter:
+                dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_logs
+                use_new_schema: true
+                timeout: 45s
+                sending_queue:
+                  enabled: false
+              signozclickhousemeter:
+                dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_meter
+                timeout: 45s
+                sending_queue:
+                  enabled: false
+              metadataexporter:
+                enabled: true
+                dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_metadata
+                timeout: 45s
+                cache:
+                  provider: in_memory
+            extensions:
+              signoz_health_check:
+                endpoint: "0.0.0.0:13133"
+              pprof:
+                endpoint: "0.0.0.0:1777"
+            service:
+              telemetry:
+                logs:
+                  encoding: json
+              extensions:
+                - signoz_health_check
+                - pprof
+              pipelines:
+                traces:
+                  receivers:
+                    - otlp
+                  processors:
+                    - signozspanmetrics/delta
+                    - batch
+                  exporters:
+                    - clickhousetraces
+                    - signozmeter
+                    - metadataexporter
+                metrics:
+                  receivers:
+                    - otlp
+                  processors:
+                    - batch
+                  exporters:
+                    - signozclickhousemetrics
+                    - signozmeter
+                    - metadataexporter
+                logs:
+                  receivers:
+                    - otlp
+                  processors:
+                    - batch
+                  exporters:
+                    - clickhouselogsexporter
+                    - signozmeter
+                    - metadataexporter
+                metrics/meter:
+                  receivers:
+                    - signozmeter
+                  processors:
+                    - batch/meter
+                  exporters:
+                    - signozclickhousemeter
+          opamp.yaml: |
+            server_endpoint: ws://signoz-signoz:4320/v1/opamp
+      env:
+        SIGNOZ_OTEL_COLLECTOR_TIMEOUT: 10m
+  metastore:
+    kind: postgres
+    spec:
+      cluster:
+        replicas: 1
+      config: {}
+      enabled: true
+      env:
+        POSTGRES_DB: signoz
+        POSTGRES_PASSWORD: signoz
+        POSTGRES_USER: signoz
+      image: postgres:16
+      version: "16"
+    status:
+      addresses:
+        dsn:
+        - tcp://signoz-metastore-postgres-0:5432
+      config: {}
+      env:
+        POSTGRES_DB: signoz
+        POSTGRES_PASSWORD: signoz
+        POSTGRES_USER: signoz
+  signoz:
+    spec:
+      cluster:
+        replicas: 1
+      config: {}
+      enabled: true
+      env:
+        SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@signoz-metastore-postgres-0:5432/signoz?sslmode=disable
+        SIGNOZ_SQLSTORE_PROVIDER: postgres
+        SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://signoz-telemetrystore-clickhouse-0-0:9000
+        SIGNOZ_TELEMETRYSTORE_PROVIDER: clickhouse
+      image: signoz/signoz:latest
+      version: latest
+    status:
+      addresses:
+        apiserver:
+        - tcp://signoz-signoz:8080
+        opamp:
+        - ws://signoz-signoz:4320
+      config: {}
+      env:
+        SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@signoz-metastore-postgres-0:5432/signoz?sslmode=disable
+        SIGNOZ_SQLSTORE_PROVIDER: postgres
+        SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://signoz-telemetrystore-clickhouse-0-0:9000
+        SIGNOZ_TELEMETRYSTORE_PROVIDER: clickhouse
+  telemetrykeeper:
+    kind: clickhousekeeper
+    spec:
+      cluster:
+        replicas: 1
+      config:
+        data:
+          keeper-0.yaml: |
+            listen_host: 0.0.0.0
+            logger:
+              level: information
+              console: true
+            keeper_server:
+              four_letter_word_white_list: "*"
+              coordination_settings:
+                operation_timeout_ms: 10000
+                raft_logs_level: warning
+                session_timeout_ms: 30000
+                force_sync: false
+                snapshot_distance: 100000
+                snapshots_to_keep: 3
+              log_storage_path: /var/lib/clickhouse/coordination/log
+              raft_configuration:
+                server:
+                - hostname: signoz-telemetrykeeper-clickhousekeeper-0
+                  port: 9234
+                  id: 0
+              server_id: 0
+              snapshot_storage_path: /var/lib/clickhouse/coordination/snapshots
+              tcp_port: 9181
+      enabled: true
+      image: clickhouse/clickhouse-keeper:25.5.6
+      version: 25.5.6
+    status:
+      addresses:
+        client:
+        - tcp://signoz-telemetrykeeper-clickhousekeeper-0:9181
+        raft:
+        - tcp://signoz-telemetrykeeper-clickhousekeeper-0:9234
+      config:
+        data:
+          keeper-0.yaml: |
+            listen_host: 0.0.0.0
+            logger:
+              level: information
+              console: true
+            keeper_server:
+              four_letter_word_white_list: "*"
+              coordination_settings:
+                operation_timeout_ms: 10000
+                raft_logs_level: warning
+                session_timeout_ms: 30000
+                force_sync: false
+                snapshot_distance: 100000
+                snapshots_to_keep: 3
+              log_storage_path: /var/lib/clickhouse/coordination/log
+              raft_configuration:
+                server:
+                - hostname: signoz-telemetrykeeper-clickhousekeeper-0
+                  port: 9234
+                  id: 0
+              server_id: 0
+              snapshot_storage_path: /var/lib/clickhouse/coordination/snapshots
+              tcp_port: 9181
+  telemetrystore:
+    kind: clickhouse
+    spec:
+      cluster:
+        replicas: 0
+        shards: 1
+      config:
+        data:
+          config.yaml: |
+            path: /var/lib/clickhouse/
+            tmp_path: /var/lib/clickhouse/tmp/
+            user_files_path: /var/lib/clickhouse/user_files/
+            format_schema_path: /var/lib/clickhouse/format_schemas/
+            dictionaries_config: '*_dictionary.xml'
+            display_name: cluster
+            distributed_ddl:
+                path: /clickhouse/task_queue/ddl
+            http_port: 8123
+            interserver_http_port: 9009
+            listen_host: 0.0.0.0
+            logger:
+                console: 1
+                count: 10
+                formatting:
+                    type: console
+                level: information
+                size: 1000M
+            macros:
+                replica: "01"
+                shard: "01"
+            profiles:
+                default:
+                    allow_simdjson: 0
+                    load_balancing: random
+                    log_queries: 1
+            quotas:
+                default:
+                    interval:
+                        duration: 3600
+                        errors: 0
+                        execution_time: 0
+                        queries: 0
+                        read_rows: 0
+                        result_rows: 0
+            user_directories:
+              users_xml:
+                path: users.xml
+            remote_servers:
+              cluster:
+                shard:
+                - replica:
+                      - host: signoz-telemetrystore-clickhouse-0-0
+                        port: 9000
+            zookeeper:
+              node:
+                - host: signoz-telemetrykeeper-clickhousekeeper-0
+                  port: 9181
+            query_log:
+                flush_interval_milliseconds: 30000
+                partition_by: toYYYYMM(event_date)
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            query_thread_log:
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            query_metric_log:
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            query_views_log:
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            part_log:
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            metric_log:
+                flush_interval_milliseconds: 30000
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            asynchronous_metric_log:
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            trace_log:
+                flush_interval_milliseconds: 30000
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            error_log:
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            latency_log:
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            processors_profile_log:
+                flush_interval_milliseconds: 30000
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            session_log:
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            text_log:
+                flush_interval_milliseconds: 30000
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            zookeeper_log:
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            tcp_port: 9000
+            user_defined_executable_functions_config: '*function.yaml'
+            user_scripts_path: /var/lib/clickhouse/user_scripts/
+            users:
+                default:
+                    access_management: 1
+                    named_collection_control: 1
+                    networks:
+                        ip: ::/0
+                    password: ""
+                    profile: default
+                    quota: default
+                    show_named_collection: 1
+                    show_named_collection_secrets: 1
+          functions.yaml: |
+            functions:
+              argument:
+                  - name: buckets
+                    type: Array(Float64)
+                  - name: counts
+                    type: Array(Float64)
+                  - name: quantile
+                    type: Array(Float64)
+              command: ./histogramQuantile
+              format: CSV
+              name: histogramQuantile
+              return_type: Float64
+              type: executable
+      enabled: true
+      image: clickhouse/clickhouse-server:25.5.6
+      version: 25.5.6
+    status:
+      addresses:
+        tcp:
+        - tcp://signoz-telemetrystore-clickhouse-0-0:9000
+      config:
+        data:
+          config.yaml: |
+            path: /var/lib/clickhouse/
+            tmp_path: /var/lib/clickhouse/tmp/
+            user_files_path: /var/lib/clickhouse/user_files/
+            format_schema_path: /var/lib/clickhouse/format_schemas/
+            dictionaries_config: '*_dictionary.xml'
+            display_name: cluster
+            distributed_ddl:
+                path: /clickhouse/task_queue/ddl
+            http_port: 8123
+            interserver_http_port: 9009
+            listen_host: 0.0.0.0
+            logger:
+                console: 1
+                count: 10
+                formatting:
+                    type: console
+                level: information
+                size: 1000M
+            macros:
+                replica: "01"
+                shard: "01"
+            profiles:
+                default:
+                    allow_simdjson: 0
+                    load_balancing: random
+                    log_queries: 1
+            quotas:
+                default:
+                    interval:
+                        duration: 3600
+                        errors: 0
+                        execution_time: 0
+                        queries: 0
+                        read_rows: 0
+                        result_rows: 0
+            user_directories:
+              users_xml:
+                path: users.xml
+            remote_servers:
+              cluster:
+                shard:
+                - replica:
+                      - host: signoz-telemetrystore-clickhouse-0-0
+                        port: 9000
+            zookeeper:
+              node:
+                - host: signoz-telemetrykeeper-clickhousekeeper-0
+                  port: 9181
+            query_log:
+                flush_interval_milliseconds: 30000
+                partition_by: toYYYYMM(event_date)
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            query_thread_log:
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            query_metric_log:
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            query_views_log:
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            part_log:
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            metric_log:
+                flush_interval_milliseconds: 30000
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            asynchronous_metric_log:
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            trace_log:
+                flush_interval_milliseconds: 30000
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            error_log:
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            latency_log:
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            processors_profile_log:
+                flush_interval_milliseconds: 30000
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            session_log:
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            text_log:
+                flush_interval_milliseconds: 30000
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            zookeeper_log:
+                ttl: "event_date + INTERVAL 1 DAY DELETE"
+            tcp_port: 9000
+            user_defined_executable_functions_config: '*function.yaml'
+            user_scripts_path: /var/lib/clickhouse/user_scripts/
+            users:
+                default:
+                    access_management: 1
+                    named_collection_control: 1
+                    networks:
+                        ip: ::/0
+                    password: ""
+                    profile: default
+                    quota: default
+                    show_named_collection: 1
+                    show_named_collection_secrets: 1
+          functions.yaml: |
+            functions:
+              argument:
+                  - name: buckets
+                    type: Array(Float64)
+                  - name: counts
+                    type: Array(Float64)
+                  - name: quantile
+                    type: Array(Float64)
+              command: ./histogramQuantile
+              format: CSV
+              name: histogramQuantile
+              return_type: Float64
+              type: executable
