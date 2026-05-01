@@ -9,13 +9,13 @@ download checksum, installs the binary into `$XDG_BIN_HOME` or `~/.local/bin`,
 and prints a PATH hint if needed:
 
 ```bash
-curl -fsSL https://signoz.io/signoz.sh | bash
+curl -fsSL https://signoz.io/foundry.sh | bash
 ```
 
 Pin a specific version:
 
 ```bash
-curl -fsSL https://signoz.io/signoz.sh | FOUNDRY_VERSION=v0.1.4 bash
+curl -fsSL https://signoz.io/foundry.sh | FOUNDRY_VERSION=v0.1.4 bash
 ```
 
 ### Manual install

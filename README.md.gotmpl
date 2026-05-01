@@ -40,7 +40,7 @@ Foundry abstracts away the complexities of the installation process so you can s
 **1. Install foundryctl**
 
 ```bash
-curl -fsSL https://signoz.io/signoz.sh | bash
+curl -fsSL https://signoz.io/foundry.sh | bash
 ```
 
 See [Getting Started](docs/getting-started.md) for manual install options and PATH setup.

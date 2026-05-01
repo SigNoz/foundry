@@ -1,13 +1,13 @@
 #!/bin/bash
-# install.sh - Downloads, verifies, and installs the foundryctl binary
+# foundry.sh - Downloads, verifies, and installs the foundryctl binary
 # from GitHub releases.
 #
 # Usage:
-#   curl -fsSL https://signoz.io/signoz.sh | bash
-#   curl -fsSL https://signoz.io/signoz.sh | FOUNDRY_VERSION=v0.1.4 bash
-#   bash install.sh -v v0.1.4
-#   bash install.sh -d /usr/local/bin
-#   bash install.sh -h
+#   curl -fsSL https://signoz.io/foundry.sh | bash
+#   curl -fsSL https://signoz.io/foundry.sh | FOUNDRY_VERSION=v0.1.4 bash
+#   bash foundry.sh -v v0.1.4
+#   bash foundry.sh -d /usr/local/bin
+#   bash foundry.sh -h
 #
 # OPTIONS:
 #   -v <version>   Version to install (e.g. v0.1.4). Default: latest.
@@ -21,7 +21,7 @@
 #   FOUNDRY_ASSUME_YES    Equivalent to -y. Set to "true" to enable.
 #   NO_COLOR              When set, disables ANSI color output (https://no-color.org).
 
-readonly NAME="install.sh"
+readonly NAME="foundry.sh"
 readonly REPO="SigNoz/foundry"
 readonly BINARY="foundryctl"
 
@@ -67,8 +67,8 @@ help() {
   printf "EXAMPLES\n"
   printf "\t%s -v v0.1.4\n" "${NAME}"
   printf "\t%s -d /usr/local/bin\n" "${NAME}"
-  printf "\tcurl -fsSL https://signoz.io/signoz.sh | bash\n"
-  printf "\tcurl -fsSL https://signoz.io/signoz.sh | FOUNDRY_VERSION=v0.1.4 bash\n"
+  printf "\tcurl -fsSL https://signoz.io/foundry.sh | bash\n"
+  printf "\tcurl -fsSL https://signoz.io/foundry.sh | FOUNDRY_VERSION=v0.1.4 bash\n"
 }
 
 init_arch() {
