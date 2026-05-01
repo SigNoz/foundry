@@ -47,7 +47,7 @@ func (enricher *ecsMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alp
 			return fmt.Errorf("failed to get telemetrystore service discovery name: %w", err)
 		}
 		fqdn := fmt.Sprintf("%s.%s", string(sdName), namespace)
-		config.Spec.TelemetryStore.Status.Addresses.TCP = []string{domain.FormatAddress("tcp", fqdn, telemetryStorePort)}
+		config.Spec.TelemetryStore.Status.Addresses.TCP = []string{domain.MustNewAddress("tcp", fqdn, telemetryStorePort).String()}
 
 	case v1alpha1.MoldingKindTelemetryKeeper:
 		sdName, err := enricher.materials[2].GetBytes("resource.aws_service_discovery_service.telemetrykeeper.name")
@@ -55,8 +55,8 @@ func (enricher *ecsMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alp
 			return fmt.Errorf("failed to get telemetrykeeper service discovery name: %w", err)
 		}
 		fqdn := fmt.Sprintf("%s.%s", string(sdName), namespace)
-		config.Spec.TelemetryKeeper.Status.Addresses.Client = []string{domain.FormatAddress("tcp", fqdn, telemetryKeeperClientPort)}
-		config.Spec.TelemetryKeeper.Status.Addresses.Raft = []string{domain.FormatAddress("tcp", fqdn, telemetryKeeperRaftPort)}
+		config.Spec.TelemetryKeeper.Status.Addresses.Client = []string{domain.MustNewAddress("tcp", fqdn, telemetryKeeperClientPort).String()}
+		config.Spec.TelemetryKeeper.Status.Addresses.Raft = []string{domain.MustNewAddress("tcp", fqdn, telemetryKeeperRaftPort).String()}
 
 	case v1alpha1.MoldingKindMetaStore:
 		sdName, err := enricher.materials[3].GetBytes("resource.aws_service_discovery_service.metastore.name")
@@ -64,7 +64,7 @@ func (enricher *ecsMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alp
 			return fmt.Errorf("failed to get metastore service discovery name: %w", err)
 		}
 		fqdn := fmt.Sprintf("%s.%s", string(sdName), namespace)
-		config.Spec.MetaStore.Status.Addresses.DSN = []string{domain.FormatAddress("tcp", fqdn, metaStorePort)}
+		config.Spec.MetaStore.Status.Addresses.DSN = []string{domain.MustNewAddress("tcp", fqdn, metaStorePort).String()}
 
 	case v1alpha1.MoldingKindSignoz:
 		sdName, err := enricher.materials[4].GetBytes("resource.aws_service_discovery_service.signoz.name")
@@ -72,8 +72,8 @@ func (enricher *ecsMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alp
 			return fmt.Errorf("failed to get signoz service discovery name: %w", err)
 		}
 		fqdn := fmt.Sprintf("%s.%s", string(sdName), namespace)
-		config.Spec.Signoz.Status.Addresses.APIServer = []string{domain.FormatAddress("tcp", fqdn, signozAPIPort)}
-		config.Spec.Signoz.Status.Addresses.Opamp = []string{domain.FormatAddress("ws", fqdn, signozOpampPort)}
+		config.Spec.Signoz.Status.Addresses.APIServer = []string{domain.MustNewAddress("tcp", fqdn, signozAPIPort).String()}
+		config.Spec.Signoz.Status.Addresses.Opamp = []string{domain.MustNewAddress("ws", fqdn, signozOpampPort).String()}
 	}
 
 	return nil

@@ -42,13 +42,13 @@ func newData(config *v1alpha1.Casting) (Data, error) {
 		return Data{}, fmt.Errorf("insufficient client addresses: have %d, need %d servers", len(clientAddresses), data.ServerCount)
 	}
 
-	newRaftAddrs, err := domain.NewAddresses(raftAddresses[:data.ServerCount])
+	newRaftAddrs, err := domain.ParseAddresses(raftAddresses[:data.ServerCount])
 	if err != nil {
 		return Data{}, fmt.Errorf("failed to parse raft addresses: %w", err)
 	}
 	data.RaftAddresses = newRaftAddrs
 
-	newClientAddrs, err := domain.NewAddresses(clientAddresses[:data.ServerCount])
+	newClientAddrs, err := domain.ParseAddresses(clientAddresses[:data.ServerCount])
 	if err != nil {
 		return Data{}, fmt.Errorf("failed to parse client addresses: %w", err)
 	}

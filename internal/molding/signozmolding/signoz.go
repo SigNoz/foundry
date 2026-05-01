@@ -57,7 +57,7 @@ func (molding *signoz) MoldV1Alpha1(ctx context.Context, config *v1alpha1.Castin
 				molding.logger.WarnContext(ctx, "SIGNOZ_SQLSTORE_POSTGRES_DSN is going to be overridden", slog.String("value", val))
 			}
 			// construct postgres dsn with user, password, host, port, and db
-			addrs, err := domain.NewAddresses(config.Spec.MetaStore.Status.Addresses.DSN)
+			addrs, err := domain.ParseAddresses(config.Spec.MetaStore.Status.Addresses.DSN)
 			if err != nil {
 				return fmt.Errorf("failed to parse addresses: %w", err)
 			}

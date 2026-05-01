@@ -64,7 +64,7 @@ func (e *linuxMoldingEnricher) enrichTelemetryStore(config *v1alpha1.Casting) er
 	for shard := 0; shard < shards; shard++ {
 		for replica := 0; replica < replicas; replica++ {
 			port := baseTelemetryStoreClusterPort + (shard * replicas) + replica
-			addresses = append(addresses, domain.FormatAddress("tcp", "localhost", port))
+			addresses = append(addresses, domain.MustNewAddress("tcp", "localhost", port).String())
 		}
 	}
 
@@ -87,8 +87,8 @@ func (e *linuxMoldingEnricher) enrichTelemetryKeeper(config *v1alpha1.Casting) e
 
 	var clientAddresses, raftAddresses []string
 	for r := 0; r < replicas; r++ {
-		clientAddresses = append(clientAddresses, domain.FormatAddress("tcp", "localhost", baseTelemetryKeeperClientPort+r))
-		raftAddresses = append(raftAddresses, domain.FormatAddress("tcp", "localhost", baseTelemetryKeeperRaftPort+r))
+		clientAddresses = append(clientAddresses, domain.MustNewAddress("tcp", "localhost", baseTelemetryKeeperClientPort+r).String())
+		raftAddresses = append(raftAddresses, domain.MustNewAddress("tcp", "localhost", baseTelemetryKeeperRaftPort+r).String())
 	}
 
 	config.Spec.TelemetryKeeper.Status.Addresses.Client = clientAddresses
@@ -101,7 +101,7 @@ func (e *linuxMoldingEnricher) enrichMetaStore(config *v1alpha1.Casting) error {
 	case v1alpha1.MetaStoreKindSQLite:
 		// SQLite — no addresses or binaries to enrich.
 	case v1alpha1.MetaStoreKindPostgres:
-		dsn := domain.FormatAddress("postgres", "localhost", baseMetaStorePostgresPort)
+		dsn := domain.MustNewAddress("postgres", "localhost", baseMetaStorePostgresPort).String()
 		config.Spec.MetaStore.Status.Addresses.DSN = []string{dsn}
 
 		// Get the annotation value
@@ -122,10 +122,10 @@ func (e *linuxMoldingEnricher) enrichMetaStore(config *v1alpha1.Casting) error {
 
 func (e *linuxMoldingEnricher) enrichSignoz(config *v1alpha1.Casting) error {
 	config.Spec.Signoz.Status.Addresses.Opamp = []string{
-		domain.FormatAddress("ws", "localhost", 4320),
+		domain.MustNewAddress("ws", "localhost", 4320).String(),
 	}
 	config.Spec.Signoz.Status.Addresses.APIServer = []string{
-		domain.FormatAddress("tcp", "localhost", 8080),
+		domain.MustNewAddress("tcp", "localhost", 8080).String(),
 	}
 
 	// Get the annotation value
@@ -146,7 +146,7 @@ func (e *linuxMoldingEnricher) enrichSignoz(config *v1alpha1.Casting) error {
 
 func (e *linuxMoldingEnricher) enrichIngester(config *v1alpha1.Casting) error {
 	config.Spec.Ingester.Status.Addresses.OTLP = []string{
-		domain.FormatAddress("tcp", "localhost", 4317),
+		domain.MustNewAddress("tcp", "localhost", 4317).String(),
 	}
 
 	// Get the annotation value

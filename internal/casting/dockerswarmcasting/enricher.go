@@ -38,7 +38,7 @@ func (enricher *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, ki
 		var telemetrystoreAddresses []string
 		for _, name := range containerNames {
 			if strings.Contains(name, "telemetrystore-clickhouse") && !strings.Contains(name, "user-scripts") {
-				telemetrystoreAddresses = append(telemetrystoreAddresses, domain.FormatAddress("tcp", name, 9000))
+				telemetrystoreAddresses = append(telemetrystoreAddresses, domain.MustNewAddress("tcp", name, 9000).String())
 			}
 		}
 
@@ -54,8 +54,8 @@ func (enricher *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, ki
 		var opampAddr []string
 		for _, name := range containerNames {
 			if strings.Contains(name, "-signoz") {
-				apiServerAddr = append(apiServerAddr, domain.FormatAddress("tcp", name, 8080))
-				opampAddr = append(opampAddr, domain.FormatAddress("ws", name, 4320))
+				apiServerAddr = append(apiServerAddr, domain.MustNewAddress("tcp", name, 8080).String())
+				opampAddr = append(opampAddr, domain.MustNewAddress("ws", name, 4320).String())
 			}
 		}
 		config.Spec.Signoz.Status.Addresses.APIServer = apiServerAddr
@@ -70,7 +70,7 @@ func (enricher *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, ki
 		var clientAddresses []string
 		for _, name := range containerNames {
 			if strings.Contains(name, "telemetrykeeper") {
-				clientAddresses = append(clientAddresses, domain.FormatAddress("tcp", name, 9181))
+				clientAddresses = append(clientAddresses, domain.MustNewAddress("tcp", name, 9181).String())
 			}
 		}
 		config.Spec.TelemetryKeeper.Status.Addresses.Client = clientAddresses
@@ -78,7 +78,7 @@ func (enricher *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, ki
 		var raftAddresses []string
 		for _, name := range containerNames {
 			if strings.Contains(name, "telemetrykeeper") {
-				raftAddresses = append(raftAddresses, domain.FormatAddress("tcp", name, 9234))
+				raftAddresses = append(raftAddresses, domain.MustNewAddress("tcp", name, 9234).String())
 			}
 		}
 		config.Spec.TelemetryKeeper.Status.Addresses.Raft = raftAddresses
@@ -92,7 +92,7 @@ func (enricher *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, ki
 		var metastoreAddresses []string
 		for _, name := range containerNames {
 			if strings.Contains(name, "metastore") {
-				metastoreAddresses = append(metastoreAddresses, domain.FormatAddress("tcp", name, 5432))
+				metastoreAddresses = append(metastoreAddresses, domain.MustNewAddress("tcp", name, 5432).String())
 			}
 		}
 		config.Spec.MetaStore.Status.Addresses.DSN = metastoreAddresses
@@ -106,7 +106,7 @@ func (enricher *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, ki
 		var ingesterAddresses []string
 		for _, name := range containerNames {
 			if strings.Contains(name, "ingester") {
-				ingesterAddresses = append(ingesterAddresses, domain.FormatAddress("tcp", name, 9000))
+				ingesterAddresses = append(ingesterAddresses, domain.MustNewAddress("tcp", name, 9000).String())
 			}
 		}
 		config.Spec.Ingester.Status.Addresses.OTLP = ingesterAddresses

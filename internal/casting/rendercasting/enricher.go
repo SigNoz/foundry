@@ -38,7 +38,7 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 		var storeServiceNames []string
 		for _, serviceName := range serviceNames {
 			if strings.Contains(serviceName, "telemetrystore") && !strings.Contains(serviceName, "migrator") {
-				addrs = append(addrs, domain.FormatAddress("tcp", serviceName, 9000))
+				addrs = append(addrs, domain.MustNewAddress("tcp", serviceName, 9000).String())
 				storeServiceNames = append(storeServiceNames, serviceName)
 			}
 		}
@@ -61,8 +61,8 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 		var opampAddr []string
 		for _, serviceName := range serviceNames {
 			if strings.Contains(serviceName, "-signoz") {
-				apiServerAddr = append(apiServerAddr, domain.FormatAddress("tcp", serviceName, 8080))
-				opampAddr = append(opampAddr, domain.FormatAddress("ws", serviceName, 4320))
+				apiServerAddr = append(apiServerAddr, domain.MustNewAddress("tcp", serviceName, 8080).String())
+				opampAddr = append(opampAddr, domain.MustNewAddress("ws", serviceName, 4320).String())
 			}
 		}
 		config.Spec.Signoz.Status.Addresses.APIServer = apiServerAddr
@@ -80,8 +80,8 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 		var keeperServiceNames []string
 		for _, serviceName := range serviceNames {
 			if strings.Contains(serviceName, "telemetrykeeper") {
-				addrsClient = append(addrsClient, domain.FormatAddress("tcp", serviceName, 9181))
-				addrsRaft = append(addrsRaft, domain.FormatAddress("tcp", serviceName, 9234))
+				addrsClient = append(addrsClient, domain.MustNewAddress("tcp", serviceName, 9181).String())
+				addrsRaft = append(addrsRaft, domain.MustNewAddress("tcp", serviceName, 9234).String())
 				keeperServiceNames = append(keeperServiceNames, serviceName)
 			}
 		}
@@ -104,7 +104,7 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 		var addrs []string
 		for _, serviceName := range serviceNames {
 			if strings.Contains(serviceName, "ingester") {
-				addrs = append(addrs, domain.FormatAddress("tcp", serviceName, 4318))
+				addrs = append(addrs, domain.MustNewAddress("tcp", serviceName, 4318).String())
 			}
 		}
 		config.Spec.Ingester.Status.Addresses.OTLP = addrs

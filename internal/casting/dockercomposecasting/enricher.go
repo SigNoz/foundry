@@ -39,7 +39,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		var telemetrystoreContainerNames []string
 		for _, containerName := range containerNames {
 			if strings.Contains(containerName, "telemetrystore-clickhouse") && !strings.Contains(containerName, "user-scripts") {
-				telemetrystoreContainerNames = append(telemetrystoreContainerNames, domain.FormatAddress("tcp", containerName, 9000))
+				telemetrystoreContainerNames = append(telemetrystoreContainerNames, domain.MustNewAddress("tcp", containerName, 9000).String())
 			}
 		}
 
@@ -56,8 +56,8 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		var opampAddr []string
 		for _, containerName := range containerNames {
 			if strings.Contains(containerName, "-signoz") {
-				apiServerAddr = append(apiServerAddr, domain.FormatAddress("tcp", containerName, 8080))
-				opampAddr = append(opampAddr, domain.FormatAddress("ws", containerName, 4320))
+				apiServerAddr = append(apiServerAddr, domain.MustNewAddress("tcp", containerName, 8080).String())
+				opampAddr = append(opampAddr, domain.MustNewAddress("ws", containerName, 4320).String())
 			}
 		}
 		config.Spec.Signoz.Status.Addresses.APIServer = apiServerAddr
@@ -73,7 +73,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		var telemetrykeeperContainerNames []string
 		for _, containerName := range containerNames {
 			if strings.Contains(containerName, "telemetrykeeper") {
-				telemetrykeeperContainerNames = append(telemetrykeeperContainerNames, domain.FormatAddress("tcp", containerName, 9181))
+				telemetrykeeperContainerNames = append(telemetrykeeperContainerNames, domain.MustNewAddress("tcp", containerName, 9181).String())
 			}
 		}
 
@@ -82,7 +82,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		var telemetryRaftaddress []string
 		for _, containerName := range containerNames {
 			if strings.Contains(containerName, "telemetrykeeper") {
-				telemetryRaftaddress = append(telemetryRaftaddress, domain.FormatAddress("tcp", containerName, 9234))
+				telemetryRaftaddress = append(telemetryRaftaddress, domain.MustNewAddress("tcp", containerName, 9234).String())
 			}
 		}
 
@@ -98,7 +98,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		var metastoreContainerNames []string
 		for _, containerName := range containerNames {
 			if strings.Contains(containerName, "metastore") {
-				metastoreContainerNames = append(metastoreContainerNames, domain.FormatAddress("tcp", containerName, 5432))
+				metastoreContainerNames = append(metastoreContainerNames, domain.MustNewAddress("tcp", containerName, 5432).String())
 			}
 		}
 
@@ -114,7 +114,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		var ingesterContainerNames []string
 		for _, containerName := range containerNames {
 			if strings.Contains(containerName, "ingester") {
-				ingesterContainerNames = append(ingesterContainerNames, domain.FormatAddress("tcp", containerName, 4317))
+				ingesterContainerNames = append(ingesterContainerNames, domain.MustNewAddress("tcp", containerName, 4317).String())
 			}
 		}
 

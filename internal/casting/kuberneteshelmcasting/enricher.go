@@ -37,7 +37,7 @@ func (e *helmMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.Mo
 
 func (e *helmMoldingEnricher) enrichTelemetryStore(config *v1alpha1.Casting) error {
 	name := fmt.Sprintf("%s-telemetrystore-%s", config.Metadata.Name, config.Spec.TelemetryStore.Kind)
-	config.Spec.TelemetryStore.Status.Addresses.TCP = []string{domain.FormatAddress("tcp", name, 9000)}
+	config.Spec.TelemetryStore.Status.Addresses.TCP = []string{domain.MustNewAddress("tcp", name, 9000).String()}
 	return nil
 }
 
@@ -54,8 +54,8 @@ func (e *helmMoldingEnricher) enrichTelemetryKeeper(config *v1alpha1.Casting) er
 	base := fmt.Sprintf("%s-telemetrykeeper-zookeeper", config.Metadata.Name)
 	var client, raft []string
 	for i := 0; i < replicas; i++ {
-		client = append(client, domain.FormatAddress("tcp", fmt.Sprintf("%s-%d", base, i), 9181))
-		raft = append(raft, domain.FormatAddress("tcp", fmt.Sprintf("%s-%d", base, i), 9234))
+		client = append(client, domain.MustNewAddress("tcp", fmt.Sprintf("%s-%d", base, i), 9181).String())
+		raft = append(raft, domain.MustNewAddress("tcp", fmt.Sprintf("%s-%d", base, i), 9234).String())
 	}
 	config.Spec.TelemetryKeeper.Status.Addresses.Client = client
 	config.Spec.TelemetryKeeper.Status.Addresses.Raft = raft
@@ -73,7 +73,7 @@ func (e *helmMoldingEnricher) enrichMetaStore(config *v1alpha1.Casting) error {
 func (e *helmMoldingEnricher) enrichSignoz(config *v1alpha1.Casting) error {
 	// Chart uses signoz.fullname which resolves to fullnameOverride directly.
 	name := config.Metadata.Name
-	config.Spec.Signoz.Status.Addresses.Opamp = []string{domain.FormatAddress("tcp", name, 4320)}
+	config.Spec.Signoz.Status.Addresses.Opamp = []string{domain.MustNewAddress("tcp", name, 4320).String()}
 	return nil
 }
 

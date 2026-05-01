@@ -92,7 +92,7 @@ func (molding *telemetrystore) getData(config *v1alpha1.Casting) (Data, error) {
 		)
 	}
 
-	newStoreAddrs, err := domain.NewAddresses(storeAddresses[:expectedNodes])
+	newStoreAddrs, err := domain.ParseAddresses(storeAddresses[:expectedNodes])
 	if err != nil {
 		return Data{}, fmt.Errorf("failed to parse addresses: %w", err)
 	}
@@ -102,7 +102,7 @@ func (molding *telemetrystore) getData(config *v1alpha1.Casting) (Data, error) {
 		return Data{}, fmt.Errorf("telemetry keeper addresses not set in status")
 	}
 
-	newKeeperAddrs, err := domain.NewAddresses(keeperAddresses)
+	newKeeperAddrs, err := domain.ParseAddresses(keeperAddresses)
 	if err != nil {
 		return Data{}, fmt.Errorf("failed to parse addresses: %w", err)
 	}
