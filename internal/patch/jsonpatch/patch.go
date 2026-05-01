@@ -68,10 +68,10 @@ func applyToMaterial(mat domain.StructuredMaterial, patchDoc []byte) (domain.Str
 		return nil, fmt.Errorf("failed to decode json patch: %w", err)
 	}
 
-	patched, err := decoded.Apply(mat.Contents())
+	patched, err := decoded.Apply(mat.JSONContents())
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply json patch: %w", err)
 	}
 
-	return mat.WithContents(patched), nil
+	return mat.CloneWithJSONContents(patched), nil
 }

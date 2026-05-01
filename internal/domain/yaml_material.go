@@ -3,8 +3,8 @@ package domain
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 
+	"github.com/signoz/foundry/internal/errors"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 	kyaml "sigs.k8s.io/yaml"
@@ -19,33 +19,40 @@ type YAMLMaterial struct {
 }
 
 func NewYAMLMaterial(contents []byte, path string) (YAMLMaterial, error) {
-	nodes, err := (&kio.ByteReader{
-		Reader:                bytes.NewReader(contents),
-		OmitReaderAnnotations: true,
-	}).Read()
+	reader := kio.ByteReader{Reader: bytes.NewReader(contents), OmitReaderAnnotations: true}
+
+	nodes, err := reader.Read()
 	if err != nil {
-		return YAMLMaterial{}, fmt.Errorf("invalid yaml: %w", err)
+		return YAMLMaterial{}, errors.Wrapf(err, errors.TypeInvalidInput, "failed to create YAML material for path %q, the contents are not valid YAML", path)
 	}
 
 	var jsonContents []byte
 	if len(nodes) == 1 {
 		jsonContents, err = nodes[0].MarshalJSON()
 		if err != nil {
-			return YAMLMaterial{}, fmt.Errorf("failed to marshal node to json: %w", err)
+			return YAMLMaterial{}, errors.Wrapf(err, errors.TypeInternal, "failed to convert YAML material to canonical JSON for path %q", path)
 		}
-	} else {
-		var docs []json.RawMessage
-		for _, node := range nodes {
-			j, err := node.MarshalJSON()
-			if err != nil {
-				return YAMLMaterial{}, fmt.Errorf("failed to marshal node to json: %w", err)
-			}
-			docs = append(docs, j)
-		}
-		jsonContents, err = json.Marshal(docs)
+
+		return YAMLMaterial{
+			contents: jsonContents,
+			path:     path,
+			multiDoc: len(nodes) > 1,
+		}, nil
+	}
+
+	var docs []json.RawMessage
+	for _, node := range nodes {
+		jsonContents, err := node.MarshalJSON()
 		if err != nil {
-			return YAMLMaterial{}, fmt.Errorf("failed to marshal docs to json array: %w", err)
+			return YAMLMaterial{}, errors.Wrapf(err, errors.TypeInternal, "failed to convert YAML material to canonical JSON for path %q", path)
 		}
+
+		docs = append(docs, jsonContents)
+	}
+
+	jsonContents, err = json.Marshal(docs)
+	if err != nil {
+		return YAMLMaterial{}, errors.Wrapf(err, errors.TypeInternal, "failed to convert multi-document YAML material to canonical JSON for path %q", path)
 	}
 
 	return YAMLMaterial{
@@ -55,11 +62,20 @@ func NewYAMLMaterial(contents []byte, path string) (YAMLMaterial, error) {
 	}, nil
 }
 
+func MustNewYAMLMaterial(contents []byte, path string) YAMLMaterial {
+	material, err := NewYAMLMaterial(contents, path)
+	if err != nil {
+		panic(err)
+	}
+
+	return material
+}
+
 func (m YAMLMaterial) Path() string {
 	return m.path
 }
 
-func (m YAMLMaterial) Contents() []byte {
+func (m YAMLMaterial) JSONContents() []byte {
 	return m.contents
 }
 
@@ -68,14 +84,41 @@ func (m YAMLMaterial) IsMultiDoc() bool {
 }
 
 func (m YAMLMaterial) FmtContents() []byte {
-	fmtContents, err := m.toYAML()
-	if err != nil {
+	if !m.IsMultiDoc() {
+		node, err := kyaml.JSONToYAML(m.contents)
+		if err != nil {
+			return nil
+		}
+
+		return node
+	}
+
+	var docs []json.RawMessage
+	if err := json.Unmarshal(m.contents, &docs); err != nil {
 		return nil
 	}
-	return fmtContents
+
+	var nodes []*yaml.RNode
+	for _, doc := range docs {
+		node, err := yaml.ConvertJSONToYamlNode(string(doc))
+		if err != nil {
+			return nil
+		}
+
+		nodes = append(nodes, node)
+	}
+
+	var buf bytes.Buffer
+	writer := kio.ByteWriter{Writer: &buf, KeepReaderAnnotations: true}
+
+	if err := writer.Write(nodes); err != nil {
+		return nil
+	}
+
+	return buf.Bytes()
 }
 
-func (m YAMLMaterial) WithContents(contents []byte) StructuredMaterial {
+func (m YAMLMaterial) CloneWithJSONContents(contents []byte) StructuredMaterial {
 	return YAMLMaterial{
 		contents: contents,
 		path:     m.path,
@@ -89,35 +132,4 @@ func (m YAMLMaterial) GetBytes(path string) ([]byte, error) {
 
 func (m YAMLMaterial) GetStringSlice(path string) ([]string, error) {
 	return getStringSlice(m.contents, path)
-}
-
-func (m YAMLMaterial) toYAML() ([]byte, error) {
-	if !m.IsMultiDoc() {
-		node, err := kyaml.JSONToYAML(m.contents)
-		if err != nil {
-			return nil, err
-		}
-		return node, nil
-	}
-
-	var docs []json.RawMessage
-	if err := json.Unmarshal(m.contents, &docs); err != nil {
-		return nil, err
-	}
-
-	var nodes []*yaml.RNode
-	for _, doc := range docs {
-		node, err := yaml.ConvertJSONToYamlNode(string(doc))
-		if err != nil {
-			return nil, err
-		}
-		nodes = append(nodes, node)
-	}
-
-	var buf bytes.Buffer
-	err := (&kio.ByteWriter{
-		Writer:                &buf,
-		KeepReaderAnnotations: true,
-	}).Write(nodes)
-	return buf.Bytes(), err
 }

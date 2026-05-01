@@ -2,6 +2,7 @@ package errors
 
 var (
 	TypeInvalidInput typ = typ{"invalid-input"}
+	TypeNotFound     typ = typ{"not-found"}
 	TypeInternal         = typ{"internal"}
 	TypeFatal            = typ{"fatal"}
 	TypeUnsupported      = typ{"unsupported"}
