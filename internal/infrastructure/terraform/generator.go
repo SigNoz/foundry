@@ -22,6 +22,12 @@ type Generator struct {
 	logger *slog.Logger
 }
 
+type templateData struct {
+	v1alpha1.Casting
+	Provider    v1alpha1.Platform
+	ComputeType infrastructure.ComputeType
+}
+
 // New creates a new Terraform Generator.
 func New(logger *slog.Logger) *Generator {
 	return &Generator{
@@ -50,6 +56,12 @@ func (g *Generator) Generate(ctx context.Context, config v1alpha1.Casting) ([]ty
 		slog.String("computeType", computeType.String()),
 	)
 
+	data := templateData{
+		Casting:     config,
+		Provider:    provider,
+		ComputeType: computeType,
+	}
+
 	mainTemplate, varsTemplate, outputsTemplate, err := g.templatesFor(provider, computeType)
 	if err != nil {
 		return nil, err
@@ -59,7 +71,7 @@ func (g *Generator) Generate(ctx context.Context, config v1alpha1.Casting) ([]ty
 
 	// main.tf.json
 	mainBuf := bytes.NewBuffer(nil)
-	if err := mainTemplate.Execute(mainBuf, config); err != nil {
+	if err := mainTemplate.Execute(mainBuf, data); err != nil {
 		return nil, fmt.Errorf("failed to execute main.tf.json template: %w", err)
 	}
 	mainMaterial, err := types.NewJSONMaterial(mainBuf.Bytes(), filepath.Join(infrastructureDir, "main.tf.json"))
@@ -70,7 +82,7 @@ func (g *Generator) Generate(ctx context.Context, config v1alpha1.Casting) ([]ty
 
 	// variables.tf.json
 	varsBuf := bytes.NewBuffer(nil)
-	if err := varsTemplate.Execute(varsBuf, config); err != nil {
+	if err := varsTemplate.Execute(varsBuf, data); err != nil {
 		return nil, fmt.Errorf("failed to execute variables.tf.json template: %w", err)
 	}
 	varsMaterial, err := types.NewJSONMaterial(varsBuf.Bytes(), filepath.Join(infrastructureDir, "variables.tf.json"))
@@ -81,7 +93,7 @@ func (g *Generator) Generate(ctx context.Context, config v1alpha1.Casting) ([]ty
 
 	// providers.tf.json
 	providersBuf := bytes.NewBuffer(nil)
-	if err := providersTFTemplate.Execute(providersBuf, config); err != nil {
+	if err := providersTFTemplate.Execute(providersBuf, data); err != nil {
 		return nil, fmt.Errorf("failed to execute providers.tf.json template: %w", err)
 	}
 	providersMaterial, err := types.NewJSONMaterial(providersBuf.Bytes(), filepath.Join(infrastructureDir, "providers.tf.json"))
@@ -92,7 +104,7 @@ func (g *Generator) Generate(ctx context.Context, config v1alpha1.Casting) ([]ty
 
 	// outputs.tf.json
 	outputsBuf := bytes.NewBuffer(nil)
-	if err := outputsTemplate.Execute(outputsBuf, config); err != nil {
+	if err := outputsTemplate.Execute(outputsBuf, data); err != nil {
 		return nil, fmt.Errorf("failed to execute outputs.tf.json template: %w", err)
 	}
 	outputsMaterial, err := types.NewJSONMaterial(outputsBuf.Bytes(), filepath.Join(infrastructureDir, "outputs.tf.json"))
