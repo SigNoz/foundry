@@ -157,8 +157,8 @@ func (c *kustomizeCasting) forgeCasting(tmpl *domain.Template, cfg *v1alpha1.Cas
 	return []domain.Material{material}, nil
 }
 
-func getOverrideMaterials(config *v1alpha1.Casting) ([]domain.Material, error) {
-	var materials []domain.Material
+func getOverrideMaterials(config *v1alpha1.Casting) ([]domain.StructuredMaterial, error) {
+	var materials []domain.StructuredMaterial
 
 	storeBuf := bytes.NewBuffer(nil)
 	if err := telemetryStoreOverrideTemplate.Execute(storeBuf, config); err != nil {
@@ -173,8 +173,8 @@ func getOverrideMaterials(config *v1alpha1.Casting) ([]domain.Material, error) {
 	return materials, nil
 }
 
-func getServiceMaterials(config *v1alpha1.Casting) ([]domain.Material, error) {
-	var materials []domain.Material
+func getServiceMaterials(config *v1alpha1.Casting) ([]domain.StructuredMaterial, error) {
+	var materials []domain.StructuredMaterial
 
 	telemetryStoreInstallationBuf := bytes.NewBuffer(nil)
 	if err := clickhouseInstanceInstallation.Execute(telemetryStoreInstallationBuf, config); err != nil {

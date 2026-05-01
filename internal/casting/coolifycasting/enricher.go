@@ -15,7 +15,7 @@ import (
 var _ molding.MoldingEnricher = (*coolifyMoldingEnricher)(nil)
 
 type coolifyMoldingEnricher struct {
-	material domain.Material
+	material domain.StructuredMaterial
 }
 
 func newCoolifyMoldingEnricher(config *v1alpha1.Casting) (*coolifyMoldingEnricher, error) {

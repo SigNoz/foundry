@@ -56,11 +56,11 @@ func (c *coolifyCasting) Cast(ctx context.Context, config v1alpha1.Casting, pour
 	return nil
 }
 
-func getCoolifyMaterial(config *v1alpha1.Casting, path string) (domain.Material, error) {
+func getCoolifyMaterial(config *v1alpha1.Casting, path string) (domain.StructuredMaterial, error) {
 	buf := bytes.NewBuffer(nil)
 	err := coolifyYAMLTemplate.Execute(buf, config)
 	if err != nil {
-		return domain.Material{}, fmt.Errorf("failed to execute coolify yaml template: %w", err)
+		return nil, fmt.Errorf("failed to execute coolify yaml template: %w", err)
 	}
 	return domain.NewYAMLMaterial(buf.Bytes(), path)
 }

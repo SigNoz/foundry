@@ -127,11 +127,11 @@ func (casting *dockerSwarmCasting) Cast(ctx context.Context, config v1alpha1.Cas
 	return nil
 }
 
-func getComposeMaterial(config *v1alpha1.Casting, path string) (domain.Material, error) {
+func getComposeMaterial(config *v1alpha1.Casting, path string) (domain.StructuredMaterial, error) {
 	buf := bytes.NewBuffer(nil)
 	err := composeYAMLTemplate.Execute(buf, config)
 	if err != nil {
-		return domain.Material{}, fmt.Errorf("failed to execute compose yaml template: %w", err)
+		return nil, fmt.Errorf("failed to execute compose yaml template: %w", err)
 	}
 
 	return domain.NewYAMLMaterial(buf.Bytes(), path)

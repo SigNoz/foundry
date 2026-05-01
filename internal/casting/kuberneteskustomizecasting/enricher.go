@@ -19,8 +19,8 @@ const (
 var _ molding.MoldingEnricher = (*kustomizeMoldingEnricher)(nil)
 
 type kustomizeMoldingEnricher struct {
-	materials         []domain.Material
-	overrideMaterials []domain.Material
+	materials         []domain.StructuredMaterial
+	overrideMaterials []domain.StructuredMaterial
 }
 
 func newKustomizeMoldingEnricher(config *v1alpha1.Casting) (*kustomizeMoldingEnricher, error) {

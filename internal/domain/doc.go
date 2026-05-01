@@ -2,8 +2,8 @@
 //
 // This package is for value objects and pure helpers that are used across
 // configuration loading, molding, casting, patching, and writing. Examples
-// include generated materials, template wrappers, addresses, formats, pointer
-// helpers, and serialization helpers.
+// include structured materials, opaque blob materials, template wrappers,
+// addresses, formats, pointer helpers, and serialization helpers.
 //
 // Keep this package free of orchestration and side effects. It must not decide
 // which pipeline phase runs, select deployment implementations, execute tools,

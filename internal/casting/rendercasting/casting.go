@@ -54,7 +54,7 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute dockerfile keeper template: %w", err)
 		}
-		dockerfileMaterial := domain.NewTextMaterial(dockerfileBuf.Bytes(), filepath.Join(configsDir, "telemetrykeeper/Dockerfile"))
+		dockerfileMaterial := domain.NewBlobMaterial(dockerfileBuf.Bytes(), filepath.Join(configsDir, "telemetrykeeper/Dockerfile"))
 		materials = append(materials, dockerfileMaterial)
 
 		// Add telemetrykeeper config files (for dockerfile to copy)
@@ -74,7 +74,7 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute dockerfile clickhouse template: %w", err)
 		}
-		dockerfileMaterial := domain.NewTextMaterial(dockerfileBuf.Bytes(), filepath.Join(configsDir, "telemetrystore/Dockerfile"))
+		dockerfileMaterial := domain.NewBlobMaterial(dockerfileBuf.Bytes(), filepath.Join(configsDir, "telemetrystore/Dockerfile"))
 		materials = append(materials, dockerfileMaterial)
 
 		// Add telemetrystore config files (for dockerfile to copy)
@@ -94,7 +94,7 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute dockerfile otel template: %w", err)
 		}
-		dockerfileMaterial := domain.NewTextMaterial(dockerfileBuf.Bytes(), filepath.Join(configsDir, "ingester/Dockerfile"))
+		dockerfileMaterial := domain.NewBlobMaterial(dockerfileBuf.Bytes(), filepath.Join(configsDir, "ingester/Dockerfile"))
 		materials = append(materials, dockerfileMaterial)
 
 		for filename, content := range config.Spec.Ingester.Spec.Config.Data {
@@ -117,11 +117,11 @@ func (c *renderCasting) Cast(ctx context.Context, config v1alpha1.Casting, pours
 	return nil
 }
 
-func getRenderMaterial(config *v1alpha1.Casting, path string) (domain.Material, error) {
+func getRenderMaterial(config *v1alpha1.Casting, path string) (domain.StructuredMaterial, error) {
 	buf := bytes.NewBuffer(nil)
 	err := renderYAMLTemplate.Execute(buf, config)
 	if err != nil {
-		return domain.Material{}, fmt.Errorf("failed to execute render yaml template: %w", err)
+		return nil, fmt.Errorf("failed to execute render yaml template: %w", err)
 	}
 	return domain.NewYAMLMaterial(buf.Bytes(), path)
 }

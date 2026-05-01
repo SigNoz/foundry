@@ -13,7 +13,7 @@ import (
 var _ molding.MoldingEnricher = (*renderMoldingEnricher)(nil)
 
 type renderMoldingEnricher struct {
-	material domain.Material
+	material domain.StructuredMaterial
 }
 
 func newRenderMoldingEnricher(config *v1alpha1.Casting) (*renderMoldingEnricher, error) {

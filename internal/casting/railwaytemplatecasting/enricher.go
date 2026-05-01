@@ -12,7 +12,7 @@ import (
 var _ molding.MoldingEnricher = (*railwayTemplateMoldingEnricher)(nil)
 
 type railwayTemplateMoldingEnricher struct {
-	material []domain.Material
+	material []domain.StructuredMaterial
 }
 
 func newRailwayTemplateMoldingEnricher(config *v1alpha1.Casting) (*railwayTemplateMoldingEnricher, error) {

@@ -300,7 +300,7 @@ func (c *systemdCasting) configMaterials(data map[string]string, component strin
 func (c *systemdCasting) renderTemplate(tmpl *domain.Template, cfg *v1alpha1.Casting, path string) (domain.Material, error) {
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, cfg); err != nil {
-		return domain.Material{}, fmt.Errorf("execute template %s: %w", path, err)
+		return nil, fmt.Errorf("execute template %s: %w", path, err)
 	}
 	return domain.NewINIMaterial(buf.Bytes(), filepath.Join(rootcasting.DeploymentDir, path))
 }

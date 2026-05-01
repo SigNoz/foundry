@@ -15,7 +15,7 @@ import (
 var _ molding.MoldingEnricher = (*dockerSwarmMoldingEnricher)(nil)
 
 type dockerSwarmMoldingEnricher struct {
-	material domain.Material
+	material domain.StructuredMaterial
 }
 
 func newDockerSwarmMoldingEnricher(config *v1alpha1.Casting) (*dockerSwarmMoldingEnricher, error) {

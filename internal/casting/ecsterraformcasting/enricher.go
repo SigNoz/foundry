@@ -21,7 +21,7 @@ const (
 var _ molding.MoldingEnricher = (*ecsMoldingEnricher)(nil)
 
 type ecsMoldingEnricher struct {
-	materials []domain.Material
+	materials []domain.StructuredMaterial
 }
 
 func newEcsMoldingEnricher(config *v1alpha1.Casting) (*ecsMoldingEnricher, error) {

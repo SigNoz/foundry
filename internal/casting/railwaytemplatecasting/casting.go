@@ -53,12 +53,12 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config v1alpha1.Cast
 		if err := telemetryKeeperDockerfileTemplate.Execute(dockerfileBuf, config); err != nil {
 			return nil, fmt.Errorf("telemetrykeeper dockerfile: %w", err)
 		}
-		materials = append(materials, domain.NewTextMaterial(dockerfileBuf.Bytes(), filepath.Join(casting.DeploymentDir, "telemetrykeeper/Dockerfile")))
+		materials = append(materials, domain.NewBlobMaterial(dockerfileBuf.Bytes(), filepath.Join(casting.DeploymentDir, "telemetrykeeper/Dockerfile")))
 		railwayBuf := bytes.NewBuffer(nil)
 		if err := railwayTelemetryKeeperTemplate.Execute(railwayBuf, config); err != nil {
 			return nil, fmt.Errorf("telemetrykeeper railway.json: %w", err)
 		}
-		materials = append(materials, domain.NewTextMaterial(railwayBuf.Bytes(), filepath.Join(casting.DeploymentDir, "telemetrykeeper/railway.json")))
+		materials = append(materials, domain.NewBlobMaterial(railwayBuf.Bytes(), filepath.Join(casting.DeploymentDir, "telemetrykeeper/railway.json")))
 		for filename, content := range config.Spec.TelemetryKeeper.Spec.Config.Data {
 			m, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(casting.DeploymentDir, "telemetrykeeper/keeper.d/", filename))
 			if err != nil {
@@ -74,12 +74,12 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config v1alpha1.Cast
 		if err := telemetryStoreDockerfileTemplate.Execute(dockerfileBuf, config); err != nil {
 			return nil, fmt.Errorf("telemetrystore dockerfile: %w", err)
 		}
-		materials = append(materials, domain.NewTextMaterial(dockerfileBuf.Bytes(), filepath.Join(casting.DeploymentDir, "telemetrystore/Dockerfile")))
+		materials = append(materials, domain.NewBlobMaterial(dockerfileBuf.Bytes(), filepath.Join(casting.DeploymentDir, "telemetrystore/Dockerfile")))
 		railwayBuf := bytes.NewBuffer(nil)
 		if err := railwayTelemetryStoreTemplate.Execute(railwayBuf, config); err != nil {
 			return nil, fmt.Errorf("telemetrystore railway.json: %w", err)
 		}
-		materials = append(materials, domain.NewTextMaterial(railwayBuf.Bytes(), filepath.Join(casting.DeploymentDir, "telemetrystore/railway.json")))
+		materials = append(materials, domain.NewBlobMaterial(railwayBuf.Bytes(), filepath.Join(casting.DeploymentDir, "telemetrystore/railway.json")))
 		for filename, content := range config.Spec.TelemetryStore.Spec.Config.Data {
 			m, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(casting.DeploymentDir, "telemetrystore/config.d/", filename))
 			if err != nil {
@@ -95,12 +95,12 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config v1alpha1.Cast
 		if err := ingesterDockerfileTemplate.Execute(dockerfileBuf, config); err != nil {
 			return nil, fmt.Errorf("ingester dockerfile: %w", err)
 		}
-		materials = append(materials, domain.NewTextMaterial(dockerfileBuf.Bytes(), filepath.Join(casting.DeploymentDir, "ingester/Dockerfile")))
+		materials = append(materials, domain.NewBlobMaterial(dockerfileBuf.Bytes(), filepath.Join(casting.DeploymentDir, "ingester/Dockerfile")))
 		railwayBuf := bytes.NewBuffer(nil)
 		if err := railwayIngesterTemplate.Execute(railwayBuf, config); err != nil {
 			return nil, fmt.Errorf("ingester railway.json: %w", err)
 		}
-		materials = append(materials, domain.NewTextMaterial(railwayBuf.Bytes(), filepath.Join(casting.DeploymentDir, "ingester/railway.json")))
+		materials = append(materials, domain.NewBlobMaterial(railwayBuf.Bytes(), filepath.Join(casting.DeploymentDir, "ingester/railway.json")))
 		for filename, content := range config.Spec.Ingester.Spec.Config.Data {
 			m, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(casting.DeploymentDir, "ingester/", filename))
 			if err != nil {
@@ -116,12 +116,12 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config v1alpha1.Cast
 		if err := signozDockerfileTemplate.Execute(dockerfileBuf, config); err != nil {
 			return nil, fmt.Errorf("signoz dockerfile: %w", err)
 		}
-		materials = append(materials, domain.NewTextMaterial(dockerfileBuf.Bytes(), filepath.Join(casting.DeploymentDir, "signoz/Dockerfile")))
+		materials = append(materials, domain.NewBlobMaterial(dockerfileBuf.Bytes(), filepath.Join(casting.DeploymentDir, "signoz/Dockerfile")))
 		railwayBuf := bytes.NewBuffer(nil)
 		if err := railwaySignozTemplate.Execute(railwayBuf, config); err != nil {
 			return nil, fmt.Errorf("signoz railway.json: %w", err)
 		}
-		materials = append(materials, domain.NewTextMaterial(railwayBuf.Bytes(), filepath.Join(casting.DeploymentDir, "signoz/railway.json")))
+		materials = append(materials, domain.NewBlobMaterial(railwayBuf.Bytes(), filepath.Join(casting.DeploymentDir, "signoz/railway.json")))
 	}
 
 	// TelemetryStore migrator: Dockerfile + railway.json
@@ -130,12 +130,12 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config v1alpha1.Cast
 		if err := telemetryStoreMigratorDockerfileTemplate.Execute(dockerfileBuf, config); err != nil {
 			return nil, fmt.Errorf("telemetrystore-migrator dockerfile: %w", err)
 		}
-		materials = append(materials, domain.NewTextMaterial(dockerfileBuf.Bytes(), filepath.Join(casting.DeploymentDir, "telemetrystore-migrator/Dockerfile")))
+		materials = append(materials, domain.NewBlobMaterial(dockerfileBuf.Bytes(), filepath.Join(casting.DeploymentDir, "telemetrystore-migrator/Dockerfile")))
 		railwayBuf := bytes.NewBuffer(nil)
 		if err := railwayTelemetryStoreMigratorTemplate.Execute(railwayBuf, config); err != nil {
 			return nil, fmt.Errorf("telemetrystore-migrator railway.json: %w", err)
 		}
-		materials = append(materials, domain.NewTextMaterial(railwayBuf.Bytes(), filepath.Join(casting.DeploymentDir, "telemetrystore-migrator/railway.json")))
+		materials = append(materials, domain.NewBlobMaterial(railwayBuf.Bytes(), filepath.Join(casting.DeploymentDir, "telemetrystore-migrator/railway.json")))
 	}
 
 	return materials, nil
@@ -146,8 +146,8 @@ func (c *railwayTemplateCasting) Cast(ctx context.Context, config v1alpha1.Casti
 	return nil
 }
 
-func getRailwayMaterial(config *v1alpha1.Casting) ([]domain.Material, error) {
-	var materials []domain.Material
+func getRailwayMaterial(config *v1alpha1.Casting) ([]domain.StructuredMaterial, error) {
+	var materials []domain.StructuredMaterial
 
 	keeperBuf := bytes.NewBuffer(nil)
 	if err := telemetryKeeperOverrideTemplate.Execute(keeperBuf, config); err != nil {

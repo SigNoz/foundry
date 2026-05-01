@@ -17,6 +17,13 @@ func newYAMLMaterial(t *testing.T, yamlContent string, path string) domain.Mater
 	return mat
 }
 
+func structuredMaterial(t *testing.T, material domain.Material) domain.StructuredMaterial {
+	t.Helper()
+	structured, ok := material.(domain.StructuredMaterial)
+	require.True(t, ok, "expected structured material")
+	return structured
+}
+
 func TestApply_ReplaceOperation(t *testing.T) {
 	p := New()
 	mat := newYAMLMaterial(t, `
@@ -36,8 +43,7 @@ services:
 	require.NoError(t, err)
 	require.Len(t, result, 1)
 
-	contents, err := result[0].ToYaml()
-	require.NoError(t, err)
+	contents := structuredMaterial(t, result[0]).FmtContents()
 	assert.Contains(t, string(contents), "4G")
 	assert.NotContains(t, string(contents), "2G")
 }
@@ -61,8 +67,7 @@ services:
 	result, err := p.Apply(context.Background(), []domain.Material{mat}, pe)
 	require.NoError(t, err)
 
-	contents, err := result[0].ToYaml()
-	require.NoError(t, err)
+	contents := structuredMaterial(t, result[0]).FmtContents()
 	assert.Contains(t, string(contents), "CUSTOM_VAR=value")
 	assert.Contains(t, string(contents), "EXISTING=true")
 }
@@ -86,8 +91,7 @@ services:
 	result, err := p.Apply(context.Background(), []domain.Material{mat}, pe)
 	require.NoError(t, err)
 
-	contents, err := result[0].ToYaml()
-	require.NoError(t, err)
+	contents := structuredMaterial(t, result[0]).FmtContents()
 	assert.NotContains(t, string(contents), "cpu_count")
 	assert.Contains(t, string(contents), "mem_limit")
 }
@@ -110,13 +114,11 @@ func TestApply_GlobTarget(t *testing.T) {
 	require.Len(t, result, 3)
 
 	for _, i := range []int{0, 1} {
-		contents, err := result[i].ToYaml()
-		require.NoError(t, err)
+		contents := structuredMaterial(t, result[i]).FmtContents()
 		assert.Contains(t, string(contents), "3")
 	}
 
-	contents, err := result[2].ToYaml()
-	require.NoError(t, err)
+	contents := structuredMaterial(t, result[2]).FmtContents()
 	assert.Contains(t, string(contents), "1")
 }
 
@@ -134,8 +136,7 @@ func TestApply_FullPathMatch(t *testing.T) {
 	result, err := p.Apply(context.Background(), []domain.Material{mat}, pe)
 	require.NoError(t, err)
 
-	contents, err := result[0].ToYaml()
-	require.NoError(t, err)
+	contents := structuredMaterial(t, result[0]).FmtContents()
 	assert.Contains(t, string(contents), "patched")
 }
 
@@ -171,6 +172,22 @@ func TestApply_InvalidPathReturnsError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to apply")
 }
 
+func TestApply_BlobMaterialReturnsError(t *testing.T) {
+	p := New()
+	mat := domain.NewBlobMaterial([]byte("FROM alpine\n"), "Dockerfile")
+
+	pe := v1alpha1.PatchEntry{
+		Target: "Dockerfile",
+		Operations: []v1alpha1.PatchOperation{
+			{Op: "replace", Path: "/from", Value: "ubuntu"},
+		},
+	}
+
+	_, err := p.Apply(context.Background(), []domain.Material{mat}, pe)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "json patch on blob material")
+}
+
 func TestApply_StructuredValue(t *testing.T) {
 	p := New()
 	mat := newYAMLMaterial(t, `
@@ -196,8 +213,7 @@ spec:
 	result, err := p.Apply(context.Background(), []domain.Material{mat}, pe)
 	require.NoError(t, err)
 
-	contents, err := result[0].ToYaml()
-	require.NoError(t, err)
+	contents := structuredMaterial(t, result[0]).FmtContents()
 	assert.Contains(t, string(contents), "dedicated")
 	assert.Contains(t, string(contents), "NoSchedule")
 }

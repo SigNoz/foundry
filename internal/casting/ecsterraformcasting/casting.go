@@ -198,17 +198,17 @@ func (c *ecsCasting) Cast(ctx context.Context, config v1alpha1.Casting, outputPa
 }
 
 // executeTemplate renders a template and returns a JSONMaterial at the given path.
-func executeTemplate(tmpl *domain.Template, config v1alpha1.Casting, path string) (domain.Material, error) {
+func executeTemplate(tmpl *domain.Template, config v1alpha1.Casting, path string) (domain.StructuredMaterial, error) {
 	buf := bytes.NewBuffer(nil)
 	if err := tmpl.Execute(buf, config); err != nil {
-		return domain.Material{}, fmt.Errorf("failed to execute template for %s: %w", path, err)
+		return nil, fmt.Errorf("failed to execute template for %s: %w", path, err)
 	}
 	return domain.NewJSONMaterial(buf.Bytes(), path)
 }
 
 // getMaterials renders all module templates and returns them as JSONMaterials.
-func getMaterials(config *v1alpha1.Casting) ([]domain.Material, error) {
-	var materials []domain.Material
+func getMaterials(config *v1alpha1.Casting) ([]domain.StructuredMaterial, error) {
+	var materials []domain.StructuredMaterial
 
 	for _, tmpl := range []*domain.Template{
 		moduleMainTF,

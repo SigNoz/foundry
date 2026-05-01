@@ -15,7 +15,7 @@ import (
 var _ molding.MoldingEnricher = (*dockerComposeMoldingEnricher)(nil)
 
 type dockerComposeMoldingEnricher struct {
-	material domain.Material
+	material domain.StructuredMaterial
 }
 
 func newDockerComposeMoldingEnricher(config *v1alpha1.Casting) (*dockerComposeMoldingEnricher, error) {
