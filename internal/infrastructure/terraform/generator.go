@@ -1,7 +1,6 @@
 package terraform
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
@@ -67,51 +66,22 @@ func (g *Generator) Generate(ctx context.Context, config v1alpha1.Casting) ([]do
 		return nil, err
 	}
 
-	var materials []domain.Material
-
-	// main.tf.json
-	mainBuf := bytes.NewBuffer(nil)
-	if err := mainTemplate.Execute(mainBuf, data); err != nil {
-		return nil, fmt.Errorf("failed to execute main.tf.json template: %w", err)
+	materials := make([]domain.Material, 0, 4)
+	for _, item := range []struct {
+		tmpl *domain.Template
+		path string
+	}{
+		{mainTemplate, "main.tf.json"},
+		{varsTemplate, "variables.tf.json"},
+		{providersTFTemplate, "providers.tf.json"},
+		{outputsTemplate, "outputs.tf.json"},
+	} {
+		m, err := item.tmpl.Render(data, filepath.Join(infrastructureDir, item.path))
+		if err != nil {
+			return nil, fmt.Errorf("failed to render %s: %w", item.path, err)
+		}
+		materials = append(materials, m)
 	}
-	mainMaterial, err := domain.NewJSONMaterial(mainBuf.Bytes(), filepath.Join(infrastructureDir, "main.tf.json"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create main.tf.json material: %w", err)
-	}
-	materials = append(materials, mainMaterial)
-
-	// variables.tf.json
-	varsBuf := bytes.NewBuffer(nil)
-	if err := varsTemplate.Execute(varsBuf, data); err != nil {
-		return nil, fmt.Errorf("failed to execute variables.tf.json template: %w", err)
-	}
-	varsMaterial, err := domain.NewJSONMaterial(varsBuf.Bytes(), filepath.Join(infrastructureDir, "variables.tf.json"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create variables.tf.json material: %w", err)
-	}
-	materials = append(materials, varsMaterial)
-
-	// providers.tf.json
-	providersBuf := bytes.NewBuffer(nil)
-	if err := providersTFTemplate.Execute(providersBuf, data); err != nil {
-		return nil, fmt.Errorf("failed to execute providers.tf.json template: %w", err)
-	}
-	providersMaterial, err := domain.NewJSONMaterial(providersBuf.Bytes(), filepath.Join(infrastructureDir, "providers.tf.json"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create providers.tf.json material: %w", err)
-	}
-	materials = append(materials, providersMaterial)
-
-	// outputs.tf.json
-	outputsBuf := bytes.NewBuffer(nil)
-	if err := outputsTemplate.Execute(outputsBuf, data); err != nil {
-		return nil, fmt.Errorf("failed to execute outputs.tf.json template: %w", err)
-	}
-	outputsMaterial, err := domain.NewJSONMaterial(outputsBuf.Bytes(), filepath.Join(infrastructureDir, "outputs.tf.json"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create outputs.tf.json material: %w", err)
-	}
-	materials = append(materials, outputsMaterial)
 
 	return materials, nil
 }

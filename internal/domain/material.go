@@ -6,14 +6,32 @@ import (
 )
 
 var (
-	FormatYAML Format = Format{s: "yaml"}
-	FormatJSON Format = Format{s: "json"}
-	FormatINI  Format = Format{s: "ini"}
-	FormatText Format = Format{s: "text"}
+	FormatYAML = Format{s: "yaml", new: func(c []byte, p string) (Material, error) { return NewYAMLMaterial(c, p) }}
+	FormatJSON = Format{s: "json", new: func(c []byte, p string) (Material, error) { return NewJSONMaterial(c, p) }}
+	FormatINI  = Format{s: "ini", new: func(c []byte, p string) (Material, error) { return NewINIMaterial(c, p) }}
+	FormatText = Format{s: "text", new: func(c []byte, p string) (Material, error) { return NewBlobMaterial(c, p), nil }}
 )
 
-// Format identifies the syntax of a Material's contents.
-type Format struct{ s string }
+// Format identifies the syntax of a Material's contents and carries the
+// constructor that wraps a rendered byte stream in the matching concrete
+// Material type. To register a new format, add a single entry above with its
+// New* constructor — Template.Render picks it up automatically.
+type Format struct {
+	s   string
+	new func(contents []byte, path string) (Material, error)
+}
+
+func (f Format) String() string {
+	return f.s
+}
+
+// NewMaterial wraps contents in the concrete Material type for this format.
+func (f Format) NewMaterial(contents []byte, path string) (Material, error) {
+	if f.new == nil {
+		return nil, errors.Newf(errors.TypeUnsupported, "failed to create material for path %q: unsupported format %q", path, f.s)
+	}
+	return f.new(contents, path)
+}
 
 // Material is a unit of output that Foundry produces. It carries the path it
 // should be written to and the bytes to write there.

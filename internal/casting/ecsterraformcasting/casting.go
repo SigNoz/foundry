@@ -1,7 +1,6 @@
 package ecsterraformcasting
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
@@ -46,7 +45,7 @@ func (c *ecsCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPa
 		"terraform.tfvars.json": tfarsTF,
 	}
 	for filename, tmpl := range rootTemplates {
-		m, err := executeTemplate(tmpl, config, filepath.Join(deployDir, filename))
+		m, err := tmpl.Render(config, filepath.Join(deployDir, filename))
 		if err != nil {
 			return nil, err
 		}
@@ -60,7 +59,7 @@ func (c *ecsCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPa
 		"outputs.tf.json":   moduleOutputsTF,
 	}
 	for filename, tmpl := range moduleTemplates {
-		m, err := executeTemplate(tmpl, config, filepath.Join(moduleDir, filename))
+		m, err := tmpl.Render(config, filepath.Join(moduleDir, filename))
 		if err != nil {
 			return nil, err
 		}
@@ -69,7 +68,7 @@ func (c *ecsCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPa
 
 	// TelemetryKeeper
 	if config.Spec.TelemetryKeeper.Spec.IsEnabled() {
-		m, err := executeTemplate(moduleTelemetryKeeperTF, config, filepath.Join(moduleDir, "telemetrykeeper.tf.json"))
+		m, err := moduleTelemetryKeeperTF.Render(config, filepath.Join(moduleDir, "telemetrykeeper.tf.json"))
 		if err != nil {
 			return nil, err
 		}
@@ -86,7 +85,7 @@ func (c *ecsCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPa
 
 	// TelemetryStore
 	if config.Spec.TelemetryStore.Spec.IsEnabled() {
-		m, err := executeTemplate(moduleTelemetryStoreTF, config, filepath.Join(moduleDir, "telemetrystore.tf.json"))
+		m, err := moduleTelemetryStoreTF.Render(config, filepath.Join(moduleDir, "telemetrystore.tf.json"))
 		if err != nil {
 			return nil, err
 		}
@@ -103,7 +102,7 @@ func (c *ecsCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPa
 
 	// TelemetryStore migrator
 	if config.Spec.TelemetryStore.Spec.IsEnabled() {
-		m, err := executeTemplate(moduleMigratorTF, config, filepath.Join(moduleDir, "telemetrystore_migrator.tf.json"))
+		m, err := moduleMigratorTF.Render(config, filepath.Join(moduleDir, "telemetrystore_migrator.tf.json"))
 		if err != nil {
 			return nil, err
 		}
@@ -112,7 +111,7 @@ func (c *ecsCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPa
 
 	// MetaStore
 	if config.Spec.MetaStore.Spec.IsEnabled() {
-		m, err := executeTemplate(moduleMetaStoreTF, config, filepath.Join(moduleDir, "metastore.tf.json"))
+		m, err := moduleMetaStoreTF.Render(config, filepath.Join(moduleDir, "metastore.tf.json"))
 		if err != nil {
 			return nil, err
 		}
@@ -129,7 +128,7 @@ func (c *ecsCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPa
 
 	// Signoz
 	if config.Spec.Signoz.Spec.IsEnabled() {
-		m, err := executeTemplate(moduleSignozTF, config, filepath.Join(moduleDir, "signoz.tf.json"))
+		m, err := moduleSignozTF.Render(config, filepath.Join(moduleDir, "signoz.tf.json"))
 		if err != nil {
 			return nil, err
 		}
@@ -138,7 +137,7 @@ func (c *ecsCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPa
 
 	// Ingester
 	if config.Spec.Ingester.Spec.IsEnabled() {
-		m, err := executeTemplate(moduleIngesterTF, config, filepath.Join(moduleDir, "ingester.tf.json"))
+		m, err := moduleIngesterTF.Render(config, filepath.Join(moduleDir, "ingester.tf.json"))
 		if err != nil {
 			return nil, err
 		}
@@ -197,15 +196,6 @@ func (c *ecsCasting) Cast(ctx context.Context, config v1alpha1.Casting, outputPa
 	return nil
 }
 
-// executeTemplate renders a template and returns a JSONMaterial at the given path.
-func executeTemplate(tmpl *domain.Template, config v1alpha1.Casting, path string) (domain.StructuredMaterial, error) {
-	buf := bytes.NewBuffer(nil)
-	if err := tmpl.Execute(buf, config); err != nil {
-		return nil, fmt.Errorf("failed to execute template for %s: %w", path, err)
-	}
-	return domain.NewJSONMaterial(buf.Bytes(), path)
-}
-
 // getMaterials renders all module templates and returns them as JSONMaterials.
 func getMaterials(config *v1alpha1.Casting) ([]domain.StructuredMaterial, error) {
 	var materials []domain.StructuredMaterial
@@ -218,11 +208,15 @@ func getMaterials(config *v1alpha1.Casting) ([]domain.StructuredMaterial, error)
 		moduleSignozTF,
 		moduleIngesterTF,
 	} {
-		m, err := executeTemplate(tmpl, *config, tmpl.GetPath())
+		m, err := tmpl.Render(*config, tmpl.Path())
 		if err != nil {
 			return nil, fmt.Errorf("failed to create material: %w", err)
 		}
-		materials = append(materials, m)
+		sm, ok := m.(domain.StructuredMaterial)
+		if !ok {
+			return nil, fmt.Errorf("template %s does not produce a structured material", tmpl.Path())
+		}
+		materials = append(materials, sm)
 	}
 
 	return materials, nil
