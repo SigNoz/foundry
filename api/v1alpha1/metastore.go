@@ -1,9 +1,5 @@
 package v1alpha1
 
-import (
-	"github.com/signoz/foundry/internal/domain"
-)
-
 type MetaStore struct {
 	// Kind of the meta store to use.
 	Kind MetaStoreKind `json:"kind,omitzero" yaml:"kind,omitempty" description:"Kind of the meta store to use" examples:"[\"postgres\",\"sqlite\"]"`
@@ -35,9 +31,9 @@ func DefaultMetaStore() MetaStore {
 	return MetaStore{
 		Kind: MetaStoreKindPostgres,
 		Spec: MoldingSpec{
-			Enabled: domain.NewBoolPtr(true),
+			Enabled: boolPtr(true),
 			Cluster: TypeCluster{
-				Replicas: domain.NewIntPtr(1),
+				Replicas: intPtr(1),
 			},
 			Version: "16",
 			Image:   "postgres:16",

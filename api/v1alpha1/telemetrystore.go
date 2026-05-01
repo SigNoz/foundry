@@ -1,9 +1,5 @@
 package v1alpha1
 
-import (
-	"github.com/signoz/foundry/internal/domain"
-)
-
 type TelemetryStore struct {
 	// Kind of the telemetry store to use.
 	Kind TelemetryStoreKind `json:"kind,omitzero" yaml:"kind,omitempty" description:"Kind of the telemetry store to use" examples:"[\"clickhouse\"]"`
@@ -36,10 +32,10 @@ func DefaultTelemetryStore() TelemetryStore {
 	return TelemetryStore{
 		Kind: TelemetryStoreKindClickhouse,
 		Spec: MoldingSpec{
-			Enabled: domain.NewBoolPtr(true),
+			Enabled: boolPtr(true),
 			Cluster: TypeCluster{
-				Replicas: domain.NewIntPtr(0),
-				Shards:   domain.NewIntPtr(1),
+				Replicas: intPtr(0),
+				Shards:   intPtr(1),
 			},
 			Version: "25.5.6",
 			Image:   "clickhouse/clickhouse-server:25.5.6",
