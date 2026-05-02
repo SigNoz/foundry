@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/denisbrodbeck/machineid"
 	segment "github.com/segmentio/analytics-go/v3"
+	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/ledger"
 	"github.com/signoz/foundry/internal/ledger/noopledger"
 	"github.com/signoz/foundry/internal/version"
@@ -34,40 +34,24 @@ func New(config ledger.Config) ledger.Ledger {
 	}
 }
 
-func (p *provider) Track(_ context.Context, event string, properties map[string]any) {
-	if properties == nil {
-		properties = make(map[string]any)
-	}
-
-	properties["os"] = runtime.GOOS
-	properties["arch"] = runtime.GOARCH
-	properties["foundry_version"] = version.Info.Version()
+func (p *provider) Track(_ context.Context, event domain.Event, properties domain.Properties) {
+	properties = properties.
+		Set("os", runtime.GOOS).
+		Set("arch", runtime.GOARCH).
+		Set("foundry_version", version.Info.Version())
 
 	props := segment.NewProperties()
-	for k, v := range properties {
+	for k, v := range properties.Map() {
 		props.Set(k, v)
 	}
 
 	_ = p.client.Enqueue(segment.Track{
-		AnonymousId: getDistinctID(),
-		Event:       fmt.Sprintf("foundryctl: %s", event),
+		AnonymousId: domain.MustNewDistinctID().String(),
+		Event:       fmt.Sprintf("foundryctl: %s", event.String()),
 		Properties:  props,
 	})
 }
 
 func (p *provider) Close() error {
 	return p.client.Close()
-}
-
-// getDistinctID returns a hashed machine ID for anonymous attribution.
-// The ID is stable across sessions and not reversible to the original machine ID.
-func getDistinctID() string {
-	id, err := machineid.ProtectedID("foundryctl")
-	if err != nil {
-		return "unknown"
-	}
-	if len(id) > 32 {
-		return id[:32]
-	}
-	return id
 }

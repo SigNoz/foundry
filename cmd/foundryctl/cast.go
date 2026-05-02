@@ -7,10 +7,8 @@ import (
 	"log/slog"
 	"path/filepath"
 
-	foundryerrors "github.com/signoz/foundry/internal/errors"
+	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/foundry"
-	"github.com/signoz/foundry/internal/instrumentation"
-	"github.com/signoz/foundry/internal/ledger"
 	"github.com/spf13/cobra"
 )
 
@@ -18,64 +16,47 @@ func registerCastCmd(rootCmd *cobra.Command) {
 	castCmd := &cobra.Command{
 		Use:   "cast",
 		Short: "Cast to the target environment.",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: recoverRunE(domain.EventCast, func(cmd *cobra.Command, args []string) (domain.Properties, error) {
 			ctx := cmd.Context()
-			logger := instrumentation.NewLogger(commonCfg.Debug)
-			tracker := newTracker()
-			defer func() {
-				_ = tracker.Close()
-			}()
 
 			if !castCfg.NoGauge {
-				err := runGauge(ctx, logger, tracker, commonCfg.File)
-				if err != nil {
-					return err
+				if props, err := runGauge(ctx, rootLogger, commonCfg.File); err != nil {
+					return props, err
 				}
 			}
 
 			if !castCfg.NoForge {
-				err := runForge(ctx, logger, tracker, commonCfg.File, poursCfg.Path)
-				if err != nil {
-					return err
+				if props, err := runForge(ctx, rootLogger, commonCfg.File, poursCfg.Path); err != nil {
+					return props, err
 				}
 			}
 
-			return runCast(ctx, logger, tracker, poursCfg.Path, commonCfg.File)
-		},
+			return runCast(ctx, rootLogger, poursCfg.Path, commonCfg.File)
+		}),
 	}
 
 	rootCmd.AddCommand(castCmd)
 	castCfg.RegisterFlags(castCmd)
 }
 
-func runCast(ctx context.Context, logger *slog.Logger, tracker ledger.Ledger, poursPath string, configPath string) error {
+func runCast(ctx context.Context, logger *slog.Logger, poursPath string, configPath string) (domain.Properties, error) {
 	foundry, err := foundry.New(logger)
 	if err != nil {
-		logger.ErrorContext(ctx, "failed to create foundry, please report this issues to developers at https://github.com/signoz/foundry/issues", foundryerrors.LogAttr(err))
-		return err
+		return domain.NewProperties(), err
 	}
 
-	// Get absolute pours path
 	poursPath, err = filepath.Abs(poursPath)
 	if err != nil {
-		return fmt.Errorf("failed to resolve pours path: %w", err)
+		return domain.NewProperties(), fmt.Errorf("failed to resolve pours path: %w", err)
 	}
 
 	lock, err := foundry.Config.GetV1Alpha1Lock(ctx, configPath)
 	if err != nil {
-		logger.ErrorContext(ctx, "failed to load generated casting.yaml.lock", foundryerrors.LogAttr(err))
-		tracker.Track(ctx, ledger.EventCast, ledger.WithError(nil, err))
-		return err
+		return domain.NewProperties(), err
 	}
 
-	props := ledger.CastingProperties(lock)
+	props := lock.TrackableProperties()
 
 	err = foundry.Cast(ctx, lock, poursPath)
-	if err != nil {
-		tracker.Track(ctx, ledger.EventCast, ledger.WithError(props, err))
-		return err
-	}
-
-	tracker.Track(ctx, ledger.EventCast, ledger.WithSuccess(props))
-	return nil
+	return props, err
 }

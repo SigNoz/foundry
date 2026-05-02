@@ -27,6 +27,11 @@ func (b *base) Error() string {
 	return b.info
 }
 
+func (b *base) WithStacktrace(stacktrace string) *base {
+	b.stacktrace = rawStacktrace(stacktrace)
+	return b
+}
+
 func (b *base) Stacktrace() string {
 	return b.stacktrace.String()
 }
