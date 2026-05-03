@@ -21,11 +21,17 @@
 #   FOUNDRY_ASSUME_YES    Equivalent to -y. Set to "true" to enable.
 #   NO_COLOR              When set, disables ANSI color output (https://no-color.org).
 
+set -euo pipefail
+
+# Constants.
 readonly NAME="foundry.sh"
 readonly REPO="SigNoz/foundry"
 readonly BINARY="foundryctl"
 
-set -euo pipefail
+# User input (env vars; flags overwrite these in the getopts loop below).
+FOUNDRY_VERSION="${FOUNDRY_VERSION:-}"
+FOUNDRY_INSTALL_DIR="${FOUNDRY_INSTALL_DIR:-}"
+FOUNDRY_ASSUME_YES="${FOUNDRY_ASSUME_YES:-false}"
 
 # https://no-color.org honoured; auto-stripped when stderr is not a TTY.
 if [[ -t 2 ]] && [[ -z "${NO_COLOR:-}" ]]; then
@@ -52,6 +58,11 @@ err() {
   echo "${C_ERROR}[ERROR]${C_RESET} $*" >&2
 }
 
+die() {
+  err "$*"
+  exit 1
+}
+
 help() {
   printf "NAME\n"
   printf "\t%s - Install %s, the SigNoz Foundry CLI\n\n" "${NAME}" "${BINARY}"
@@ -71,36 +82,25 @@ help() {
   printf "\tcurl -fsSL https://signoz.io/foundry.sh | FOUNDRY_VERSION=v0.1.4 bash\n"
 }
 
-init_arch() {
-  local raw
-  raw="$(uname -m)"
-  case "${raw}" in
-    x86_64 | amd64) ARCH="amd64" ;;
-    aarch64 | arm64) ARCH="arm64" ;;
-    *)
-      err "Unsupported architecture: ${raw}"
-      exit 1
-      ;;
+# Sets PLATFORM_* (OS, ARCH, BIN_SUFFIX); Windows shells map to OS=windows and .exe suffix.
+init_platform() {
+  local raw_arch raw_os
+  raw_arch="$(uname -m)"
+  case "${raw_arch}" in
+    x86_64 | amd64) PLATFORM_ARCH="amd64" ;;
+    aarch64 | arm64) PLATFORM_ARCH="arm64" ;;
+    *) die "Unsupported architecture: ${raw_arch}" ;;
   esac
-}
 
-# Windows shells (Git Bash/MSYS2/Cygwin) map to OS=windows + .exe suffix; the
-# windows tarball is then installed. Native PowerShell/cmd cannot run a .sh
-# script at all and is not addressed here.
-init_os() {
-  local raw
-  raw="$(uname | tr '[:upper:]' '[:lower:]')"
-  BIN_SUFFIX=""
-  case "${raw}" in
-    darwin | linux) OS="${raw}" ;;
+  raw_os="$(uname | tr '[:upper:]' '[:lower:]')"
+  PLATFORM_BIN_SUFFIX=""
+  case "${raw_os}" in
+    darwin | linux) PLATFORM_OS="${raw_os}" ;;
     mingw* | cygwin* | msys*)
-      OS="windows"
-      BIN_SUFFIX=".exe"
+      PLATFORM_OS="windows"
+      PLATFORM_BIN_SUFFIX=".exe"
       ;;
-    *)
-      err "Unsupported OS: ${raw}"
-      exit 1
-      ;;
+    *) die "Unsupported operating system: ${raw_os}" ;;
   esac
 }
 
@@ -109,14 +109,12 @@ verify_prereqs() {
   HAS_CURL="$(command -v curl >/dev/null 2>&1 && echo true || echo false)"
   HAS_WGET="$(command -v wget >/dev/null 2>&1 && echo true || echo false)"
   if [[ "${HAS_CURL}" != "true" ]] && [[ "${HAS_WGET}" != "true" ]]; then
-    err "Either curl or wget is required."
-    exit 1
+    die "Missing prerequisite: curl or wget"
   fi
   local cmd
   for cmd in tar mktemp install; do
     if ! command -v "${cmd}" >/dev/null 2>&1; then
-      err "${cmd} is required."
-      exit 1
+      die "Missing prerequisite: ${cmd}"
     fi
   done
   if command -v sha256sum >/dev/null 2>&1; then
@@ -124,35 +122,51 @@ verify_prereqs() {
   elif command -v shasum >/dev/null 2>&1; then
     SHA256_CMD="shasum -a 256"
   else
-    err "Either sha256sum or shasum is required for checksum verification."
-    exit 1
+    die "Missing prerequisite: sha256sum or shasum"
   fi
 }
 
-# Resolves latest by following the /releases/latest redirect (no GitHub API,
-# no JSON, no rate limit).
+# fetch downloads URL to OUT using whichever of curl/wget is available.
+fetch() {
+  local url="$1"
+  local out="$2"
+  if [[ "${HAS_CURL}" == "true" ]]; then
+    curl -fsSL "${url}" -o "${out}"
+  else
+    wget -q -O "${out}" "${url}"
+  fi
+}
+
+# fetch_effective_url follows redirects on URL and prints the final location.
+fetch_effective_url() {
+  local url="$1"
+  if [[ "${HAS_CURL}" == "true" ]]; then
+    curl -sIL -o /dev/null -w '%{url_effective}' "${url}"
+  else
+    wget --max-redirect=5 --server-response --spider "${url}" 2>&1 \
+      | awk '/^  Location: /{u=$2} END{print u}'
+  fi
+}
+
+# Sets TAG from FOUNDRY_VERSION or /releases/latest redirect; validates semver shape.
 resolve_version() {
   if [[ -n "${FOUNDRY_VERSION}" ]]; then
     case "${FOUNDRY_VERSION}" in
       v*) TAG="${FOUNDRY_VERSION}" ;;
       *) TAG="v${FOUNDRY_VERSION}" ;;
     esac
-    return
-  fi
-
-  local latest_url="https://github.com/${REPO}/releases/latest"
-  local resolved
-  if [[ "${HAS_CURL}" == "true" ]]; then
-    resolved="$(curl -sIL -o /dev/null -w '%{url_effective}' "${latest_url}")"
   else
-    resolved="$(wget --max-redirect=5 --server-response --spider "${latest_url}" 2>&1 \
-      | awk '/^  Location: /{u=$2} END{print u}')"
+    local latest_url="https://github.com/${REPO}/releases/latest"
+    local resolved
+    resolved="$(fetch_effective_url "${latest_url}")"
+    TAG="${resolved##*/tag/}"
+    if [[ -z "${TAG}" ]] || [[ "${TAG}" == "${resolved}" ]]; then
+      die "Could not resolve latest release tag from ${latest_url}"
+    fi
   fi
 
-  TAG="${resolved##*/tag/}"
-  if [[ -z "${TAG}" ]] || [[ "${TAG}" == "${resolved}" ]]; then
-    err "Could not resolve the latest release tag from ${latest_url}"
-    exit 1
+  if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+    die "Invalid version: ${TAG} (expected vMAJOR.MINOR.PATCH)"
   fi
 }
 
@@ -167,10 +181,9 @@ resolve_install_dir() {
   mkdir -p "${INSTALL_DIR}"
   if [[ ! -w "${INSTALL_DIR}" ]]; then
     err "Install directory is not writable: ${INSTALL_DIR}"
-    err "Set FOUNDRY_INSTALL_DIR to a writable path or run with appropriate permissions."
-    exit 1
+    die "Set FOUNDRY_INSTALL_DIR to a writable path or run with appropriate permissions."
   fi
-  DEST="${INSTALL_DIR}/${BINARY}${BIN_SUFFIX}"
+  DEST="${INSTALL_DIR}/${BINARY}${PLATFORM_BIN_SUFFIX}"
 }
 
 # Same version: skip and exit 0. Different version: prompt if interactive,
@@ -196,36 +209,27 @@ check_existing() {
   read -r -p "Update ${BINARY} ${current} to ${TAG}? [Y/n] " answer
   case "${answer}" in
     "" | y | Y | yes | YES) ;;
-    *)
-      err "Aborted by user."
-      exit 1
-      ;;
+    *) die "Aborted by user" ;;
   esac
 }
 
-fetch() {
-  local url="$1"
-  local out="$2"
-  if [[ "${HAS_CURL}" == "true" ]]; then
-    curl -fsSL "${url}" -o "${out}"
-  else
-    wget -q -O "${out}" "${url}"
-  fi
+# Sets TARBALL, CHECKSUMS, TARBALL_URL, CHECKSUMS_URL from PLATFORM_* and TAG.
+compute_release_artifacts() {
+  TARBALL="foundry_${PLATFORM_OS}_${PLATFORM_ARCH}.tar.gz"
+  CHECKSUMS="foundry_${TAG#v}_checksums.txt"
+  TARBALL_URL="https://github.com/${REPO}/releases/download/${TAG}/${TARBALL}"
+  CHECKSUMS_URL="https://github.com/${REPO}/releases/download/${TAG}/${CHECKSUMS}"
 }
 
+# Creates TMP_ROOT and fetches the tarball and checksums into it.
 download_release() {
-  TARBALL="foundry_${OS}_${ARCH}.tar.gz"
-  CHECKSUMS="foundry_${TAG#v}_checksums.txt"
-  local tarball_url="https://github.com/${REPO}/releases/download/${TAG}/${TARBALL}"
-  local checksums_url="https://github.com/${REPO}/releases/download/${TAG}/${CHECKSUMS}"
-
   TMP_ROOT="$(mktemp -d -t foundry-installer-XXXXXX)"
   TARBALL_PATH="${TMP_ROOT}/${TARBALL}"
   CHECKSUMS_PATH="${TMP_ROOT}/${CHECKSUMS}"
 
-  info "Downloading ${tarball_url}"
-  fetch "${tarball_url}" "${TARBALL_PATH}"
-  fetch "${checksums_url}" "${CHECKSUMS_PATH}"
+  info "Downloading ${TARBALL_URL}"
+  fetch "${TARBALL_URL}" "${TARBALL_PATH}"
+  fetch "${CHECKSUMS_URL}" "${CHECKSUMS_PATH}"
 }
 
 # Checksums file lists "<sha256>  <filename>" or "<sha256> *<filename>".
@@ -233,8 +237,7 @@ verify_checksum() {
   local expected
   expected="$(awk -v f="${TARBALL}" '$2 == f || $2 == "*"f {print $1; exit}' "${CHECKSUMS_PATH}")"
   if [[ -z "${expected}" ]]; then
-    err "Checksum for ${TARBALL} not found in ${CHECKSUMS}"
-    exit 1
+    die "Checksum for ${TARBALL} not found in ${CHECKSUMS}"
   fi
 
   local actual
@@ -243,8 +246,7 @@ verify_checksum() {
   if [[ "${expected}" != "${actual}" ]]; then
     err "Checksum mismatch for ${TARBALL}"
     err "  expected: ${expected}"
-    err "  actual:   ${actual}"
-    exit 1
+    die "  actual:   ${actual}"
   fi
 }
 
@@ -253,14 +255,13 @@ install_binary() {
   mkdir -p "${extract_dir}"
   tar -xzf "${TARBALL_PATH}" -C "${extract_dir}"
 
-  local src="${extract_dir}/foundry_${OS}_${ARCH}/bin/${BINARY}${BIN_SUFFIX}"
+  local src="${extract_dir}/foundry_${PLATFORM_OS}_${PLATFORM_ARCH}/bin/${BINARY}${PLATFORM_BIN_SUFFIX}"
   if [[ ! -f "${src}" ]]; then
-    err "Expected binary not found in tarball: ${src#"${extract_dir}"/}"
-    exit 1
+    die "Expected binary not found in tarball: ${src#"${extract_dir}"/}"
   fi
 
   install -m 0755 "${src}" "${DEST}"
-  info "Installed ${BINARY}${BIN_SUFFIX} ${TAG} to ${DEST}"
+  info "Installed ${BINARY}${PLATFORM_BIN_SUFFIX} ${TAG} to ${DEST}"
 }
 
 # Smoke test: catches arch/platform mismatches that slipped past checksum.
@@ -269,8 +270,7 @@ verify_install() {
   if ! output="$("${DEST}" version 2>&1)"; then
     err "Installed binary failed to run: ${DEST}"
     err "This may indicate a wrong-arch download or a permissions issue."
-    err "${output}"
-    exit 1
+    die "${output}"
   fi
   echo
   echo "${output}"
@@ -315,12 +315,12 @@ fail_trap() {
 }
 
 run() {
-  init_arch
-  init_os
+  init_platform
   verify_prereqs
   resolve_version
   resolve_install_dir
   check_existing
+  compute_release_artifacts
   download_release
   verify_checksum
   install_binary
@@ -328,10 +328,6 @@ run() {
   print_path_hint
   cleanup
 }
-
-FOUNDRY_VERSION="${FOUNDRY_VERSION:-}"
-FOUNDRY_INSTALL_DIR="${FOUNDRY_INSTALL_DIR:-}"
-FOUNDRY_ASSUME_YES="${FOUNDRY_ASSUME_YES:-false}"
 
 trap fail_trap EXIT
 
@@ -345,14 +341,8 @@ while getopts 'v:d:yh' opt; do
       trap - EXIT
       exit 0
       ;;
-    ?)
-      err "Invalid option: -${OPTARG:-}"
-      exit 1
-      ;;
-    *)
-      err "Unknown error while processing options"
-      exit 1
-      ;;
+    ?) die "Invalid option: -${OPTARG:-}" ;;
+    *) die "Unknown error while processing options" ;;
   esac
 done
 
