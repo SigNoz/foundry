@@ -18,10 +18,11 @@ func NewDistinctID() (DistinctID, error) {
 	if err != nil {
 		return UnknownDistinctID(), nil
 	}
+	if len(id) > 32 {
+		id = id[:32]
+	}
 
-	return DistinctID{
-		value: id,
-	}, nil
+	return DistinctID{value: id}, nil
 }
 
 func MustNewDistinctID() DistinctID {
