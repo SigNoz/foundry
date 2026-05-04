@@ -82,6 +82,10 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 		config.Spec.TelemetryKeeper.Status.Addresses.Raft = telemetryRaftaddress
 
 	case v1alpha1.MoldingKindMetaStore:
+		// Skip molding enrichment if sqlite
+		if config.Spec.MetaStore.Kind == v1alpha1.MetaStoreKindSQLite {
+			return nil
+		}
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
 			return fmt.Errorf("failed to get metastore container names: %w", err)

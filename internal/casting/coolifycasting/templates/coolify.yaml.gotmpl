@@ -111,6 +111,7 @@ services:
         max-file: "3"
   {{- end }}
   {{- end }}
+  {{- if ne $.Spec.MetaStore.Kind.String "sqlite" }}
   {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}:
     image: docker.io/{{ $.Spec.MetaStore.Kind }}:{{ $.Spec.MetaStore.Spec.Version }}
@@ -134,13 +135,16 @@ services:
         max-size: 50m
         max-file: "3"
   {{- end }}
+  {{- end }}
   {{ $.Metadata.Name }}-signoz:
     container_name: {{ $.Metadata.Name }}-signoz
     image: {{ $.Spec.Signoz.Spec.Image }}
     depends_on:
+      {{- if ne $.Spec.MetaStore.Kind.String "sqlite" }}
       {{- range $metaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
       {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $metaIdx }}:
         condition: service_healthy
+      {{- end }}
       {{- end }}
       {{- range $shardIdx := $.Spec.TelemetryStore.Spec.Cluster.Shards }}
       {{- range $storeReplicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
@@ -260,9 +264,11 @@ volumes:
   {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-user-scripts:
     name: {{ $.Metadata.Name }}-telemetrystore-user-scripts
+  {{- if ne $.Spec.MetaStore.Kind.String "sqlite" }}
   {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data:
     name: {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data
+  {{- end }}
   {{- end }}
   {{ $.Metadata.Name }}-signoz-data:
     name: {{ $.Metadata.Name }}-signoz-data

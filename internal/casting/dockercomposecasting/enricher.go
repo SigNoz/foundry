@@ -89,6 +89,10 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		config.Spec.TelemetryKeeper.Status.Addresses.Raft = telemetryRaftaddress
 
 	case v1alpha1.MoldingKindMetaStore:
+		// Skip molding enrichment if sqlite
+		if config.Spec.MetaStore.Kind == v1alpha1.MetaStoreKindSQLite {
+			return nil
+		}
 		// Get metastore container names
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {

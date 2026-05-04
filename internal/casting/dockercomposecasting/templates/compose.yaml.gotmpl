@@ -91,6 +91,7 @@ services:
       wget -O histogram-quantile.tar.gz "https://github.com/SigNoz/signoz/releases/download/histogram-quantile%2F$${version}/histogram-quantile_$${node_os}_$${node_arch}.tar.gz"
       tar -xvzf histogram-quantile.tar.gz
       mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile
+  {{- if ne $.Spec.MetaStore.Kind.String "sqlite" }}
   {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}:
     container_name: {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}
@@ -113,6 +114,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+  {{- end }}
   {{- end }}
   {{ $.Metadata.Name }}-ingester:
     container_name: {{ $.Metadata.Name }}-ingester
@@ -158,6 +160,10 @@ services:
     {{- end }}
     ports:
       - "8080:8080"
+    {{- if eq $.Spec.MetaStore.Kind.String "sqlite" }}
+    volumes:
+      - {{ $.Metadata.Name }}-signoz-sqlite-data:/var/lib/signoz
+    {{- end }}
     healthcheck:
       test:
       - "CMD"
@@ -211,7 +217,13 @@ volumes:
   {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-user-scripts:
     name: {{ $.Metadata.Name }}-telemetrystore-user-scripts
+  {{- if ne $.Spec.MetaStore.Kind.String "sqlite" }}
   {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data:
     name: {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data
+  {{- end }}
+  {{- end }}
+  {{- if eq $.Spec.MetaStore.Kind.String "sqlite" }}
+  {{ $.Metadata.Name }}-signoz-sqlite-data:
+    name: {{ $.Metadata.Name }}-signoz-sqlite-data
   {{- end }}
