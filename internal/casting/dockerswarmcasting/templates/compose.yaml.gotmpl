@@ -98,6 +98,7 @@ services:
       mode: global
       restart_policy:
         condition: none
+  {{- if ne $.Spec.MetaStore.Kind.String "sqlite" }}
   {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}:
     image: docker.io/{{ $.Spec.MetaStore.Kind }}:{{ $.Spec.MetaStore.Spec.Version }}
@@ -122,6 +123,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+  {{- end }}
   {{- end }}
   {{ $.Metadata.Name }}-ingester:
     image: {{ $.Spec.Ingester.Spec.Image }}
@@ -163,6 +165,10 @@ services:
     {{- end }}
     ports:
       - "8080:8080"
+    {{- if eq $.Spec.MetaStore.Kind.String "sqlite" }}
+    volumes:
+      - {{ $.Metadata.Name }}-metastore-data:/var/lib/signoz
+    {{- end }}
     deploy:
       replicas: {{ int $.Spec.Signoz.Spec.Cluster.Replicas }}
       restart_policy:
@@ -220,8 +226,13 @@ volumes:
   {{- end }}
   {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-user-scripts:
+  {{- if ne $.Spec.MetaStore.Kind.String "sqlite" }}
   {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data:
+  {{- end }}
+  {{- end }}
+  {{- if eq $.Spec.MetaStore.Kind.String "sqlite" }}
+  {{ $.Metadata.Name }}-metastore-data:
   {{- end }}
 configs:
   {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
