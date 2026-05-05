@@ -3,6 +3,7 @@ package noopledger
 import (
 	"context"
 
+	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/ledger"
 )
 
@@ -14,5 +15,5 @@ func New() ledger.Ledger {
 	return &provider{}
 }
 
-func (p *provider) Track(_ context.Context, _ string, _ map[string]any) {}
-func (p *provider) Close() error                                        { return nil }
+func (p *provider) Track(_ context.Context, _ domain.Event, _ domain.Properties) {}
+func (p *provider) Close() error                                                 { return nil }

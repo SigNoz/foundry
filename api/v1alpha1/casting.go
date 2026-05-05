@@ -1,5 +1,7 @@
 package v1alpha1
 
+import "github.com/signoz/foundry/internal/domain"
+
 type Casting struct {
 	TypeVersion `json:",inline" yaml:",inline"`
 	Metadata    TypeMetadata  `json:"metadata" yaml:"metadata" required:"true" description:"Metadata of the casting configuration"`
@@ -58,4 +60,16 @@ func ExampleCasting() Casting {
 		},
 		Spec: CastingSpec{},
 	}
+}
+
+func (c Casting) TrackableProperties() domain.Properties {
+	return domain.NewProperties().
+		Set("platform", c.Spec.Deployment.Platform.String()).
+		Set("mode", c.Spec.Deployment.Mode.String()).
+		Set("flavor", c.Spec.Deployment.Flavor.String()).
+		Set("patches_count", len(c.Spec.Patches)).
+		Set("infrastructure_enabled", c.Spec.Infrastructure.Enabled).
+		Set("metastore_kind", c.Spec.MetaStore.Kind.String()).
+		Set("telemetrystore_kind", c.Spec.TelemetryStore.Kind.String()).
+		Set("telemetrykeeper_kind", c.Spec.TelemetryKeeper.Kind.String())
 }
