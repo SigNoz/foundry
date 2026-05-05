@@ -6,10 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	foundryerrors "github.com/signoz/foundry/internal/errors"
+	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/foundry"
-	"github.com/signoz/foundry/internal/instrumentation"
-	"github.com/signoz/foundry/internal/ledger"
 	"github.com/signoz/foundry/internal/writer"
 	"github.com/spf13/cobra"
 )
@@ -19,48 +17,32 @@ func registerForgeCmd(rootCmd *cobra.Command) {
 		Use:   "forge",
 		Short: "Forge Configuration and Deployment Files",
 		Long:  "Generate deployment configuration files from casting.yaml",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			logger := instrumentation.NewLogger(commonCfg.Debug)
-			tracker := newTracker()
-			defer func() {
-				_ = tracker.Close()
-			}()
-
-			return runForge(ctx, logger, tracker, commonCfg.File, poursCfg.Path)
-		},
+		RunE: recoverRunE(domain.EventForge, func(cmd *cobra.Command, args []string) (domain.Properties, error) {
+			return runForge(cmd.Context(), rootLogger, commonCfg.File, poursCfg.Path)
+		}),
 	}
 
 	rootCmd.AddCommand(forgeCmd)
 }
 
-func runForge(ctx context.Context, logger *slog.Logger, tracker ledger.Ledger, path string, poursPath string) error {
+func runForge(ctx context.Context, logger *slog.Logger, path string, poursPath string) (domain.Properties, error) {
 	foundry, err := foundry.New(logger)
 	if err != nil {
-		logger.ErrorContext(ctx, "failed to create foundry, please report this issues to developers at https://github.com/signoz/foundry/issues", foundryerrors.LogAttr(err))
-		return err
+		return domain.NewProperties(), err
 	}
 
 	config, err := foundry.Config.GetV1Alpha1(ctx, path)
 	if err != nil {
-		tracker.Track(ctx, ledger.EventForge, ledger.WithError(nil, err))
-		return err
+		return domain.NewProperties(), err
 	}
 
-	props := ledger.CastingProperties(config)
+	props := config.TrackableProperties()
 
 	poursAbsPath, err := filepath.Abs(poursPath)
 	if err != nil {
-		tracker.Track(ctx, ledger.EventForge, ledger.WithError(props, err))
-		return err
+		return props, err
 	}
 
 	err = foundry.Forge(ctx, config, path, &writer.Options{Output: &os.File{}, TargetDirectory: poursAbsPath})
-	if err != nil {
-		tracker.Track(ctx, ledger.EventForge, ledger.WithError(props, err))
-		return err
-	}
-
-	tracker.Track(ctx, ledger.EventForge, ledger.WithSuccess(props))
-	return nil
+	return props, err
 }
