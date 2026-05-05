@@ -167,7 +167,7 @@ services:
       - "8080:8080"
     {{- if eq $.Spec.MetaStore.Kind.String "sqlite" }}
     volumes:
-      - {{ $.Metadata.Name }}-metastore-data:/var/lib/signoz
+      - {{ $.Metadata.Name }}-metastore-data:{{ dir (index $.Spec.Signoz.Spec.Env "SIGNOZ_SQLSTORE_SQLITE_PATH") }}
     {{- end }}
     deploy:
       replicas: {{ int $.Spec.Signoz.Spec.Cluster.Replicas }}
