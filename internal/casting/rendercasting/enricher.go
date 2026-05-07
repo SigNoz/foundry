@@ -6,14 +6,14 @@ import (
 	"strings"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/molding"
-	"github.com/signoz/foundry/internal/types"
 )
 
 var _ molding.MoldingEnricher = (*renderMoldingEnricher)(nil)
 
 type renderMoldingEnricher struct {
-	material types.Material
+	material domain.StructuredMaterial
 }
 
 func newRenderMoldingEnricher(config *v1alpha1.Casting) (*renderMoldingEnricher, error) {
@@ -38,7 +38,7 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 		var storeServiceNames []string
 		for _, serviceName := range serviceNames {
 			if strings.Contains(serviceName, "telemetrystore") && !strings.Contains(serviceName, "migrator") {
-				addrs = append(addrs, types.FormatAddress("tcp", serviceName, 9000))
+				addrs = append(addrs, domain.MustNewAddress("tcp", serviceName, 9000).String())
 				storeServiceNames = append(storeServiceNames, serviceName)
 			}
 		}
@@ -61,8 +61,8 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 		var opampAddr []string
 		for _, serviceName := range serviceNames {
 			if strings.Contains(serviceName, "-signoz") {
-				apiServerAddr = append(apiServerAddr, types.FormatAddress("tcp", serviceName, 8080))
-				opampAddr = append(opampAddr, types.FormatAddress("ws", serviceName, 4320))
+				apiServerAddr = append(apiServerAddr, domain.MustNewAddress("tcp", serviceName, 8080).String())
+				opampAddr = append(opampAddr, domain.MustNewAddress("ws", serviceName, 4320).String())
 			}
 		}
 		config.Spec.Signoz.Status.Addresses.APIServer = apiServerAddr
@@ -80,8 +80,8 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 		var keeperServiceNames []string
 		for _, serviceName := range serviceNames {
 			if strings.Contains(serviceName, "telemetrykeeper") {
-				addrsClient = append(addrsClient, types.FormatAddress("tcp", serviceName, 9181))
-				addrsRaft = append(addrsRaft, types.FormatAddress("tcp", serviceName, 9234))
+				addrsClient = append(addrsClient, domain.MustNewAddress("tcp", serviceName, 9181).String())
+				addrsRaft = append(addrsRaft, domain.MustNewAddress("tcp", serviceName, 9234).String())
 				keeperServiceNames = append(keeperServiceNames, serviceName)
 			}
 		}
@@ -104,7 +104,7 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 		var addrs []string
 		for _, serviceName := range serviceNames {
 			if strings.Contains(serviceName, "ingester") {
-				addrs = append(addrs, types.FormatAddress("tcp", serviceName, 4318))
+				addrs = append(addrs, domain.MustNewAddress("tcp", serviceName, 4318).String())
 			}
 		}
 		config.Spec.Ingester.Status.Addresses.OTLP = addrs

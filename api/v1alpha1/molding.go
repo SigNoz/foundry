@@ -13,13 +13,15 @@ type MoldingSpec struct {
 	Version string `json:"version,omitempty" yaml:"version,omitempty" description:"The version of the molding to use" example:"latest"`
 
 	// Image of the molding
-	Image string `json:"image,omitempty" yaml:"image,omitempty" description:"Container image of the molding" example:"signoz/signoz:latest"`
+	Image string `json:"image,omitempty" yaml:"image,omitempty" pattern:"^[a-z0-9]+([._-][a-z0-9]+)*(/[a-z0-9]+([._-][a-z0-9]+)*)*(:[a-zA-Z0-9._-]+)?(@sha256:[a-f0-9]{64})?$" description:"Container image of the molding" example:"signoz/signoz:latest"`
 
 	// Environment variables for the molding
 	Env map[string]string `json:"env,omitempty" yaml:"env,omitempty" description:"Environment variables for the molding"`
 
 	// Configuration for the molding
 	Config TypeConfig `json:"config" yaml:"config,omitempty" description:"Configuration for the molding"`
+
+	_ struct{} `additionalProperties:"false"`
 }
 
 type MoldingStatus struct {
@@ -31,6 +33,8 @@ type MoldingStatus struct {
 
 	// Configuration for the molding
 	Config TypeConfig `json:"config" yaml:"config,omitempty" description:"Configuration for the molding"`
+
+	_ struct{} `additionalProperties:"false"`
 }
 
 // IsEnabled returns whether the molding is enabled.

@@ -4,14 +4,29 @@ Install `foundryctl` and deploy SigNoz in three steps.
 
 ## 1. Install foundryctl
 
-Download the latest release from [GitHub Releases](https://github.com/signoz/foundry/releases), or use the commands below.
+The fastest path is the install script, which detects your OS/arch, verifies the
+download checksum, installs the binary into `$XDG_BIN_HOME` or `~/.local/bin`,
+and prints a PATH hint if needed:
+
+```bash
+curl -fsSL https://signoz.io/foundry.sh | bash
+```
+
+Pin a specific version:
+
+```bash
+curl -fsSL https://signoz.io/foundry.sh | FOUNDRY_VERSION=v0.1.4 bash
+```
+
+### Manual install
+
+If you prefer to download the release archive yourself:
 
 **Linux:**
 
 ```bash
 curl -L "https://github.com/SigNoz/foundry/releases/latest/download/foundry_linux_$(uname -m | sed 's/x86_64/amd64/g' | sed 's/aarch64/arm64/g').tar.gz" -o foundry.tar.gz
 tar -xzf foundry.tar.gz
-cd foundry_linux_$(uname -m | sed 's/x86_64/amd64/g' | sed 's/arm64/arm64/g')
 ```
 
 **macOS:**
@@ -19,7 +34,6 @@ cd foundry_linux_$(uname -m | sed 's/x86_64/amd64/g' | sed 's/arm64/arm64/g')
 ```bash
 curl -L "https://github.com/SigNoz/foundry/releases/latest/download/foundry_darwin_$(uname -m | sed 's/x86_64/amd64/g' | sed 's/arm64/arm64/g').tar.gz" -o foundry.tar.gz
 tar -xzf foundry.tar.gz
-cd foundry_darwin_$(uname -m | sed 's/x86_64/amd64/g' | sed 's/arm64/arm64/g')
 ```
 
 **Windows (PowerShell):**
@@ -28,15 +42,38 @@ cd foundry_darwin_$(uname -m | sed 's/x86_64/amd64/g' | sed 's/arm64/arm64/g')
 $ARCH = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "arm64" } else { "amd64" }
 Invoke-WebRequest -Uri "https://github.com/SigNoz/foundry/releases/latest/download/foundry_windows_${ARCH}.tar.gz" -OutFile foundry.tar.gz -UseBasicParsing
 tar -xzf foundry.tar.gz
-cd foundry_windows_$ARCH
 ```
 
-The archive extracts to a directory named `foundry_<os>_<arch>` (for example, `foundry_darwin_arm64`). The `cd` command above moves you into it.
+The archive extracts to a directory named `foundry_<os>_<arch>` (for example, `foundry_darwin_arm64`) containing `bin/foundryctl`.
 
-Verify the installation:
+### Add to PATH
+
+To run `foundryctl` from anywhere, move the binary onto your `PATH`:
 
 ```bash
-./bin/foundryctl --help
+mkdir -p "$HOME/.local/bin"
+mv foundry_*/bin/foundryctl "$HOME/.local/bin/"
+```
+
+If `~/.local/bin` isn't already on your `PATH` (common on macOS), add it to your shell config:
+
+```bash
+# zsh (~/.zshrc)
+export PATH="$HOME/.local/bin:$PATH"
+
+# bash (~/.bashrc on Linux, ~/.bash_profile on macOS)
+export PATH="$HOME/.local/bin:$PATH"
+
+# fish (~/.config/fish/config.fish)
+fish_add_path $HOME/.local/bin
+```
+
+Reload your shell or `source` the file you edited.
+
+### Verify
+
+```bash
+foundryctl --help
 ```
 
 ## 2. Create a casting

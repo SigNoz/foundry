@@ -1,7 +1,6 @@
 package kuberneteskustomizecasting
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
@@ -13,21 +12,21 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	rootcasting "github.com/signoz/foundry/internal/casting"
+	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/molding"
-	"github.com/signoz/foundry/internal/types"
 )
 
 var _ rootcasting.Casting = (*kustomizeCasting)(nil)
 
 type kustomizeCasting struct {
 	logger   *slog.Logger
-	castings []*types.Template
+	castings []*domain.Template
 }
 
 func New(logger *slog.Logger) *kustomizeCasting {
 	return &kustomizeCasting{
 		logger: logger,
-		castings: []*types.Template{
+		castings: []*domain.Template{
 			clickhouseOperatorClusterrole,
 			clickhouseOperatorClusterrolebinding,
 			clickhouseOperatorConfigmap,
@@ -65,8 +64,8 @@ func (c *kustomizeCasting) Enricher(ctx context.Context, config *v1alpha1.Castin
 	return newKustomizeMoldingEnricher(config)
 }
 
-func (c *kustomizeCasting) Forge(ctx context.Context, cfg v1alpha1.Casting, poursPath string) ([]types.Material, error) {
-	var materials []types.Material
+func (c *kustomizeCasting) Forge(ctx context.Context, cfg v1alpha1.Casting, poursPath string) ([]domain.Material, error) {
+	var materials []domain.Material
 	for _, tmpl := range c.castings {
 		m, err := c.forgeCasting(tmpl, &cfg, poursPath)
 		if err != nil {
@@ -141,59 +140,48 @@ func (c *kustomizeCasting) applyCRDs(ctx context.Context) error {
 	return nil
 }
 
-func (c *kustomizeCasting) forgeCasting(tmpl *types.Template, cfg *v1alpha1.Casting, poursPath string) ([]types.Material, error) {
-	templatePath := tmpl.GetPath()
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, cfg); err != nil {
-		return nil, fmt.Errorf("execute template %s: %w", templatePath, err)
-	}
+func (c *kustomizeCasting) forgeCasting(tmpl *domain.Template, cfg *v1alpha1.Casting, poursPath string) ([]domain.Material, error) {
+	templatePath := tmpl.Path()
 	relPath := strings.TrimPrefix(templatePath, "templates/")
 	relPath = strings.TrimSuffix(relPath, filepath.Ext(relPath))
 	path := filepath.Join(rootcasting.DeploymentDir, relPath)
-	material, err := types.NewYAMLMaterial(buf.Bytes(), path)
+	material, err := tmpl.Render(cfg, path)
 	if err != nil {
-		return nil, fmt.Errorf("create material %s: %w", templatePath, err)
+		return nil, fmt.Errorf("render template %s: %w", templatePath, err)
 	}
-	return []types.Material{material}, nil
+	return []domain.Material{material}, nil
 }
 
-func getOverrideMaterials(config *v1alpha1.Casting) ([]types.Material, error) {
-	var materials []types.Material
-
-	storeBuf := bytes.NewBuffer(nil)
-	if err := telemetryStoreOverrideTemplate.Execute(storeBuf, config); err != nil {
-		return nil, fmt.Errorf("failed to execute store override template: %w", err)
-	}
-	storeMaterial, err := types.NewYAMLMaterial(storeBuf.Bytes(), "store_overrides.yaml")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create store override material: %w", err)
-	}
-	materials = append(materials, storeMaterial)
-
-	return materials, nil
+func getOverrideMaterials(config *v1alpha1.Casting) ([]domain.StructuredMaterial, error) {
+	return renderStructured(config, []templateAt{
+		{telemetryStoreOverrideTemplate, "store_overrides.yaml"},
+	})
 }
 
-func getServiceMaterials(config *v1alpha1.Casting) ([]types.Material, error) {
-	var materials []types.Material
+func getServiceMaterials(config *v1alpha1.Casting) ([]domain.StructuredMaterial, error) {
+	return renderStructured(config, []templateAt{
+		{clickhouseInstanceInstallation, "clickhouseInstallation.yaml"},
+		{metastoreService, "metastoreServie.yaml"},
+	})
+}
 
-	telemetryStoreInstallationBuf := bytes.NewBuffer(nil)
-	if err := clickhouseInstanceInstallation.Execute(telemetryStoreInstallationBuf, config); err != nil {
-		return nil, fmt.Errorf("failed to execute store installation template: %w", err)
-	}
-	telemetryStoreInstallationMaterial, err := types.NewYAMLMaterial(telemetryStoreInstallationBuf.Bytes(), "clickhouseInstallation.yaml")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create keeper override material: %w", err)
-	}
-	materials = append(materials, telemetryStoreInstallationMaterial)
+type templateAt struct {
+	tmpl *domain.Template
+	path string
+}
 
-	metaStoreServiceBuf := bytes.NewBuffer(nil)
-	if err := metastoreService.Execute(metaStoreServiceBuf, config); err != nil {
-		return nil, fmt.Errorf("failed to execute store installation template: %w", err)
+func renderStructured(config *v1alpha1.Casting, items []templateAt) ([]domain.StructuredMaterial, error) {
+	materials := make([]domain.StructuredMaterial, 0, len(items))
+	for _, item := range items {
+		m, err := item.tmpl.Render(config, item.path)
+		if err != nil {
+			return nil, fmt.Errorf("render template %s: %w", item.tmpl.Path(), err)
+		}
+		sm, ok := m.(domain.StructuredMaterial)
+		if !ok {
+			return nil, fmt.Errorf("template %s does not produce a structured material", item.tmpl.Path())
+		}
+		materials = append(materials, sm)
 	}
-	metaStoreServiceMaterial, err := types.NewYAMLMaterial(metaStoreServiceBuf.Bytes(), "metastoreServie.yaml")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create metastore service material: %w", err)
-	}
-	materials = append(materials, metaStoreServiceMaterial)
 	return materials, nil
 }

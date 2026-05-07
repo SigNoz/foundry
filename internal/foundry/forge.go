@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
-	"github.com/signoz/foundry/internal/types"
 	"github.com/signoz/foundry/internal/writer"
 )
 
@@ -18,7 +18,7 @@ func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, path
 
 	casting, err := foundry.Registry.Casting(config.Spec.Deployment)
 	if err != nil {
-		foundry.Logger.ErrorContext(ctx, "casting not found", slog.String("casting.spec.deployment.mode", config.Spec.Deployment.Mode))
+		foundry.Logger.ErrorContext(ctx, "casting not found", slog.String("casting.spec.deployment.mode", config.Spec.Deployment.Mode.String()))
 		return err
 	}
 
@@ -76,11 +76,11 @@ func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, path
 
 	// Generate infrastructure-as-code manifests if enabled, before writing the lock file
 	// so that the generated file contents are captured in the lock's infrastructure.status.
-	var infraMaterials []types.Material
+	var infraMaterials []domain.Material
 	if config.Spec.Infrastructure.Enabled {
 		foundry.Logger.InfoContext(ctx, "generating infrastructure manifests",
 			slog.String("casting.metadata.name", config.Metadata.Name),
-			slog.String("deployment.platform", config.Spec.Deployment.Platform))
+			slog.String("deployment.platform", config.Spec.Deployment.Platform.String()))
 
 		infraMaterials, err = foundry.InfrastructureGenerator.Generate(ctx, config)
 		if err != nil {

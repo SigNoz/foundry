@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/signoz/foundry/api/v1alpha1"
-	"github.com/signoz/foundry/internal/types"
+	"github.com/signoz/foundry/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -295,7 +295,7 @@ func TestGetV1Alpha1Merge(t *testing.T) {
 				Spec: v1alpha1.CastingSpec{
 					MetaStore: v1alpha1.MetaStore{
 						Spec: v1alpha1.MoldingSpec{
-							Enabled: types.NewBoolPtr(false),
+							Enabled: domain.NewBoolPtr(false),
 						},
 					},
 				},

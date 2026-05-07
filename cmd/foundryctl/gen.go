@@ -2,17 +2,17 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"log/slog"
 	"os"
 	"path/filepath"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/foundry"
 	"github.com/signoz/foundry/internal/instrumentation"
-	"github.com/signoz/foundry/internal/ledger/noopledger"
-	"github.com/signoz/foundry/internal/types"
 	"github.com/spf13/cobra"
 	"github.com/swaggest/jsonschema-go"
 )
@@ -57,11 +57,6 @@ func registerGenSchemas(rootCmd *cobra.Command) {
 }
 
 func runGenExamples(ctx context.Context, logger *slog.Logger) error {
-	tracker := noopledger.New()
-	defer func() {
-		_ = tracker.Close()
-	}()
-
 	foundry, err := foundry.New(logger)
 	if err != nil {
 		logger.ErrorContext(ctx, "failed to create foundry, please report this issues to developers at https://github.com/signoz/foundry/issues", foundryerrors.LogAttr(err))
@@ -74,18 +69,18 @@ func runGenExamples(ctx context.Context, logger *slog.Logger) error {
 		config := v1alpha1.ExampleCasting()
 		config.Spec.Deployment = deployment
 
-		rootPath := filepath.Join("docs", "examples/", deployment.Platform, deployment.Mode, deployment.Flavor)
+		rootPath := filepath.Join("docs", "examples/", deployment.Platform.String(), deployment.Mode.String(), deployment.Flavor.String())
 		err = os.MkdirAll(rootPath, 0755)
 		if err != nil {
 			return err
 		}
 
-		err = os.WriteFile(filepath.Join(rootPath, "casting.yaml"), types.MustMarshalYAML(config), 0644)
+		err = os.WriteFile(filepath.Join(rootPath, "casting.yaml"), domain.MustMarshalYAML(config), 0644)
 		if err != nil {
 			return err
 		}
 
-		err = runForge(ctx, logger, tracker, filepath.Join(rootPath, "casting.yaml"), filepath.Join(rootPath, "pours"))
+		_, err = runForge(ctx, logger, filepath.Join(rootPath, "casting.yaml"), filepath.Join(rootPath, "pours"))
 		if err != nil {
 			logger.ErrorContext(ctx, "failed to forge casting", slog.Any("deployment", deployment), foundryerrors.LogAttr(err))
 			continue
@@ -103,7 +98,12 @@ func runGenSchemas(_ context.Context) error {
 		log.Fatal(err)
 	}
 
-	err = os.WriteFile(filepath.Join("docs", "schemas", "v1alpha1.yaml"), types.MustMarshalYAML(schema), 0644)
+	contents, err := json.MarshalIndent(schema, "", "  ")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = os.WriteFile(filepath.Join("api", "v1alpha1", "schema.json"), contents, 0644)
 	if err != nil {
 		return err
 	}

@@ -5,12 +5,12 @@ import (
 	"testing"
 
 	"github.com/signoz/foundry/api/v1alpha1"
-	"github.com/signoz/foundry/internal/types"
+	"github.com/signoz/foundry/internal/domain"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNotEmptyAndValid(t *testing.T) {
-	templates := map[string]*types.Template{
+	templates := map[string]*domain.Template{
 		"mainTF":                  mainTF,
 		"variablesTF":             variablesTF,
 		"moduleMainTF":            moduleMainTF,

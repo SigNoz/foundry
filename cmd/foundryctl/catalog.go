@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"log/slog"
 	"os"
@@ -9,9 +8,8 @@ import (
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/foundry"
-	"github.com/signoz/foundry/internal/instrumentation"
-	"github.com/signoz/foundry/internal/ledger"
 	"github.com/spf13/cobra"
 )
 
@@ -19,15 +17,9 @@ func registerCatalogCmd(rootCmd *cobra.Command) {
 	catalogCmd := &cobra.Command{
 		Use:   "catalog",
 		Short: "Show available castings",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			logger := instrumentation.NewLogger(commonCfg.Debug)
-			tracker := newTracker()
-			defer func() {
-				_ = tracker.Close()
-			}()
-
-			return runCatalog(cmd.Context(), logger, tracker)
-		},
+		RunE: recoverRunE(domain.EventCatalog, func(cmd *cobra.Command, args []string) (domain.Properties, error) {
+			return runCatalog(rootLogger)
+		}),
 	}
 
 	catalogCfg.RegisterFlags(catalogCmd)
@@ -42,13 +34,14 @@ type castingEntry struct {
 }
 
 func castingExample(d v1alpha1.TypeDeployment) string {
+	platform, mode, flavor := d.Platform.String(), d.Mode.String(), d.Flavor.String()
 	switch {
-	case d.Platform != "" && d.Mode != "":
-		return d.Platform + "/" + d.Mode + "/" + d.Flavor
-	case d.Platform != "":
-		return d.Platform + "/" + d.Flavor
+	case platform != "" && mode != "":
+		return platform + "/" + mode + "/" + flavor
+	case platform != "":
+		return platform + "/" + flavor
 	default:
-		return d.Mode + "/" + d.Flavor
+		return mode + "/" + flavor
 	}
 }
 
@@ -67,19 +60,18 @@ func catalogGroup(e castingEntry) int {
 	}
 }
 
-func runCatalog(ctx context.Context, logger *slog.Logger, tracker ledger.Ledger) error {
+func runCatalog(logger *slog.Logger) (domain.Properties, error) {
 	f, err := foundry.New(logger)
 	if err != nil {
-		tracker.Track(ctx, ledger.EventCatalog, ledger.WithError(nil, err))
-		return err
+		return domain.NewProperties(), err
 	}
 
 	var entries []castingEntry
 	for d := range f.Registry.CastingItems() {
 		entries = append(entries, castingEntry{
-			Platform: d.Platform,
-			Mode:     d.Mode,
-			Flavor:   d.Flavor,
+			Platform: d.Platform.String(),
+			Mode:     d.Mode.String(),
+			Flavor:   d.Flavor.String(),
 			Example:  castingExample(d),
 		})
 	}
@@ -92,28 +84,19 @@ func runCatalog(ctx context.Context, logger *slog.Logger, tracker ledger.Ledger)
 		return entries[i].Example < entries[j].Example
 	})
 
+	props := domain.NewProperties()
+
 	if catalogCfg.Format == "json" {
 		data, err := json.MarshalIndent(map[string]any{"Castings": entries}, "", "  ")
 		if err != nil {
-			tracker.Track(ctx, ledger.EventCatalog, ledger.WithError(nil, err))
-			return err
+			return props, err
 		}
 		if catalogCfg.OutPath != "" {
 			err = os.WriteFile(catalogCfg.OutPath, data, 0644)
-			if err != nil {
-				tracker.Track(ctx, ledger.EventCatalog, ledger.WithError(nil, err))
-				return err
-			}
-			tracker.Track(ctx, ledger.EventCatalog, ledger.WithSuccess(nil))
-			return nil
+			return props, err
 		}
 		_, err = os.Stdout.Write(data)
-		if err != nil {
-			tracker.Track(ctx, ledger.EventCatalog, ledger.WithError(nil, err))
-			return err
-		}
-		tracker.Track(ctx, ledger.EventCatalog, ledger.WithSuccess(nil))
-		return nil
+		return props, err
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
@@ -123,11 +106,5 @@ func runCatalog(ctx context.Context, logger *slog.Logger, tracker ledger.Ledger)
 	}
 
 	err = table.Render()
-	if err != nil {
-		tracker.Track(ctx, ledger.EventCatalog, ledger.WithError(nil, err))
-		return err
-	}
-
-	tracker.Track(ctx, ledger.EventCatalog, ledger.WithSuccess(nil))
-	return nil
+	return props, err
 }

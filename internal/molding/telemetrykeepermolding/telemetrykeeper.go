@@ -7,9 +7,9 @@ import (
 	"log/slog"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
-	"github.com/signoz/foundry/internal/types"
 )
 
 var _ molding.Molding = (*telemetrykeeper)(nil)
@@ -51,7 +51,7 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *v1alph
 		base := configBuf.String()
 
 		if overrides != "" {
-			merged, err := types.MergeYAML(base, overrides)
+			merged, err := domain.MergeYAML(base, overrides)
 			if err != nil {
 				return fmt.Errorf("failed to merge config overrides for %s: %w", key, err)
 			}

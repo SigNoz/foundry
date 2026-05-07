@@ -30,6 +30,7 @@ services:
     - /bin/sh
     environment:
     - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://signoz-telemetrystore-clickhouse-0-0:9000
+    - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
     image: signoz/signoz-otel-collector:latest
     networks:
     - signoz-network
@@ -52,11 +53,11 @@ services:
       - CMD-SHELL
       - pg_isready -U signoz -d signoz
       timeout: 10s
-    image: docker.io/postgres:16
+    image: postgres:16
     networks:
     - signoz-network
     volumes:
-    - signoz-metastore-0-data:/var/lib/postgresql/data
+    - signoz-metastore-postgres-0-data:/var/lib/postgresql/data
   signoz-signoz:
     deploy:
       replicas: 1
@@ -181,12 +182,13 @@ services:
     - /bin/sh
     environment:
     - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://signoz-telemetrystore-clickhouse-0-0:9000
+    - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
     image: signoz/signoz-otel-collector:latest
     networks:
     - signoz-network
 version: "3"
 volumes:
-  signoz-metastore-0-data: null
+  signoz-metastore-postgres-0-data: null
   signoz-telemetrykeeper-0-data: null
   signoz-telemetrystore-0-0-data: null
   signoz-telemetrystore-user-scripts: null

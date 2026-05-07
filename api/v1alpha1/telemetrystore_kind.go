@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/swaggest/jsonschema-go"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -13,6 +14,7 @@ var _ yaml.Unmarshaler = (*TelemetryStoreKind)(nil)
 var _ json.Marshaler = (*TelemetryStoreKind)(nil)
 var _ json.Unmarshaler = (*TelemetryStoreKind)(nil)
 var _ fmt.Stringer = (*TelemetryStoreKind)(nil)
+var _ jsonschema.Enum = (*TelemetryStoreKind)(nil)
 
 var (
 	TelemetryStoreKindClickhouse TelemetryStoreKind = TelemetryStoreKind{s: "clickhouse"}
@@ -50,10 +52,12 @@ func (kind *TelemetryStoreKind) UnmarshalText(text []byte) error {
 			return nil
 		}
 	}
+
 	if text == nil {
 		*kind = TelemetryStoreKind{s: ""}
 		return nil
 	}
+
 	return errors.New("invalid telemetry store kind: " + string(text))
 }
 
@@ -67,4 +71,13 @@ func (kind *TelemetryStoreKind) UnmarshalYAML(node *yaml.Node) error {
 
 func (kind TelemetryStoreKind) MarshalYAML() (any, error) {
 	return kind.String(), nil
+}
+
+func (kind TelemetryStoreKind) Enum() []any {
+	kinds := []any{}
+	for _, kind := range TelemetryStoreKinds() {
+		kinds = append(kinds, kind.String())
+	}
+
+	return kinds
 }

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/signoz/foundry/api/v1alpha1"
-	"github.com/signoz/foundry/internal/types"
+	"github.com/signoz/foundry/internal/domain"
 )
 
 // Generator is the interface for infrastructure-as-code generators.
@@ -12,7 +12,7 @@ import (
 // and can validate the generated output using the underlying tool.
 type Generator interface {
 	// Generate produces IaC materials from the casting configuration.
-	Generate(ctx context.Context, config v1alpha1.Casting) ([]types.Material, error)
+	Generate(ctx context.Context, config v1alpha1.Casting) ([]domain.Material, error)
 
 	// Validate runs the IaC tool's built-in validation (e.g., terraform validate)
 	// against the manifests written to poursPath.

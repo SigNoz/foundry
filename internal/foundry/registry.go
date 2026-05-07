@@ -46,62 +46,62 @@ func NewRegistry(logger *slog.Logger) (*Registry, error) {
 	return &Registry{
 		castings: map[v1alpha1.TypeDeployment]CastingItem{
 			{
-				Mode:   "docker",
-				Flavor: "compose",
+				Mode:   v1alpha1.ModeDocker,
+				Flavor: v1alpha1.FlavorCompose,
 			}: {
 				Casting: dockercomposecasting.New(logger),
 				Toolers: []tooler.Tooler{dockertooler.New(), dockercomposetooler.New()},
 			},
 			{
-				Mode:   "systemd",
-				Flavor: "binary",
+				Mode:   v1alpha1.ModeSystemd,
+				Flavor: v1alpha1.FlavorBinary,
 			}: {
 				Casting: systemdcasting.New(logger),
 				Toolers: []tooler.Tooler{systemdtooler.New(), clickhousekeepertooler.New(), clickhousetooler.New(), postgrestooler.New()},
 			},
 			{
-				Mode:   "docker",
-				Flavor: "swarm",
+				Mode:   v1alpha1.ModeDocker,
+				Flavor: v1alpha1.FlavorSwarm,
 			}: {
 				Casting: dockerswarmcasting.New(logger),
 				Toolers: []tooler.Tooler{dockertooler.New(), dockerswarmtooler.New()},
 			},
 			{
-				Mode:   "kubernetes",
-				Flavor: "kustomize",
+				Mode:   v1alpha1.ModeKubernetes,
+				Flavor: v1alpha1.FlavorKustomize,
 			}: {
 				Casting: kuberneteskustomizecasting.New(logger),
 				Toolers: []tooler.Tooler{kubectltooler.New()},
 			},
 			{
-				Platform: "render",
-				Flavor:   "blueprint",
+				Platform: v1alpha1.PlatformRender,
+				Flavor:   v1alpha1.FlavorBlueprint,
 			}: {
 				Casting: rendercasting.New(logger),
 			},
 			{
-				Platform: "coolify",
-				Flavor:   "stack",
+				Platform: v1alpha1.PlatformCoolify,
+				Flavor:   v1alpha1.FlavorStack,
 			}: {
 				Casting: coolifycasting.New(logger),
 			},
 			{
-				Platform: "railway",
-				Flavor:   "template",
+				Platform: v1alpha1.PlatformRailway,
+				Flavor:   v1alpha1.FlavorTemplate,
 			}: {
 				Casting: railwaytemplatecasting.New(logger),
 			},
 			{
-				Platform: "ecs",
-				Flavor:   "terraform",
-				Mode:     "ec2",
+				Platform: v1alpha1.PlatformECS,
+				Flavor:   v1alpha1.FlavorTerraform,
+				Mode:     v1alpha1.ModeEC2,
 			}: {
 				Casting: ecsterraformcasting.New(logger),
 				Toolers: []tooler.Tooler{terraformtooler.New()},
 			},
 			{
-				Mode:   "kubernetes",
-				Flavor: "helm",
+				Mode:   v1alpha1.ModeKubernetes,
+				Flavor: v1alpha1.FlavorHelm,
 			}: {
 				Casting: kuberneteshelmcasting.New(logger),
 				Toolers: []tooler.Tooler{helmtooler.New()},
@@ -120,7 +120,7 @@ func (registry *Registry) lookup(deployment v1alpha1.TypeDeployment) (CastingIte
 	}
 	// Fall back to matching without platform (platform may be set for infra generation
 	// but the casting itself is platform-agnostic, e.g. docker/compose on aws).
-	if deployment.Platform != "" {
+	if deployment.Platform != (v1alpha1.Platform{}) {
 		item, ok := registry.castings[v1alpha1.TypeDeployment{Mode: deployment.Mode, Flavor: deployment.Flavor}]
 		return item, ok
 	}

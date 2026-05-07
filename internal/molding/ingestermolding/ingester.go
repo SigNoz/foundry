@@ -51,6 +51,11 @@ func (molding *ingester) MoldV1Alpha1(ctx context.Context, config *v1alpha1.Cast
 		"opamp.yaml":    opampBuf.String(),
 	}
 
+	if config.Spec.Ingester.Status.Env == nil {
+		config.Spec.Ingester.Status.Env = make(map[string]string)
+	}
+	config.Spec.Ingester.Status.Env["SIGNOZ_OTEL_COLLECTOR_TIMEOUT"] = "10m"
+
 	return nil
 }
 
@@ -86,11 +91,17 @@ func (molding *ingester) getData(config *v1alpha1.Casting) (Data, error) {
 		telemetryStoreMeterAddresses = append(telemetryStoreMeterAddresses, address+"/signoz_meter")
 	}
 
+	var telemetryStoreMetadataAddresses []string
+	for _, address := range telemetryStoreAddresses {
+		telemetryStoreMetadataAddresses = append(telemetryStoreMetadataAddresses, address+"/signoz_metadata")
+	}
+
 	return Data{
-		SignozOpampAddress:           signozAddress,
-		TelemetryStoreTracesAddress:  strings.Join(telemetryStoreTracesAddresses, ","),
-		TelemetryStoreMetricsAddress: strings.Join(telemetryStoreMetricsAddresses, ","),
-		TelemetryStoreLogsAddress:    strings.Join(telemetryStoreLogsAddresses, ","),
-		TelemetryStoreMeterAddress:   strings.Join(telemetryStoreMeterAddresses, ","),
+		SignozOpampAddress:            signozAddress,
+		TelemetryStoreTracesAddress:   strings.Join(telemetryStoreTracesAddresses, ","),
+		TelemetryStoreMetricsAddress:  strings.Join(telemetryStoreMetricsAddresses, ","),
+		TelemetryStoreLogsAddress:     strings.Join(telemetryStoreLogsAddresses, ","),
+		TelemetryStoreMeterAddress:    strings.Join(telemetryStoreMeterAddresses, ","),
+		TelemetryStoreMetadataAddress: strings.Join(telemetryStoreMetadataAddresses, ","),
 	}, nil
 }

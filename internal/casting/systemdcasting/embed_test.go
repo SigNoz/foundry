@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/signoz/foundry/internal/types"
+	"github.com/signoz/foundry/internal/domain"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNotEmptyAndValid(t *testing.T) {
-	serviceTemplates := map[string]*types.Template{
+	serviceTemplates := map[string]*domain.Template{
 		"telemetryStoreServiceTemplate":  telemetryStoreServiceTemplate,
 		"telemetryKeeperServiceTemplate": telemetryKeeperServiceTemplate,
 		"metaStoreServiceTemplate":       metaStoreServiceTemplate,

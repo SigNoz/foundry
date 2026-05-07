@@ -98,9 +98,10 @@ services:
       mode: global
       restart_policy:
         condition: none
+  {{- if ne $.Spec.MetaStore.Kind.String "sqlite" }}
   {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}:
-    image: docker.io/{{ $.Spec.MetaStore.Kind }}:{{ $.Spec.MetaStore.Spec.Version }}
+    image: {{ $.Spec.MetaStore.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
     {{- if $.Spec.MetaStore.Spec.Env }}
@@ -110,7 +111,7 @@ services:
       {{- end }}
     {{- end }}
     volumes:
-      - {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data:/var/lib/postgresql/data
+      - {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}-data:/var/lib/postgresql/data
     deploy:
       restart_policy:
         condition: on-failure
@@ -122,6 +123,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+  {{- end }}
   {{- end }}
   {{ $.Metadata.Name }}-ingester:
     image: {{ $.Spec.Ingester.Spec.Image }}
@@ -163,6 +165,10 @@ services:
     {{- end }}
     ports:
       - "8080:8080"
+    {{- if eq $.Spec.MetaStore.Kind.String "sqlite" }}
+    volumes:
+      - {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-data:{{ dir (index $.Spec.Signoz.Spec.Env "SIGNOZ_SQLSTORE_SQLITE_PATH") }}
+    {{- end }}
     deploy:
       replicas: {{ int $.Spec.Signoz.Spec.Cluster.Replicas }}
       restart_policy:
@@ -195,6 +201,11 @@ services:
 {{ if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
       - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN={{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
 {{ end }}
+    {{- if $.Spec.Ingester.Spec.Env }}
+      {{- range $key, $value := $.Spec.Ingester.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    {{- end }}
     deploy:
       replicas: 1
       restart_policy:
@@ -215,8 +226,13 @@ volumes:
   {{- end }}
   {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-user-scripts:
+  {{- if ne $.Spec.MetaStore.Kind.String "sqlite" }}
   {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
-  {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data:
+  {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}-data:
+  {{- end }}
+  {{- end }}
+  {{- if eq $.Spec.MetaStore.Kind.String "sqlite" }}
+  {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-data:
   {{- end }}
 configs:
   {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}

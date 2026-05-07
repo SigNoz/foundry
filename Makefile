@@ -6,7 +6,7 @@ CASTINGS_JSON = $$(cat docs/examples/castings.json)
 NO_LEDGER	:= "--no-ledger"
 
 clean:
-	cd pours/deployment && docker compose -p dev down --remove-orphans --volumes
+	cd pours/deployment && docker compose down --remove-orphans --volumes
 	cd ../..
 	rm -rf ./pours
 

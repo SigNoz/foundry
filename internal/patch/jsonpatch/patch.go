@@ -7,8 +7,8 @@ import (
 
 	jsonpatchv5 "github.com/evanphx/json-patch/v5"
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/patch"
-	"github.com/signoz/foundry/internal/types"
 )
 
 var _ patch.Patch = (*jsonPatch)(nil)
@@ -19,13 +19,13 @@ func New() patch.Patch {
 	return &jsonPatch{}
 }
 
-func (p *jsonPatch) Apply(ctx context.Context, materials []types.Material, pe v1alpha1.PatchEntry) ([]types.Material, error) {
+func (p *jsonPatch) Apply(ctx context.Context, materials []domain.Material, pe v1alpha1.PatchEntry) ([]domain.Material, error) {
 	patchDoc, err := json.Marshal(pe.Operations)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal patch operations for target %q: %w", pe.Target, err)
 	}
 
-	result := make([]types.Material, len(materials))
+	result := make([]domain.Material, len(materials))
 	copy(result, materials)
 
 	matched := false
@@ -38,12 +38,17 @@ func (p *jsonPatch) Apply(ctx context.Context, materials []types.Material, pe v1
 			continue
 		}
 
-		if mat.IsMultiDoc() {
+		structured, ok := mat.(domain.StructuredMaterial)
+		if !ok {
+			return nil, fmt.Errorf("json patch on blob material %q is not supported", mat.Path())
+		}
+
+		if structured.HasMultipleDocuments() {
 			return nil, fmt.Errorf("json patch on multi-doc yaml material %q is not supported", mat.Path())
 		}
 
 		matched = true
-		patched, err := applyToMaterial(mat, patchDoc)
+		patched, err := applyToMaterial(structured, patchDoc)
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply patch to %q: %w", mat.Path(), err)
 		}
@@ -57,16 +62,16 @@ func (p *jsonPatch) Apply(ctx context.Context, materials []types.Material, pe v1
 	return result, nil
 }
 
-func applyToMaterial(mat types.Material, patchDoc []byte) (types.Material, error) {
+func applyToMaterial(mat domain.StructuredMaterial, patchDoc []byte) (domain.StructuredMaterial, error) {
 	decoded, err := jsonpatchv5.DecodePatch(patchDoc)
 	if err != nil {
-		return types.Material{}, fmt.Errorf("failed to decode json patch: %w", err)
+		return nil, fmt.Errorf("failed to decode json patch: %w", err)
 	}
 
-	patched, err := decoded.Apply(mat.Contents())
+	patched, err := decoded.Apply(mat.JSONContents())
 	if err != nil {
-		return types.Material{}, fmt.Errorf("failed to apply json patch: %w", err)
+		return nil, fmt.Errorf("failed to apply json patch: %w", err)
 	}
 
-	return mat.WithContents(patched), nil
+	return mat.CloneWithJSONContents(patched), nil
 }
