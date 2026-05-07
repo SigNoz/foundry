@@ -95,7 +95,7 @@ services:
   {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}:
     container_name: {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}
-    image: docker.io/{{ $.Spec.MetaStore.Kind }}:{{ $.Spec.MetaStore.Spec.Version }}
+    image: {{ $.Spec.MetaStore.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
     {{- if $.Spec.MetaStore.Spec.Env }}
