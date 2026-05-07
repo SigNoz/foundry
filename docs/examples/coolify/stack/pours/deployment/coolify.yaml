@@ -178,7 +178,7 @@ services:
       - CMD-SHELL
       - pg_isready -U signoz -d signoz
       timeout: 5s
-    image: docker.io/postgres:16
+    image: postgres:16
     logging:
       options:
         max-file: "3"
