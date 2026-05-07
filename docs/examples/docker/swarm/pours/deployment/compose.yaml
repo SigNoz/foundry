@@ -57,7 +57,7 @@ services:
     networks:
     - signoz-network
     volumes:
-    - signoz-metastore-0-data:/var/lib/postgresql/data
+    - signoz-metastore-postgres-0-data:/var/lib/postgresql/data
   signoz-signoz:
     deploy:
       replicas: 1
@@ -188,7 +188,7 @@ services:
     - signoz-network
 version: "3"
 volumes:
-  signoz-metastore-0-data: null
+  signoz-metastore-postgres-0-data: null
   signoz-telemetrykeeper-0-data: null
   signoz-telemetrystore-0-0-data: null
   signoz-telemetrystore-user-scripts: null
