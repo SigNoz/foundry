@@ -111,7 +111,7 @@ services:
       {{- end }}
     {{- end }}
     volumes:
-      - {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data:/var/lib/postgresql/data
+      - {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}-data:/var/lib/postgresql/data
     deploy:
       restart_policy:
         condition: on-failure
@@ -167,7 +167,7 @@ services:
       - "8080:8080"
     {{- if eq $.Spec.MetaStore.Kind.String "sqlite" }}
     volumes:
-      - {{ $.Metadata.Name }}-metastore-data:{{ dir (index $.Spec.Signoz.Spec.Env "SIGNOZ_SQLSTORE_SQLITE_PATH") }}
+      - {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-data:{{ dir (index $.Spec.Signoz.Spec.Env "SIGNOZ_SQLSTORE_SQLITE_PATH") }}
     {{- end }}
     deploy:
       replicas: {{ int $.Spec.Signoz.Spec.Cluster.Replicas }}
@@ -228,11 +228,11 @@ volumes:
   {{ $.Metadata.Name }}-telemetrystore-user-scripts:
   {{- if ne $.Spec.MetaStore.Kind.String "sqlite" }}
   {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
-  {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data:
+  {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}-data:
   {{- end }}
   {{- end }}
   {{- if eq $.Spec.MetaStore.Kind.String "sqlite" }}
-  {{ $.Metadata.Name }}-metastore-data:
+  {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-data:
   {{- end }}
 configs:
   {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}

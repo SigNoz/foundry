@@ -50,12 +50,7 @@ func (molding *signoz) MoldV1Alpha1(ctx context.Context, config *v1alpha1.Castin
 
 	switch config.Spec.MetaStore.Kind {
 	case v1alpha1.MetaStoreKindSQLite:
-		sqliteDir := "/var/lib/signoz"
-		if userDir, ok := config.Spec.Signoz.Spec.Env["SIGNOZ_SQLSTORE_SQLITE_PATH"]; ok && userDir != "" {
-			sqliteDir = strings.TrimRight(userDir, "/")
-			delete(config.Spec.Signoz.Spec.Env, "SIGNOZ_SQLSTORE_SQLITE_PATH")
-		}
-		config.Spec.Signoz.Status.Env["SIGNOZ_SQLSTORE_SQLITE_PATH"] = fmt.Sprintf("%s/signoz.db", sqliteDir)
+		config.Spec.Signoz.Status.Env["SIGNOZ_SQLSTORE_SQLITE_PATH"] = "/var/lib/signoz/signoz.db"
 	case v1alpha1.MetaStoreKindPostgres:
 		if config.Spec.MetaStore.Status.Addresses.DSN != nil {
 			if val, ok := config.Spec.Signoz.Spec.Env["SIGNOZ_SQLSTORE_POSTGRES_DSN"]; ok {
