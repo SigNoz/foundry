@@ -57,25 +57,28 @@ func (e *kustomizeMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alph
 }
 
 func (e *kustomizeMoldingEnricher) enrichTelemetryStore(config *v1alpha1.Casting) error {
+	spec := config.SigNozSpec()
+
 	name, err := e.materials[0].GetBytes("spec.templates.serviceTemplates.0.generateName")
 	if err != nil {
 		return fmt.Errorf("failed to get telemetrystore service names: %w", err)
 	}
-	config.Spec.TelemetryStore.Status.Addresses.TCP = []string{domain.MustNewAddress("tcp", string(name), telemetryStorePort).String()}
+	spec.TelemetryStore.Status.Addresses.TCP = []string{domain.MustNewAddress("tcp", string(name), telemetryStorePort).String()}
 
-	if config.Spec.TelemetryStore.Status.Extras == nil {
-		config.Spec.TelemetryStore.Status.Extras = make(map[string]string)
+	if spec.TelemetryStore.Status.Extras == nil {
+		spec.TelemetryStore.Status.Extras = make(map[string]string)
 	}
-	config.Spec.TelemetryStore.Status.Extras["_overrides"] = string(e.overrideMaterials[0].FmtContents())
+	spec.TelemetryStore.Status.Extras["_overrides"] = string(e.overrideMaterials[0].FmtContents())
 
 	return nil
 }
 
 func (e *kustomizeMoldingEnricher) enrichTelemetryKeeper(config *v1alpha1.Casting) error {
-	spec := &config.Spec.TelemetryKeeper
+	spec := config.SigNozSpec()
+	tk := &spec.TelemetryKeeper
 	replicas := 1
-	if spec.Spec.Cluster.Replicas != nil && *spec.Spec.Cluster.Replicas > 0 {
-		replicas = *spec.Spec.Cluster.Replicas
+	if tk.Spec.Cluster.Replicas != nil && *tk.Spec.Cluster.Replicas > 0 {
+		replicas = *tk.Spec.Cluster.Replicas
 	}
 	if replicas < 1 {
 		replicas = 1
@@ -88,25 +91,28 @@ func (e *kustomizeMoldingEnricher) enrichTelemetryKeeper(config *v1alpha1.Castin
 		client = append(client, domain.MustNewAddress("tcp", fmt.Sprintf("%s-%d", base, i), telemetryKeeperClientPort).String())
 		raft = append(raft, domain.MustNewAddress("tcp", fmt.Sprintf("%s-%d", base, i), telemetryKeeperRaftPort).String())
 	}
-	config.Spec.TelemetryKeeper.Status.Addresses.Client = client
-	config.Spec.TelemetryKeeper.Status.Addresses.Raft = raft
+	tk.Status.Addresses.Client = client
+	tk.Status.Addresses.Raft = raft
 	return nil
 }
 
 func (e *kustomizeMoldingEnricher) enrichMetaStore(config *v1alpha1.Casting) error {
+	spec := config.SigNozSpec()
+
 	name, err := e.materials[1].GetBytes("metadata.name")
 	if err != nil {
 		return fmt.Errorf("failed to get metastore service names: %w", err)
 	}
-	config.Spec.MetaStore.Status.Addresses.DSN = []string{
+	spec.MetaStore.Status.Addresses.DSN = []string{
 		fmt.Sprintf("postgres://%s:5432", name),
 	}
 	return nil
 }
 
 func (e *kustomizeMoldingEnricher) enrichSignoz(config *v1alpha1.Casting) error {
+	spec := config.SigNozSpec()
 	name := config.Metadata.Name + "-signoz"
-	config.Spec.Signoz.Status.Addresses.Opamp = []string{domain.MustNewAddress("ws", name, signozOpampPort).String()}
+	spec.Signoz.Status.Addresses.Opamp = []string{domain.MustNewAddress("ws", name, signozOpampPort).String()}
 	return nil
 }
 

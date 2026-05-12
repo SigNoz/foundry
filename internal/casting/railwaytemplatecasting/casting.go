@@ -45,10 +45,12 @@ func (c *railwayTemplateCasting) Enricher(ctx context.Context, config *v1alpha1.
 }
 
 func (c *railwayTemplateCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPath string) ([]domain.Material, error) {
+	spec := config.SigNozSpec()
+
 	var materials []domain.Material
 
 	// TelemetryKeeper: Dockerfile + configs + railway.json
-	if config.Spec.TelemetryKeeper.Spec.IsEnabled() {
+	if spec.TelemetryKeeper.Spec.IsEnabled() {
 		dockerfileBuf := bytes.NewBuffer(nil)
 		if err := telemetryKeeperDockerfileTemplate.Execute(dockerfileBuf, config); err != nil {
 			return nil, fmt.Errorf("telemetrykeeper dockerfile: %w", err)
@@ -59,7 +61,7 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config v1alpha1.Cast
 			return nil, fmt.Errorf("telemetrykeeper railway.json: %w", err)
 		}
 		materials = append(materials, domain.NewBlobMaterial(railwayBuf.Bytes(), filepath.Join(casting.DeploymentDir, "telemetrykeeper/railway.json")))
-		for filename, content := range config.Spec.TelemetryKeeper.Spec.Config.Data {
+		for filename, content := range spec.TelemetryKeeper.Spec.Config.Data {
 			m, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(casting.DeploymentDir, "telemetrykeeper/keeper.d/", filename))
 			if err != nil {
 				return nil, fmt.Errorf("telemetrykeeper config: %w", err)
@@ -69,7 +71,7 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config v1alpha1.Cast
 	}
 
 	// TelemetryStore: Dockerfile + configs + railway.json
-	if config.Spec.TelemetryStore.Spec.IsEnabled() {
+	if spec.TelemetryStore.Spec.IsEnabled() {
 		dockerfileBuf := bytes.NewBuffer(nil)
 		if err := telemetryStoreDockerfileTemplate.Execute(dockerfileBuf, config); err != nil {
 			return nil, fmt.Errorf("telemetrystore dockerfile: %w", err)
@@ -80,7 +82,7 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config v1alpha1.Cast
 			return nil, fmt.Errorf("telemetrystore railway.json: %w", err)
 		}
 		materials = append(materials, domain.NewBlobMaterial(railwayBuf.Bytes(), filepath.Join(casting.DeploymentDir, "telemetrystore/railway.json")))
-		for filename, content := range config.Spec.TelemetryStore.Spec.Config.Data {
+		for filename, content := range spec.TelemetryStore.Spec.Config.Data {
 			m, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(casting.DeploymentDir, "telemetrystore/config.d/", filename))
 			if err != nil {
 				return nil, fmt.Errorf("telemetrystore config: %w", err)
@@ -90,7 +92,7 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config v1alpha1.Cast
 	}
 
 	// Ingester: Dockerfile + configs + railway.json
-	if config.Spec.Ingester.Spec.IsEnabled() {
+	if spec.Ingester.Spec.IsEnabled() {
 		dockerfileBuf := bytes.NewBuffer(nil)
 		if err := ingesterDockerfileTemplate.Execute(dockerfileBuf, config); err != nil {
 			return nil, fmt.Errorf("ingester dockerfile: %w", err)
@@ -101,7 +103,7 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config v1alpha1.Cast
 			return nil, fmt.Errorf("ingester railway.json: %w", err)
 		}
 		materials = append(materials, domain.NewBlobMaterial(railwayBuf.Bytes(), filepath.Join(casting.DeploymentDir, "ingester/railway.json")))
-		for filename, content := range config.Spec.Ingester.Spec.Config.Data {
+		for filename, content := range spec.Ingester.Spec.Config.Data {
 			m, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(casting.DeploymentDir, "ingester/", filename))
 			if err != nil {
 				return nil, fmt.Errorf("ingester config: %w", err)
@@ -111,7 +113,7 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config v1alpha1.Cast
 	}
 
 	// Signoz: Dockerfile + railway.json
-	if config.Spec.Signoz.Spec.IsEnabled() {
+	if spec.Signoz.Spec.IsEnabled() {
 		dockerfileBuf := bytes.NewBuffer(nil)
 		if err := signozDockerfileTemplate.Execute(dockerfileBuf, config); err != nil {
 			return nil, fmt.Errorf("signoz dockerfile: %w", err)
@@ -125,7 +127,7 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config v1alpha1.Cast
 	}
 
 	// TelemetryStore migrator: Dockerfile + railway.json
-	if config.Spec.TelemetryStore.Spec.IsEnabled() {
+	if spec.TelemetryStore.Spec.IsEnabled() {
 		dockerfileBuf := bytes.NewBuffer(nil)
 		if err := telemetryStoreMigratorDockerfileTemplate.Execute(dockerfileBuf, config); err != nil {
 			return nil, fmt.Errorf("telemetrystore-migrator dockerfile: %w", err)

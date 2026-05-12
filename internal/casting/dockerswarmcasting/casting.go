@@ -38,6 +38,8 @@ func (casting *dockerSwarmCasting) Enricher(ctx context.Context, config *v1alpha
 }
 
 func (casting *dockerSwarmCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPath string) ([]domain.Material, error) {
+	spec := config.SigNozSpec()
+
 
 	buf := bytes.NewBuffer(nil)
 	err := composeYAMLTemplate.Execute(buf, config)
@@ -52,31 +54,31 @@ func (casting *dockerSwarmCasting) Forge(ctx context.Context, config v1alpha1.Ca
 
 	materials := []domain.Material{composeMaterial}
 
-	for filename, content := range config.Spec.TelemetryKeeper.Spec.Config.Data {
-		material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "telemetrykeeper", config.Spec.TelemetryKeeper.Kind.String(), filename))
+	for filename, content := range spec.TelemetryKeeper.Spec.Config.Data {
+		material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "telemetrykeeper", spec.TelemetryKeeper.Kind.String(), filename))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create telemetrykeeper config material: %w", err)
 		}
 		materials = append(materials, material)
 	}
 
-	for filename, content := range config.Spec.TelemetryStore.Spec.Config.Data {
-		material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "telemetrystore", config.Spec.TelemetryStore.Kind.String(), filename))
+	for filename, content := range spec.TelemetryStore.Spec.Config.Data {
+		material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "telemetrystore", spec.TelemetryStore.Kind.String(), filename))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create telemetrystore config material: %w", err)
 		}
 		materials = append(materials, material)
 	}
 
-	for filename, content := range config.Spec.MetaStore.Spec.Config.Data {
-		material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "metastore", config.Spec.MetaStore.Kind.String(), filename))
+	for filename, content := range spec.MetaStore.Spec.Config.Data {
+		material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "metastore", spec.MetaStore.Kind.String(), filename))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create metastore config material: %w", err)
 		}
 		materials = append(materials, material)
 	}
 
-	for filename, content := range config.Spec.Signoz.Spec.Config.Data {
+	for filename, content := range spec.Signoz.Spec.Config.Data {
 		material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "signoz", filename))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create signoz config material: %w", err)
@@ -84,7 +86,7 @@ func (casting *dockerSwarmCasting) Forge(ctx context.Context, config v1alpha1.Ca
 		materials = append(materials, material)
 	}
 
-	for filename, content := range config.Spec.Ingester.Spec.Config.Data {
+	for filename, content := range spec.Ingester.Spec.Config.Data {
 		material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "ingester", filename))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create ingester config material: %w", err)

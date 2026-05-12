@@ -28,6 +28,8 @@ func newDockerSwarmMoldingEnricher(config *v1alpha1.Casting) (*dockerSwarmMoldin
 }
 
 func (enricher *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *v1alpha1.Casting) error {
+	spec := config.SigNozSpec()
+
 	switch kind {
 	case v1alpha1.MoldingKindTelemetryStore:
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
@@ -42,7 +44,7 @@ func (enricher *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, ki
 			}
 		}
 
-		config.Spec.TelemetryStore.Status.Addresses.TCP = telemetrystoreAddresses
+		spec.TelemetryStore.Status.Addresses.TCP = telemetrystoreAddresses
 
 	case v1alpha1.MoldingKindSignoz:
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
@@ -58,8 +60,8 @@ func (enricher *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, ki
 				opampAddr = append(opampAddr, domain.MustNewAddress("ws", name, 4320).String())
 			}
 		}
-		config.Spec.Signoz.Status.Addresses.APIServer = apiServerAddr
-		config.Spec.Signoz.Status.Addresses.Opamp = opampAddr
+		spec.Signoz.Status.Addresses.APIServer = apiServerAddr
+		spec.Signoz.Status.Addresses.Opamp = opampAddr
 
 	case v1alpha1.MoldingKindTelemetryKeeper:
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
@@ -73,7 +75,7 @@ func (enricher *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, ki
 				clientAddresses = append(clientAddresses, domain.MustNewAddress("tcp", name, 9181).String())
 			}
 		}
-		config.Spec.TelemetryKeeper.Status.Addresses.Client = clientAddresses
+		spec.TelemetryKeeper.Status.Addresses.Client = clientAddresses
 
 		var raftAddresses []string
 		for _, name := range containerNames {
@@ -81,7 +83,7 @@ func (enricher *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, ki
 				raftAddresses = append(raftAddresses, domain.MustNewAddress("tcp", name, 9234).String())
 			}
 		}
-		config.Spec.TelemetryKeeper.Status.Addresses.Raft = raftAddresses
+		spec.TelemetryKeeper.Status.Addresses.Raft = raftAddresses
 
 	case v1alpha1.MoldingKindMetaStore:
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
@@ -95,7 +97,7 @@ func (enricher *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, ki
 				metastoreAddresses = append(metastoreAddresses, domain.MustNewAddress("tcp", name, 5432).String())
 			}
 		}
-		config.Spec.MetaStore.Status.Addresses.DSN = metastoreAddresses
+		spec.MetaStore.Status.Addresses.DSN = metastoreAddresses
 
 	case v1alpha1.MoldingKindIngester:
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
@@ -109,7 +111,7 @@ func (enricher *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, ki
 				ingesterAddresses = append(ingesterAddresses, domain.MustNewAddress("tcp", name, 9000).String())
 			}
 		}
-		config.Spec.Ingester.Status.Addresses.OTLP = ingesterAddresses
+		spec.Ingester.Status.Addresses.OTLP = ingesterAddresses
 	}
 
 	return nil

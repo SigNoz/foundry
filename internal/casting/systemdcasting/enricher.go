@@ -43,8 +43,9 @@ func (e *linuxMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.M
 }
 
 func (e *linuxMoldingEnricher) enrichTelemetryStore(config *v1alpha1.Casting) error {
-	spec := &config.Spec.TelemetryStore
-	cluster := spec.Spec.Cluster
+	spec := config.SigNozSpec()
+	ts := &spec.TelemetryStore
+	cluster := ts.Spec.Cluster
 
 	replicas := 1
 	shards := 1
@@ -56,7 +57,7 @@ func (e *linuxMoldingEnricher) enrichTelemetryStore(config *v1alpha1.Casting) er
 	}
 
 	if replicas > 1 || shards > 1 {
-		return fmt.Errorf("deployment mode '%s' does not support Distributed Clickhouse Setup, raise an issue at https://github.com/signoz/foundry/issues", config.Spec.Deployment.Mode)
+		return fmt.Errorf("deployment mode '%s' does not support Distributed Clickhouse Setup, raise an issue at https://github.com/signoz/foundry/issues", spec.Deployment.Mode)
 	}
 
 	// Generate addresses for each shard/replica
@@ -68,13 +69,14 @@ func (e *linuxMoldingEnricher) enrichTelemetryStore(config *v1alpha1.Casting) er
 		}
 	}
 
-	config.Spec.TelemetryStore.Status.Addresses.TCP = addresses
+	ts.Status.Addresses.TCP = addresses
 	return nil
 }
 
 func (e *linuxMoldingEnricher) enrichTelemetryKeeper(config *v1alpha1.Casting) error {
-	spec := &config.Spec.TelemetryKeeper
-	cluster := spec.Spec.Cluster
+	spec := config.SigNozSpec()
+	tk := &spec.TelemetryKeeper
+	cluster := tk.Spec.Cluster
 
 	replicas := 1
 	if cluster.Replicas != nil {
@@ -82,7 +84,7 @@ func (e *linuxMoldingEnricher) enrichTelemetryKeeper(config *v1alpha1.Casting) e
 	}
 
 	if replicas > 1 {
-		return fmt.Errorf("deployment mode '%s' does not support Distributed Clickhouse Setup, raise an issue at https://github.com/signoz/foundry/issues", config.Spec.Deployment.Mode)
+		return fmt.Errorf("deployment mode '%s' does not support Distributed Clickhouse Setup, raise an issue at https://github.com/signoz/foundry/issues", spec.Deployment.Mode)
 	}
 
 	var clientAddresses, raftAddresses []string
@@ -91,18 +93,19 @@ func (e *linuxMoldingEnricher) enrichTelemetryKeeper(config *v1alpha1.Casting) e
 		raftAddresses = append(raftAddresses, domain.MustNewAddress("tcp", "localhost", baseTelemetryKeeperRaftPort+r).String())
 	}
 
-	config.Spec.TelemetryKeeper.Status.Addresses.Client = clientAddresses
-	config.Spec.TelemetryKeeper.Status.Addresses.Raft = raftAddresses
+	tk.Status.Addresses.Client = clientAddresses
+	tk.Status.Addresses.Raft = raftAddresses
 	return nil
 }
 
 func (e *linuxMoldingEnricher) enrichMetaStore(config *v1alpha1.Casting) error {
-	switch config.Spec.MetaStore.Kind {
+	spec := config.SigNozSpec()
+	switch spec.MetaStore.Kind {
 	case v1alpha1.MetaStoreKindSQLite:
 		// SQLite — no addresses or binaries to enrich.
 	case v1alpha1.MetaStoreKindPostgres:
 		dsn := domain.MustNewAddress("postgres", "localhost", baseMetaStorePostgresPort).String()
-		config.Spec.MetaStore.Status.Addresses.DSN = []string{dsn}
+		spec.MetaStore.Status.Addresses.DSN = []string{dsn}
 
 		// Get the annotation value
 		metastoreBin := config.Metadata.Annotations["foundry.signoz.io/metastore-postgres-binary-path"]
@@ -121,10 +124,11 @@ func (e *linuxMoldingEnricher) enrichMetaStore(config *v1alpha1.Casting) error {
 }
 
 func (e *linuxMoldingEnricher) enrichSignoz(config *v1alpha1.Casting) error {
-	config.Spec.Signoz.Status.Addresses.Opamp = []string{
+	spec := config.SigNozSpec()
+	spec.Signoz.Status.Addresses.Opamp = []string{
 		domain.MustNewAddress("ws", "localhost", 4320).String(),
 	}
-	config.Spec.Signoz.Status.Addresses.APIServer = []string{
+	spec.Signoz.Status.Addresses.APIServer = []string{
 		domain.MustNewAddress("tcp", "localhost", 8080).String(),
 	}
 
@@ -145,7 +149,8 @@ func (e *linuxMoldingEnricher) enrichSignoz(config *v1alpha1.Casting) error {
 }
 
 func (e *linuxMoldingEnricher) enrichIngester(config *v1alpha1.Casting) error {
-	config.Spec.Ingester.Status.Addresses.OTLP = []string{
+	spec := config.SigNozSpec()
+	spec.Ingester.Status.Addresses.OTLP = []string{
 		domain.MustNewAddress("tcp", "localhost", 4317).String(),
 	}
 
@@ -162,10 +167,10 @@ func (e *linuxMoldingEnricher) enrichIngester(config *v1alpha1.Casting) error {
 		config.Metadata.Annotations["foundry.signoz.io/ingester-binary-path"] = ingesterBin
 	}
 
-	if config.Spec.Ingester.Status.Env == nil {
-		config.Spec.Ingester.Status.Env = make(map[string]string)
+	if spec.Ingester.Status.Env == nil {
+		spec.Ingester.Status.Env = make(map[string]string)
 	}
-	config.Spec.Ingester.Status.Env["SIGNOZ_OTEL_COLLECTOR_TIMEOUT"] = "10m"
+	spec.Ingester.Status.Env["SIGNOZ_OTEL_COLLECTOR_TIMEOUT"] = "10m"
 
 	return nil
 }

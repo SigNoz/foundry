@@ -30,49 +30,51 @@ func railwayInternalHost(serviceName string) string {
 }
 
 func (enricher *railwayTemplateMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *v1alpha1.Casting) error {
+	spec := config.SigNozSpec()
+
 	name := config.Metadata.Name
 	if name == "" {
 		name = "signoz"
 	}
 	switch kind {
 	case v1alpha1.MoldingKindTelemetryStore:
-		if !config.Spec.TelemetryStore.Spec.IsEnabled() {
+		if !spec.TelemetryStore.Spec.IsEnabled() {
 			return nil
 		}
-		svc := name + "-telemetrystore-" + config.Spec.TelemetryStore.Kind.String()
-		config.Spec.TelemetryStore.Status.Addresses.TCP = []string{domain.MustNewAddress("tcp", railwayInternalHost(svc), 9000).String()}
-		if config.Spec.TelemetryStore.Status.Extras == nil {
-			config.Spec.TelemetryStore.Status.Extras = make(map[string]string)
+		svc := name + "-telemetrystore-" + spec.TelemetryStore.Kind.String()
+		spec.TelemetryStore.Status.Addresses.TCP = []string{domain.MustNewAddress("tcp", railwayInternalHost(svc), 9000).String()}
+		if spec.TelemetryStore.Status.Extras == nil {
+			spec.TelemetryStore.Status.Extras = make(map[string]string)
 		}
-		config.Spec.TelemetryStore.Status.Extras["service_names"] = svc
-		config.Spec.TelemetryStore.Status.Extras["_overrides"] = string(enricher.material[1].FmtContents())
+		spec.TelemetryStore.Status.Extras["service_names"] = svc
+		spec.TelemetryStore.Status.Extras["_overrides"] = string(enricher.material[1].FmtContents())
 
 	case v1alpha1.MoldingKindSignoz:
-		if !config.Spec.Signoz.Spec.IsEnabled() {
+		if !spec.Signoz.Spec.IsEnabled() {
 			return nil
 		}
 		svc := name + "-signoz"
-		config.Spec.Signoz.Status.Addresses.APIServer = []string{domain.MustNewAddress("tcp", railwayInternalHost(svc), 8080).String()}
-		config.Spec.Signoz.Status.Addresses.Opamp = []string{domain.MustNewAddress("ws", railwayInternalHost(svc), 4320).String()}
+		spec.Signoz.Status.Addresses.APIServer = []string{domain.MustNewAddress("tcp", railwayInternalHost(svc), 8080).String()}
+		spec.Signoz.Status.Addresses.Opamp = []string{domain.MustNewAddress("ws", railwayInternalHost(svc), 4320).String()}
 
 	case v1alpha1.MoldingKindTelemetryKeeper:
-		if !config.Spec.TelemetryKeeper.Spec.IsEnabled() {
+		if !spec.TelemetryKeeper.Spec.IsEnabled() {
 			return nil
 		}
-		svc := name + "-telemetrykeeper-" + config.Spec.TelemetryKeeper.Kind.String()
-		config.Spec.TelemetryKeeper.Status.Addresses.Client = []string{domain.MustNewAddress("tcp", railwayInternalHost(svc), 9181).String()}
-		config.Spec.TelemetryKeeper.Status.Addresses.Raft = []string{domain.MustNewAddress("tcp", railwayInternalHost(svc), 9234).String()}
-		if config.Spec.TelemetryKeeper.Status.Extras == nil {
-			config.Spec.TelemetryKeeper.Status.Extras = make(map[string]string)
+		svc := name + "-telemetrykeeper-" + spec.TelemetryKeeper.Kind.String()
+		spec.TelemetryKeeper.Status.Addresses.Client = []string{domain.MustNewAddress("tcp", railwayInternalHost(svc), 9181).String()}
+		spec.TelemetryKeeper.Status.Addresses.Raft = []string{domain.MustNewAddress("tcp", railwayInternalHost(svc), 9234).String()}
+		if spec.TelemetryKeeper.Status.Extras == nil {
+			spec.TelemetryKeeper.Status.Extras = make(map[string]string)
 		}
-		config.Spec.TelemetryKeeper.Status.Extras["service_names"] = svc
-		config.Spec.TelemetryKeeper.Status.Extras["_overrides"] = string(enricher.material[0].FmtContents())
+		spec.TelemetryKeeper.Status.Extras["service_names"] = svc
+		spec.TelemetryKeeper.Status.Extras["_overrides"] = string(enricher.material[0].FmtContents())
 	case v1alpha1.MoldingKindIngester:
-		if !config.Spec.Ingester.Spec.IsEnabled() {
+		if !spec.Ingester.Spec.IsEnabled() {
 			return nil
 		}
 		svc := name + "-ingester"
-		config.Spec.Ingester.Status.Addresses.OTLP = []string{domain.MustNewAddress("tcp", railwayInternalHost(svc), 4318).String()}
+		spec.Ingester.Status.Addresses.OTLP = []string{domain.MustNewAddress("tcp", railwayInternalHost(svc), 4318).String()}
 	}
 
 	return nil

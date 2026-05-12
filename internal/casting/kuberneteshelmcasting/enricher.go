@@ -36,16 +36,18 @@ func (e *helmMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.Mo
 }
 
 func (e *helmMoldingEnricher) enrichTelemetryStore(config *v1alpha1.Casting) error {
-	name := fmt.Sprintf("%s-telemetrystore-%s", config.Metadata.Name, config.Spec.TelemetryStore.Kind)
-	config.Spec.TelemetryStore.Status.Addresses.TCP = []string{domain.MustNewAddress("tcp", name, 9000).String()}
+	spec := config.SigNozSpec()
+	name := fmt.Sprintf("%s-telemetrystore-%s", config.Metadata.Name, spec.TelemetryStore.Kind)
+	spec.TelemetryStore.Status.Addresses.TCP = []string{domain.MustNewAddress("tcp", name, 9000).String()}
 	return nil
 }
 
 func (e *helmMoldingEnricher) enrichTelemetryKeeper(config *v1alpha1.Casting) error {
-	spec := &config.Spec.TelemetryKeeper
+	spec := config.SigNozSpec()
+	tk := &spec.TelemetryKeeper
 	replicas := 1
-	if spec.Spec.Cluster.Replicas != nil && *spec.Spec.Cluster.Replicas > 0 {
-		replicas = *spec.Spec.Cluster.Replicas
+	if tk.Spec.Cluster.Replicas != nil && *tk.Spec.Cluster.Replicas > 0 {
+		replicas = *tk.Spec.Cluster.Replicas
 	}
 	if replicas < 1 {
 		replicas = 1
@@ -57,23 +59,25 @@ func (e *helmMoldingEnricher) enrichTelemetryKeeper(config *v1alpha1.Casting) er
 		client = append(client, domain.MustNewAddress("tcp", fmt.Sprintf("%s-%d", base, i), 9181).String())
 		raft = append(raft, domain.MustNewAddress("tcp", fmt.Sprintf("%s-%d", base, i), 9234).String())
 	}
-	config.Spec.TelemetryKeeper.Status.Addresses.Client = client
-	config.Spec.TelemetryKeeper.Status.Addresses.Raft = raft
+	tk.Status.Addresses.Client = client
+	tk.Status.Addresses.Raft = raft
 	return nil
 }
 
 func (e *helmMoldingEnricher) enrichMetaStore(config *v1alpha1.Casting) error {
-	name := fmt.Sprintf("%s-metastore-%s", config.Metadata.Name, config.Spec.MetaStore.Kind)
-	config.Spec.MetaStore.Status.Addresses.DSN = []string{
+	spec := config.SigNozSpec()
+	name := fmt.Sprintf("%s-metastore-%s", config.Metadata.Name, spec.MetaStore.Kind)
+	spec.MetaStore.Status.Addresses.DSN = []string{
 		fmt.Sprintf("postgres://%s:5432", name),
 	}
 	return nil
 }
 
 func (e *helmMoldingEnricher) enrichSignoz(config *v1alpha1.Casting) error {
+	spec := config.SigNozSpec()
 	// Chart uses signoz.fullname which resolves to fullnameOverride directly.
 	name := config.Metadata.Name
-	config.Spec.Signoz.Status.Addresses.Opamp = []string{domain.MustNewAddress("tcp", name, 4320).String()}
+	spec.Signoz.Status.Addresses.Opamp = []string{domain.MustNewAddress("tcp", name, 4320).String()}
 	return nil
 }
 
