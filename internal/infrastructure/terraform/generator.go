@@ -37,15 +37,17 @@ func New(logger *slog.Logger) *Generator {
 // Generate creates Terraform manifests based on the casting configuration.
 // The compute type is resolved automatically from the provider and deployment mode.
 func (g *Generator) Generate(ctx context.Context, config v1alpha1.Casting) ([]domain.Material, error) {
-	if !config.Spec.Infrastructure.Enabled {
+	spec := config.SigNozSpec()
+
+	if !spec.Infrastructure.Enabled {
 		return nil, nil
 	}
 
-	provider, err := infrastructure.ResolveProvider(config.Spec.Deployment.Platform)
+	provider, err := infrastructure.ResolveProvider(spec.Deployment.Platform)
 	if err != nil {
 		return nil, err
 	}
-	computeType, err := infrastructure.ResolveComputeType(provider, config.Spec.Deployment)
+	computeType, err := infrastructure.ResolveComputeType(provider, spec.Deployment)
 	if err != nil {
 		return nil, err
 	}
