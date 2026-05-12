@@ -1,4 +1,5 @@
 apiVersion: v1alpha1
+kind: SigNoz
 metadata:
   name: signoz
 spec:
@@ -671,3 +672,5 @@ spec:
                   port: 9000
           user_scripts_path: /etc/clickhouse-server/user_scripts/
         service_names: signoz-telemetrystore-clickhouse
+status:
+  checksum: ""

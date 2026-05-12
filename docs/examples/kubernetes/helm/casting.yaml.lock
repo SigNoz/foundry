@@ -1,4 +1,5 @@
 apiVersion: v1alpha1
+kind: SigNoz
 metadata:
   name: signoz
 spec:
@@ -642,3 +643,5 @@ spec:
               name: histogramQuantile
               return_type: Float64
               type: executable
+status:
+  checksum: ""

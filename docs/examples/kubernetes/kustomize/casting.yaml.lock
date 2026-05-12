@@ -1,4 +1,5 @@
 apiVersion: v1alpha1
+kind: SigNoz
 metadata:
   name: signoz
 spec:
@@ -822,3 +823,5 @@ spec:
               password: 27ff0399-0d3a-4bd8-919d-17c2181e6fb9
               profile: default
               quota: default
+status:
+  checksum: ""

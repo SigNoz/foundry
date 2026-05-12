@@ -1,4 +1,5 @@
 apiVersion: v1alpha1
+kind: SigNoz
 metadata:
   name: signoz
 spec:

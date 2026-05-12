@@ -1,4 +1,5 @@
 apiVersion: v1alpha1
+kind: SigNoz
 metadata:
   name: signoz
 spec:
@@ -645,3 +646,5 @@ spec:
               type: executable
       extras:
         service_names: signoz-telemetrystore-clickhouse-0-0
+status:
+  checksum: ""
