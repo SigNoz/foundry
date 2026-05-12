@@ -29,8 +29,10 @@ func (molding *ingester) Kind() v1alpha1.MoldingKind {
 }
 
 func (molding *ingester) MoldV1Alpha1(ctx context.Context, config *v1alpha1.Casting) error {
+	spec := config.SigNozSpec()
+
 	// render the template for config.yaml
-	data, err := molding.getData(config)
+	data, err := molding.getData(spec)
 	if err != nil {
 		molding.logger.ErrorContext(ctx, "failed to get data", foundryerrors.LogAttr(err))
 		return err
@@ -46,31 +48,31 @@ func (molding *ingester) MoldV1Alpha1(ctx context.Context, config *v1alpha1.Cast
 		return err
 	}
 
-	config.Spec.Ingester.Status.Config.Data = map[string]string{
+	spec.Ingester.Status.Config.Data = map[string]string{
 		"ingester.yaml": configBuf.String(),
 		"opamp.yaml":    opampBuf.String(),
 	}
 
-	if config.Spec.Ingester.Status.Env == nil {
-		config.Spec.Ingester.Status.Env = make(map[string]string)
+	if spec.Ingester.Status.Env == nil {
+		spec.Ingester.Status.Env = make(map[string]string)
 	}
-	config.Spec.Ingester.Status.Env["SIGNOZ_OTEL_COLLECTOR_TIMEOUT"] = "10m"
+	spec.Ingester.Status.Env["SIGNOZ_OTEL_COLLECTOR_TIMEOUT"] = "10m"
 
 	return nil
 }
 
-func (molding *ingester) getData(config *v1alpha1.Casting) (Data, error) {
-	if len(config.Spec.Signoz.Status.Addresses.Opamp) == 0 {
+func (molding *ingester) getData(spec *v1alpha1.SigNozCastingSpec) (Data, error) {
+	if len(spec.Signoz.Status.Addresses.Opamp) == 0 {
 		return Data{}, fmt.Errorf("signoz address is not set")
 	}
 
-	signozAddress := config.Spec.Signoz.Status.Addresses.Opamp[0]
+	signozAddress := spec.Signoz.Status.Addresses.Opamp[0]
 
-	if len(config.Spec.TelemetryStore.Status.Addresses.TCP) == 0 {
+	if len(spec.TelemetryStore.Status.Addresses.TCP) == 0 {
 		return Data{}, fmt.Errorf("telemetry store address is not set")
 	}
 
-	telemetryStoreAddresses := config.Spec.TelemetryStore.Status.Addresses.TCP
+	telemetryStoreAddresses := spec.TelemetryStore.Status.Addresses.TCP
 	var telemetryStoreTracesAddresses []string
 	for _, address := range telemetryStoreAddresses {
 		telemetryStoreTracesAddresses = append(telemetryStoreTracesAddresses, address+"/signoz_traces")

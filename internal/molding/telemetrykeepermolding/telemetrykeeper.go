@@ -29,14 +29,16 @@ func (molding *telemetrykeeper) Kind() v1alpha1.MoldingKind {
 }
 
 func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *v1alpha1.Casting) error {
-	data, err := newData(config)
+	spec := config.SigNozSpec()
+
+	data, err := newData(spec)
 	if err != nil {
 		molding.logger.ErrorContext(ctx, "failed to get data", foundryerrors.LogAttr(err))
 		return err
 	}
 
 	// Extract enricher config overrides (applies to all keeper nodes).
-	overrides := config.Spec.TelemetryKeeper.Status.Extras["_overrides"]
+	overrides := spec.TelemetryKeeper.Status.Extras["_overrides"]
 
 	// Generate per-server configs (each keeper node needs its own server_id)
 	configs := make(map[string]string, data.ServerCount)
@@ -61,6 +63,6 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *v1alph
 		configs[key] = base
 	}
 
-	config.Spec.TelemetryKeeper.Status.Config.Data = configs
+	spec.TelemetryKeeper.Status.Config.Data = configs
 	return nil
 }

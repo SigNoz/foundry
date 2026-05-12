@@ -23,21 +23,21 @@ type Data struct {
 	ServerID        int // Current server ID for per-node config generation
 }
 
-func newData(config *v1alpha1.Casting) (Data, error) {
+func newData(spec *v1alpha1.SigNozCastingSpec) (Data, error) {
 	var data Data
 
-	if config.Spec.TelemetryKeeper.Spec.Cluster.Replicas == nil {
+	if spec.TelemetryKeeper.Spec.Cluster.Replicas == nil {
 		data.ServerCount = 1
 	} else {
-		data.ServerCount = max(*config.Spec.TelemetryKeeper.Spec.Cluster.Replicas, 1)
+		data.ServerCount = max(*spec.TelemetryKeeper.Spec.Cluster.Replicas, 1)
 	}
 
-	raftAddresses := config.Spec.TelemetryKeeper.Status.Addresses.Raft
+	raftAddresses := spec.TelemetryKeeper.Status.Addresses.Raft
 	if len(raftAddresses) < data.ServerCount {
 		return Data{}, fmt.Errorf("insufficient raft addresses: have %d, need %d servers", len(raftAddresses), data.ServerCount)
 	}
 
-	clientAddresses := config.Spec.TelemetryKeeper.Status.Addresses.Client
+	clientAddresses := spec.TelemetryKeeper.Status.Addresses.Client
 	if len(clientAddresses) < data.ServerCount {
 		return Data{}, fmt.Errorf("insufficient client addresses: have %d, need %d servers", len(clientAddresses), data.ServerCount)
 	}
