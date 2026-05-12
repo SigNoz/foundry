@@ -14,11 +14,13 @@ import (
 )
 
 func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, path string, poursWriterOpts *writer.Options) error {
+	spec := config.SigNozSpec()
+
 	foundry.Logger.InfoContext(ctx, "starting forge pipeline", slog.String("casting.metadata.name", config.Metadata.Name))
 
-	casting, err := foundry.Registry.Casting(config.Spec.Deployment)
+	casting, err := foundry.Registry.Casting(spec.Deployment)
 	if err != nil {
-		foundry.Logger.ErrorContext(ctx, "casting not found", slog.String("casting.spec.deployment.mode", config.Spec.Deployment.Mode.String()))
+		foundry.Logger.ErrorContext(ctx, "casting not found", slog.String("casting.spec.deployment.mode", spec.Deployment.Mode.String()))
 		return err
 	}
 
@@ -61,7 +63,7 @@ func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, path
 	}
 
 	// Apply patch operations from spec.patches
-	for _, pe := range config.Spec.Patches {
+	for _, pe := range spec.Patches {
 		patcher, ok := foundry.Patchers[pe.PatchType()]
 		if !ok {
 			return fmt.Errorf("unknown patch type %q", pe.PatchType())
@@ -77,10 +79,10 @@ func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, path
 	// Generate infrastructure-as-code manifests if enabled, before writing the lock file
 	// so that the generated file contents are captured in the lock's infrastructure.status.
 	var infraMaterials []domain.Material
-	if config.Spec.Infrastructure.Enabled {
+	if spec.Infrastructure.Enabled {
 		foundry.Logger.InfoContext(ctx, "generating infrastructure manifests",
 			slog.String("casting.metadata.name", config.Metadata.Name),
-			slog.String("deployment.platform", config.Spec.Deployment.Platform.String()))
+			slog.String("deployment.platform", spec.Deployment.Platform.String()))
 
 		infraMaterials, err = foundry.InfrastructureGenerator.Generate(ctx, config)
 		if err != nil {
@@ -89,9 +91,9 @@ func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, path
 
 		// Populate infrastructure status with generated file contents keyed by filename.
 		if len(infraMaterials) > 0 {
-			config.Spec.Infrastructure.Status = make(map[string]string, len(infraMaterials))
+			spec.Infrastructure.Status = make(map[string]string, len(infraMaterials))
 			for _, m := range infraMaterials {
-				config.Spec.Infrastructure.Status[filepath.Base(m.Path())] = string(m.FmtContents())
+				spec.Infrastructure.Status[filepath.Base(m.Path())] = string(m.FmtContents())
 			}
 		}
 	}

@@ -31,11 +31,11 @@ spec:
 `,
 			assert: func(t *testing.T, casting v1alpha1.Casting) {
 				// All moldings should be enabled by default
-				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
-				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
-				assert.True(t, *casting.Spec.TelemetryKeeper.Spec.Enabled)
-				assert.True(t, *casting.Spec.MetaStore.Spec.Enabled)
-				assert.True(t, *casting.Spec.Ingester.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().Signoz.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().TelemetryStore.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().TelemetryKeeper.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().MetaStore.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().Ingester.Spec.Enabled)
 			},
 		},
 		{
@@ -53,12 +53,12 @@ spec:
       enabled: false
 `,
 			assert: func(t *testing.T, casting v1alpha1.Casting) {
-				assert.False(t, *casting.Spec.MetaStore.Spec.Enabled)
+				assert.False(t, *casting.SigNozSpec().MetaStore.Spec.Enabled)
 				// Other moldings should remain enabled
-				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
-				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
-				assert.True(t, *casting.Spec.TelemetryKeeper.Spec.Enabled)
-				assert.True(t, *casting.Spec.Ingester.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().Signoz.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().TelemetryStore.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().TelemetryKeeper.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().Ingester.Spec.Enabled)
 			},
 		},
 		{
@@ -76,11 +76,11 @@ spec:
       enabled: false
 `,
 			assert: func(t *testing.T, casting v1alpha1.Casting) {
-				assert.False(t, *casting.Spec.Signoz.Spec.Enabled)
-				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
-				assert.True(t, *casting.Spec.TelemetryKeeper.Spec.Enabled)
-				assert.True(t, *casting.Spec.MetaStore.Spec.Enabled)
-				assert.True(t, *casting.Spec.Ingester.Spec.Enabled)
+				assert.False(t, *casting.SigNozSpec().Signoz.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().TelemetryStore.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().TelemetryKeeper.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().MetaStore.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().Ingester.Spec.Enabled)
 			},
 		},
 		{
@@ -98,11 +98,11 @@ spec:
       enabled: false
 `,
 			assert: func(t *testing.T, casting v1alpha1.Casting) {
-				assert.False(t, *casting.Spec.Ingester.Spec.Enabled)
-				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
-				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
-				assert.True(t, *casting.Spec.TelemetryKeeper.Spec.Enabled)
-				assert.True(t, *casting.Spec.MetaStore.Spec.Enabled)
+				assert.False(t, *casting.SigNozSpec().Ingester.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().Signoz.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().TelemetryStore.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().TelemetryKeeper.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().MetaStore.Spec.Enabled)
 			},
 		},
 		{
@@ -120,11 +120,11 @@ spec:
       enabled: false
 `,
 			assert: func(t *testing.T, casting v1alpha1.Casting) {
-				assert.False(t, *casting.Spec.TelemetryStore.Spec.Enabled)
-				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
-				assert.True(t, *casting.Spec.TelemetryKeeper.Spec.Enabled)
-				assert.True(t, *casting.Spec.MetaStore.Spec.Enabled)
-				assert.True(t, *casting.Spec.Ingester.Spec.Enabled)
+				assert.False(t, *casting.SigNozSpec().TelemetryStore.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().Signoz.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().TelemetryKeeper.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().MetaStore.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().Ingester.Spec.Enabled)
 			},
 		},
 		{
@@ -142,11 +142,11 @@ spec:
       enabled: false
 `,
 			assert: func(t *testing.T, casting v1alpha1.Casting) {
-				assert.False(t, *casting.Spec.TelemetryKeeper.Spec.Enabled)
-				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
-				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
-				assert.True(t, *casting.Spec.MetaStore.Spec.Enabled)
-				assert.True(t, *casting.Spec.Ingester.Spec.Enabled)
+				assert.False(t, *casting.SigNozSpec().TelemetryKeeper.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().Signoz.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().TelemetryStore.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().MetaStore.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().Ingester.Spec.Enabled)
 			},
 		},
 		{
@@ -167,11 +167,11 @@ spec:
       enabled: false
 `,
 			assert: func(t *testing.T, casting v1alpha1.Casting) {
-				assert.False(t, *casting.Spec.MetaStore.Spec.Enabled)
-				assert.False(t, *casting.Spec.TelemetryKeeper.Spec.Enabled)
-				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
-				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
-				assert.True(t, *casting.Spec.Ingester.Spec.Enabled)
+				assert.False(t, *casting.SigNozSpec().MetaStore.Spec.Enabled)
+				assert.False(t, *casting.SigNozSpec().TelemetryKeeper.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().Signoz.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().TelemetryStore.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().Ingester.Spec.Enabled)
 			},
 		},
 		{
@@ -190,8 +190,8 @@ spec:
       image: custom:1.0
 `,
 			assert: func(t *testing.T, casting v1alpha1.Casting) {
-				assert.False(t, *casting.Spec.MetaStore.Spec.Enabled)
-				assert.Equal(t, "custom:1.0", casting.Spec.MetaStore.Spec.Image)
+				assert.False(t, *casting.SigNozSpec().MetaStore.Spec.Enabled)
+				assert.Equal(t, "custom:1.0", casting.SigNozSpec().MetaStore.Spec.Image)
 			},
 		},
 		{
@@ -209,7 +209,7 @@ spec:
       enabled: true
 `,
 			assert: func(t *testing.T, casting v1alpha1.Casting) {
-				assert.True(t, *casting.Spec.MetaStore.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().MetaStore.Spec.Enabled)
 			},
 		},
 		{
@@ -228,8 +228,8 @@ spec:
 `,
 			assert: func(t *testing.T, casting v1alpha1.Casting) {
 				// Enabled should remain true (default) when only image is overridden
-				assert.True(t, *casting.Spec.MetaStore.Spec.Enabled)
-				assert.Equal(t, "postgres:15", casting.Spec.MetaStore.Spec.Image)
+				assert.True(t, *casting.SigNozSpec().MetaStore.Spec.Enabled)
+				assert.Equal(t, "postgres:15", casting.SigNozSpec().MetaStore.Spec.Image)
 			},
 		},
 		{
@@ -247,8 +247,8 @@ spec:
       version: "24.8"
 `,
 			assert: func(t *testing.T, casting v1alpha1.Casting) {
-				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
-				assert.Equal(t, "24.8", casting.Spec.TelemetryStore.Spec.Version)
+				assert.True(t, *casting.SigNozSpec().TelemetryStore.Spec.Enabled)
+				assert.Equal(t, "24.8", casting.SigNozSpec().TelemetryStore.Spec.Version)
 			},
 		},
 	}
@@ -282,17 +282,17 @@ func TestGetV1Alpha1Merge(t *testing.T) {
 			base:     v1alpha1.DefaultCasting(),
 			override: v1alpha1.Casting{},
 			assert: func(t *testing.T, casting v1alpha1.Casting) {
-				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
-				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
-				assert.True(t, *casting.Spec.MetaStore.Spec.Enabled)
-				assert.True(t, *casting.Spec.Ingester.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().Signoz.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().TelemetryStore.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().MetaStore.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().Ingester.Spec.Enabled)
 			},
 		},
 		{
 			name: "DisabledMoldingOverride",
 			base: v1alpha1.DefaultCasting(),
 			override: v1alpha1.Casting{
-				Spec: v1alpha1.CastingSpec{
+				Spec: &v1alpha1.SigNozCastingSpec{
 					MetaStore: v1alpha1.MetaStore{
 						Spec: v1alpha1.MoldingSpec{
 							Enabled: domain.NewBoolPtr(false),
@@ -301,11 +301,11 @@ func TestGetV1Alpha1Merge(t *testing.T) {
 				},
 			},
 			assert: func(t *testing.T, casting v1alpha1.Casting) {
-				assert.False(t, *casting.Spec.MetaStore.Spec.Enabled)
+				assert.False(t, *casting.SigNozSpec().MetaStore.Spec.Enabled)
 				// Other moldings should remain enabled
-				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
-				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
-				assert.True(t, *casting.Spec.Ingester.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().Signoz.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().TelemetryStore.Spec.Enabled)
+				assert.True(t, *casting.SigNozSpec().Ingester.Spec.Enabled)
 			},
 		},
 	}
@@ -315,7 +315,7 @@ func TestGetV1Alpha1Merge(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			base := tc.base
 			override := tc.override
-			err := v1alpha1.Merge(&base, &override)
+			err := v1alpha1.MergeCasting(&base, &override)
 			require.NoError(t, err)
 			tc.assert(t, base)
 		})

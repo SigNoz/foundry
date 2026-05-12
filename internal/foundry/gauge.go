@@ -12,14 +12,16 @@ import (
 )
 
 func (foundry *Foundry) Gauge(ctx context.Context, config v1alpha1.Casting) error {
+	spec := config.SigNozSpec()
+
 	foundry.Logger.InfoContext(ctx, "starting gauge pipeline", slog.String("casting.metadata.name", config.Metadata.Name))
 
-	toolers, err := foundry.Registry.Toolers(config.Spec.Deployment)
+	toolers, err := foundry.Registry.Toolers(spec.Deployment)
 	if err != nil {
 		return err
 	}
 
-	if config.Spec.Infrastructure.Enabled {
+	if spec.Infrastructure.Enabled {
 		toolers = append(toolers, terraformtooler.New())
 	}
 

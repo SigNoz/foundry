@@ -39,7 +39,7 @@ func (config *yamlConfig) GetV1Alpha1(ctx context.Context, path string) (v1alpha
 
 	defaultCasting := v1alpha1.DefaultCasting()
 	// merge overrides into defaults (base)
-	if err := v1alpha1.Merge(&defaultCasting, &casting); err != nil {
+	if err := v1alpha1.MergeCasting(&defaultCasting, &casting); err != nil {
 		return v1alpha1.Casting{}, fmt.Errorf("failed to merge default casting: %w", err)
 	}
 

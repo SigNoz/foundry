@@ -67,7 +67,7 @@ func runGenExamples(ctx context.Context, logger *slog.Logger) error {
 		logger.InfoContext(ctx, "generating example files for deployment", slog.Any("deployment", deployment))
 
 		config := v1alpha1.ExampleCasting()
-		config.Spec.Deployment = deployment
+		config.SigNozSpec().Deployment = deployment
 
 		rootPath := filepath.Join("docs", "examples/", deployment.Platform.String(), deployment.Mode.String(), deployment.Flavor.String())
 		err = os.MkdirAll(rootPath, 0755)
