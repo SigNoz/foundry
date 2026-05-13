@@ -13,8 +13,8 @@ import (
 var _ StructuredMaterial = YAMLMaterial{}
 
 type YAMLMaterial struct {
-	path     string
-	contents []byte
+	path                 string
+	contents             []byte
 	hasMultipleDocuments bool
 }
 
@@ -34,8 +34,8 @@ func NewYAMLMaterial(contents []byte, path string) (YAMLMaterial, error) {
 		}
 
 		return YAMLMaterial{
-			contents: jsonContents,
-			path:     path,
+			contents:             jsonContents,
+			path:                 path,
 			hasMultipleDocuments: false,
 		}, nil
 	}
@@ -56,8 +56,8 @@ func NewYAMLMaterial(contents []byte, path string) (YAMLMaterial, error) {
 	}
 
 	return YAMLMaterial{
-		contents: jsonContents,
-		path:     path,
+		contents:             jsonContents,
+		path:                 path,
 		hasMultipleDocuments: len(nodes) > 1,
 	}, nil
 }
@@ -120,8 +120,8 @@ func (m YAMLMaterial) FmtContents() []byte {
 
 func (m YAMLMaterial) CloneWithJSONContents(contents []byte) StructuredMaterial {
 	return YAMLMaterial{
-		contents: contents,
-		path:     m.path,
+		contents:             contents,
+		path:                 m.path,
 		hasMultipleDocuments: m.hasMultipleDocuments,
 	}
 }

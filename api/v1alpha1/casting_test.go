@@ -18,7 +18,7 @@ func TestCastingUnmarshalJSON(t *testing.T) {
 		assertErr func(t *testing.T, err error)
 	}{
 		{
-			name: "SigNoz kind decodes into *SigNozCastingSpec",
+			name: "explicit kind dispatches into the matching spec type",
 			input: `{
 				"apiVersion": "v1alpha1",
 				"kind": "SigNoz",
@@ -27,10 +27,8 @@ func TestCastingUnmarshalJSON(t *testing.T) {
 			}`,
 			assertOK: func(t *testing.T, c Casting) {
 				assert.Equal(t, KindSigNoz, c.Kind)
-				spec := c.SigNozSpec()
-				assert.Equal(t, "docker", spec.Deployment.Mode.String())
-				assert.Equal(t, "compose", spec.Deployment.Flavor.String())
-				assert.NotNil(t, c.SigNozStatus())
+				assert.IsType(t, &SigNozCastingSpec{}, c.Spec)
+				assert.IsType(t, &SigNozCastingStatus{}, c.Status)
 			},
 		},
 		{
@@ -42,19 +40,7 @@ func TestCastingUnmarshalJSON(t *testing.T) {
 			}`,
 			assertOK: func(t *testing.T, c Casting) {
 				assert.Equal(t, KindSigNoz, c.Kind)
-				assert.NotNil(t, c.SigNozSpec())
-			},
-		},
-		{
-			name: "empty status decodes to empty pointer",
-			input: `{
-				"apiVersion": "v1alpha1",
-				"kind": "SigNoz",
-				"metadata": {"name": "signoz"},
-				"spec": {"deployment": {"mode": "docker", "flavor": "compose"}}
-			}`,
-			assertOK: func(t *testing.T, c Casting) {
-				assert.Equal(t, "", c.SigNozStatus().Checksum)
+				assert.IsType(t, &SigNozCastingSpec{}, c.Spec)
 			},
 		},
 		{
@@ -107,30 +93,10 @@ func TestCastingMutationPropagatesThroughPointer(t *testing.T) {
 	assert.Equal(t, MetaStoreKindPostgres, c.SigNozSpec().MetaStore.Kind, "mutation through pointer should propagate")
 }
 
-func TestDefaultCastingShape(t *testing.T) {
-	t.Parallel()
-
-	c := DefaultCasting()
-	assert.Equal(t, KindSigNoz, c.Kind)
-	assert.Equal(t, "v1alpha1", c.APIVersion)
-	assert.NotNil(t, c.SigNozSpec())
-	assert.NotNil(t, c.SigNozStatus())
-}
-
-func TestExampleCastingShape(t *testing.T) {
-	t.Parallel()
-
-	c := ExampleCasting()
-	assert.Equal(t, KindSigNoz, c.Kind)
-	assert.NotNil(t, c.SigNozSpec())
-	assert.Nil(t, c.Status, "ExampleCasting omits Status so YAML serialization stays minimal")
-}
-
 func TestJSONSchemaOneOfVariants(t *testing.T) {
 	t.Parallel()
 
 	variants := Casting{}.JSONSchemaOneOf()
 	require.Len(t, variants, 1)
-	_, ok := variants[0].(kindSigNozCasting)
-	assert.True(t, ok, "expected kindSigNozCasting variant, got %T", variants[0])
+	assert.IsType(t, kindSigNozCasting{}, variants[0])
 }

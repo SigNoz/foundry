@@ -279,7 +279,7 @@ func TestGetV1Alpha1Merge(t *testing.T) {
 	}{
 		{
 			name:     "EmptyOverride",
-			base:     v1alpha1.DefaultCasting(),
+			base:     v1alpha1.DefaultSigNozCasting(),
 			override: v1alpha1.Casting{},
 			assert: func(t *testing.T, casting v1alpha1.Casting) {
 				assert.True(t, *casting.SigNozSpec().Signoz.Spec.Enabled)
@@ -290,7 +290,7 @@ func TestGetV1Alpha1Merge(t *testing.T) {
 		},
 		{
 			name: "DisabledMoldingOverride",
-			base: v1alpha1.DefaultCasting(),
+			base: v1alpha1.DefaultSigNozCasting(),
 			override: v1alpha1.Casting{
 				Spec: &v1alpha1.SigNozCastingSpec{
 					MetaStore: v1alpha1.MetaStore{

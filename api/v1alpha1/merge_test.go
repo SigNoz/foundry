@@ -51,7 +51,7 @@ func TestMerge(t *testing.T) {
 func TestMerge_RejectsAnyTypedFields(t *testing.T) {
 	t.Parallel()
 
-	base := DefaultCasting()
+	base := DefaultSigNozCasting()
 	override := Casting{
 		Spec: &SigNozCastingSpec{
 			Deployment: TypeDeployment{Mode: ModeDocker, Flavor: FlavorCompose},

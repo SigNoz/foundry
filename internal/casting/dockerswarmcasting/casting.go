@@ -40,7 +40,6 @@ func (casting *dockerSwarmCasting) Enricher(ctx context.Context, config *v1alpha
 func (casting *dockerSwarmCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPath string) ([]domain.Material, error) {
 	spec := config.SigNozSpec()
 
-
 	buf := bytes.NewBuffer(nil)
 	err := composeYAMLTemplate.Execute(buf, config)
 	if err != nil {
