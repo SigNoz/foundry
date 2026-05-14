@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/molding"
@@ -60,11 +60,11 @@ func New(logger *slog.Logger) *kustomizeCasting {
 	}
 }
 
-func (c *kustomizeCasting) Enricher(ctx context.Context, config *v1alpha1.Casting) (molding.MoldingEnricher, error) {
+func (c *kustomizeCasting) Enricher(ctx context.Context, config *installation.Casting) (molding.MoldingEnricher, error) {
 	return newKustomizeMoldingEnricher(config)
 }
 
-func (c *kustomizeCasting) Forge(ctx context.Context, cfg v1alpha1.Casting, poursPath string) ([]domain.Material, error) {
+func (c *kustomizeCasting) Forge(ctx context.Context, cfg installation.Casting, poursPath string) ([]domain.Material, error) {
 	var materials []domain.Material
 	for _, tmpl := range c.castings {
 		m, err := c.forgeCasting(tmpl, &cfg, poursPath)
@@ -85,7 +85,7 @@ var clickhouseCRDs = []string{
 	"clickhousekeeperinstallations.clickhouse-keeper.altinity.com.crd.yaml",
 }
 
-func (c *kustomizeCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPath string) error {
+func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting, poursPath string) error {
 	c.logger.InfoContext(ctx, "Applying kustomize manifests")
 
 	kustomizeDir := filepath.Join(poursPath, rootcasting.DeploymentDir)
@@ -140,7 +140,7 @@ func (c *kustomizeCasting) applyCRDs(ctx context.Context) error {
 	return nil
 }
 
-func (c *kustomizeCasting) forgeCasting(tmpl *domain.Template, cfg *v1alpha1.Casting, poursPath string) ([]domain.Material, error) {
+func (c *kustomizeCasting) forgeCasting(tmpl *domain.Template, cfg *installation.Casting, poursPath string) ([]domain.Material, error) {
 	templatePath := tmpl.Path()
 	relPath := strings.TrimPrefix(templatePath, "templates/")
 	relPath = strings.TrimSuffix(relPath, filepath.Ext(relPath))
@@ -152,13 +152,13 @@ func (c *kustomizeCasting) forgeCasting(tmpl *domain.Template, cfg *v1alpha1.Cas
 	return []domain.Material{material}, nil
 }
 
-func getOverrideMaterials(config *v1alpha1.Casting) ([]domain.StructuredMaterial, error) {
+func getOverrideMaterials(config *installation.Casting) ([]domain.StructuredMaterial, error) {
 	return renderStructured(config, []templateAt{
 		{telemetryStoreOverrideTemplate, "store_overrides.yaml"},
 	})
 }
 
-func getServiceMaterials(config *v1alpha1.Casting) ([]domain.StructuredMaterial, error) {
+func getServiceMaterials(config *installation.Casting) ([]domain.StructuredMaterial, error) {
 	return renderStructured(config, []templateAt{
 		{clickhouseInstanceInstallation, "clickhouseInstallation.yaml"},
 		{metastoreService, "metastoreServie.yaml"},
@@ -170,7 +170,7 @@ type templateAt struct {
 	path string
 }
 
-func renderStructured(config *v1alpha1.Casting, items []templateAt) ([]domain.StructuredMaterial, error) {
+func renderStructured(config *installation.Casting, items []templateAt) ([]domain.StructuredMaterial, error) {
 	materials := make([]domain.StructuredMaterial, 0, len(items))
 	for _, item := range items {
 		m, err := item.tmpl.Render(config, item.path)

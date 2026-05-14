@@ -3,7 +3,7 @@ package casting
 import (
 	"context"
 
-	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/molding"
 )
@@ -14,11 +14,11 @@ const DeploymentDir = "deployment"
 
 type Casting interface {
 	// Returns the enricher for the casting.
-	Enricher(ctx context.Context, config *v1alpha1.Casting) (molding.MoldingEnricher, error)
+	Enricher(ctx context.Context, config *installation.Casting) (molding.MoldingEnricher, error)
 
 	// Generates all the files needed for casting.
-	Forge(ctx context.Context, config v1alpha1.Casting, poursPath string) ([]domain.Material, error)
+	Forge(ctx context.Context, config installation.Casting, poursPath string) ([]domain.Material, error)
 
 	// Runs the forged files.
-	Cast(ctx context.Context, config v1alpha1.Casting, poursPath string) error
+	Cast(ctx context.Context, config installation.Casting, poursPath string) error
 }

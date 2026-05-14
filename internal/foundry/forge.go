@@ -7,16 +7,25 @@ import (
 	"path/filepath"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 	"github.com/signoz/foundry/internal/writer"
 )
 
-func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, path string, poursWriterOpts *writer.Options) error {
-	spec := config.SigNozSpec()
+func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Machinery, path string, poursWriterOpts *writer.Options) error {
+	switch c := config.(type) {
+	case *installation.Casting:
+		return foundry.forgeInstallation(ctx, *c, path, poursWriterOpts)
+	}
+	return fmt.Errorf("unsupported casting kind %q", config.Kind())
+}
 
+func (foundry *Foundry) forgeInstallation(ctx context.Context, config installation.Casting, path string, poursWriterOpts *writer.Options) error {
 	foundry.Logger.InfoContext(ctx, "starting forge pipeline", slog.String("casting.metadata.name", config.Metadata.Name))
+
+	spec := &config.Spec
 
 	casting, err := foundry.Registry.Casting(spec.Deployment)
 	if err != nil {
@@ -50,7 +59,7 @@ func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, path
 	}
 	// merging status into spec
 	foundry.Logger.InfoContext(ctx, "merging status into spec", slog.String("casting.metadata.name", config.Metadata.Name))
-	if err := v1alpha1.MergeCastingSpecAndStatus(&config); err != nil {
+	if err := config.MergeStatusIntoSpec(); err != nil {
 		foundry.Logger.ErrorContext(ctx, "failed to merge status into spec", slog.String("casting.metadata.name", config.Metadata.Name), foundryerrors.LogAttr(err))
 		return err
 	}
@@ -100,7 +109,7 @@ func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Casting, path
 
 	// writing the merged config (including infrastructure status) to the lock file
 	foundry.Logger.InfoContext(ctx, "writing lock file", slog.String("casting.metadata.name", config.Metadata.Name))
-	if err = foundry.Config.CreateV1Alpha1Lock(ctx, config, path); err != nil {
+	if err = foundry.Config.CreateV1Alpha1Lock(ctx, &config, path); err != nil {
 		return err
 	}
 

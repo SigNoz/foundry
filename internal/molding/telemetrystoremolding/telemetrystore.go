@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
@@ -28,17 +29,15 @@ func (molding *telemetrystore) Kind() v1alpha1.MoldingKind {
 	return v1alpha1.MoldingKindTelemetryStore
 }
 
-func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *v1alpha1.Casting) error {
-	spec := config.SigNozSpec()
-
-	data, err := molding.getData(spec)
+func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *installation.Casting) error {
+	data, err := molding.getData(config)
 	if err != nil {
 		molding.logger.ErrorContext(ctx, "failed to get data", foundryerrors.LogAttr(err))
 		return err
 	}
 
 	// Extract enricher config overrides (applies to all nodes).
-	overrides := spec.TelemetryStore.Status.Extras["_overrides"]
+	overrides := config.Spec.TelemetryStore.Status.Extras["_overrides"]
 
 	configBuf := bytes.NewBuffer(nil)
 	if err := ConfigClickhousev2556YAML.Execute(configBuf, data); err != nil {
@@ -60,7 +59,7 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *v1alpha
 		base = merged
 	}
 
-	spec.TelemetryStore.Status.Config.Data = map[string]string{
+	config.Spec.TelemetryStore.Status.Config.Data = map[string]string{
 		"config.yaml":    base,
 		"functions.yaml": functionBuf.String(),
 	}
@@ -68,13 +67,13 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *v1alpha
 	return nil
 }
 
-func (molding *telemetrystore) getData(spec *v1alpha1.SigNozCastingSpec) (Data, error) {
-	storeAddresses := spec.TelemetryStore.Status.Addresses.TCP
+func (molding *telemetrystore) getData(config *installation.Casting) (Data, error) {
+	storeAddresses := config.Spec.TelemetryStore.Status.Addresses.TCP
 	if len(storeAddresses) == 0 {
 		return Data{}, fmt.Errorf("telemetry store addresses not set in status")
 	}
 
-	cluster := spec.TelemetryStore.Spec.Cluster
+	cluster := config.Spec.TelemetryStore.Spec.Cluster
 
 	shardCount := 1
 	if cluster.Shards != nil && *cluster.Shards > 0 {
@@ -99,7 +98,7 @@ func (molding *telemetrystore) getData(spec *v1alpha1.SigNozCastingSpec) (Data, 
 		return Data{}, fmt.Errorf("failed to parse addresses: %w", err)
 	}
 
-	keeperAddresses := spec.TelemetryKeeper.Status.Addresses.Client
+	keeperAddresses := config.Spec.TelemetryKeeper.Status.Addresses.Client
 	if len(keeperAddresses) == 0 {
 		return Data{}, fmt.Errorf("telemetry keeper addresses not set in status")
 	}

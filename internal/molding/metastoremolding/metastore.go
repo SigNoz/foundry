@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/installation"
 )
 
 type metastore struct {
@@ -21,8 +22,8 @@ func (molding *metastore) Kind() v1alpha1.MoldingKind {
 	return v1alpha1.MoldingKindMetaStore
 }
 
-func (molding *metastore) MoldV1Alpha1(ctx context.Context, config *v1alpha1.Casting) error {
-	spec := config.SigNozSpec()
+func (molding *metastore) MoldV1Alpha1(ctx context.Context, config *installation.Casting) error {
+	spec := &config.Spec
 
 	if spec.MetaStore.Status.Env == nil {
 		spec.MetaStore.Status.Env = make(map[string]string)

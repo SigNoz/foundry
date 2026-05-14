@@ -17,11 +17,11 @@ var _ fmt.Stringer = (*Kind)(nil)
 var _ jsonschema.Enum = (*Kind)(nil)
 
 var (
-	KindSigNoz Kind = Kind{s: "SigNoz"}
+	KindInstallation Kind = Kind{s: "Installation"}
 )
 
 // Kind discriminates between top-level casting resource types.
-// An empty/missing kind unmarshals to KindSigNoz for backwards compatibility
+// An empty/missing kind unmarshals to KindInstallation for backwards compatibility
 // with casting files written before kind was introduced.
 type Kind struct {
 	s string
@@ -32,7 +32,7 @@ func (kind Kind) String() string {
 }
 
 func Kinds() []Kind {
-	return []Kind{KindSigNoz}
+	return []Kind{KindInstallation}
 }
 
 func (kind Kind) MarshalJSON() ([]byte, error) {
@@ -50,7 +50,7 @@ func (kind *Kind) UnmarshalJSON(text []byte) error {
 
 func (kind *Kind) UnmarshalText(text []byte) error {
 	if len(text) == 0 {
-		*kind = KindSigNoz
+		*kind = KindInstallation
 		return nil
 	}
 

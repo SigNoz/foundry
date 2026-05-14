@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"path/filepath"
 
-	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/molding"
@@ -29,11 +29,11 @@ func New(logger *slog.Logger) *coolifyCasting {
 	}
 }
 
-func (c *coolifyCasting) Enricher(ctx context.Context, config *v1alpha1.Casting) (molding.MoldingEnricher, error) {
+func (c *coolifyCasting) Enricher(ctx context.Context, config *installation.Casting) (molding.MoldingEnricher, error) {
 	return newCoolifyMoldingEnricher(config)
 }
 
-func (c *coolifyCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPath string) ([]domain.Material, error) {
+func (c *coolifyCasting) Forge(ctx context.Context, config installation.Casting, poursPath string) ([]domain.Material, error) {
 	buf := bytes.NewBuffer(nil)
 	err := coolifyYAMLTemplate.Execute(buf, config)
 	if err != nil {
@@ -48,7 +48,7 @@ func (c *coolifyCasting) Forge(ctx context.Context, config v1alpha1.Casting, pou
 	return []domain.Material{coolifyMaterial}, nil
 }
 
-func (c *coolifyCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPath string) error {
+func (c *coolifyCasting) Cast(ctx context.Context, config installation.Casting, poursPath string) error {
 	c.logger.InfoContext(ctx, "Please run 'forge' first to generate the Coolify Casting",
 		slog.String("pours_path", poursPath))
 	c.logger.InfoContext(ctx, "After forging, deploy coolify.yaml to Coolify using the stack feature",
@@ -56,7 +56,7 @@ func (c *coolifyCasting) Cast(ctx context.Context, config v1alpha1.Casting, pour
 	return nil
 }
 
-func getCoolifyMaterial(config *v1alpha1.Casting, path string) (domain.StructuredMaterial, error) {
+func getCoolifyMaterial(config *installation.Casting, path string) (domain.StructuredMaterial, error) {
 	buf := bytes.NewBuffer(nil)
 	err := coolifyYAMLTemplate.Execute(buf, config)
 	if err != nil {

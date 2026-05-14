@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/molding"
 )
@@ -24,7 +25,7 @@ type ecsMoldingEnricher struct {
 	materials []domain.StructuredMaterial
 }
 
-func newEcsMoldingEnricher(config *v1alpha1.Casting) (*ecsMoldingEnricher, error) {
+func newEcsMoldingEnricher(config *installation.Casting) (*ecsMoldingEnricher, error) {
 	materials, err := getMaterials(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get materials: %w", err)
@@ -33,9 +34,7 @@ func newEcsMoldingEnricher(config *v1alpha1.Casting) (*ecsMoldingEnricher, error
 	return &ecsMoldingEnricher{materials: materials}, nil
 }
 
-func (enricher *ecsMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *v1alpha1.Casting) error {
-	spec := config.SigNozSpec()
-
+func (enricher *ecsMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *installation.Casting) error {
 	namespaceBytes, err := enricher.materials[0].GetBytes("resource.aws_service_discovery_private_dns_namespace.main.name")
 	if err != nil {
 		return fmt.Errorf("failed to get namespace: %w", err)
@@ -49,7 +48,7 @@ func (enricher *ecsMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alp
 			return fmt.Errorf("failed to get telemetrystore service discovery name: %w", err)
 		}
 		fqdn := fmt.Sprintf("%s.%s", string(sdName), namespace)
-		spec.TelemetryStore.Status.Addresses.TCP = []string{domain.MustNewAddress("tcp", fqdn, telemetryStorePort).String()}
+		config.Spec.TelemetryStore.Status.Addresses.TCP = []string{domain.MustNewAddress("tcp", fqdn, telemetryStorePort).String()}
 
 	case v1alpha1.MoldingKindTelemetryKeeper:
 		sdName, err := enricher.materials[2].GetBytes("resource.aws_service_discovery_service.telemetrykeeper.name")
@@ -57,8 +56,8 @@ func (enricher *ecsMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alp
 			return fmt.Errorf("failed to get telemetrykeeper service discovery name: %w", err)
 		}
 		fqdn := fmt.Sprintf("%s.%s", string(sdName), namespace)
-		spec.TelemetryKeeper.Status.Addresses.Client = []string{domain.MustNewAddress("tcp", fqdn, telemetryKeeperClientPort).String()}
-		spec.TelemetryKeeper.Status.Addresses.Raft = []string{domain.MustNewAddress("tcp", fqdn, telemetryKeeperRaftPort).String()}
+		config.Spec.TelemetryKeeper.Status.Addresses.Client = []string{domain.MustNewAddress("tcp", fqdn, telemetryKeeperClientPort).String()}
+		config.Spec.TelemetryKeeper.Status.Addresses.Raft = []string{domain.MustNewAddress("tcp", fqdn, telemetryKeeperRaftPort).String()}
 
 	case v1alpha1.MoldingKindMetaStore:
 		sdName, err := enricher.materials[3].GetBytes("resource.aws_service_discovery_service.metastore.name")
@@ -66,7 +65,7 @@ func (enricher *ecsMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alp
 			return fmt.Errorf("failed to get metastore service discovery name: %w", err)
 		}
 		fqdn := fmt.Sprintf("%s.%s", string(sdName), namespace)
-		spec.MetaStore.Status.Addresses.DSN = []string{domain.MustNewAddress("tcp", fqdn, metaStorePort).String()}
+		config.Spec.MetaStore.Status.Addresses.DSN = []string{domain.MustNewAddress("tcp", fqdn, metaStorePort).String()}
 
 	case v1alpha1.MoldingKindSignoz:
 		sdName, err := enricher.materials[4].GetBytes("resource.aws_service_discovery_service.signoz.name")
@@ -74,8 +73,8 @@ func (enricher *ecsMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alp
 			return fmt.Errorf("failed to get signoz service discovery name: %w", err)
 		}
 		fqdn := fmt.Sprintf("%s.%s", string(sdName), namespace)
-		spec.Signoz.Status.Addresses.APIServer = []string{domain.MustNewAddress("tcp", fqdn, signozAPIPort).String()}
-		spec.Signoz.Status.Addresses.Opamp = []string{domain.MustNewAddress("ws", fqdn, signozOpampPort).String()}
+		config.Spec.Signoz.Status.Addresses.APIServer = []string{domain.MustNewAddress("tcp", fqdn, signozAPIPort).String()}
+		config.Spec.Signoz.Status.Addresses.Opamp = []string{domain.MustNewAddress("ws", fqdn, signozOpampPort).String()}
 	}
 
 	return nil

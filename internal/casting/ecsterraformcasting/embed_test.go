@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/stretchr/testify/assert"
 )
@@ -36,19 +37,21 @@ func TestNotEmptyAndValid(t *testing.T) {
 func TestTfvarsTemplateWithAnnotations(t *testing.T) {
 	assert.NotEmpty(t, tfarsTF)
 
-	casting := v1alpha1.Casting{
-		Metadata: v1alpha1.TypeMetadata{
-			Name: "signoz",
-			Annotations: map[string]string{
-				"foundry.signoz.io/ecs/region":                  "us-east-1",
-				"foundry.signoz.io/ecs/cluster-id":              "arn:aws:ecs:us-east-1:123456789012:cluster/test",
-				"foundry.signoz.io/ecs/subnet-ids":              "subnet-abc123,subnet-def456",
-				"foundry.signoz.io/ecs/security-group-ids":      "sg-abc123",
-				"foundry.signoz.io/ecs/vpc-id":                  "vpc-abc123",
-				"foundry.signoz.io/ecs/config-bucket":           "test-configs",
-				"foundry.signoz.io/ecs/task-role-arn":           "arn:aws:iam::123456789012:role/task",
-				"foundry.signoz.io/ecs/task-execution-role-arn": "arn:aws:iam::123456789012:role/exec",
-				"foundry.signoz.io/ecs/capacity-provider":       "test-provider",
+	casting := &installation.Casting{
+		CastingMeta: v1alpha1.CastingMeta{
+			Metadata: v1alpha1.TypeMetadata{
+				Name: "signoz",
+				Annotations: map[string]string{
+					"foundry.signoz.io/ecs/region":                  "us-east-1",
+					"foundry.signoz.io/ecs/cluster-id":              "arn:aws:ecs:us-east-1:123456789012:cluster/test",
+					"foundry.signoz.io/ecs/subnet-ids":              "subnet-abc123,subnet-def456",
+					"foundry.signoz.io/ecs/security-group-ids":      "sg-abc123",
+					"foundry.signoz.io/ecs/vpc-id":                  "vpc-abc123",
+					"foundry.signoz.io/ecs/config-bucket":           "test-configs",
+					"foundry.signoz.io/ecs/task-role-arn":           "arn:aws:iam::123456789012:role/task",
+					"foundry.signoz.io/ecs/task-execution-role-arn": "arn:aws:iam::123456789012:role/exec",
+					"foundry.signoz.io/ecs/capacity-provider":       "test-provider",
+				},
 			},
 		},
 	}

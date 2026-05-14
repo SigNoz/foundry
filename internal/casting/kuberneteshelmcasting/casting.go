@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/molding"
@@ -47,11 +47,11 @@ func New(logger *slog.Logger) *helmCasting {
 	}
 }
 
-func (c *helmCasting) Enricher(ctx context.Context, config *v1alpha1.Casting) (molding.MoldingEnricher, error) {
+func (c *helmCasting) Enricher(ctx context.Context, config *installation.Casting) (molding.MoldingEnricher, error) {
 	return newHelmMoldingEnricher(config), nil
 }
 
-func (c *helmCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPath string) ([]domain.Material, error) {
+func (c *helmCasting) Forge(ctx context.Context, config installation.Casting, poursPath string) ([]domain.Material, error) {
 	buf := bytes.NewBuffer(nil)
 	err := valuesYAMLTemplate.Execute(buf, config)
 	if err != nil {
@@ -68,7 +68,7 @@ func (c *helmCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursP
 	return []domain.Material{valuesMaterial}, nil
 }
 
-func (c *helmCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPath string) error {
+func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, poursPath string) error {
 
 	valuesFile := filepath.Join(poursPath, rootcasting.DeploymentDir, "values.yaml")
 	if _, err := os.Stat(valuesFile); os.IsNotExist(err) {
@@ -189,7 +189,7 @@ func (c *helmCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPa
 	return nil
 }
 
-func (c *helmCasting) shouldForgeChart(config *v1alpha1.Casting) bool {
+func (c *helmCasting) shouldForgeChart(config *installation.Casting) bool {
 	if config.Metadata.Annotations == nil {
 		return false
 	}

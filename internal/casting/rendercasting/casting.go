@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"path/filepath"
 
-	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/molding"
@@ -32,13 +32,11 @@ func New(logger *slog.Logger) *renderCasting {
 	}
 }
 
-func (c *renderCasting) Enricher(ctx context.Context, config *v1alpha1.Casting) (molding.MoldingEnricher, error) {
+func (c *renderCasting) Enricher(ctx context.Context, config *installation.Casting) (molding.MoldingEnricher, error) {
 	return newRenderMoldingEnricher(config)
 }
 
-func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, poursPath string) ([]domain.Material, error) {
-	spec := config.SigNozSpec()
-
+func (c *renderCasting) Forge(ctx context.Context, config installation.Casting, poursPath string) ([]domain.Material, error) {
 	var materials []domain.Material
 
 	configsDir := filepath.Join(casting.DeploymentDir, "configs/")
@@ -50,7 +48,7 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 	materials = append(materials, blueprintMaterial)
 
 	// Generate Dockerfile for telemetrykeeper services
-	if spec.TelemetryKeeper.Spec.IsEnabled() {
+	if config.Spec.TelemetryKeeper.Spec.IsEnabled() {
 		dockerfileBuf := bytes.NewBuffer(nil)
 		err := telemetryKeeperDockerfileTemplate.Execute(dockerfileBuf, config)
 		if err != nil {
@@ -60,7 +58,7 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 		materials = append(materials, dockerfileMaterial)
 
 		// Add telemetrykeeper config files (for dockerfile to copy)
-		for filename, content := range spec.TelemetryKeeper.Spec.Config.Data {
+		for filename, content := range config.Spec.TelemetryKeeper.Spec.Config.Data {
 			material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(configsDir, fmt.Sprintf("telemetrykeeper/keeper.d/%s", filename)))
 			if err != nil {
 				return nil, fmt.Errorf("failed to create telemetrykeeper config material: %w", err)
@@ -70,7 +68,7 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 	}
 
 	// Add Dockerfile for telemetrystore services
-	if spec.TelemetryStore.Spec.IsEnabled() {
+	if config.Spec.TelemetryStore.Spec.IsEnabled() {
 		dockerfileBuf := bytes.NewBuffer(nil)
 		err := telemetryStoreDockerfileTemplate.Execute(dockerfileBuf, config)
 		if err != nil {
@@ -80,7 +78,7 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 		materials = append(materials, dockerfileMaterial)
 
 		// Add telemetrystore config files (for dockerfile to copy)
-		for filename, content := range spec.TelemetryStore.Spec.Config.Data {
+		for filename, content := range config.Spec.TelemetryStore.Spec.Config.Data {
 			material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(configsDir, fmt.Sprintf("telemetrystore/config.d/%s", filename)))
 			if err != nil {
 				return nil, fmt.Errorf("failed to create telemetrystore config material: %w", err)
@@ -90,7 +88,7 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 	}
 
 	// Add Dockerfile for ingester services
-	if spec.Ingester.Spec.IsEnabled() {
+	if config.Spec.Ingester.Spec.IsEnabled() {
 		dockerfileBuf := bytes.NewBuffer(nil)
 		err := ingesterDockerfileTemplate.Execute(dockerfileBuf, config)
 		if err != nil {
@@ -99,7 +97,7 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 		dockerfileMaterial := domain.NewBlobMaterial(dockerfileBuf.Bytes(), filepath.Join(configsDir, "ingester/Dockerfile"))
 		materials = append(materials, dockerfileMaterial)
 
-		for filename, content := range spec.Ingester.Spec.Config.Data {
+		for filename, content := range config.Spec.Ingester.Spec.Config.Data {
 			material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(configsDir, fmt.Sprintf("ingester/%s", filename)))
 			if err != nil {
 				return nil, fmt.Errorf("failed to create ingester config material: %w", err)
@@ -111,7 +109,7 @@ func (c *renderCasting) Forge(ctx context.Context, config v1alpha1.Casting, pour
 	return materials, nil
 }
 
-func (c *renderCasting) Cast(ctx context.Context, config v1alpha1.Casting, poursPath string) error {
+func (c *renderCasting) Cast(ctx context.Context, config installation.Casting, poursPath string) error {
 	c.logger.InfoContext(ctx, "Please run 'forge' first to generate the Render Casting",
 		slog.String("pours_path", poursPath))
 	c.logger.InfoContext(ctx, "After forging, deploy render.yaml to Render using Infrastructure as Code",
@@ -119,7 +117,7 @@ func (c *renderCasting) Cast(ctx context.Context, config v1alpha1.Casting, pours
 	return nil
 }
 
-func getRenderMaterial(config *v1alpha1.Casting, path string) (domain.StructuredMaterial, error) {
+func getRenderMaterial(config *installation.Casting, path string) (domain.StructuredMaterial, error) {
 	buf := bytes.NewBuffer(nil)
 	err := renderYAMLTemplate.Execute(buf, config)
 	if err != nil {

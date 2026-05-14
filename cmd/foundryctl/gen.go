@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 
-	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/foundry"
@@ -16,6 +18,12 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/swaggest/jsonschema-go"
 )
+
+const moduleAPIPrefix = "github.com/signoz/foundry/api/v1alpha1/"
+
+var schemaTargets = []any{
+	installation.Casting{},
+}
 
 func registerGenCmd(rootCmd *cobra.Command) {
 	genCmd := &cobra.Command{
@@ -66,8 +74,8 @@ func runGenExamples(ctx context.Context, logger *slog.Logger) error {
 	for deployment := range foundry.Registry.CastingItems() {
 		logger.InfoContext(ctx, "generating example files for deployment", slog.Any("deployment", deployment))
 
-		config := v1alpha1.ExampleSigNozCasting()
-		config.SigNozSpec().Deployment = deployment
+		config := installation.Example()
+		config.Spec.Deployment = deployment
 
 		rootPath := filepath.Join("docs", "examples/", deployment.Platform.String(), deployment.Mode.String(), deployment.Flavor.String())
 		err = os.MkdirAll(rootPath, 0755)
@@ -92,21 +100,34 @@ func runGenExamples(ctx context.Context, logger *slog.Logger) error {
 
 func runGenSchemas(_ context.Context) error {
 	reflector := jsonschema.Reflector{}
+	var oneOf []jsonschema.SchemaOrBool
 
-	schema, err := reflector.Reflect(v1alpha1.Casting{})
-	if err != nil {
-		log.Fatal(err)
+	for _, t := range schemaTargets {
+		schema, err := reflector.Reflect(t)
+		if err != nil {
+			return fmt.Errorf("reflect %T: %w", t, err)
+		}
+		contents, err := json.MarshalIndent(schema, "", "  ")
+		if err != nil {
+			return fmt.Errorf("marshal %T: %w", t, err)
+		}
+
+		kindDir := strings.TrimPrefix(reflect.TypeOf(t).PkgPath(), moduleAPIPrefix)
+		if err := os.WriteFile(filepath.Join("api", "v1alpha1", kindDir, "casting.schema.json"), contents, 0644); err != nil {
+			return err
+		}
+		ref := (&jsonschema.Schema{}).WithRef(filepath.Join(kindDir, "casting.schema.json"))
+		oneOf = append(oneOf, ref.ToSchemaOrBool())
 	}
 
-	contents, err := json.MarshalIndent(schema, "", "  ")
-	if err != nil {
-		log.Fatal(err)
-	}
+	root := (&jsonschema.Schema{}).
+		WithSchema("http://json-schema.org/draft-07/schema#").
+		WithTitle("Foundry Casting").
+		WithOneOf(oneOf...)
 
-	err = os.WriteFile(filepath.Join("api", "v1alpha1", "schema.json"), contents, 0644)
+	rootContents, err := json.MarshalIndent(root, "", "  ")
 	if err != nil {
 		return err
 	}
-
-	return nil
+	return os.WriteFile(filepath.Join("api", "v1alpha1", "casting.schema.json"), rootContents, 0644)
 }

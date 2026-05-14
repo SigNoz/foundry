@@ -2,17 +2,26 @@ package foundry
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/installation"
 )
 
-func (foundry *Foundry) Cast(ctx context.Context, config v1alpha1.Casting, poursPath string) error {
-	spec := config.SigNozSpec()
+func (foundry *Foundry) Cast(ctx context.Context, config v1alpha1.Machinery, poursPath string) error {
+	switch c := config.(type) {
+	case *installation.Casting:
+		return foundry.castInstallation(ctx, *c, poursPath)
+	}
+	return fmt.Errorf("unsupported casting kind %q", config.Kind())
+}
 
+func (foundry *Foundry) castInstallation(ctx context.Context, config installation.Casting, poursPath string) error {
 	foundry.Logger.InfoContext(ctx, "starting cast pipeline", slog.String("casting.metadata.name", config.Metadata.Name))
 
-	// Get the casting for the deployment mode
+	spec := &config.Spec
+
 	casting, err := foundry.Registry.Casting(spec.Deployment)
 	if err != nil {
 		return err

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/molding"
@@ -18,7 +19,7 @@ type coolifyMoldingEnricher struct {
 	material domain.StructuredMaterial
 }
 
-func newCoolifyMoldingEnricher(config *v1alpha1.Casting) (*coolifyMoldingEnricher, error) {
+func newCoolifyMoldingEnricher(config *installation.Casting) (*coolifyMoldingEnricher, error) {
 	material, err := getCoolifyMaterial(config, filepath.Join(rootcasting.DeploymentDir, "coolify.yaml"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get coolify yaml material: %w", err)
@@ -26,9 +27,7 @@ func newCoolifyMoldingEnricher(config *v1alpha1.Casting) (*coolifyMoldingEnriche
 	return &coolifyMoldingEnricher{material: material}, nil
 }
 
-func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *v1alpha1.Casting) error {
-	spec := config.SigNozSpec()
-
+func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *installation.Casting) error {
 	switch kind {
 	case v1alpha1.MoldingKindTelemetryStore:
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
@@ -42,7 +41,7 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 				telemetrystoreContainerNames = append(telemetrystoreContainerNames, domain.MustNewAddress("tcp", containerName, 9000).String())
 			}
 		}
-		spec.TelemetryStore.Status.Addresses.TCP = telemetrystoreContainerNames
+		config.Spec.TelemetryStore.Status.Addresses.TCP = telemetrystoreContainerNames
 
 	case v1alpha1.MoldingKindSignoz:
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
@@ -58,8 +57,8 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 				opampAddr = append(opampAddr, domain.MustNewAddress("ws", containerName, 4320).String())
 			}
 		}
-		spec.Signoz.Status.Addresses.APIServer = apiServerAddr
-		spec.Signoz.Status.Addresses.Opamp = opampAddr
+		config.Spec.Signoz.Status.Addresses.APIServer = apiServerAddr
+		config.Spec.Signoz.Status.Addresses.Opamp = opampAddr
 
 	case v1alpha1.MoldingKindTelemetryKeeper:
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
@@ -73,7 +72,7 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 				telemetrykeeperContainerNames = append(telemetrykeeperContainerNames, domain.MustNewAddress("tcp", containerName, 9181).String())
 			}
 		}
-		spec.TelemetryKeeper.Status.Addresses.Client = telemetrykeeperContainerNames
+		config.Spec.TelemetryKeeper.Status.Addresses.Client = telemetrykeeperContainerNames
 
 		var telemetryRaftaddress []string
 		for _, containerName := range containerNames {
@@ -81,11 +80,11 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 				telemetryRaftaddress = append(telemetryRaftaddress, domain.MustNewAddress("tcp", containerName, 9234).String())
 			}
 		}
-		spec.TelemetryKeeper.Status.Addresses.Raft = telemetryRaftaddress
+		config.Spec.TelemetryKeeper.Status.Addresses.Raft = telemetryRaftaddress
 
 	case v1alpha1.MoldingKindMetaStore:
 		// Skip molding enrichment if sqlite
-		if spec.MetaStore.Kind == v1alpha1.MetaStoreKindSQLite {
+		if config.Spec.MetaStore.Kind == v1alpha1.MetaStoreKindSQLite {
 			return nil
 		}
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
@@ -99,7 +98,7 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 				metastoreContainerNames = append(metastoreContainerNames, domain.MustNewAddress("tcp", containerName, 5432).String())
 			}
 		}
-		spec.MetaStore.Status.Addresses.DSN = metastoreContainerNames
+		config.Spec.MetaStore.Status.Addresses.DSN = metastoreContainerNames
 
 	case v1alpha1.MoldingKindIngester:
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
@@ -113,7 +112,7 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 				ingesterContainerNames = append(ingesterContainerNames, domain.MustNewAddress("tcp", containerName, 4318).String())
 			}
 		}
-		spec.Ingester.Status.Addresses.OTLP = ingesterContainerNames
+		config.Spec.Ingester.Status.Addresses.OTLP = ingesterContainerNames
 	}
 
 	return nil

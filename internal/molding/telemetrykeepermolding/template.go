@@ -4,7 +4,7 @@ import (
 	"embed"
 	"fmt"
 
-	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
 )
 
@@ -23,7 +23,7 @@ type Data struct {
 	ServerID        int // Current server ID for per-node config generation
 }
 
-func newData(spec *v1alpha1.SigNozCastingSpec) (Data, error) {
+func newData(spec *installation.Spec) (Data, error) {
 	var data Data
 
 	if spec.TelemetryKeeper.Spec.Cluster.Replicas == nil {

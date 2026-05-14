@@ -1,11 +1,56 @@
 {
   "required": [
     "apiVersion",
+    "kind",
     "metadata",
     "spec"
   ],
   "additionalProperties": false,
   "definitions": {
+    "InstallationSpec": {
+      "required": [
+        "deployment"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "deployment": {
+          "$ref": "#/definitions/V1Alpha1TypeDeployment",
+          "description": "Deployment configuration for the platform"
+        },
+        "infrastructure": {
+          "$ref": "#/definitions/V1Alpha1Infrastructure",
+          "description": "Infrastructure configuration for generating infrastructure manifests (e.g., Terraform)."
+        },
+        "ingester": {
+          "$ref": "#/definitions/V1Alpha1Ingester",
+          "description": "The configuration for the ingester molding"
+        },
+        "metastore": {
+          "$ref": "#/definitions/V1Alpha1MetaStore",
+          "description": "The configuration for the meta store molding"
+        },
+        "patches": {
+          "description": "Patch operations to apply to generated materials",
+          "items": {
+            "$ref": "#/definitions/V1Alpha1PatchEntry"
+          },
+          "type": "array"
+        },
+        "signoz": {
+          "$ref": "#/definitions/V1Alpha1SigNoz",
+          "description": "The configuration for the SigNoz molding"
+        },
+        "telemetrykeeper": {
+          "$ref": "#/definitions/V1Alpha1TelemetryKeeper",
+          "description": "The configuration for the telemetry keeper molding"
+        },
+        "telemetrystore": {
+          "$ref": "#/definitions/V1Alpha1TelemetryStore",
+          "description": "The configuration for the telemetry store molding"
+        }
+      },
+      "type": "object"
+    },
     "V1Alpha1Flavor": {
       "enum": [
         "compose",
@@ -91,30 +136,9 @@
     },
     "V1Alpha1Kind": {
       "enum": [
-        "SigNoz"
+        "Installation"
       ],
       "type": "string"
-    },
-    "V1Alpha1KindSigNozCasting": {
-      "required": [
-        "kind",
-        "spec"
-      ],
-      "properties": {
-        "kind": {
-          "$ref": "#/definitions/V1Alpha1Kind",
-          "description": "Kind discriminator. Must be 'SigNoz'."
-        },
-        "spec": {
-          "$ref": "#/definitions/V1Alpha1SigNozCastingSpec",
-          "description": "Specification for the SigNoz casting"
-        },
-        "status": {
-          "$ref": "#/definitions/V1Alpha1SigNozCastingStatus",
-          "description": "Status of the SigNoz casting"
-        }
-      },
-      "type": "object"
     },
     "V1Alpha1MetaStore": {
       "additionalProperties": false,
@@ -351,60 +375,6 @@
       },
       "type": "object"
     },
-    "V1Alpha1SigNozCastingSpec": {
-      "required": [
-        "deployment"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "deployment": {
-          "$ref": "#/definitions/V1Alpha1TypeDeployment",
-          "description": "Deployment configuration for the platform"
-        },
-        "infrastructure": {
-          "$ref": "#/definitions/V1Alpha1Infrastructure",
-          "description": "Infrastructure configuration for generating infrastructure manifests (e.g., Terraform)."
-        },
-        "ingester": {
-          "$ref": "#/definitions/V1Alpha1Ingester",
-          "description": "The configuration for the ingester molding"
-        },
-        "metastore": {
-          "$ref": "#/definitions/V1Alpha1MetaStore",
-          "description": "The configuration for the meta store molding"
-        },
-        "patches": {
-          "description": "Patch operations to apply to generated materials",
-          "items": {
-            "$ref": "#/definitions/V1Alpha1PatchEntry"
-          },
-          "type": "array"
-        },
-        "signoz": {
-          "$ref": "#/definitions/V1Alpha1SigNoz",
-          "description": "The configuration for the SigNoz molding"
-        },
-        "telemetrykeeper": {
-          "$ref": "#/definitions/V1Alpha1TelemetryKeeper",
-          "description": "The configuration for the telemetry keeper molding"
-        },
-        "telemetrystore": {
-          "$ref": "#/definitions/V1Alpha1TelemetryStore",
-          "description": "The configuration for the telemetry store molding"
-        }
-      },
-      "type": "object"
-    },
-    "V1Alpha1SigNozCastingStatus": {
-      "additionalProperties": false,
-      "properties": {
-        "checksum": {
-          "description": "Checksum of the casting file",
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
     "V1Alpha1SigNozStatus": {
       "additionalProperties": false,
       "properties": {
@@ -452,6 +422,16 @@
             "array",
             "null"
           ]
+        }
+      },
+      "type": "object"
+    },
+    "V1Alpha1Status": {
+      "additionalProperties": false,
+      "properties": {
+        "checksum": {
+          "description": "Checksum of the casting file",
+          "type": "string"
         }
       },
       "type": "object"
@@ -711,23 +691,20 @@
     },
     "kind": {
       "$ref": "#/definitions/V1Alpha1Kind",
-      "description": "Kind of the casting resource. Defaults to SigNoz when omitted."
+      "description": "Kind of the casting resource."
     },
     "metadata": {
       "$ref": "#/definitions/V1Alpha1TypeMetadata",
       "description": "Metadata of the casting configuration"
     },
     "spec": {
-      "description": "Specification for the casting"
+      "$ref": "#/definitions/InstallationSpec",
+      "description": "Installation specification"
     },
     "status": {
+      "$ref": "#/definitions/V1Alpha1Status",
       "description": "Status of the casting"
     }
   },
-  "type": "object",
-  "oneOf": [
-    {
-      "$ref": "#/definitions/V1Alpha1KindSigNozCasting"
-    }
-  ]
+  "type": "object"
 }

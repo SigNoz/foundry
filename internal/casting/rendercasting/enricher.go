@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/molding"
 )
@@ -16,7 +17,7 @@ type renderMoldingEnricher struct {
 	material domain.StructuredMaterial
 }
 
-func newRenderMoldingEnricher(config *v1alpha1.Casting) (*renderMoldingEnricher, error) {
+func newRenderMoldingEnricher(config *installation.Casting) (*renderMoldingEnricher, error) {
 	material, err := getRenderMaterial(config, "render.yaml")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get render yaml material: %w", err)
@@ -25,9 +26,7 @@ func newRenderMoldingEnricher(config *v1alpha1.Casting) (*renderMoldingEnricher,
 	return &renderMoldingEnricher{material: material}, nil
 }
 
-func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *v1alpha1.Casting) error {
-	spec := config.SigNozSpec()
-
+func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *installation.Casting) error {
 	switch kind {
 	case v1alpha1.MoldingKindTelemetryStore:
 		// Get telemetrystore service names
@@ -44,13 +43,13 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 				storeServiceNames = append(storeServiceNames, serviceName)
 			}
 		}
-		spec.TelemetryStore.Status.Addresses.TCP = addrs
+		config.Spec.TelemetryStore.Status.Addresses.TCP = addrs
 
 		// Store service names in extras for template usage
-		if spec.TelemetryStore.Status.Extras == nil {
-			spec.TelemetryStore.Status.Extras = make(map[string]string)
+		if config.Spec.TelemetryStore.Status.Extras == nil {
+			config.Spec.TelemetryStore.Status.Extras = make(map[string]string)
 		}
-		spec.TelemetryStore.Status.Extras["service_names"] = strings.Join(storeServiceNames, ",")
+		config.Spec.TelemetryStore.Status.Extras["service_names"] = strings.Join(storeServiceNames, ",")
 
 	case v1alpha1.MoldingKindSignoz:
 		// Get telemetrystore service names
@@ -67,8 +66,8 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 				opampAddr = append(opampAddr, domain.MustNewAddress("ws", serviceName, 4320).String())
 			}
 		}
-		spec.Signoz.Status.Addresses.APIServer = apiServerAddr
-		spec.Signoz.Status.Addresses.Opamp = opampAddr
+		config.Spec.Signoz.Status.Addresses.APIServer = apiServerAddr
+		config.Spec.Signoz.Status.Addresses.Opamp = opampAddr
 
 	case v1alpha1.MoldingKindTelemetryKeeper:
 		// Get telemetrykeeper service names
@@ -87,14 +86,14 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 				keeperServiceNames = append(keeperServiceNames, serviceName)
 			}
 		}
-		spec.TelemetryKeeper.Status.Addresses.Client = addrsClient
-		spec.TelemetryKeeper.Status.Addresses.Raft = addrsRaft
+		config.Spec.TelemetryKeeper.Status.Addresses.Client = addrsClient
+		config.Spec.TelemetryKeeper.Status.Addresses.Raft = addrsRaft
 
 		// Store service names in extras for template usage
-		if spec.TelemetryKeeper.Status.Extras == nil {
-			spec.TelemetryKeeper.Status.Extras = make(map[string]string)
+		if config.Spec.TelemetryKeeper.Status.Extras == nil {
+			config.Spec.TelemetryKeeper.Status.Extras = make(map[string]string)
 		}
-		spec.TelemetryKeeper.Status.Extras["service_names"] = strings.Join(keeperServiceNames, ",")
+		config.Spec.TelemetryKeeper.Status.Extras["service_names"] = strings.Join(keeperServiceNames, ",")
 
 	case v1alpha1.MoldingKindIngester:
 		// Get ingester service names
@@ -109,7 +108,7 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 				addrs = append(addrs, domain.MustNewAddress("tcp", serviceName, 4318).String())
 			}
 		}
-		spec.Ingester.Status.Addresses.OTLP = addrs
+		config.Spec.Ingester.Status.Addresses.OTLP = addrs
 	}
 
 	return nil

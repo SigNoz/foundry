@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/infrastructure"
 )
@@ -22,7 +23,7 @@ type Generator struct {
 }
 
 type templateData struct {
-	v1alpha1.Casting
+	installation.Casting
 	Provider    v1alpha1.Platform
 	ComputeType infrastructure.ComputeType
 }
@@ -36,18 +37,16 @@ func New(logger *slog.Logger) *Generator {
 
 // Generate creates Terraform manifests based on the casting configuration.
 // The compute type is resolved automatically from the provider and deployment mode.
-func (g *Generator) Generate(ctx context.Context, config v1alpha1.Casting) ([]domain.Material, error) {
-	spec := config.SigNozSpec()
-
-	if !spec.Infrastructure.Enabled {
+func (g *Generator) Generate(ctx context.Context, config installation.Casting) ([]domain.Material, error) {
+	if !config.Spec.Infrastructure.Enabled {
 		return nil, nil
 	}
 
-	provider, err := infrastructure.ResolveProvider(spec.Deployment.Platform)
+	provider, err := infrastructure.ResolveProvider(config.Spec.Deployment.Platform)
 	if err != nil {
 		return nil, err
 	}
-	computeType, err := infrastructure.ResolveComputeType(provider, spec.Deployment)
+	computeType, err := infrastructure.ResolveComputeType(provider, config.Spec.Deployment)
 	if err != nil {
 		return nil, err
 	}

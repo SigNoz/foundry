@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
@@ -28,17 +29,15 @@ func (molding *telemetrykeeper) Kind() v1alpha1.MoldingKind {
 	return v1alpha1.MoldingKindTelemetryKeeper
 }
 
-func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *v1alpha1.Casting) error {
-	spec := config.SigNozSpec()
-
-	data, err := newData(spec)
+func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *installation.Casting) error {
+	data, err := newData(&config.Spec)
 	if err != nil {
 		molding.logger.ErrorContext(ctx, "failed to get data", foundryerrors.LogAttr(err))
 		return err
 	}
 
 	// Extract enricher config overrides (applies to all keeper nodes).
-	overrides := spec.TelemetryKeeper.Status.Extras["_overrides"]
+	overrides := config.Spec.TelemetryKeeper.Status.Extras["_overrides"]
 
 	// Generate per-server configs (each keeper node needs its own server_id)
 	configs := make(map[string]string, data.ServerCount)
@@ -63,6 +62,6 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *v1alph
 		configs[key] = base
 	}
 
-	spec.TelemetryKeeper.Status.Config.Data = configs
+	config.Spec.TelemetryKeeper.Status.Config.Data = configs
 	return nil
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/molding"
@@ -18,7 +19,7 @@ type dockerComposeMoldingEnricher struct {
 	material domain.StructuredMaterial
 }
 
-func newDockerComposeMoldingEnricher(config *v1alpha1.Casting) (*dockerComposeMoldingEnricher, error) {
+func newDockerComposeMoldingEnricher(config *installation.Casting) (*dockerComposeMoldingEnricher, error) {
 	material, err := getComposeMaterial(config, filepath.Join(rootcasting.DeploymentDir, "compose.yaml"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get compose yaml material: %w", err)
@@ -27,9 +28,7 @@ func newDockerComposeMoldingEnricher(config *v1alpha1.Casting) (*dockerComposeMo
 	return &dockerComposeMoldingEnricher{material: material}, nil
 }
 
-func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *v1alpha1.Casting) error {
-	spec := config.SigNozSpec()
-
+func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *installation.Casting) error {
 	switch kind {
 	case v1alpha1.MoldingKindTelemetryStore:
 		// Get telemetrystore container names
@@ -45,7 +44,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 			}
 		}
 
-		spec.TelemetryStore.Status.Addresses.TCP = telemetrystoreContainerNames
+		config.Spec.TelemetryStore.Status.Addresses.TCP = telemetrystoreContainerNames
 
 	case v1alpha1.MoldingKindSignoz:
 		// Get signoz container names
@@ -62,8 +61,8 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 				opampAddr = append(opampAddr, domain.MustNewAddress("ws", containerName, 4320).String())
 			}
 		}
-		spec.Signoz.Status.Addresses.APIServer = apiServerAddr
-		spec.Signoz.Status.Addresses.Opamp = opampAddr
+		config.Spec.Signoz.Status.Addresses.APIServer = apiServerAddr
+		config.Spec.Signoz.Status.Addresses.Opamp = opampAddr
 
 	case v1alpha1.MoldingKindTelemetryKeeper:
 		// Get telemetrykeeper container names (using service keys since they match container_name)
@@ -79,7 +78,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 			}
 		}
 
-		spec.TelemetryKeeper.Status.Addresses.Client = telemetrykeeperContainerNames
+		config.Spec.TelemetryKeeper.Status.Addresses.Client = telemetrykeeperContainerNames
 
 		var telemetryRaftaddress []string
 		for _, containerName := range containerNames {
@@ -88,11 +87,11 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 			}
 		}
 
-		spec.TelemetryKeeper.Status.Addresses.Raft = telemetryRaftaddress
+		config.Spec.TelemetryKeeper.Status.Addresses.Raft = telemetryRaftaddress
 
 	case v1alpha1.MoldingKindMetaStore:
 		// Skip molding enrichment if sqlite
-		if spec.MetaStore.Kind == v1alpha1.MetaStoreKindSQLite {
+		if config.Spec.MetaStore.Kind == v1alpha1.MetaStoreKindSQLite {
 			return nil
 		}
 		// Get metastore container names
@@ -108,7 +107,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 			}
 		}
 
-		spec.MetaStore.Status.Addresses.DSN = metastoreContainerNames
+		config.Spec.MetaStore.Status.Addresses.DSN = metastoreContainerNames
 
 	case v1alpha1.MoldingKindIngester:
 		// Get ingester container names
@@ -124,7 +123,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 			}
 		}
 
-		spec.Ingester.Status.Addresses.OTLP = ingesterContainerNames
+		config.Spec.Ingester.Status.Addresses.OTLP = ingesterContainerNames
 	}
 
 	return nil
