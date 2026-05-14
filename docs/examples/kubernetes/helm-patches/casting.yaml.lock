@@ -1,5 +1,4 @@
 apiVersion: v1alpha1
-kind: SigNoz
 metadata:
   name: signoz
 spec:
@@ -29,13 +28,13 @@ spec:
                     endpoint: "0.0.0.0:4318"
             processors:
               batch:
-                send_batch_size: 50000
-                send_batch_max_size: 55000
-                timeout: 5s
+                send_batch_size: 20000
+                send_batch_max_size: 25000
+                timeout: 1s
               batch/meter:
                 send_batch_size: 20000
                 send_batch_max_size: 25000
-                timeout: 5s
+                timeout: 1s
               signozspanmetrics/delta:
                 metrics_exporter: signozclickhousemetrics
                 metrics_flush_interval: 60s
@@ -91,12 +90,6 @@ spec:
                 timeout: 45s
                 sending_queue:
                   enabled: false
-              metadataexporter:
-                enabled: true
-                dsn: tcp://signoz-telemetrystore-clickhouse:9000/signoz_metadata
-                timeout: 45s
-                cache:
-                  provider: in_memory
             extensions:
               signoz_health_check:
                 endpoint: "0.0.0.0:13133"
@@ -119,7 +112,6 @@ spec:
                   exporters:
                     - clickhousetraces
                     - signozmeter
-                    - metadataexporter
                 metrics:
                   receivers:
                     - otlp
@@ -128,7 +120,6 @@ spec:
                   exporters:
                     - signozclickhousemetrics
                     - signozmeter
-                    - metadataexporter
                 logs:
                   receivers:
                     - otlp
@@ -137,7 +128,6 @@ spec:
                   exporters:
                     - clickhouselogsexporter
                     - signozmeter
-                    - metadataexporter
                 metrics/meter:
                   receivers:
                     - signozmeter
@@ -148,8 +138,6 @@ spec:
           opamp.yaml: |
             server_endpoint: tcp://signoz:4320/v1/opamp
       enabled: true
-      env:
-        SIGNOZ_OTEL_COLLECTOR_TIMEOUT: 10m
       image: signoz/signoz-otel-collector:latest
       version: latest
     status:
@@ -174,13 +162,13 @@ spec:
                     endpoint: "0.0.0.0:4318"
             processors:
               batch:
-                send_batch_size: 50000
-                send_batch_max_size: 55000
-                timeout: 5s
+                send_batch_size: 20000
+                send_batch_max_size: 25000
+                timeout: 1s
               batch/meter:
                 send_batch_size: 20000
                 send_batch_max_size: 25000
-                timeout: 5s
+                timeout: 1s
               signozspanmetrics/delta:
                 metrics_exporter: signozclickhousemetrics
                 metrics_flush_interval: 60s
@@ -236,12 +224,6 @@ spec:
                 timeout: 45s
                 sending_queue:
                   enabled: false
-              metadataexporter:
-                enabled: true
-                dsn: tcp://signoz-telemetrystore-clickhouse:9000/signoz_metadata
-                timeout: 45s
-                cache:
-                  provider: in_memory
             extensions:
               signoz_health_check:
                 endpoint: "0.0.0.0:13133"
@@ -264,7 +246,6 @@ spec:
                   exporters:
                     - clickhousetraces
                     - signozmeter
-                    - metadataexporter
                 metrics:
                   receivers:
                     - otlp
@@ -273,7 +254,6 @@ spec:
                   exporters:
                     - signozclickhousemetrics
                     - signozmeter
-                    - metadataexporter
                 logs:
                   receivers:
                     - otlp
@@ -282,7 +262,6 @@ spec:
                   exporters:
                     - clickhouselogsexporter
                     - signozmeter
-                    - metadataexporter
                 metrics/meter:
                   receivers:
                     - signozmeter
@@ -292,8 +271,6 @@ spec:
                     - signozclickhousemeter
           opamp.yaml: |
             server_endpoint: tcp://signoz:4320/v1/opamp
-      env:
-        SIGNOZ_OTEL_COLLECTOR_TIMEOUT: 10m
   metastore:
     kind: postgres
     spec:
@@ -413,9 +390,6 @@ spec:
                 operation_timeout_ms: 10000
                 raft_logs_level: warning
                 session_timeout_ms: 30000
-                force_sync: false
-                snapshot_distance: 100000
-                snapshots_to_keep: 3
               log_storage_path: /var/lib/clickhouse/coordination/log
               raft_configuration:
                 server:
@@ -447,9 +421,6 @@ spec:
                 operation_timeout_ms: 10000
                 raft_logs_level: warning
                 session_timeout_ms: 30000
-                force_sync: false
-                snapshot_distance: 100000
-                snapshots_to_keep: 3
               log_storage_path: /var/lib/clickhouse/coordination/log
               raft_configuration:
                 server:
@@ -491,9 +462,9 @@ spec:
                 shard: "01"
             profiles:
                 default:
-                    allow_simdjson: 0
                     load_balancing: random
                     log_queries: 1
+                    max_memory_usage: 10000000000
             quotas:
                 default:
                     interval:
@@ -509,47 +480,13 @@ spec:
             remote_servers:
               cluster:
                 shard:
-                - replica:
-                      - host: signoz-telemetrystore-clickhouse
-                        port: 9000
+                  - replica:
+                      host: signoz-telemetrystore-clickhouse
+                      port: 9000
             zookeeper:
               node:
                 - host: signoz-telemetrykeeper-zookeeper-0
                   port: 9181
-            query_log:
-                flush_interval_milliseconds: 30000
-                partition_by: toYYYYMM(event_date)
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            query_thread_log:
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            query_metric_log:
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            query_views_log:
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            part_log:
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            metric_log:
-                flush_interval_milliseconds: 30000
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            asynchronous_metric_log:
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            trace_log:
-                flush_interval_milliseconds: 30000
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            error_log:
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            latency_log:
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            processors_profile_log:
-                flush_interval_milliseconds: 30000
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            session_log:
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            text_log:
-                flush_interval_milliseconds: 30000
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            zookeeper_log:
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
             tcp_port: 9000
             user_defined_executable_functions_config: '*function.yaml'
             user_scripts_path: /var/lib/clickhouse/user_scripts/
@@ -611,9 +548,9 @@ spec:
                 shard: "01"
             profiles:
                 default:
-                    allow_simdjson: 0
                     load_balancing: random
                     log_queries: 1
+                    max_memory_usage: 10000000000
             quotas:
                 default:
                     interval:
@@ -629,47 +566,13 @@ spec:
             remote_servers:
               cluster:
                 shard:
-                - replica:
-                      - host: signoz-telemetrystore-clickhouse
-                        port: 9000
+                  - replica:
+                      host: signoz-telemetrystore-clickhouse
+                      port: 9000
             zookeeper:
               node:
                 - host: signoz-telemetrykeeper-zookeeper-0
                   port: 9181
-            query_log:
-                flush_interval_milliseconds: 30000
-                partition_by: toYYYYMM(event_date)
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            query_thread_log:
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            query_metric_log:
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            query_views_log:
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            part_log:
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            metric_log:
-                flush_interval_milliseconds: 30000
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            asynchronous_metric_log:
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            trace_log:
-                flush_interval_milliseconds: 30000
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            error_log:
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            latency_log:
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            processors_profile_log:
-                flush_interval_milliseconds: 30000
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            session_log:
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            text_log:
-                flush_interval_milliseconds: 30000
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
-            zookeeper_log:
-                ttl: "event_date + INTERVAL 1 DAY DELETE"
             tcp_port: 9000
             user_defined_executable_functions_config: '*function.yaml'
             user_scripts_path: /var/lib/clickhouse/user_scripts/
@@ -698,5 +601,3 @@ spec:
               name: histogramQuantile
               return_type: Float64
               type: executable
-status:
-  checksum: ""
