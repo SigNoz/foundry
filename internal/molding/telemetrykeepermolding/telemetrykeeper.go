@@ -30,7 +30,7 @@ func (molding *telemetrykeeper) Kind() v1alpha1.MoldingKind {
 }
 
 func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *installation.Casting) error {
-	data, err := newData(&config.Spec)
+	data, err := newData(config)
 	if err != nil {
 		molding.logger.ErrorContext(ctx, "failed to get data", foundryerrors.LogAttr(err))
 		return err

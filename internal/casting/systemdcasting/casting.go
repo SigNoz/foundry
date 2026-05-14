@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
 )
@@ -82,11 +81,11 @@ func (c *systemdCasting) Cast(ctx context.Context, config installation.Casting, 
 
 	if config.Spec.MetaStore.Spec.IsEnabled() {
 		switch config.Spec.MetaStore.Kind {
-		case v1alpha1.MetaStoreKindPostgres:
+		case installation.MetaStoreKindPostgres:
 			if err := c.initializePostgres(ctx, &config); err != nil {
 				return err
 			}
-		case v1alpha1.MetaStoreKindSQLite:
+		case installation.MetaStoreKindSQLite:
 			if err := os.MkdirAll("/var/lib/signoz", 0755); err != nil {
 				return fmt.Errorf("failed to create sqlite data directory: %w", err)
 			}
@@ -196,7 +195,7 @@ func (c *systemdCasting) forgeMetaStore(tmpl *domain.Template, cfg *installation
 	var materials []domain.Material
 
 	switch spec.Kind {
-	case v1alpha1.MetaStoreKindPostgres:
+	case installation.MetaStoreKindPostgres:
 		svcMat, err := c.renderTemplate(tmpl, cfg, fmt.Sprintf("%s-metastore-%s%s", cfg.Metadata.Name, spec.Kind.String(), svcSuffix))
 		if err != nil {
 			return nil, err

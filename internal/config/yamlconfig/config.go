@@ -84,8 +84,8 @@ func loadInstallation(bytes []byte, path string) (v1alpha1.Machinery, error) {
 }
 
 // CreateV1Alpha1Lock writes the resolved casting to the lock file.
-func (*yamlConfig) CreateV1Alpha1Lock(ctx context.Context, casting v1alpha1.Machinery, path string) error {
-	contents, err := domain.MarshalYAML(casting)
+func (*yamlConfig) CreateV1Alpha1Lock(ctx context.Context, machinery v1alpha1.Machinery, path string) error {
+	contents, err := domain.MarshalYAML(machinery)
 	if err != nil {
 		return fmt.Errorf("failed to marshal yaml: %w", err)
 	}

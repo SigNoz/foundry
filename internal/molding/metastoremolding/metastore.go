@@ -23,35 +23,33 @@ func (molding *metastore) Kind() v1alpha1.MoldingKind {
 }
 
 func (molding *metastore) MoldV1Alpha1(ctx context.Context, config *installation.Casting) error {
-	spec := &config.Spec
-
-	if spec.MetaStore.Status.Env == nil {
-		spec.MetaStore.Status.Env = make(map[string]string)
+	if config.Spec.MetaStore.Status.Env == nil {
+		config.Spec.MetaStore.Status.Env = make(map[string]string)
 	}
 
-	if spec.MetaStore.Spec.Env == nil {
-		spec.MetaStore.Spec.Env = make(map[string]string)
+	if config.Spec.MetaStore.Spec.Env == nil {
+		config.Spec.MetaStore.Spec.Env = make(map[string]string)
 	}
 
-	switch spec.MetaStore.Kind {
-	case v1alpha1.MetaStoreKindPostgres:
-		if val, ok := spec.MetaStore.Spec.Env["POSTGRES_DB"]; ok {
+	switch config.Spec.MetaStore.Kind {
+	case installation.MetaStoreKindPostgres:
+		if val, ok := config.Spec.MetaStore.Spec.Env["POSTGRES_DB"]; ok {
 			molding.logger.WarnContext(ctx, "POSTGRES_DB is going to be overridden", slog.String("value", val))
 		}
 
-		spec.MetaStore.Status.Env["POSTGRES_DB"] = "signoz"
+		config.Spec.MetaStore.Status.Env["POSTGRES_DB"] = "signoz"
 
-		if val, ok := spec.MetaStore.Spec.Env["POSTGRES_USER"]; ok {
+		if val, ok := config.Spec.MetaStore.Spec.Env["POSTGRES_USER"]; ok {
 			molding.logger.WarnContext(ctx, "POSTGRES_USER is going to be overridden", slog.String("value", val))
 		}
 
-		spec.MetaStore.Status.Env["POSTGRES_USER"] = "signoz"
+		config.Spec.MetaStore.Status.Env["POSTGRES_USER"] = "signoz"
 
-		if val, ok := spec.MetaStore.Spec.Env["POSTGRES_PASSWORD"]; ok {
+		if val, ok := config.Spec.MetaStore.Spec.Env["POSTGRES_PASSWORD"]; ok {
 			molding.logger.WarnContext(ctx, "POSTGRES_PASSSWORD is going to be overridden", slog.String("value", val))
 		}
 
-		spec.MetaStore.Status.Env["POSTGRES_PASSWORD"] = "signoz"
+		config.Spec.MetaStore.Status.Env["POSTGRES_PASSWORD"] = "signoz"
 	}
 
 	return nil

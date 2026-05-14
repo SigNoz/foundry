@@ -14,21 +14,21 @@ type Casting struct {
 
 // Spec is the Installation-specific configuration.
 type Spec struct {
-	Deployment      v1alpha1.TypeDeployment  `json:"deployment" yaml:"deployment" required:"true" description:"Deployment configuration for the platform"`
-	Patches         []v1alpha1.PatchEntry    `json:"patches,omitempty" yaml:"patches,omitempty" description:"Patch operations to apply to generated materials"`
-	Infrastructure  v1alpha1.Infrastructure  `json:"infrastructure,omitzero" yaml:"infrastructure,omitzero" description:"Infrastructure configuration for generating infrastructure manifests (e.g., Terraform)."`
-	Signoz          v1alpha1.SigNoz          `json:"signoz,omitzero" yaml:"signoz,omitempty" description:"The configuration for the SigNoz molding"`
-	TelemetryStore  v1alpha1.TelemetryStore  `json:"telemetrystore,omitzero" yaml:"telemetrystore,omitempty" description:"The configuration for the telemetry store molding"`
-	TelemetryKeeper v1alpha1.TelemetryKeeper `json:"telemetrykeeper,omitzero" yaml:"telemetrykeeper,omitempty" description:"The configuration for the telemetry keeper molding"`
-	MetaStore       v1alpha1.MetaStore       `json:"metastore,omitzero" yaml:"metastore,omitempty" description:"The configuration for the meta store molding"`
-	Ingester        v1alpha1.Ingester        `json:"ingester,omitzero" yaml:"ingester,omitempty" description:"The configuration for the ingester molding"`
-	_               struct{}                 `additionalProperties:"false"`
+	Deployment      v1alpha1.TypeDeployment `json:"deployment" yaml:"deployment" required:"true" description:"Deployment configuration for the platform"`
+	Patches         []v1alpha1.PatchEntry   `json:"patches,omitempty" yaml:"patches,omitempty" description:"Patch operations to apply to generated materials"`
+	Infrastructure  Infrastructure          `json:"infrastructure,omitzero" yaml:"infrastructure,omitzero" description:"Infrastructure configuration for generating infrastructure manifests (e.g., Terraform)."`
+	Signoz          SigNoz                  `json:"signoz,omitzero" yaml:"signoz,omitempty" description:"The configuration for the SigNoz molding"`
+	TelemetryStore  TelemetryStore          `json:"telemetrystore,omitzero" yaml:"telemetrystore,omitempty" description:"The configuration for the telemetry store molding"`
+	TelemetryKeeper TelemetryKeeper         `json:"telemetrykeeper,omitzero" yaml:"telemetrykeeper,omitempty" description:"The configuration for the telemetry keeper molding"`
+	MetaStore       MetaStore               `json:"metastore,omitzero" yaml:"metastore,omitempty" description:"The configuration for the meta store molding"`
+	Ingester        Ingester                `json:"ingester,omitzero" yaml:"ingester,omitempty" description:"The configuration for the ingester molding"`
+	_               struct{}                `additionalProperties:"false"`
 }
 
 var _ v1alpha1.Machinery = (*Casting)(nil)
 
 // Default returns an Installation with every molding initialised from its
-// v1alpha1 default.
+// default.
 func Default() *Casting {
 	return &Casting{
 		CastingMeta: v1alpha1.CastingMeta{
@@ -37,12 +37,12 @@ func Default() *Casting {
 			Metadata:    v1alpha1.TypeMetadata{Name: "signoz"},
 		},
 		Spec: Spec{
-			Infrastructure:  v1alpha1.DefaultInfrastructure(),
-			Signoz:          v1alpha1.DefaultSigNoz(),
-			TelemetryStore:  v1alpha1.DefaultTelemetryStore(),
-			TelemetryKeeper: v1alpha1.DefaultTelemetryKeeper(),
-			MetaStore:       v1alpha1.DefaultMetaStore(),
-			Ingester:        v1alpha1.DefaultIngester(),
+			Infrastructure:  DefaultInfrastructure(),
+			Signoz:          DefaultSigNoz(),
+			TelemetryStore:  DefaultTelemetryStore(),
+			TelemetryKeeper: DefaultTelemetryKeeper(),
+			MetaStore:       DefaultMetaStore(),
+			Ingester:        DefaultIngester(),
 		},
 	}
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
-	"github.com/signoz/foundry/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -25,17 +24,18 @@ func TestGetV1Alpha1(t *testing.T) {
 apiVersion: v1alpha1
 metadata:
   name: signoz
-deployment:
-  mode: docker
-  flavor: compose
+spec:
+  deployment:
+    mode: docker
+    flavor: compose
 `,
 			assert: func(t *testing.T, casting *installation.Casting) {
 				// All moldings should be enabled by default
-				assert.True(t, *(&casting.Spec).Signoz.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).TelemetryStore.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).TelemetryKeeper.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).MetaStore.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).Ingester.Spec.Enabled)
+				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
+				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
+				assert.True(t, *casting.Spec.TelemetryKeeper.Spec.Enabled)
+				assert.True(t, *casting.Spec.MetaStore.Spec.Enabled)
+				assert.True(t, *casting.Spec.Ingester.Spec.Enabled)
 			},
 		},
 		{
@@ -44,21 +44,21 @@ deployment:
 apiVersion: v1alpha1
 metadata:
   name: signoz
-deployment:
-  mode: docker
-  flavor: compose
 spec:
+  deployment:
+    mode: docker
+    flavor: compose
   metastore:
     spec:
       enabled: false
 `,
 			assert: func(t *testing.T, casting *installation.Casting) {
-				assert.False(t, *(&casting.Spec).MetaStore.Spec.Enabled)
+				assert.False(t, *casting.Spec.MetaStore.Spec.Enabled)
 				// Other moldings should remain enabled
-				assert.True(t, *(&casting.Spec).Signoz.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).TelemetryStore.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).TelemetryKeeper.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).Ingester.Spec.Enabled)
+				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
+				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
+				assert.True(t, *casting.Spec.TelemetryKeeper.Spec.Enabled)
+				assert.True(t, *casting.Spec.Ingester.Spec.Enabled)
 			},
 		},
 		{
@@ -67,20 +67,20 @@ spec:
 apiVersion: v1alpha1
 metadata:
   name: signoz
-deployment:
-  mode: docker
-  flavor: compose
 spec:
+  deployment:
+    mode: docker
+    flavor: compose
   signoz:
     spec:
       enabled: false
 `,
 			assert: func(t *testing.T, casting *installation.Casting) {
-				assert.False(t, *(&casting.Spec).Signoz.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).TelemetryStore.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).TelemetryKeeper.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).MetaStore.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).Ingester.Spec.Enabled)
+				assert.False(t, *casting.Spec.Signoz.Spec.Enabled)
+				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
+				assert.True(t, *casting.Spec.TelemetryKeeper.Spec.Enabled)
+				assert.True(t, *casting.Spec.MetaStore.Spec.Enabled)
+				assert.True(t, *casting.Spec.Ingester.Spec.Enabled)
 			},
 		},
 		{
@@ -89,20 +89,20 @@ spec:
 apiVersion: v1alpha1
 metadata:
   name: signoz
-deployment:
-  mode: docker
-  flavor: compose
 spec:
+  deployment:
+    mode: docker
+    flavor: compose
   ingester:
     spec:
       enabled: false
 `,
 			assert: func(t *testing.T, casting *installation.Casting) {
-				assert.False(t, *(&casting.Spec).Ingester.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).Signoz.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).TelemetryStore.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).TelemetryKeeper.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).MetaStore.Spec.Enabled)
+				assert.False(t, *casting.Spec.Ingester.Spec.Enabled)
+				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
+				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
+				assert.True(t, *casting.Spec.TelemetryKeeper.Spec.Enabled)
+				assert.True(t, *casting.Spec.MetaStore.Spec.Enabled)
 			},
 		},
 		{
@@ -111,20 +111,20 @@ spec:
 apiVersion: v1alpha1
 metadata:
   name: signoz
-deployment:
-  mode: docker
-  flavor: compose
 spec:
+  deployment:
+    mode: docker
+    flavor: compose
   telemetrystore:
     spec:
       enabled: false
 `,
 			assert: func(t *testing.T, casting *installation.Casting) {
-				assert.False(t, *(&casting.Spec).TelemetryStore.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).Signoz.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).TelemetryKeeper.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).MetaStore.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).Ingester.Spec.Enabled)
+				assert.False(t, *casting.Spec.TelemetryStore.Spec.Enabled)
+				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
+				assert.True(t, *casting.Spec.TelemetryKeeper.Spec.Enabled)
+				assert.True(t, *casting.Spec.MetaStore.Spec.Enabled)
+				assert.True(t, *casting.Spec.Ingester.Spec.Enabled)
 			},
 		},
 		{
@@ -133,20 +133,20 @@ spec:
 apiVersion: v1alpha1
 metadata:
   name: signoz
-deployment:
-  mode: docker
-  flavor: compose
 spec:
+  deployment:
+    mode: docker
+    flavor: compose
   telemetrykeeper:
     spec:
       enabled: false
 `,
 			assert: func(t *testing.T, casting *installation.Casting) {
-				assert.False(t, *(&casting.Spec).TelemetryKeeper.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).Signoz.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).TelemetryStore.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).MetaStore.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).Ingester.Spec.Enabled)
+				assert.False(t, *casting.Spec.TelemetryKeeper.Spec.Enabled)
+				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
+				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
+				assert.True(t, *casting.Spec.MetaStore.Spec.Enabled)
+				assert.True(t, *casting.Spec.Ingester.Spec.Enabled)
 			},
 		},
 		{
@@ -155,10 +155,10 @@ spec:
 apiVersion: v1alpha1
 metadata:
   name: signoz
-deployment:
-  mode: docker
-  flavor: compose
 spec:
+  deployment:
+    mode: docker
+    flavor: compose
   metastore:
     spec:
       enabled: false
@@ -167,11 +167,11 @@ spec:
       enabled: false
 `,
 			assert: func(t *testing.T, casting *installation.Casting) {
-				assert.False(t, *(&casting.Spec).MetaStore.Spec.Enabled)
-				assert.False(t, *(&casting.Spec).TelemetryKeeper.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).Signoz.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).TelemetryStore.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).Ingester.Spec.Enabled)
+				assert.False(t, *casting.Spec.MetaStore.Spec.Enabled)
+				assert.False(t, *casting.Spec.TelemetryKeeper.Spec.Enabled)
+				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
+				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
+				assert.True(t, *casting.Spec.Ingester.Spec.Enabled)
 			},
 		},
 		{
@@ -180,18 +180,18 @@ spec:
 apiVersion: v1alpha1
 metadata:
   name: signoz
-deployment:
-  mode: docker
-  flavor: compose
 spec:
+  deployment:
+    mode: docker
+    flavor: compose
   metastore:
     spec:
       enabled: false
       image: custom:1.0
 `,
 			assert: func(t *testing.T, casting *installation.Casting) {
-				assert.False(t, *(&casting.Spec).MetaStore.Spec.Enabled)
-				assert.Equal(t, "custom:1.0", (&casting.Spec).MetaStore.Spec.Image)
+				assert.False(t, *casting.Spec.MetaStore.Spec.Enabled)
+				assert.Equal(t, "custom:1.0", casting.Spec.MetaStore.Spec.Image)
 			},
 		},
 		{
@@ -200,16 +200,16 @@ spec:
 apiVersion: v1alpha1
 metadata:
   name: signoz
-deployment:
-  mode: docker
-  flavor: compose
 spec:
+  deployment:
+    mode: docker
+    flavor: compose
   metastore:
     spec:
       enabled: true
 `,
 			assert: func(t *testing.T, casting *installation.Casting) {
-				assert.True(t, *(&casting.Spec).MetaStore.Spec.Enabled)
+				assert.True(t, *casting.Spec.MetaStore.Spec.Enabled)
 			},
 		},
 		{
@@ -218,18 +218,18 @@ spec:
 apiVersion: v1alpha1
 metadata:
   name: signoz
-deployment:
-  mode: docker
-  flavor: compose
 spec:
+  deployment:
+    mode: docker
+    flavor: compose
   metastore:
     spec:
       image: postgres:15
 `,
 			assert: func(t *testing.T, casting *installation.Casting) {
 				// Enabled should remain true (default) when only image is overridden
-				assert.True(t, *(&casting.Spec).MetaStore.Spec.Enabled)
-				assert.Equal(t, "postgres:15", (&casting.Spec).MetaStore.Spec.Image)
+				assert.True(t, *casting.Spec.MetaStore.Spec.Enabled)
+				assert.Equal(t, "postgres:15", casting.Spec.MetaStore.Spec.Image)
 			},
 		},
 		{
@@ -238,17 +238,17 @@ spec:
 apiVersion: v1alpha1
 metadata:
   name: signoz
-deployment:
-  mode: docker
-  flavor: compose
 spec:
+  deployment:
+    mode: docker
+    flavor: compose
   telemetrystore:
     spec:
       version: "24.8"
 `,
 			assert: func(t *testing.T, casting *installation.Casting) {
-				assert.True(t, *(&casting.Spec).TelemetryStore.Spec.Enabled)
-				assert.Equal(t, "24.8", (&casting.Spec).TelemetryStore.Spec.Version)
+				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
+				assert.Equal(t, "24.8", casting.Spec.TelemetryStore.Spec.Version)
 			},
 		},
 	}
@@ -284,10 +284,10 @@ func TestGetV1Alpha1Merge(t *testing.T) {
 			base:     installation.Default(),
 			override: &installation.Casting{},
 			assert: func(t *testing.T, casting *installation.Casting) {
-				assert.True(t, *(&casting.Spec).Signoz.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).TelemetryStore.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).MetaStore.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).Ingester.Spec.Enabled)
+				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
+				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
+				assert.True(t, *casting.Spec.MetaStore.Spec.Enabled)
+				assert.True(t, *casting.Spec.Ingester.Spec.Enabled)
 			},
 		},
 		{
@@ -295,19 +295,19 @@ func TestGetV1Alpha1Merge(t *testing.T) {
 			base: installation.Default(),
 			override: &installation.Casting{
 				Spec: installation.Spec{
-					MetaStore: v1alpha1.MetaStore{
+					MetaStore: installation.MetaStore{
 						Spec: v1alpha1.MoldingSpec{
-							Enabled: domain.NewBoolPtr(false),
+							Enabled: v1alpha1.BoolPtr(false),
 						},
 					},
 				},
 			},
 			assert: func(t *testing.T, casting *installation.Casting) {
-				assert.False(t, *(&casting.Spec).MetaStore.Spec.Enabled)
+				assert.False(t, *casting.Spec.MetaStore.Spec.Enabled)
 				// Other moldings should remain enabled
-				assert.True(t, *(&casting.Spec).Signoz.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).TelemetryStore.Spec.Enabled)
-				assert.True(t, *(&casting.Spec).Ingester.Spec.Enabled)
+				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
+				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
+				assert.True(t, *casting.Spec.Ingester.Spec.Enabled)
 			},
 		},
 	}

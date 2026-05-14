@@ -1,8 +1,10 @@
-package v1alpha1
+package installation
+
+import "github.com/signoz/foundry/api/v1alpha1"
 
 type Ingester struct {
 	// Specification for the ingester.
-	Spec MoldingSpec `json:"spec" yaml:"spec" jsonschema:"description=Specification for the ingester"`
+	Spec v1alpha1.MoldingSpec `json:"spec" yaml:"spec" jsonschema:"description=Specification for the ingester"`
 
 	// Status of the ingester.
 	Status IngesterStatus `json:"status" yaml:"status,omitempty" jsonschema:"description=Status of the ingester"`
@@ -11,7 +13,7 @@ type Ingester struct {
 }
 
 type IngesterStatus struct {
-	MoldingStatus `json:",inline" yaml:",inline"`
+	v1alpha1.MoldingStatus `json:",inline" yaml:",inline"`
 
 	Addresses IngesterStatusAddresses `json:"addresses" yaml:"addresses,omitempty" jsonschema:"description=Addresses of the ingester"`
 
@@ -26,15 +28,15 @@ type IngesterStatusAddresses struct {
 
 func DefaultIngester() Ingester {
 	return Ingester{
-		Spec: MoldingSpec{
-			Enabled: boolPtr(true),
-			Cluster: TypeCluster{
-				Replicas: intPtr(1),
+		Spec: v1alpha1.MoldingSpec{
+			Enabled: v1alpha1.BoolPtr(true),
+			Cluster: v1alpha1.TypeCluster{
+				Replicas: v1alpha1.IntPtr(1),
 			},
 			Version: "latest",
 			Image:   "signoz/signoz-otel-collector:latest",
 			Env:     map[string]string{},
-			Config: TypeConfig{
+			Config: v1alpha1.TypeConfig{
 				Data: map[string]string{},
 			},
 		},

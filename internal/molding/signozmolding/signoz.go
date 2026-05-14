@@ -50,9 +50,9 @@ func (molding *signoz) MoldV1Alpha1(ctx context.Context, config *installation.Ca
 	config.Spec.Signoz.Status.Env["SIGNOZ_SQLSTORE_PROVIDER"] = config.Spec.MetaStore.Kind.String()
 
 	switch config.Spec.MetaStore.Kind {
-	case v1alpha1.MetaStoreKindSQLite:
+	case installation.MetaStoreKindSQLite:
 		config.Spec.Signoz.Status.Env["SIGNOZ_SQLSTORE_SQLITE_PATH"] = "/var/lib/signoz/signoz.db"
-	case v1alpha1.MetaStoreKindPostgres:
+	case installation.MetaStoreKindPostgres:
 		if config.Spec.MetaStore.Status.Addresses.DSN != nil {
 			if val, ok := config.Spec.Signoz.Spec.Env["SIGNOZ_SQLSTORE_POSTGRES_DSN"]; ok {
 				molding.logger.WarnContext(ctx, "SIGNOZ_SQLSTORE_POSTGRES_DSN is going to be overridden", slog.String("value", val))

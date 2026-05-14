@@ -1,4 +1,4 @@
-package v1alpha1
+package installation
 
 import "encoding/json"
 

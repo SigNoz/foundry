@@ -84,7 +84,7 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 
 	case v1alpha1.MoldingKindMetaStore:
 		// Skip molding enrichment if sqlite
-		if config.Spec.MetaStore.Kind == v1alpha1.MetaStoreKindSQLite {
+		if config.Spec.MetaStore.Kind == installation.MetaStoreKindSQLite {
 			return nil
 		}
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")

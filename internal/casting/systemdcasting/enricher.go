@@ -99,9 +99,9 @@ func (e *linuxMoldingEnricher) enrichTelemetryKeeper(config *installation.Castin
 
 func (e *linuxMoldingEnricher) enrichMetaStore(config *installation.Casting) error {
 	switch config.Spec.MetaStore.Kind {
-	case v1alpha1.MetaStoreKindSQLite:
+	case installation.MetaStoreKindSQLite:
 		// SQLite — no addresses or binaries to enrich.
-	case v1alpha1.MetaStoreKindPostgres:
+	case installation.MetaStoreKindPostgres:
 		dsn := domain.MustNewAddress("postgres", "localhost", baseMetaStorePostgresPort).String()
 		config.Spec.MetaStore.Status.Addresses.DSN = []string{dsn}
 
