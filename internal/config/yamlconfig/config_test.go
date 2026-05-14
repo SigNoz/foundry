@@ -8,6 +8,7 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
+	"github.com/signoz/foundry/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -16,7 +17,7 @@ func TestGetV1Alpha1(t *testing.T) {
 	testCases := []struct {
 		name   string
 		input  string
-		assert func(t *testing.T, casting *installation.Casting)
+		assert func(t *testing.T, casting installation.Casting)
 	}{
 		{
 			name: "Defaults",
@@ -29,7 +30,7 @@ spec:
     mode: docker
     flavor: compose
 `,
-			assert: func(t *testing.T, casting *installation.Casting) {
+			assert: func(t *testing.T, casting installation.Casting) {
 				// All moldings should be enabled by default
 				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
 				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
@@ -52,7 +53,7 @@ spec:
     spec:
       enabled: false
 `,
-			assert: func(t *testing.T, casting *installation.Casting) {
+			assert: func(t *testing.T, casting installation.Casting) {
 				assert.False(t, *casting.Spec.MetaStore.Spec.Enabled)
 				// Other moldings should remain enabled
 				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
@@ -75,7 +76,7 @@ spec:
     spec:
       enabled: false
 `,
-			assert: func(t *testing.T, casting *installation.Casting) {
+			assert: func(t *testing.T, casting installation.Casting) {
 				assert.False(t, *casting.Spec.Signoz.Spec.Enabled)
 				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
 				assert.True(t, *casting.Spec.TelemetryKeeper.Spec.Enabled)
@@ -97,7 +98,7 @@ spec:
     spec:
       enabled: false
 `,
-			assert: func(t *testing.T, casting *installation.Casting) {
+			assert: func(t *testing.T, casting installation.Casting) {
 				assert.False(t, *casting.Spec.Ingester.Spec.Enabled)
 				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
 				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
@@ -119,7 +120,7 @@ spec:
     spec:
       enabled: false
 `,
-			assert: func(t *testing.T, casting *installation.Casting) {
+			assert: func(t *testing.T, casting installation.Casting) {
 				assert.False(t, *casting.Spec.TelemetryStore.Spec.Enabled)
 				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
 				assert.True(t, *casting.Spec.TelemetryKeeper.Spec.Enabled)
@@ -141,7 +142,7 @@ spec:
     spec:
       enabled: false
 `,
-			assert: func(t *testing.T, casting *installation.Casting) {
+			assert: func(t *testing.T, casting installation.Casting) {
 				assert.False(t, *casting.Spec.TelemetryKeeper.Spec.Enabled)
 				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
 				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
@@ -166,7 +167,7 @@ spec:
     spec:
       enabled: false
 `,
-			assert: func(t *testing.T, casting *installation.Casting) {
+			assert: func(t *testing.T, casting installation.Casting) {
 				assert.False(t, *casting.Spec.MetaStore.Spec.Enabled)
 				assert.False(t, *casting.Spec.TelemetryKeeper.Spec.Enabled)
 				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
@@ -189,7 +190,7 @@ spec:
       enabled: false
       image: custom:1.0
 `,
-			assert: func(t *testing.T, casting *installation.Casting) {
+			assert: func(t *testing.T, casting installation.Casting) {
 				assert.False(t, *casting.Spec.MetaStore.Spec.Enabled)
 				assert.Equal(t, "custom:1.0", casting.Spec.MetaStore.Spec.Image)
 			},
@@ -208,7 +209,7 @@ spec:
     spec:
       enabled: true
 `,
-			assert: func(t *testing.T, casting *installation.Casting) {
+			assert: func(t *testing.T, casting installation.Casting) {
 				assert.True(t, *casting.Spec.MetaStore.Spec.Enabled)
 			},
 		},
@@ -226,7 +227,7 @@ spec:
     spec:
       image: postgres:15
 `,
-			assert: func(t *testing.T, casting *installation.Casting) {
+			assert: func(t *testing.T, casting installation.Casting) {
 				// Enabled should remain true (default) when only image is overridden
 				assert.True(t, *casting.Spec.MetaStore.Spec.Enabled)
 				assert.Equal(t, "postgres:15", casting.Spec.MetaStore.Spec.Image)
@@ -246,7 +247,7 @@ spec:
     spec:
       version: "24.8"
 `,
-			assert: func(t *testing.T, casting *installation.Casting) {
+			assert: func(t *testing.T, casting installation.Casting) {
 				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
 				assert.Equal(t, "24.8", casting.Spec.TelemetryStore.Spec.Version)
 			},
@@ -267,7 +268,7 @@ spec:
 
 			inst, ok := casting.(*installation.Casting)
 			require.True(t, ok, "expected *installation.Casting, got %T", casting)
-			tc.assert(t, inst)
+			tc.assert(t, *inst)
 		})
 	}
 }
@@ -275,15 +276,15 @@ spec:
 func TestGetV1Alpha1Merge(t *testing.T) {
 	testCases := []struct {
 		name     string
-		base     *installation.Casting
-		override *installation.Casting
-		assert   func(t *testing.T, casting *installation.Casting)
+		base     installation.Casting
+		override installation.Casting
+		assert   func(t *testing.T, casting installation.Casting)
 	}{
 		{
 			name:     "EmptyOverride",
-			base:     installation.Default(),
-			override: &installation.Casting{},
-			assert: func(t *testing.T, casting *installation.Casting) {
+			base:     *installation.Default(),
+			override: installation.Casting{},
+			assert: func(t *testing.T, casting installation.Casting) {
 				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
 				assert.True(t, *casting.Spec.TelemetryStore.Spec.Enabled)
 				assert.True(t, *casting.Spec.MetaStore.Spec.Enabled)
@@ -292,17 +293,17 @@ func TestGetV1Alpha1Merge(t *testing.T) {
 		},
 		{
 			name: "DisabledMoldingOverride",
-			base: installation.Default(),
-			override: &installation.Casting{
+			base: *installation.Default(),
+			override: installation.Casting{
 				Spec: installation.Spec{
 					MetaStore: installation.MetaStore{
 						Spec: v1alpha1.MoldingSpec{
-							Enabled: v1alpha1.BoolPtr(false),
+							Enabled: domain.NewBoolPtr(false),
 						},
 					},
 				},
 			},
-			assert: func(t *testing.T, casting *installation.Casting) {
+			assert: func(t *testing.T, casting installation.Casting) {
 				assert.False(t, *casting.Spec.MetaStore.Spec.Enabled)
 				// Other moldings should remain enabled
 				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
@@ -317,7 +318,7 @@ func TestGetV1Alpha1Merge(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			base := tc.base
 			override := tc.override
-			err := v1alpha1.Merge(base, override)
+			err := v1alpha1.Merge(&base, &override)
 			require.NoError(t, err)
 			tc.assert(t, base)
 		})
