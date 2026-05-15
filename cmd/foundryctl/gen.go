@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
@@ -21,8 +22,13 @@ import (
 
 const moduleAPIPrefix = "github.com/signoz/foundry/api/v1alpha1/"
 
-var schemaTargets = []any{
-	installation.Casting{},
+type schemaTarget struct {
+	kind v1alpha1.Kind
+	val  any
+}
+
+var schemaTargets = []schemaTarget{
+	{v1alpha1.KindInstallation, installation.Casting{}},
 }
 
 func registerGenCmd(rootCmd *cobra.Command) {
@@ -99,20 +105,36 @@ func runGenExamples(ctx context.Context, logger *slog.Logger) error {
 }
 
 func runGenSchemas(_ context.Context) error {
-	reflector := jsonschema.Reflector{}
 	var oneOf []jsonschema.SchemaOrBool
+	kindType := reflect.TypeFor[v1alpha1.Kind]()
 
 	for _, t := range schemaTargets {
-		schema, err := reflector.Reflect(t)
+		target := t
+		reflector := jsonschema.Reflector{}
+		// v1alpha1.Kind's Enum() returns all Kinds (the type permits any).
+		// For this per-Kind schema, the kind field is always this Casting's
+		// Kind, so we narrow the enum at reflection.
+		reflector.DefaultOptions = append(reflector.DefaultOptions,
+			jsonschema.InterceptSchema(func(params jsonschema.InterceptSchemaParams) (bool, error) {
+				if !params.Processed || params.Value.Type() != kindType {
+					return false, nil
+				}
+				params.Schema.Enum = []any{target.kind.String()}
+				return false, nil
+			}),
+		)
+
+		schema, err := reflector.Reflect(target.val)
 		if err != nil {
-			return fmt.Errorf("reflect %T: %w", t, err)
-		}
-		contents, err := json.MarshalIndent(schema, "", "  ")
-		if err != nil {
-			return fmt.Errorf("marshal %T: %w", t, err)
+			return fmt.Errorf("reflect %T: %w", target.val, err)
 		}
 
-		kindDir := strings.TrimPrefix(reflect.TypeOf(t).PkgPath(), moduleAPIPrefix)
+		contents, err := json.MarshalIndent(schema, "", "  ")
+		if err != nil {
+			return fmt.Errorf("marshal %T: %w", target.val, err)
+		}
+
+		kindDir := strings.TrimPrefix(reflect.TypeOf(target.val).PkgPath(), moduleAPIPrefix)
 		if err := os.WriteFile(filepath.Join("api", "v1alpha1", kindDir, "casting.schema.json"), contents, 0644); err != nil {
 			return err
 		}
