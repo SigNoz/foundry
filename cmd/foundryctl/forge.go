@@ -31,18 +31,18 @@ func runForge(ctx context.Context, logger *slog.Logger, path string, poursPath s
 		return domain.NewProperties(), err
 	}
 
-	config, err := foundry.Config.GetV1Alpha1(ctx, path)
+	machinery, err := foundry.Config.GetV1Alpha1(ctx, path)
 	if err != nil {
 		return domain.NewProperties(), err
 	}
 
-	props := config.TrackableProperties()
+	props := machinery.TrackableProperties()
 
 	poursAbsPath, err := filepath.Abs(poursPath)
 	if err != nil {
 		return props, err
 	}
 
-	err = foundry.Forge(ctx, config, path, &writer.Options{Output: &os.File{}, TargetDirectory: poursAbsPath})
+	err = foundry.Forge(ctx, machinery, path, &writer.Options{Output: &os.File{}, TargetDirectory: poursAbsPath})
 	return props, err
 }

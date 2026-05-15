@@ -50,13 +50,13 @@ func runCast(ctx context.Context, logger *slog.Logger, poursPath string, configP
 		return domain.NewProperties(), fmt.Errorf("failed to resolve pours path: %w", err)
 	}
 
-	lock, err := foundry.Config.GetV1Alpha1Lock(ctx, configPath)
+	machinery, err := foundry.Config.GetV1Alpha1Lock(ctx, configPath)
 	if err != nil {
 		return domain.NewProperties(), err
 	}
 
-	props := lock.TrackableProperties()
+	props := machinery.TrackableProperties()
 
-	err = foundry.Cast(ctx, lock, poursPath)
+	err = foundry.Cast(ctx, machinery, poursPath)
 	return props, err
 }

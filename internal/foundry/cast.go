@@ -9,12 +9,12 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 )
 
-func (foundry *Foundry) Cast(ctx context.Context, config v1alpha1.Machinery, poursPath string) error {
-	switch c := config.(type) {
+func (foundry *Foundry) Cast(ctx context.Context, machinery v1alpha1.Machinery, poursPath string) error {
+	switch c := machinery.(type) {
 	case *installation.Casting:
 		return foundry.castInstallation(ctx, *c, poursPath)
 	}
-	return fmt.Errorf("unsupported casting kind %q", config.Kind())
+	return fmt.Errorf("unsupported casting kind %q", machinery.Kind())
 }
 
 func (foundry *Foundry) castInstallation(ctx context.Context, config installation.Casting, poursPath string) error {

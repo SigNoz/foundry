@@ -14,12 +14,12 @@ import (
 	"github.com/signoz/foundry/internal/writer"
 )
 
-func (foundry *Foundry) Forge(ctx context.Context, config v1alpha1.Machinery, path string, poursWriterOpts *writer.Options) error {
-	switch c := config.(type) {
+func (foundry *Foundry) Forge(ctx context.Context, machinery v1alpha1.Machinery, path string, poursWriterOpts *writer.Options) error {
+	switch c := machinery.(type) {
 	case *installation.Casting:
 		return foundry.forgeInstallation(ctx, *c, path, poursWriterOpts)
 	}
-	return fmt.Errorf("unsupported casting kind %q", config.Kind())
+	return fmt.Errorf("unsupported casting kind %q", machinery.Kind())
 }
 
 func (foundry *Foundry) forgeInstallation(ctx context.Context, config installation.Casting, path string, poursWriterOpts *writer.Options) error {

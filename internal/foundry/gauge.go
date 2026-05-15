@@ -12,12 +12,12 @@ import (
 	"github.com/signoz/foundry/internal/tooler/terraformtooler"
 )
 
-func (foundry *Foundry) Gauge(ctx context.Context, config v1alpha1.Machinery) error {
-	switch c := config.(type) {
+func (foundry *Foundry) Gauge(ctx context.Context, machinery v1alpha1.Machinery) error {
+	switch c := machinery.(type) {
 	case *installation.Casting:
 		return foundry.gaugeInstallation(ctx, *c)
 	}
-	return fmt.Errorf("unsupported casting kind %q", config.Kind())
+	return fmt.Errorf("unsupported casting kind %q", machinery.Kind())
 }
 
 func (foundry *Foundry) gaugeInstallation(ctx context.Context, config installation.Casting) error {
