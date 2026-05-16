@@ -4,6 +4,9 @@
   "oneOf": [
     {
       "$ref": "installation/casting.schema.json"
+    },
+    {
+      "$ref": "collectionagent/casting.schema.json"
     }
   ]
 }

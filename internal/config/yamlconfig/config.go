@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/config"
 	"github.com/signoz/foundry/internal/domain"
@@ -37,6 +38,8 @@ func (*yamlConfig) GetV1Alpha1(ctx context.Context, path string) (v1alpha1.Machi
 	switch kind {
 	case v1alpha1.KindInstallation:
 		return loadInstallation(bytes, path)
+	case v1alpha1.KindCollectionAgent:
+		return loadCollectionAgent(bytes, path)
 	}
 	return nil, errors.Newf(errors.TypeUnsupported, "unknown casting kind %q", kind)
 }
@@ -83,6 +86,33 @@ func loadInstallation(bytes []byte, path string) (v1alpha1.Machinery, error) {
 	return base, nil
 }
 
+func loadCollectionAgent(bytes []byte, path string) (v1alpha1.Machinery, error) {
+	var loaded collectionagent.Casting
+	if err := domain.UnmarshalYAML(bytes, &loaded); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal collectionagent casting: %w", err)
+	}
+
+	base := collectionagent.Default()
+	if err := v1alpha1.Merge(base, &loaded); err != nil {
+		return nil, fmt.Errorf("failed to merge default collectionagent casting: %w", err)
+	}
+
+	contents, err := json.Marshal(base)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal collectionagent casting: %w", err)
+	}
+	toValidate := map[string]any{}
+	if err := json.Unmarshal(contents, &toValidate); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal collectionagent casting for validation: %w", err)
+	}
+
+	if err := collectionagent.Schema().Validate(toValidate); err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "invalid casting file %s", path)
+	}
+
+	return base, nil
+}
+
 // CreateV1Alpha1Lock writes the resolved casting to the lock file.
 func (*yamlConfig) CreateV1Alpha1Lock(ctx context.Context, machinery v1alpha1.Machinery, path string) error {
 	contents, err := domain.MarshalYAML(machinery)
@@ -114,6 +144,12 @@ func (*yamlConfig) GetV1Alpha1Lock(ctx context.Context, path string) (v1alpha1.M
 		var c installation.Casting
 		if err := domain.UnmarshalYAML(bytes, &c); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal installation casting: %w", err)
+		}
+		return &c, nil
+	case v1alpha1.KindCollectionAgent:
+		var c collectionagent.Casting
+		if err := domain.UnmarshalYAML(bytes, &c); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal collectionagent casting: %w", err)
 		}
 		return &c, nil
 	}

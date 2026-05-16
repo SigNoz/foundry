@@ -17,7 +17,8 @@ var _ fmt.Stringer = (*Kind)(nil)
 var _ jsonschema.Enum = (*Kind)(nil)
 
 var (
-	KindInstallation Kind = Kind{s: "Installation"}
+	KindInstallation    Kind = Kind{s: "Installation"}
+	KindCollectionAgent Kind = Kind{s: "CollectionAgent"}
 )
 
 // Kind discriminates between top-level casting resource types.
@@ -32,7 +33,7 @@ func (kind Kind) String() string {
 }
 
 func Kinds() []Kind {
-	return []Kind{KindInstallation}
+	return []Kind{KindInstallation, KindCollectionAgent}
 }
 
 func (kind Kind) MarshalJSON() ([]byte, error) {

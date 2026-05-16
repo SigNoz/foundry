@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
@@ -18,8 +19,16 @@ func (foundry *Foundry) Forge(ctx context.Context, machinery v1alpha1.Machinery,
 	switch c := machinery.(type) {
 	case *installation.Casting:
 		return foundry.forgeInstallation(ctx, *c, path, poursWriterOpts)
+	case *collectionagent.Casting:
+		return foundry.forgeCollectionAgent(ctx, *c, path, poursWriterOpts)
 	}
 	return fmt.Errorf("unsupported casting kind %q", machinery.Kind())
+}
+
+func (foundry *Foundry) forgeCollectionAgent(ctx context.Context, config collectionagent.Casting, path string, _ *writer.Options) error {
+	foundry.Logger.WarnContext(ctx, "collectionagent forge not yet implemented; writing lock only",
+		slog.String("casting.metadata.name", config.Metadata.Name))
+	return foundry.Config.CreateV1Alpha1Lock(ctx, &config, path)
 }
 
 func (foundry *Foundry) forgeInstallation(ctx context.Context, config installation.Casting, path string, poursWriterOpts *writer.Options) error {

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/tooler/terraformtooler"
@@ -16,8 +17,16 @@ func (foundry *Foundry) Gauge(ctx context.Context, machinery v1alpha1.Machinery)
 	switch c := machinery.(type) {
 	case *installation.Casting:
 		return foundry.gaugeInstallation(ctx, *c)
+	case *collectionagent.Casting:
+		return foundry.gaugeCollectionAgent(ctx, *c)
 	}
 	return fmt.Errorf("unsupported casting kind %q", machinery.Kind())
+}
+
+func (foundry *Foundry) gaugeCollectionAgent(ctx context.Context, config collectionagent.Casting) error {
+	foundry.Logger.WarnContext(ctx, "collectionagent gauge not yet implemented; skipping",
+		slog.String("casting.metadata.name", config.Metadata.Name))
+	return nil
 }
 
 func (foundry *Foundry) gaugeInstallation(ctx context.Context, config installation.Casting) error {

@@ -1,0 +1,384 @@
+{
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "spec"
+  ],
+  "additionalProperties": false,
+  "definitions": {
+    "CollectionagentCollector": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/CollectionagentCollectorKind",
+          "description": "Kind of the collector to use",
+          "examples": [
+            "agent"
+          ]
+        },
+        "spec": {
+          "$ref": "#/definitions/V1Alpha1MoldingSpec",
+          "description": "Specification for the collector"
+        },
+        "status": {
+          "$ref": "#/definitions/CollectionagentCollectorStatus",
+          "description": "Status of the collector"
+        }
+      },
+      "type": "object"
+    },
+    "CollectionagentCollectorKind": {
+      "enum": [
+        "agent"
+      ],
+      "type": "string"
+    },
+    "CollectionagentCollectorStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "config": {
+          "$ref": "#/definitions/V1Alpha1TypeConfig",
+          "description": "Configuration for the molding"
+        },
+        "env": {
+          "description": "Environment variables for the molding",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "extras": {
+          "description": "Extra information about the molding",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "CollectionagentSpec": {
+      "required": [
+        "deployment"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "collector": {
+          "$ref": "#/definitions/CollectionagentCollector",
+          "description": "The configuration for the collector molding"
+        },
+        "deployment": {
+          "$ref": "#/definitions/V1Alpha1TypeDeployment",
+          "description": "Deployment configuration for the platform"
+        },
+        "patches": {
+          "description": "Patch operations to apply to generated materials",
+          "items": {
+            "$ref": "#/definitions/V1Alpha1PatchEntry"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "V1Alpha1Flavor": {
+      "enum": [
+        "compose",
+        "swarm",
+        "binary",
+        "kustomize",
+        "helm",
+        "blueprint",
+        "stack",
+        "template",
+        "terraform"
+      ],
+      "type": "string"
+    },
+    "V1Alpha1Kind": {
+      "enum": [
+        "CollectionAgent"
+      ],
+      "type": "string"
+    },
+    "V1Alpha1Mode": {
+      "enum": [
+        "docker",
+        "systemd",
+        "kubernetes",
+        "ec2"
+      ],
+      "type": "string"
+    },
+    "V1Alpha1MoldingSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "cluster": {
+          "$ref": "#/definitions/V1Alpha1TypeCluster",
+          "description": "Cluster configuration for the molding"
+        },
+        "config": {
+          "$ref": "#/definitions/V1Alpha1TypeConfig",
+          "description": "Configuration for the molding"
+        },
+        "enabled": {
+          "description": "Whether the molding is enabled",
+          "default": true,
+          "type": [
+            "null",
+            "boolean"
+          ]
+        },
+        "env": {
+          "description": "Environment variables for the molding",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "image": {
+          "description": "Container image of the molding",
+          "examples": [
+            "signoz/signoz:latest"
+          ],
+          "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*(/[a-z0-9]+([._-][a-z0-9]+)*)*(:[a-zA-Z0-9._-]+)?(@sha256:[a-f0-9]{64})?$",
+          "type": "string"
+        },
+        "version": {
+          "description": "The version of the molding to use",
+          "examples": [
+            "latest"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "V1Alpha1PatchEntry": {
+      "required": [
+        "target",
+        "operations"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "operations": {
+          "description": "JSON Patch (RFC 6902) operations to apply. Used by the jsonpatch driver.",
+          "items": {
+            "$ref": "#/definitions/V1Alpha1PatchOperation"
+          },
+          "minItems": 1,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "target": {
+          "description": "Target output file to patch",
+          "examples": [
+            "compose.yaml",
+            "signoz/deployment.yaml",
+            "values.yaml",
+            "telemetrystore/telemtrystore-clickhouse-0-*.yaml"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "type": {
+          "description": "Patch driver type. Defaults to jsonpatch.",
+          "default": "jsonpatch",
+          "examples": [
+            "jsonpatch"
+          ],
+          "enum": [
+            "",
+            "jsonpatch"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "V1Alpha1PatchOperation": {
+      "required": [
+        "op",
+        "path"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "description": "Source JSON Pointer for move and copy operations",
+          "examples": [
+            "/services/clickhouse/old_field"
+          ],
+          "pattern": "^/",
+          "type": "string"
+        },
+        "op": {
+          "description": "JSON Patch (RFC 6902) operation type",
+          "enum": [
+            "add",
+            "remove",
+            "replace",
+            "move",
+            "copy",
+            "test"
+          ],
+          "type": "string"
+        },
+        "path": {
+          "description": "JSON Pointer (RFC 6901) to the target location",
+          "examples": [
+            "/services/clickhouse/mem_limit"
+          ],
+          "pattern": "^/",
+          "type": "string"
+        },
+        "value": {
+          "description": "Value for add, replace, or test operations"
+        }
+      },
+      "type": "object"
+    },
+    "V1Alpha1Platform": {
+      "enum": [
+        "render",
+        "coolify",
+        "railway",
+        "ecs",
+        "aws",
+        "gcp",
+        "azure"
+      ],
+      "type": "string"
+    },
+    "V1Alpha1Status": {
+      "additionalProperties": false,
+      "properties": {
+        "checksum": {
+          "description": "Checksum of the casting file",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "V1Alpha1TypeCluster": {
+      "additionalProperties": false,
+      "properties": {
+        "replicas": {
+          "description": "Number of replicas for the molding.",
+          "examples": [
+            1
+          ],
+          "minimum": 0,
+          "type": [
+            "null",
+            "integer"
+          ]
+        },
+        "shards": {
+          "description": "Number of shards for the molding",
+          "examples": [
+            1
+          ],
+          "minimum": 1,
+          "type": [
+            "null",
+            "integer"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "V1Alpha1TypeConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "description": "Configuration data as key-value pairs.",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "V1Alpha1TypeDeployment": {
+      "additionalProperties": false,
+      "properties": {
+        "flavor": {
+          "$ref": "#/definitions/V1Alpha1Flavor",
+          "description": "Flavor of mode for the deployment"
+        },
+        "mode": {
+          "$ref": "#/definitions/V1Alpha1Mode",
+          "description": "Type of installation method"
+        },
+        "platform": {
+          "$ref": "#/definitions/V1Alpha1Platform",
+          "description": "Provider where an installation runs on"
+        }
+      },
+      "type": "object"
+    },
+    "V1Alpha1TypeMetadata": {
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "annotations": {
+          "description": "Annotations is an unstructured key-value map for arbitrary metadata. Can be used to specify deployment-specific settings.",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "name": {
+          "description": "The name of this installation. This name is used to identify the installation.",
+          "default": "signoz",
+          "examples": [
+            "signoz"
+          ],
+          "maxLength": 63,
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "properties": {
+    "apiVersion": {
+      "description": "API Version of the configuration schema.",
+      "default": "v1alpha1",
+      "examples": [
+        "v1alpha1"
+      ],
+      "enum": [
+        "v1alpha1"
+      ],
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/definitions/V1Alpha1Kind",
+      "description": "Kind of the casting resource."
+    },
+    "metadata": {
+      "$ref": "#/definitions/V1Alpha1TypeMetadata",
+      "description": "Metadata of the casting configuration"
+    },
+    "spec": {
+      "$ref": "#/definitions/CollectionagentSpec",
+      "description": "CollectionAgent specification"
+    },
+    "status": {
+      "$ref": "#/definitions/V1Alpha1Status",
+      "description": "Status of the casting"
+    }
+  },
+  "type": "object"
+}
