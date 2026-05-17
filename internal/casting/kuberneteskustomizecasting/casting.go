@@ -13,6 +13,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
+	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 )
 
@@ -69,7 +70,7 @@ func (c *kustomizeCasting) Forge(ctx context.Context, cfg installation.Casting, 
 	for _, tmpl := range c.castings {
 		m, err := c.forgeCasting(tmpl, &cfg, poursPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to forge: %w", err)
+			return nil, errors.Wrapf(err, errors.TypeInternal, "failed to forge")
 		}
 		materials = append(materials, m...)
 	}
@@ -90,14 +91,14 @@ func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting
 
 	kustomizeDir := filepath.Join(poursPath, rootcasting.DeploymentDir)
 	if _, err := os.Stat(filepath.Join(kustomizeDir, "kustomization.yaml")); os.IsNotExist(err) {
-		return fmt.Errorf("kustomization.yaml does not exist at path: %s, run 'forge' first", kustomizeDir)
+		return errors.Newf(errors.TypeNotFound, "kustomization.yaml does not exist at path: %s, run 'forge' first", kustomizeDir)
 	}
 
 	runctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
 	if err := c.applyCRDs(runctx); err != nil {
-		return fmt.Errorf("failed to apply CRDs: %w", err)
+		return errors.Wrapf(err, errors.TypeInternal, "failed to apply CRDs")
 	}
 
 	cmd := exec.CommandContext(runctx, "kubectl", "apply", "-k", kustomizeDir)
@@ -109,7 +110,7 @@ func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting
 
 	if err := cmd.Run(); err != nil {
 		c.logger.ErrorContext(runctx, "kubectl apply failed", slog.String("error", err.Error()))
-		return fmt.Errorf("kubectl apply -k failed: %w", err)
+		return errors.Wrapf(err, errors.TypeInternal, "kubectl apply -k failed")
 	}
 
 	c.logger.InfoContext(runctx, "Kustomize manifests applied successfully")
@@ -133,7 +134,7 @@ func (c *kustomizeCasting) applyCRDs(ctx context.Context) error {
 		c.logger.DebugContext(ctx, "Applying CRD", slog.String("url", url))
 
 		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to apply CRD %s: %w", crd, err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to apply CRD %s", crd)
 		}
 	}
 
@@ -147,7 +148,7 @@ func (c *kustomizeCasting) forgeCasting(tmpl *domain.Template, cfg *installation
 	path := filepath.Join(rootcasting.DeploymentDir, relPath)
 	material, err := tmpl.Render(cfg, path)
 	if err != nil {
-		return nil, fmt.Errorf("render template %s: %w", templatePath, err)
+		return nil, errors.Wrapf(err, errors.TypeInternal, "render template %s", templatePath)
 	}
 	return []domain.Material{material}, nil
 }
@@ -175,11 +176,11 @@ func renderStructured(config *installation.Casting, items []templateAt) ([]domai
 	for _, item := range items {
 		m, err := item.tmpl.Render(config, item.path)
 		if err != nil {
-			return nil, fmt.Errorf("render template %s: %w", item.tmpl.Path(), err)
+			return nil, errors.Wrapf(err, errors.TypeInternal, "render template %s", item.tmpl.Path())
 		}
 		sm, ok := m.(domain.StructuredMaterial)
 		if !ok {
-			return nil, fmt.Errorf("template %s does not produce a structured material", item.tmpl.Path())
+			return nil, errors.Newf(errors.TypeInternal, "template %s does not produce a structured material", item.tmpl.Path())
 		}
 		materials = append(materials, sm)
 	}

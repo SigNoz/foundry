@@ -3,7 +3,6 @@ package telemetrystoremolding
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"log/slog"
 
 	"github.com/signoz/foundry/api/v1alpha1"
@@ -41,12 +40,12 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *install
 
 	configBuf := bytes.NewBuffer(nil)
 	if err := ConfigClickhousev2556YAML.Execute(configBuf, data); err != nil {
-		return fmt.Errorf("failed to execute config template: %w", err)
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute config template")
 	}
 
 	functionBuf := bytes.NewBuffer(nil)
 	if err := FunctionsClickhousev2556YAML.Execute(functionBuf, data); err != nil {
-		return fmt.Errorf("failed to execute config template: %w", err)
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute config template")
 	}
 
 	base := configBuf.String()
@@ -54,7 +53,7 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *install
 	if overrides != "" {
 		merged, err := domain.MergeYAML(base, overrides)
 		if err != nil {
-			return fmt.Errorf("failed to merge config overrides for config.yaml: %w", err)
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to merge config overrides for config.yaml")
 		}
 		base = merged
 	}
@@ -70,7 +69,7 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *install
 func (molding *telemetrystore) getData(config *installation.Casting) (Data, error) {
 	storeAddresses := config.Spec.TelemetryStore.Status.Addresses.TCP
 	if len(storeAddresses) == 0 {
-		return Data{}, fmt.Errorf("telemetry store addresses not set in status")
+		return Data{}, foundryerrors.Newf(foundryerrors.TypeInternal, "telemetry store addresses not set in status")
 	}
 
 	cluster := config.Spec.TelemetryStore.Spec.Cluster
@@ -87,7 +86,8 @@ func (molding *telemetrystore) getData(config *installation.Casting) (Data, erro
 
 	expectedNodes := shardCount * replicaCount
 	if len(storeAddresses) < expectedNodes {
-		return Data{}, fmt.Errorf(
+		return Data{}, foundryerrors.Newf(
+			foundryerrors.TypeInvalidInput,
 			"insufficient addresses: have %d, need %d (shards=%d × replicas=%d)",
 			len(storeAddresses), expectedNodes, shardCount, replicaCount,
 		)
@@ -95,17 +95,17 @@ func (molding *telemetrystore) getData(config *installation.Casting) (Data, erro
 
 	newStoreAddrs, err := domain.ParseAddresses(storeAddresses[:expectedNodes])
 	if err != nil {
-		return Data{}, fmt.Errorf("failed to parse addresses: %w", err)
+		return Data{}, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to parse addresses")
 	}
 
 	keeperAddresses := config.Spec.TelemetryKeeper.Status.Addresses.Client
 	if len(keeperAddresses) == 0 {
-		return Data{}, fmt.Errorf("telemetry keeper addresses not set in status")
+		return Data{}, foundryerrors.Newf(foundryerrors.TypeInternal, "telemetry keeper addresses not set in status")
 	}
 
 	newKeeperAddrs, err := domain.ParseAddresses(keeperAddresses)
 	if err != nil {
-		return Data{}, fmt.Errorf("failed to parse addresses: %w", err)
+		return Data{}, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to parse addresses")
 	}
 
 	return Data{

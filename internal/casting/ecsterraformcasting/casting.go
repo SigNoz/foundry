@@ -2,7 +2,6 @@ package ecsterraformcasting
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -13,6 +12,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
+	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 )
 
@@ -162,7 +162,7 @@ func (c *ecsCasting) Cast(ctx context.Context, config installation.Casting, outp
 
 	// Verify terraform files exist
 	if _, err := os.Stat(filepath.Join(deploymentDir, "main.tf.json")); os.IsNotExist(err) {
-		return fmt.Errorf("terraform files do not exist at path: %s; run forge first", deploymentDir)
+		return errors.Newf(errors.TypeNotFound, "terraform files do not exist at path: %s; run forge first", deploymentDir)
 	}
 
 	// Create a context with 10-minute timeout (terraform can be slow)
@@ -176,7 +176,7 @@ func (c *ecsCasting) Cast(ctx context.Context, config installation.Casting, outp
 	initCmd.Stderr = os.Stderr
 	if err := initCmd.Run(); err != nil {
 		c.logger.ErrorContext(runctx, "terraform init failed", slog.String("error", err.Error()))
-		return fmt.Errorf("terraform init failed: %w", err)
+		return errors.Wrapf(err, errors.TypeInternal, "terraform init failed")
 	}
 
 	// Run terraform apply
@@ -189,7 +189,7 @@ func (c *ecsCasting) Cast(ctx context.Context, config installation.Casting, outp
 	applyCmd.Stderr = os.Stderr
 	if err := applyCmd.Run(); err != nil {
 		c.logger.ErrorContext(runctx, "terraform apply failed", slog.String("error", err.Error()))
-		return fmt.Errorf("terraform apply failed: %w", err)
+		return errors.Wrapf(err, errors.TypeInternal, "terraform apply failed")
 	}
 
 	c.logger.InfoContext(runctx, "Terraform apply completed successfully")
@@ -210,11 +210,11 @@ func getMaterials(config *installation.Casting) ([]domain.StructuredMaterial, er
 	} {
 		m, err := tmpl.Render(*config, tmpl.Path())
 		if err != nil {
-			return nil, fmt.Errorf("failed to create material: %w", err)
+			return nil, errors.Wrapf(err, errors.TypeInternal, "failed to create material")
 		}
 		sm, ok := m.(domain.StructuredMaterial)
 		if !ok {
-			return nil, fmt.Errorf("template %s does not produce a structured material", tmpl.Path())
+			return nil, errors.Newf(errors.TypeInternal, "template %s does not produce a structured material", tmpl.Path())
 		}
 		materials = append(materials, sm)
 	}

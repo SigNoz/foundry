@@ -2,7 +2,6 @@ package terraform
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os/exec"
 	"path/filepath"
@@ -10,6 +9,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
+	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/infrastructure"
 )
 
@@ -79,7 +79,7 @@ func (g *Generator) Generate(ctx context.Context, config installation.Casting) (
 	} {
 		m, err := item.tmpl.Render(data, filepath.Join(infrastructureDir, item.path))
 		if err != nil {
-			return nil, fmt.Errorf("failed to render %s: %w", item.path, err)
+			return nil, errors.Wrapf(err, errors.TypeInternal, "failed to render %s", item.path)
 		}
 		materials = append(materials, m)
 	}
@@ -96,7 +96,7 @@ func (g *Generator) Validate(ctx context.Context, poursPath string) error {
 	cmd.Dir = infraDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("terraform validate failed: %w\n%s", err, out)
+		return errors.Wrapf(err, errors.TypeInternal, "terraform validate failed\n%s", out)
 	}
 	return nil
 }
@@ -126,5 +126,5 @@ func (g *Generator) templatesFor(provider v1alpha1.Platform, computeType infrast
 			return azureAKSMainTFTemplate, azureAKSVariablesTFTemplate, azureAKSOutputsTFTemplate, nil
 		}
 	}
-	return nil, nil, nil, fmt.Errorf("unsupported provider %q / compute type %q combination", provider, computeType)
+	return nil, nil, nil, errors.Newf(errors.TypeUnsupported, "unsupported provider %q / compute type %q combination", provider, computeType)
 }

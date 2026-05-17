@@ -45,7 +45,7 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *instal
 		configBuf := bytes.NewBuffer(nil)
 		data.ServerID = i // 0-indexed, used for array indexing in template
 		if err := KeeperClickhousev2556YAML.Execute(configBuf, data); err != nil {
-			return fmt.Errorf("failed to execute keeper template for server %d: %w", data.ServerID, err)
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute keeper template for server %d", data.ServerID)
 		}
 
 		key := fmt.Sprintf("keeper-%d.yaml", i)
@@ -54,7 +54,7 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *instal
 		if overrides != "" {
 			merged, err := domain.MergeYAML(base, overrides)
 			if err != nil {
-				return fmt.Errorf("failed to merge config overrides for %s: %w", key, err)
+				return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to merge config overrides for %s", key)
 			}
 			base = merged
 		}

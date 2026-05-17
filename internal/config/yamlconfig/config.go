@@ -3,11 +3,11 @@ package yamlconfig
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/config"
 	"github.com/signoz/foundry/internal/domain"
@@ -26,7 +26,7 @@ func New() config.Config {
 func (*yamlConfig) GetV1Alpha1(ctx context.Context, path string) (v1alpha1.Machinery, error) {
 	bytes, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read yaml file: %w", err)
+		return nil, errors.Wrapf(err, errors.TypeNotFound, "failed to read yaml file")
 	}
 
 	kind, err := peekKind(bytes)
@@ -37,6 +37,8 @@ func (*yamlConfig) GetV1Alpha1(ctx context.Context, path string) (v1alpha1.Machi
 	switch kind {
 	case v1alpha1.KindInstallation:
 		return loadInstallation(bytes, path)
+	case v1alpha1.KindCollectionAgent:
+		return loadCollectionAgent(bytes, path)
 	}
 	return nil, errors.Newf(errors.TypeUnsupported, "unknown casting kind %q", kind)
 }
@@ -48,7 +50,7 @@ func peekKind(bytes []byte) (v1alpha1.Kind, error) {
 		Kind v1alpha1.Kind `json:"kind" yaml:"kind"`
 	}
 	if err := domain.UnmarshalYAML(bytes, &probe); err != nil {
-		return v1alpha1.Kind{}, fmt.Errorf("failed to peek kind: %w", err)
+		return v1alpha1.Kind{}, errors.Wrapf(err, errors.TypeInvalidInput, "failed to peek kind")
 	}
 	if probe.Kind == (v1alpha1.Kind{}) {
 		return v1alpha1.KindInstallation, nil
@@ -59,24 +61,51 @@ func peekKind(bytes []byte) (v1alpha1.Kind, error) {
 func loadInstallation(bytes []byte, path string) (v1alpha1.Machinery, error) {
 	var loaded installation.Casting
 	if err := domain.UnmarshalYAML(bytes, &loaded); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal installation casting: %w", err)
+		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "failed to unmarshal installation casting")
 	}
 
 	base := installation.Default()
 	if err := v1alpha1.Merge(base, &loaded); err != nil {
-		return nil, fmt.Errorf("failed to merge default installation casting: %w", err)
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to merge default installation casting")
 	}
 
 	contents, err := json.Marshal(base)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal installation casting: %w", err)
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to marshal installation casting")
 	}
 	toValidate := map[string]any{}
 	if err := json.Unmarshal(contents, &toValidate); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal installation casting for validation: %w", err)
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to unmarshal installation casting for validation")
 	}
 
 	if err := installation.Schema().Validate(toValidate); err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "invalid casting file %s", path)
+	}
+
+	return base, nil
+}
+
+func loadCollectionAgent(bytes []byte, path string) (v1alpha1.Machinery, error) {
+	var loaded collectionagent.Casting
+	if err := domain.UnmarshalYAML(bytes, &loaded); err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "failed to unmarshal collectionagent casting")
+	}
+
+	base := collectionagent.Default()
+	if err := v1alpha1.Merge(base, &loaded); err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to merge default collectionagent casting")
+	}
+
+	contents, err := json.Marshal(base)
+	if err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to marshal collectionagent casting")
+	}
+	toValidate := map[string]any{}
+	if err := json.Unmarshal(contents, &toValidate); err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to unmarshal collectionagent casting for validation")
+	}
+
+	if err := collectionagent.Schema().Validate(toValidate); err != nil {
 		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "invalid casting file %s", path)
 	}
 
@@ -87,11 +116,11 @@ func loadInstallation(bytes []byte, path string) (v1alpha1.Machinery, error) {
 func (*yamlConfig) CreateV1Alpha1Lock(ctx context.Context, machinery v1alpha1.Machinery, path string) error {
 	contents, err := domain.MarshalYAML(machinery)
 	if err != nil {
-		return fmt.Errorf("failed to marshal yaml: %w", err)
+		return errors.Wrapf(err, errors.TypeInternal, "failed to marshal yaml")
 	}
 
 	if err := os.WriteFile(filepath.Join(filepath.Dir(path), "casting.yaml.lock"), contents, 0644); err != nil {
-		return fmt.Errorf("failed to write yaml file: %w", err)
+		return errors.Wrapf(err, errors.TypeInternal, "failed to write yaml file")
 	}
 
 	return nil
@@ -101,7 +130,7 @@ func (*yamlConfig) CreateV1Alpha1Lock(ctx context.Context, machinery v1alpha1.Ma
 func (*yamlConfig) GetV1Alpha1Lock(ctx context.Context, path string) (v1alpha1.Machinery, error) {
 	bytes, err := os.ReadFile(filepath.Join(filepath.Dir(path), "casting.yaml.lock"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to read yaml file: %w", err)
+		return nil, errors.Wrapf(err, errors.TypeNotFound, "failed to read yaml file")
 	}
 
 	kind, err := peekKind(bytes)
@@ -113,7 +142,13 @@ func (*yamlConfig) GetV1Alpha1Lock(ctx context.Context, path string) (v1alpha1.M
 	case v1alpha1.KindInstallation:
 		var c installation.Casting
 		if err := domain.UnmarshalYAML(bytes, &c); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal installation casting: %w", err)
+			return nil, errors.Wrapf(err, errors.TypeInvalidInput, "failed to unmarshal installation casting")
+		}
+		return &c, nil
+	case v1alpha1.KindCollectionAgent:
+		var c collectionagent.Casting
+		if err := domain.UnmarshalYAML(bytes, &c); err != nil {
+			return nil, errors.Wrapf(err, errors.TypeInvalidInput, "failed to unmarshal collectionagent casting")
 		}
 		return &c, nil
 	}

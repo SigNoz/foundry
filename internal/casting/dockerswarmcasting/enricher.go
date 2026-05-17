@@ -2,7 +2,6 @@ package dockerswarmcasting
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
+	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 )
 
@@ -22,7 +22,7 @@ type dockerSwarmMoldingEnricher struct {
 func newDockerSwarmMoldingEnricher(config *installation.Casting) (*dockerSwarmMoldingEnricher, error) {
 	material, err := getComposeMaterial(config, filepath.Join(rootcasting.DeploymentDir, "compose.yaml"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to get compose yaml material: %w", err)
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to get compose yaml material")
 	}
 
 	return &dockerSwarmMoldingEnricher{material: material}, nil
@@ -33,7 +33,7 @@ func (enricher *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, ki
 	case v1alpha1.MoldingKindTelemetryStore:
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
-			return fmt.Errorf("failed to get telemetrystore service names: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to get telemetrystore service names")
 		}
 
 		var telemetrystoreAddresses []string
@@ -48,7 +48,7 @@ func (enricher *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, ki
 	case v1alpha1.MoldingKindSignoz:
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
-			return fmt.Errorf("failed to get signoz service names: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to get signoz service names")
 		}
 
 		var apiServerAddr []string
@@ -65,7 +65,7 @@ func (enricher *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, ki
 	case v1alpha1.MoldingKindTelemetryKeeper:
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
-			return fmt.Errorf("failed to get telemetrykeeper service names: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to get telemetrykeeper service names")
 		}
 
 		var clientAddresses []string
@@ -87,7 +87,7 @@ func (enricher *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, ki
 	case v1alpha1.MoldingKindMetaStore:
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
-			return fmt.Errorf("failed to get metastore service names: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to get metastore service names")
 		}
 
 		var metastoreAddresses []string
@@ -101,7 +101,7 @@ func (enricher *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, ki
 	case v1alpha1.MoldingKindIngester:
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
-			return fmt.Errorf("failed to get ingester service names: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to get ingester service names")
 		}
 
 		var ingesterAddresses []string

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	rootcasting "github.com/signoz/foundry/internal/casting"
+	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 
 	"os"
@@ -51,7 +52,7 @@ func (c *systemdCasting) Forge(ctx context.Context, cfg installation.Casting, po
 	for _, tmpl := range c.castings {
 		m, err := c.forgeCasting(tmpl, &cfg)
 		if err != nil {
-			return nil, fmt.Errorf("failed to forge: %w", err)
+			return nil, errors.Wrapf(err, errors.TypeInternal, "failed to forge")
 		}
 		materials = append(materials, m...)
 	}
@@ -87,7 +88,7 @@ func (c *systemdCasting) Cast(ctx context.Context, config installation.Casting, 
 			}
 		case installation.MetaStoreKindSQLite:
 			if err := os.MkdirAll("/var/lib/signoz", 0755); err != nil {
-				return fmt.Errorf("failed to create sqlite data directory: %w", err)
+				return errors.Wrapf(err, errors.TypeInternal, "failed to create sqlite data directory")
 			}
 			_ = c.execCommand(ctx, "chown", "-R", "signoz:signoz", "/var/lib/signoz")
 		}
@@ -289,7 +290,7 @@ func (c *systemdCasting) configMaterials(data map[string]string, component strin
 	for filename, content := range data {
 		m, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, component, kind, filename))
 		if err != nil {
-			return nil, fmt.Errorf("failed to create %s config material %s: %w", component, filename, err)
+			return nil, errors.Wrapf(err, errors.TypeInternal, "failed to create %s config material %s", component, filename)
 		}
 		mats = append(mats, m)
 	}
@@ -313,7 +314,7 @@ func (c *systemdCasting) discoverAndPrepareServices(ctx context.Context, poursPa
 	deploymentPath := filepath.Join(poursPath, rootcasting.DeploymentDir)
 	entries, err := os.ReadDir(deploymentPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read directory %s: %w", deploymentPath, err)
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to read directory %s", deploymentPath)
 	}
 
 	var services []string
@@ -331,7 +332,7 @@ func (c *systemdCasting) discoverAndPrepareServices(ctx context.Context, poursPa
 	c.logger.DebugContext(ctx, "Found services", slog.Int("count", len(services)))
 
 	if err := c.execCommand(ctx, "systemctl", "daemon-reload"); err != nil {
-		return nil, fmt.Errorf("systemd daemon-reload failed: %w", err)
+		return nil, errors.Wrapf(err, errors.TypeInternal, "systemd daemon-reload failed")
 	}
 
 	return services, nil
@@ -343,13 +344,13 @@ func (c *systemdCasting) setupSystemEnvironment(ctx context.Context, config *ins
 	if _, err := user.Lookup("signoz"); err != nil {
 		c.logger.InfoContext(ctx, "Creating user: signoz")
 		if err := c.execCommand(ctx, "useradd", "-d", poursPath, "signoz"); err != nil {
-			return fmt.Errorf("failed to create signoz user: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to create signoz user")
 		}
 	}
 
 	// Setup working directory
 	if err := os.MkdirAll(poursPath, 0755); err != nil {
-		return fmt.Errorf("failed to create working directory %s: %w", poursPath, err)
+		return errors.Wrapf(err, errors.TypeInternal, "failed to create working directory %s", poursPath)
 	}
 	_ = c.execCommand(ctx, "chown", "-R", "signoz:signoz", poursPath)      // best effort
 	_ = c.execCommand(ctx, "chown", "-R", "signoz:signoz", "/opt/signoz/") // best effort
@@ -358,13 +359,13 @@ func (c *systemdCasting) setupSystemEnvironment(ctx context.Context, config *ins
 	if config.Spec.TelemetryStore.Spec.IsEnabled() {
 		src := filepath.Join(poursPath, rootcasting.DeploymentDir, "telemetrystore", config.Spec.TelemetryStore.Kind.String())
 		if err := c.copyDir(src, "/etc/clickhouse-server/"); err != nil {
-			return fmt.Errorf("failed to copy clickhouse-server configs: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to copy clickhouse-server configs")
 		}
 	}
 	if config.Spec.TelemetryKeeper.Spec.IsEnabled() {
 		src := filepath.Join(poursPath, rootcasting.DeploymentDir, "telemetrykeeper", config.Spec.TelemetryKeeper.Kind.String())
 		if err := c.copyDir(src, "/etc/clickhouse-keeper/"); err != nil {
-			return fmt.Errorf("failed to copy clickhouse-keeper configs: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to copy clickhouse-keeper configs")
 		}
 	}
 
@@ -401,7 +402,7 @@ func (c *systemdCasting) copyDir(srcDir, dstDir string) error {
 func (c *systemdCasting) validateBinaries(config *installation.Casting) error {
 	annotations := config.Metadata.Annotations
 	if annotations == nil {
-		return fmt.Errorf("no binary paths found in annotations")
+		return errors.Newf(errors.TypeInvalidInput, "no binary paths found in annotations")
 	}
 
 	var missing []string
@@ -421,7 +422,7 @@ func (c *systemdCasting) validateBinaries(config *installation.Casting) error {
 	}
 
 	if len(missing) > 0 {
-		return fmt.Errorf("missing binaries: %s - please install before running cast", strings.Join(missing, ", "))
+		return errors.Newf(errors.TypeNotFound, "missing binaries: %s - please install before running cast", strings.Join(missing, ", "))
 	}
 	return nil
 }
@@ -435,13 +436,13 @@ func (c *systemdCasting) startAllServices(ctx context.Context, services []string
 		unitName := filepath.Base(svc)
 		c.logger.DebugContext(ctx, "Enabling service", slog.String("service", unitName))
 		if err := c.execCommand(ctx, "systemctl", "enable", svc); err != nil {
-			return fmt.Errorf("failed to enable service %s: %w", unitName, err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to enable service %s", unitName)
 		}
 	}
 
 	// Reload systemd to pick up all enabled services
 	if err := c.execCommand(ctx, "systemctl", "daemon-reload"); err != nil {
-		return fmt.Errorf("systemd daemon-reload failed: %w", err)
+		return errors.Wrapf(err, errors.TypeInternal, "systemd daemon-reload failed")
 	}
 
 	// Start all services without blocking — systemd dependencies handle ordering
@@ -449,7 +450,7 @@ func (c *systemdCasting) startAllServices(ctx context.Context, services []string
 		unitName := filepath.Base(svc)
 		c.logger.InfoContext(ctx, "Starting service", slog.String("service", unitName))
 		if err := c.execCommand(ctx, "systemctl", "start", "--no-block", unitName); err != nil {
-			return fmt.Errorf("failed to start service %s: %w", unitName, err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to start service %s", unitName)
 		}
 	}
 
@@ -474,11 +475,11 @@ func (c *systemdCasting) initializePostgres(ctx context.Context, config *install
 
 	// Create directories
 	if err := os.MkdirAll(pgDataDir, 0700); err != nil {
-		return fmt.Errorf("failed to create PostgreSQL data directory: %w", err)
+		return errors.Wrapf(err, errors.TypeInternal, "failed to create PostgreSQL data directory")
 	}
 
 	if err := c.execCommand(ctx, "chown", "-R", "postgres:postgres", filepath.Dir(pgDataDir)); err != nil {
-		return fmt.Errorf("failed to set ownership on PostgreSQL data directory: %w", err)
+		return errors.Wrapf(err, errors.TypeInternal, "failed to set ownership on PostgreSQL data directory")
 	}
 
 	// Get credentials
@@ -498,7 +499,7 @@ func (c *systemdCasting) initializePostgres(ctx context.Context, config *install
 
 	// Create password file
 	if err := os.WriteFile(pwfile, []byte(pgPass+"\n"), 0600); err != nil {
-		return fmt.Errorf("failed to create password file: %w", err)
+		return errors.Wrapf(err, errors.TypeInternal, "failed to create password file")
 	}
 	_ = c.execCommand(ctx, "chown", "postgres:postgres", pwfile)
 
@@ -506,7 +507,7 @@ func (c *systemdCasting) initializePostgres(ctx context.Context, config *install
 	postgresBin := config.Metadata.Annotations["foundry.signoz.io/metastore-postgres-binary-path"]
 
 	if postgresBin == "" {
-		return fmt.Errorf("metastore postgres binary is missing in annotations")
+		return errors.Newf(errors.TypeInvalidInput, "metastore postgres binary is missing in annotations")
 	}
 
 	postgresBinDir := filepath.Dir(postgresBin)
@@ -518,7 +519,7 @@ func (c *systemdCasting) initializePostgres(ctx context.Context, config *install
 	if err := c.execCommand(ctx, "su", "-", "postgres", "-c",
 		fmt.Sprintf("%s -D %s --username=%s --pwfile=%s", initdbPath, pgDataDir, pgUser, pwfile)); err != nil {
 		c.cleanupPostgresInit(ctx, pgDataDir, pwfile)
-		return fmt.Errorf("failed to initialize PostgreSQL: %w", err)
+		return errors.Wrapf(err, errors.TypeInternal, "failed to initialize PostgreSQL")
 	}
 
 	// Start temp server and create database
@@ -526,7 +527,7 @@ func (c *systemdCasting) initializePostgres(ctx context.Context, config *install
 	if err := c.execCommand(ctx, "su", "-", "postgres", "-c",
 		fmt.Sprintf("%s -D %s -o \"-c listen_addresses=localhost\" -w start", pgCtlPath, pgDataDir)); err != nil {
 		c.cleanupPostgresInit(ctx, pgDataDir, pwfile)
-		return fmt.Errorf("failed to start temporary postgres: %w", err)
+		return errors.Wrapf(err, errors.TypeInternal, "failed to start temporary postgres")
 	}
 
 	// Create database
@@ -537,12 +538,12 @@ func (c *systemdCasting) initializePostgres(ctx context.Context, config *install
 
 	// Stop temporary PostgreSQL
 	if err := c.execCommand(ctx, "su", "-", "postgres", "-c", fmt.Sprintf("%s -D %s -m fast -w stop", pgCtlPath, pgDataDir)); err != nil {
-		return fmt.Errorf("failed to stop temporary postgres: %w", err)
+		return errors.Wrapf(err, errors.TypeInternal, "failed to stop temporary postgres")
 	}
 
 	// Clean up password file
 	if err := os.Remove(pwfile); err != nil {
-		return fmt.Errorf("failed to remove password file: %w", err)
+		return errors.Wrapf(err, errors.TypeInternal, "failed to remove password file")
 	}
 
 	return nil

@@ -3,11 +3,11 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"path/filepath"
 
 	"github.com/signoz/foundry/internal/domain"
+	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/foundry"
 	"github.com/spf13/cobra"
 )
@@ -47,7 +47,7 @@ func runCast(ctx context.Context, logger *slog.Logger, poursPath string, configP
 
 	poursPath, err = filepath.Abs(poursPath)
 	if err != nil {
-		return domain.NewProperties(), fmt.Errorf("failed to resolve pours path: %w", err)
+		return domain.NewProperties(), errors.Wrapf(err, errors.TypeInternal, "failed to resolve pours path")
 	}
 
 	machinery, err := foundry.Config.GetV1Alpha1Lock(ctx, configPath)

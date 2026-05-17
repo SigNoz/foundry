@@ -10,6 +10,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
+	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 )
 
@@ -43,7 +44,7 @@ func (c *renderCasting) Forge(ctx context.Context, config installation.Casting, 
 	// Generate render.yaml
 	blueprintMaterial, err := getRenderMaterial(&config, filepath.Join(casting.DeploymentDir, "render.yaml"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create blueprint yaml material: %w", err)
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to create blueprint yaml material")
 	}
 	materials = append(materials, blueprintMaterial)
 
@@ -52,7 +53,7 @@ func (c *renderCasting) Forge(ctx context.Context, config installation.Casting, 
 		dockerfileBuf := bytes.NewBuffer(nil)
 		err := telemetryKeeperDockerfileTemplate.Execute(dockerfileBuf, config)
 		if err != nil {
-			return nil, fmt.Errorf("failed to execute dockerfile keeper template: %w", err)
+			return nil, errors.Wrapf(err, errors.TypeInternal, "failed to execute dockerfile keeper template")
 		}
 		dockerfileMaterial := domain.NewBlobMaterial(dockerfileBuf.Bytes(), filepath.Join(configsDir, "telemetrykeeper/Dockerfile"))
 		materials = append(materials, dockerfileMaterial)
@@ -61,7 +62,7 @@ func (c *renderCasting) Forge(ctx context.Context, config installation.Casting, 
 		for filename, content := range config.Spec.TelemetryKeeper.Spec.Config.Data {
 			material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(configsDir, fmt.Sprintf("telemetrykeeper/keeper.d/%s", filename)))
 			if err != nil {
-				return nil, fmt.Errorf("failed to create telemetrykeeper config material: %w", err)
+				return nil, errors.Wrapf(err, errors.TypeInternal, "failed to create telemetrykeeper config material")
 			}
 			materials = append(materials, material)
 		}
@@ -72,7 +73,7 @@ func (c *renderCasting) Forge(ctx context.Context, config installation.Casting, 
 		dockerfileBuf := bytes.NewBuffer(nil)
 		err := telemetryStoreDockerfileTemplate.Execute(dockerfileBuf, config)
 		if err != nil {
-			return nil, fmt.Errorf("failed to execute dockerfile clickhouse template: %w", err)
+			return nil, errors.Wrapf(err, errors.TypeInternal, "failed to execute dockerfile clickhouse template")
 		}
 		dockerfileMaterial := domain.NewBlobMaterial(dockerfileBuf.Bytes(), filepath.Join(configsDir, "telemetrystore/Dockerfile"))
 		materials = append(materials, dockerfileMaterial)
@@ -81,7 +82,7 @@ func (c *renderCasting) Forge(ctx context.Context, config installation.Casting, 
 		for filename, content := range config.Spec.TelemetryStore.Spec.Config.Data {
 			material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(configsDir, fmt.Sprintf("telemetrystore/config.d/%s", filename)))
 			if err != nil {
-				return nil, fmt.Errorf("failed to create telemetrystore config material: %w", err)
+				return nil, errors.Wrapf(err, errors.TypeInternal, "failed to create telemetrystore config material")
 			}
 			materials = append(materials, material)
 		}
@@ -92,7 +93,7 @@ func (c *renderCasting) Forge(ctx context.Context, config installation.Casting, 
 		dockerfileBuf := bytes.NewBuffer(nil)
 		err := ingesterDockerfileTemplate.Execute(dockerfileBuf, config)
 		if err != nil {
-			return nil, fmt.Errorf("failed to execute dockerfile otel template: %w", err)
+			return nil, errors.Wrapf(err, errors.TypeInternal, "failed to execute dockerfile otel template")
 		}
 		dockerfileMaterial := domain.NewBlobMaterial(dockerfileBuf.Bytes(), filepath.Join(configsDir, "ingester/Dockerfile"))
 		materials = append(materials, dockerfileMaterial)
@@ -100,7 +101,7 @@ func (c *renderCasting) Forge(ctx context.Context, config installation.Casting, 
 		for filename, content := range config.Spec.Ingester.Spec.Config.Data {
 			material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(configsDir, fmt.Sprintf("ingester/%s", filename)))
 			if err != nil {
-				return nil, fmt.Errorf("failed to create ingester config material: %w", err)
+				return nil, errors.Wrapf(err, errors.TypeInternal, "failed to create ingester config material")
 			}
 			materials = append(materials, material)
 		}
@@ -121,7 +122,7 @@ func getRenderMaterial(config *installation.Casting, path string) (domain.Struct
 	buf := bytes.NewBuffer(nil)
 	err := renderYAMLTemplate.Execute(buf, config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute render yaml template: %w", err)
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to execute render yaml template")
 	}
 	return domain.NewYAMLMaterial(buf.Bytes(), path)
 }

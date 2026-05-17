@@ -2,9 +2,9 @@ package clickhousekeepertooler
 
 import (
 	"context"
-	"fmt"
 	"os"
 
+	"github.com/signoz/foundry/internal/errors"
 	root "github.com/signoz/foundry/internal/tooler"
 )
 
@@ -32,7 +32,7 @@ func (tooler *clickhouseKeeperTooler) Gauge(ctx context.Context) error {
 		return nil
 	}
 
-	return fmt.Errorf("clickhouse-keeper not found: neither command nor binary at %s", binaryPath)
+	return errors.Newf(errors.TypeNotFound, "clickhouse-keeper not found: neither command nor binary at %s", binaryPath)
 }
 
 func (tooler *clickhouseKeeperTooler) Install(ctx context.Context) error {

@@ -2,12 +2,12 @@ package rendercasting
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
+	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 )
 
@@ -20,7 +20,7 @@ type renderMoldingEnricher struct {
 func newRenderMoldingEnricher(config *installation.Casting) (*renderMoldingEnricher, error) {
 	material, err := getRenderMaterial(config, "render.yaml")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get render yaml material: %w", err)
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to get render yaml material")
 	}
 
 	return &renderMoldingEnricher{material: material}, nil
@@ -32,7 +32,7 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 		// Get telemetrystore service names
 		serviceNames, err := enricher.material.GetStringSlice("services.#.name")
 		if err != nil {
-			return fmt.Errorf("failed to get telemetrystore service names: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to get telemetrystore service names")
 		}
 
 		var addrs []string
@@ -55,7 +55,7 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 		// Get telemetrystore service names
 		serviceNames, err := enricher.material.GetStringSlice("services.#.name")
 		if err != nil {
-			return fmt.Errorf("failed to get telemetrystore service names: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to get telemetrystore service names")
 		}
 
 		var apiServerAddr []string
@@ -73,7 +73,7 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 		// Get telemetrykeeper service names
 		serviceNames, err := enricher.material.GetStringSlice("services.#.name")
 		if err != nil {
-			return fmt.Errorf("failed to get telemetrykeeper service names: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to get telemetrykeeper service names")
 		}
 
 		var addrsClient []string
@@ -99,7 +99,7 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 		// Get ingester service names
 		serviceNames, err := enricher.material.GetStringSlice("services.#.name")
 		if err != nil {
-			return fmt.Errorf("failed to get ingester service names: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to get ingester service names")
 		}
 
 		var addrs []string

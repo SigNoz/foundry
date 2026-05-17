@@ -1,8 +1,7 @@
 package domain
 
 import (
-	"fmt"
-
+	"github.com/signoz/foundry/internal/errors"
 	kyaml "sigs.k8s.io/yaml"
 )
 
@@ -38,19 +37,19 @@ func MustMarshalYAML(v any) []byte {
 func MergeYAML(base, override string) (string, error) {
 	var baseMap map[string]any
 	if err := kyaml.Unmarshal([]byte(base), &baseMap); err != nil {
-		return "", fmt.Errorf("failed to unmarshal base yaml: %w", err)
+		return "", errors.Wrapf(err, errors.TypeInternal, "failed to unmarshal base yaml")
 	}
 
 	var overrideMap map[string]any
 	if err := kyaml.Unmarshal([]byte(override), &overrideMap); err != nil {
-		return "", fmt.Errorf("failed to unmarshal override yaml: %w", err)
+		return "", errors.Wrapf(err, errors.TypeInternal, "failed to unmarshal override yaml")
 	}
 
 	deepMerge(baseMap, overrideMap)
 
 	merged, err := kyaml.Marshal(baseMap)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal merged yaml: %w", err)
+		return "", errors.Wrapf(err, errors.TypeInternal, "failed to marshal merged yaml")
 	}
 
 	return string(merged), nil

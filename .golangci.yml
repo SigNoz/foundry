@@ -24,3 +24,14 @@ linters:
         - identical
     sloglint:
       attr-only: true
+    forbidigo:
+      forbid:
+        - pattern: fmt.Errorf
+        - pattern: ^(fmt\.Print.*|print|println)$
+  exclusions:
+    rules:
+      # ExitCode tests cover the wrap-chain path that fmt.Errorf("%w", ...)
+      # exercises in real callers; using fmt.Errorf here keeps the test honest.
+      - path: internal/errors/error_test\.go$
+        linters:
+          - forbidigo
