@@ -86,25 +86,25 @@ func runCatalog(logger *slog.Logger) (domain.Properties, error) {
 
 	props := domain.NewProperties()
 
-	if catalogCfg.Format == "json" {
-		data, err := json.MarshalIndent(map[string]any{"Castings": entries}, "", "  ")
-		if err != nil {
-			return props, err
+	if commonCfg.Format == "text" {
+		table := tablewriter.NewWriter(os.Stdout)
+		table.Header("Mode", "Flavor", "Platform", "Example")
+		for _, e := range entries {
+			_ = table.Append(e.Mode, e.Flavor, e.Platform, e.Example)
 		}
-		if catalogCfg.OutPath != "" {
-			err = os.WriteFile(catalogCfg.OutPath, data, 0644)
-			return props, err
-		}
-		_, err = os.Stdout.Write(data)
+
+		err = table.Render()
 		return props, err
 	}
 
-	table := tablewriter.NewWriter(os.Stdout)
-	table.Header("Mode", "Flavor", "Platform", "Example")
-	for _, e := range entries {
-		_ = table.Append(e.Mode, e.Flavor, e.Platform, e.Example)
+	data, err := json.MarshalIndent(map[string]any{"Castings": entries}, "", "  ")
+	if err != nil {
+		return props, err
 	}
-
-	err = table.Render()
+	if catalogCfg.OutPath != "" {
+		err = os.WriteFile(catalogCfg.OutPath, data, 0644)
+		return props, err
+	}
+	_, err = os.Stdout.Write(data)
 	return props, err
 }

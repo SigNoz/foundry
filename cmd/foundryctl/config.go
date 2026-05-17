@@ -19,12 +19,14 @@ var (
 type commonConfig struct {
 	File     string
 	Debug    bool
+	Format   string
 	NoLedger bool
 }
 
 func (c *commonConfig) RegisterFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVarP(&c.File, "file", "f", "casting.yaml", "Path to the casting configuration file.")
 	cmd.PersistentFlags().BoolVarP(&c.Debug, "debug", "d", false, "Enable debug mode.")
+	cmd.PersistentFlags().StringVar(&c.Format, "format", "json", "Output format for results and errors (json|text).")
 	cmd.PersistentFlags().BoolVar(&c.NoLedger, "no-ledger", false, "Disable anonymous usage ledger.")
 }
 
@@ -47,11 +49,9 @@ func (c *castConfig) RegisterFlags(cmd *cobra.Command) {
 }
 
 type catalogConfig struct {
-	Format  string
 	OutPath string
 }
 
 func (c *catalogConfig) RegisterFlags(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&c.Format, "format", "", "Output format (json)")
 	cmd.Flags().StringVarP(&c.OutPath, "output", "o", "", "Path to write castings.json")
 }
