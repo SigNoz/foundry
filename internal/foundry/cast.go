@@ -2,12 +2,12 @@ package foundry
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 )
 
 func (foundry *Foundry) Cast(ctx context.Context, machinery v1alpha1.Machinery, poursPath string) error {
@@ -17,7 +17,7 @@ func (foundry *Foundry) Cast(ctx context.Context, machinery v1alpha1.Machinery, 
 	case *collectionagent.Casting:
 		return foundry.castCollectionAgent(ctx, *c, poursPath)
 	}
-	return fmt.Errorf("unsupported casting kind %q", machinery.Kind())
+	return foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported casting kind %q", machinery.Kind())
 }
 
 func (foundry *Foundry) castCollectionAgent(ctx context.Context, config collectionagent.Casting, _ string) error {

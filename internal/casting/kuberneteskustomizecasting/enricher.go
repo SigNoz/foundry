@@ -7,6 +7,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
+	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 )
 
@@ -27,12 +28,12 @@ type kustomizeMoldingEnricher struct {
 func newKustomizeMoldingEnricher(config *installation.Casting) (*kustomizeMoldingEnricher, error) {
 	materials, err := getServiceMaterials(config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get service yaml material: %w", err)
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to get service yaml material")
 	}
 
 	overrideMaterials, err := getOverrideMaterials(config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get override materials: %w", err)
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to get override materials")
 	}
 
 	return &kustomizeMoldingEnricher{
@@ -60,7 +61,7 @@ func (e *kustomizeMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alph
 func (e *kustomizeMoldingEnricher) enrichTelemetryStore(config *installation.Casting) error {
 	name, err := e.materials[0].GetBytes("spec.templates.serviceTemplates.0.generateName")
 	if err != nil {
-		return fmt.Errorf("failed to get telemetrystore service names: %w", err)
+		return errors.Wrapf(err, errors.TypeInternal, "failed to get telemetrystore service names")
 	}
 	config.Spec.TelemetryStore.Status.Addresses.TCP = []string{domain.MustNewAddress("tcp", string(name), telemetryStorePort).String()}
 
@@ -97,7 +98,7 @@ func (e *kustomizeMoldingEnricher) enrichTelemetryKeeper(config *installation.Ca
 func (e *kustomizeMoldingEnricher) enrichMetaStore(config *installation.Casting) error {
 	name, err := e.materials[1].GetBytes("metadata.name")
 	if err != nil {
-		return fmt.Errorf("failed to get metastore service names: %w", err)
+		return errors.Wrapf(err, errors.TypeInternal, "failed to get metastore service names")
 	}
 	config.Spec.MetaStore.Status.Addresses.DSN = []string{
 		fmt.Sprintf("postgres://%s:5432", name),

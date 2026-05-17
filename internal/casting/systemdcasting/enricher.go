@@ -2,11 +2,11 @@ package systemdcasting
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
+	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 )
 
@@ -57,7 +57,7 @@ func (e *linuxMoldingEnricher) enrichTelemetryStore(config *installation.Casting
 	}
 
 	if replicas > 1 || shards > 1 {
-		return fmt.Errorf("deployment mode '%s' does not support Distributed Clickhouse Setup, raise an issue at https://github.com/signoz/foundry/issues", config.Spec.Deployment.Mode)
+		return errors.Newf(errors.TypeUnsupported, "deployment mode '%s' does not support Distributed Clickhouse Setup, raise an issue at https://github.com/signoz/foundry/issues", config.Spec.Deployment.Mode)
 	}
 
 	// Generate addresses for each shard/replica
@@ -83,7 +83,7 @@ func (e *linuxMoldingEnricher) enrichTelemetryKeeper(config *installation.Castin
 	}
 
 	if replicas > 1 {
-		return fmt.Errorf("deployment mode '%s' does not support Distributed Clickhouse Setup, raise an issue at https://github.com/signoz/foundry/issues", config.Spec.Deployment.Mode)
+		return errors.Newf(errors.TypeUnsupported, "deployment mode '%s' does not support Distributed Clickhouse Setup, raise an issue at https://github.com/signoz/foundry/issues", config.Spec.Deployment.Mode)
 	}
 
 	var clientAddresses, raftAddresses []string

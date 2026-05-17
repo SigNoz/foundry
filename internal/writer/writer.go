@@ -2,7 +2,6 @@ package writer
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -37,7 +36,7 @@ func New(logger *slog.Logger, options *Options) (*Writer, error) {
 	}
 
 	if err := os.MkdirAll(options.TargetDirectory, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create output directory '%s': %s", options.TargetDirectory, err.Error())
+		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to create output directory '%s'", options.TargetDirectory)
 	}
 
 	return &Writer{

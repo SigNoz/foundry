@@ -9,6 +9,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
+	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 )
 
@@ -60,7 +61,7 @@ func (molding *signoz) MoldV1Alpha1(ctx context.Context, config *installation.Ca
 			// construct postgres dsn with user, password, host, port, and db
 			addrs, err := domain.ParseAddresses(config.Spec.MetaStore.Status.Addresses.DSN)
 			if err != nil {
-				return fmt.Errorf("failed to parse addresses: %w", err)
+				return errors.Wrapf(err, errors.TypeInternal, "failed to parse addresses")
 			}
 			var dsns []string
 			user := config.Spec.MetaStore.Status.Env["POSTGRES_USER"]

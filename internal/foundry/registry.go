@@ -1,7 +1,6 @@
 package foundry
 
 import (
-	"fmt"
 	"log/slog"
 
 	"github.com/signoz/foundry/api/v1alpha1"
@@ -15,6 +14,7 @@ import (
 	"github.com/signoz/foundry/internal/casting/railwaytemplatecasting"
 	"github.com/signoz/foundry/internal/casting/rendercasting"
 	"github.com/signoz/foundry/internal/casting/systemdcasting"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/tooler"
 	"github.com/signoz/foundry/internal/tooler/clickhousekeepertooler"
 	"github.com/signoz/foundry/internal/tooler/clickhousetooler"
@@ -130,7 +130,7 @@ func (registry *Registry) lookup(deployment v1alpha1.TypeDeployment) (CastingIte
 func (registry *Registry) Casting(deployment v1alpha1.TypeDeployment) (casting.Casting, error) {
 	item, ok := registry.lookup(deployment)
 	if !ok {
-		return nil, fmt.Errorf("deployment '%+v' is not supported, raise an issue at https://github.com/signoz/foundry/issues to request support for this deployment", deployment)
+		return nil, foundryerrors.Newf(foundryerrors.TypeUnsupported, "deployment '%+v' is not supported, raise an issue at https://github.com/signoz/foundry/issues to request support for this deployment", deployment)
 	}
 
 	return item.Casting, nil
@@ -139,7 +139,7 @@ func (registry *Registry) Casting(deployment v1alpha1.TypeDeployment) (casting.C
 func (registry *Registry) Toolers(deployment v1alpha1.TypeDeployment) ([]tooler.Tooler, error) {
 	item, ok := registry.lookup(deployment)
 	if !ok {
-		return nil, fmt.Errorf("deployment '%+v' is not supported, raise an issue at https://github.com/signoz/foundry/issues to request support for this deployment", deployment)
+		return nil, foundryerrors.Newf(foundryerrors.TypeUnsupported, "deployment '%+v' is not supported, raise an issue at https://github.com/signoz/foundry/issues to request support for this deployment", deployment)
 	}
 
 	return item.Toolers, nil

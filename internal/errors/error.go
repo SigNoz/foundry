@@ -1,6 +1,7 @@
 package errors
 
 import (
+	stderrors "errors"
 	"fmt"
 	"log/slog"
 )
@@ -61,6 +62,33 @@ func Unwrapb(cause error) (typ, string, error) {
 	}
 
 	return TypeInternal, cause.Error(), cause
+}
+
+// ExitCode returns the process exit code for err. nil is 0; an untyped error
+// (anything not wrapping a *base via Newf/Wrapf) is 1; a typed error returns
+// the code from its typ. The wrap chain is walked via errors.As so wrappers
+// like fmt.Errorf("...%w", ...) don't lose the signal.
+func ExitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	var b *base
+	if stderrors.As(err, &b) {
+		return b.t.ExitCode()
+	}
+	return 1
+}
+
+// TypeOf reports whether err (or anything in its wrap chain) was constructed
+// via Newf or Wrapf, and returns its type. Distinguishes a typed TypeInternal
+// from an untyped error — Unwrapb collapses both to TypeInternal, which loses
+// the signal needed to map exit codes.
+func TypeOf(err error) (typ, bool) {
+	var b *base
+	if stderrors.As(err, &b) {
+		return b.t, true
+	}
+	return typ{}, false
 }
 
 func LogAttr(err error) slog.Attr {

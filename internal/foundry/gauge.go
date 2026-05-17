@@ -2,7 +2,6 @@ package foundry
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"strings"
 
@@ -20,7 +19,7 @@ func (foundry *Foundry) Gauge(ctx context.Context, machinery v1alpha1.Machinery)
 	case *collectionagent.Casting:
 		return foundry.gaugeCollectionAgent(ctx, *c)
 	}
-	return fmt.Errorf("unsupported casting kind %q", machinery.Kind())
+	return foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported casting kind %q", machinery.Kind())
 }
 
 func (foundry *Foundry) gaugeCollectionAgent(ctx context.Context, config collectionagent.Casting) error {
@@ -57,7 +56,7 @@ func (foundry *Foundry) gaugeInstallation(ctx context.Context, config installati
 	}
 
 	if len(unavailableTools) > 0 {
-		return fmt.Errorf("tools are not available, please install them and try again: %s", strings.Join(unavailableTools, ", "))
+		return foundryerrors.Newf(foundryerrors.TypeNotFound, "tools are not available, please install them and try again: %s", strings.Join(unavailableTools, ", "))
 	}
 
 	return nil

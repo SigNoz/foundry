@@ -2,7 +2,6 @@ package foundry
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"path/filepath"
 
@@ -22,7 +21,7 @@ func (foundry *Foundry) Forge(ctx context.Context, machinery v1alpha1.Machinery,
 	case *collectionagent.Casting:
 		return foundry.forgeCollectionAgent(ctx, *c, path, poursWriterOpts)
 	}
-	return fmt.Errorf("unsupported casting kind %q", machinery.Kind())
+	return foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported casting kind %q", machinery.Kind())
 }
 
 func (foundry *Foundry) forgeCollectionAgent(ctx context.Context, config collectionagent.Casting, path string, _ *writer.Options) error {
@@ -46,14 +45,14 @@ func (foundry *Foundry) forgeInstallation(ctx context.Context, config installati
 	moldingEnricher, err := casting.Enricher(ctx, &config)
 	if err != nil {
 		foundry.Logger.ErrorContext(ctx, "failed to get molding enricher", slog.String("casting.metadata.name", config.Metadata.Name), foundryerrors.LogAttr(err))
-		return fmt.Errorf("failed to get molding enricher: %w", err)
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to get molding enricher")
 	}
 
 	foundry.Logger.InfoContext(ctx, "enriching configuration with casting specific information", slog.String("casting.metadata.name", config.Metadata.Name))
 	for _, moldingKind := range molding.MoldingsInOrder() {
 		err = moldingEnricher.EnrichStatus(ctx, moldingKind, &config)
 		if err != nil {
-			return fmt.Errorf("failed to enrich configuration with casting specific information: %w", err)
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to enrich configuration with casting specific information")
 		}
 	}
 
@@ -84,13 +83,13 @@ func (foundry *Foundry) forgeInstallation(ctx context.Context, config installati
 	for _, pe := range spec.Patches {
 		patcher, ok := foundry.Patchers[pe.PatchType()]
 		if !ok {
-			return fmt.Errorf("unknown patch type %q", pe.PatchType())
+			return foundryerrors.Newf(foundryerrors.TypeUnsupported, "unknown patch type %q", pe.PatchType())
 		}
 		foundry.Logger.InfoContext(ctx, "applying patch", slog.String("casting.metadata.name", config.Metadata.Name), slog.String("patch.type", pe.PatchType()), slog.String("patch.target", pe.Target))
 		materials, err = patcher.Apply(ctx, materials, pe)
 		if err != nil {
 			foundry.Logger.ErrorContext(ctx, "failed to apply patch", slog.String("casting.metadata.name", config.Metadata.Name), slog.String("patch.target", pe.Target), foundryerrors.LogAttr(err))
-			return fmt.Errorf("failed to apply patch for target %q: %w", pe.Target, err)
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to apply patch for target %q", pe.Target)
 		}
 	}
 
@@ -104,7 +103,7 @@ func (foundry *Foundry) forgeInstallation(ctx context.Context, config installati
 
 		infraMaterials, err = foundry.InfrastructureGenerator.Generate(ctx, config)
 		if err != nil {
-			return fmt.Errorf("failed to generate infrastructure manifests: %w", err)
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to generate infrastructure manifests")
 		}
 
 		// Populate infrastructure status with generated file contents keyed by filename.
