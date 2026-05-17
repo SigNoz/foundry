@@ -67,7 +67,7 @@ func recoverRunE(
 				rootLogger.ErrorContext(ctx, event.String()+" failed", foundryerrors.LogAttr(err))
 				rootTracker.Track(ctx, event.Failed(), props.WithError(err))
 				if commonCfg.Format == "json" {
-					_ = writer.WriteOutput(os.Stdout, foundryerrors.JSONErrorOf(err))
+					_ = writer.WriteOutput(os.Stdout, foundryerrors.EnvelopeOf(err))
 					cmd.SilenceErrors = true
 				}
 				return
