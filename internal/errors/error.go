@@ -29,6 +29,10 @@ func (b *base) Error() string {
 	return b.info
 }
 
+func (b *base) Unwrap() error {
+	return b.cause
+}
+
 func (b *base) WithStacktrace(stacktrace string) *base {
 	b.stacktrace = rawStacktrace(stacktrace)
 	return b
@@ -73,10 +77,12 @@ func ExitCode(err error) int {
 	if err == nil {
 		return 0
 	}
+
 	var b *base
 	if stderrors.As(err, &b) {
 		return b.t.ExitCode()
 	}
+
 	return 1
 }
 
@@ -89,6 +95,7 @@ func TypeOf(err error) (typ, bool) {
 	if stderrors.As(err, &b) {
 		return b.t, true
 	}
+
 	return typ{}, false
 }
 
@@ -118,50 +125,72 @@ func LogAttr(err error) slog.Attr {
 	return slog.GroupAttrs("exception", attrs...)
 }
 
-// JSONError is the JSON projection of a foundry error, suitable for emission
-// on stdout under --format=json. Untyped errors collapse to ExitCode=1 with
-// the original message and empty Type.
+// JSONError is the recursive JSON projection of a foundry error. Cause is
+// the next link in the wrap chain rendered with the same shape, so agents
+// can recurse without a different schema at each depth. The walk terminates
+// at the first non-foundry link, which emits Message alone — stdlib wrappers
+// format their full subtree in Error(), so re-walking them would duplicate
+// that text. The top-level emission envelope is added by JSONException, not
+// this type, so nested causes don't accidentally re-wrap themselves.
 type JSONError struct {
-	Type       string `json:"type"`
-	ExitCode   int    `json:"exit_code"`
-	Message    string `json:"message"`
-	Cause      string `json:"cause,omitempty"`
-	Action     string `json:"action,omitempty"`
-	Stacktrace string `json:"stacktrace,omitempty"`
+	Type       string     `json:"type,omitempty"`
+	Message    string     `json:"message"`
+	Cause      *JSONError `json:"cause,omitempty"`
+	Action     string     `json:"action,omitempty"`
+	Stacktrace string     `json:"stacktrace,omitempty"`
 }
 
-// Marshal implements writer.Outputable. The envelope key matches the slog
-// group in LogAttr so log records and the --format=json stdout payload share
-// the same field path.
-func (e JSONError) Marshal() ([]byte, error) {
-	return json.MarshalIndent(map[string]JSONError{"exception": e}, "", "  ")
+// JSONException is the top-level stream emission envelope for a JSONError.
+// The "exception" key matches the slog group in LogAttr so log records and
+// the --format=json stdout payload share the same field path.
+type JSONException struct {
+	Error JSONError
 }
 
-// JSONErrorOf returns the JSON projection of err. nil returns a zero value.
-// The wrap chain is walked via errors.As so wrappers like fmt.Errorf don't
-// lose the signal. Stacktrace is populated only for TypeFatal, matching
-// LogAttr.
-func JSONErrorOf(err error) JSONError {
+func (e JSONException) MarshalJSON() ([]byte, error) {
+	return json.MarshalIndent(map[string]JSONError{"exception": e.Error}, "", "  ")
+}
+
+// JSONErrorOf returns the emission envelope for err. nil yields a zero
+// envelope. The outermost link populates the top-level fields; the rest of
+// the chain is rendered recursively under Cause. Stacktrace is populated
+// only for TypeFatal, matching LogAttr.
+func JSONErrorOf(err error) JSONException {
 	if err == nil {
-		return JSONError{}
+		return JSONException{}
 	}
+
+	je := *projectError(err)
+
 	var b *base
-	if !stderrors.As(err, &b) {
-		return JSONError{ExitCode: 1, Message: err.Error()}
-	}
-	je := JSONError{
-		Type:     b.t.String(),
-		ExitCode: b.t.ExitCode(),
-		Message:  b.info,
-		Action:   b.t.action,
-	}
-	if b.cause != nil {
-		je.Cause = b.cause.Error()
-	}
-	if b.t == TypeFatal && b.stacktrace != nil {
+	if stderrors.As(err, &b) && b.t == TypeFatal && b.stacktrace != nil {
 		if st := b.stacktrace.String(); st != "" {
 			je.Stacktrace = st
 		}
 	}
-	return je
+
+	return JSONException{Error: je}
+}
+
+// projectError renders one link of the wrap chain. *base links carry their
+// own info/type/action (info, not Error(), so the subtree isn't re-emitted)
+// and the walk continues at b.cause. The first non-*base link emits Message
+// alone and terminates the walk — stdlib wrappers format their own chain in
+// Error(), so re-walking via errors.Unwrap would duplicate that text.
+func projectError(err error) *JSONError {
+	if err == nil {
+		return nil
+	}
+
+	b, ok := err.(*base)
+	if !ok {
+		return &JSONError{Message: err.Error()}
+	}
+
+	return &JSONError{
+		Type:    b.t.String(),
+		Message: b.info,
+		Action:  b.t.action,
+		Cause:   projectError(b.cause),
+	}
 }
