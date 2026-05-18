@@ -446,8 +446,8 @@ spec:
               level: information
               size: 1000M
             macros:
-              replica: "01"
-              shard: "01"
+              replica: "00"
+              shard: "00"
             merge_tree:
               storage_policy: data
             metric_log:
@@ -620,8 +620,8 @@ spec:
               level: information
               size: 1000M
             macros:
-              replica: "01"
-              shard: "01"
+              replica: "00"
+              shard: "00"
             merge_tree:
               storage_policy: data
             metric_log:

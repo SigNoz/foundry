@@ -434,8 +434,8 @@ spec:
                 level: information
                 size: 1000M
             macros:
-                replica: "01"
-                shard: "01"
+                replica: "00"
+                shard: "00"
             profiles:
                 default:
                     allow_simdjson: 0
@@ -554,8 +554,8 @@ spec:
                 level: information
                 size: 1000M
             macros:
-                replica: "01"
-                shard: "01"
+                replica: "00"
+                shard: "00"
             profiles:
                 default:
                     allow_simdjson: 0

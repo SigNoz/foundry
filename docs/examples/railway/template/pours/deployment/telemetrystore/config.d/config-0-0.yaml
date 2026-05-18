@@ -20,8 +20,8 @@ logger:
   level: information
   size: 1000M
 macros:
-  replica: "01"
-  shard: "01"
+  replica: "00"
+  shard: "00"
 metric_log:
   flush_interval_milliseconds: 30000
   ttl: event_date + INTERVAL 1 DAY DELETE
