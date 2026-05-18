@@ -1,9 +1,8 @@
 package infrastructure
 
 import (
-	"fmt"
-
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/internal/errors"
 )
 
 // ResolveProvider normalizes a deployment platform to the cloud platform that
@@ -18,9 +17,9 @@ func ResolveProvider(platform v1alpha1.Platform) (v1alpha1.Platform, error) {
 	case v1alpha1.PlatformAzure:
 		return v1alpha1.PlatformAzure, nil
 	case v1alpha1.Platform{}:
-		return v1alpha1.Platform{}, fmt.Errorf("no platform specified in deployment.platform: infrastructure generation requires aws, gcp, or azure")
+		return v1alpha1.Platform{}, errors.Newf(errors.TypeInvalidInput, "no platform specified in deployment.platform: infrastructure generation requires aws, gcp, or azure")
 	default:
-		return v1alpha1.Platform{}, fmt.Errorf("unsupported platform for infrastructure generation: %q (must be aws, gcp, azure, or ecs)", platform)
+		return v1alpha1.Platform{}, errors.Newf(errors.TypeUnsupported, "unsupported platform for infrastructure generation: %q (must be aws, gcp, azure, or ecs)", platform)
 	}
 }
 
@@ -57,6 +56,6 @@ func ResolveComputeType(provider v1alpha1.Platform, deployment v1alpha1.TypeDepl
 		return ComputeTypeVM, nil
 
 	default:
-		return ComputeType{}, fmt.Errorf("unsupported infrastructure platform: %s", provider)
+		return ComputeType{}, errors.Newf(errors.TypeUnsupported, "unsupported infrastructure platform: %s", provider)
 	}
 }

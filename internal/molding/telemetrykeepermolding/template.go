@@ -2,10 +2,10 @@ package telemetrykeepermolding
 
 import (
 	"embed"
-	"fmt"
 
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
+	"github.com/signoz/foundry/internal/errors"
 )
 
 //go:embed templates/*.gotmpl
@@ -34,23 +34,23 @@ func newData(config *installation.Casting) (Data, error) {
 
 	raftAddresses := config.Spec.TelemetryKeeper.Status.Addresses.Raft
 	if len(raftAddresses) < data.ServerCount {
-		return Data{}, fmt.Errorf("insufficient raft addresses: have %d, need %d servers", len(raftAddresses), data.ServerCount)
+		return Data{}, errors.Newf(errors.TypeInvalidInput, "insufficient raft addresses: have %d, need %d servers", len(raftAddresses), data.ServerCount)
 	}
 
 	clientAddresses := config.Spec.TelemetryKeeper.Status.Addresses.Client
 	if len(clientAddresses) < data.ServerCount {
-		return Data{}, fmt.Errorf("insufficient client addresses: have %d, need %d servers", len(clientAddresses), data.ServerCount)
+		return Data{}, errors.Newf(errors.TypeInvalidInput, "insufficient client addresses: have %d, need %d servers", len(clientAddresses), data.ServerCount)
 	}
 
 	newRaftAddrs, err := domain.ParseAddresses(raftAddresses[:data.ServerCount])
 	if err != nil {
-		return Data{}, fmt.Errorf("failed to parse raft addresses: %w", err)
+		return Data{}, errors.Wrapf(err, errors.TypeInternal, "failed to parse raft addresses")
 	}
 	data.RaftAddresses = newRaftAddrs
 
 	newClientAddrs, err := domain.ParseAddresses(clientAddresses[:data.ServerCount])
 	if err != nil {
-		return Data{}, fmt.Errorf("failed to parse client addresses: %w", err)
+		return Data{}, errors.Wrapf(err, errors.TypeInternal, "failed to parse client addresses")
 	}
 	data.ClientAddresses = newClientAddrs
 

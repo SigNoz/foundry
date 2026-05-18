@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -15,6 +14,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 )
 
@@ -42,12 +42,12 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config installat
 	buf := bytes.NewBuffer(nil)
 	err := composeYAMLTemplate.Execute(buf, config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute compose yaml template: %w", err)
+		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute compose yaml template")
 	}
 
 	composeMaterial, err := domain.NewYAMLMaterial(buf.Bytes(), filepath.Join(rootcasting.DeploymentDir, "compose.yaml"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create compose yaml material: %w", err)
+		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to create compose yaml material")
 	}
 
 	materials := []domain.Material{composeMaterial}
@@ -56,7 +56,7 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config installat
 	for filename, content := range config.Spec.TelemetryKeeper.Spec.Config.Data {
 		material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "telemetrykeeper", config.Spec.TelemetryKeeper.Kind.String(), filename))
 		if err != nil {
-			return nil, fmt.Errorf("failed to create telemetrykeeper config material: %w", err)
+			return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to create telemetrykeeper config material")
 		}
 		materials = append(materials, material)
 	}
@@ -65,7 +65,7 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config installat
 	for filename, content := range config.Spec.TelemetryStore.Spec.Config.Data {
 		material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "telemetrystore", config.Spec.TelemetryStore.Kind.String(), filename))
 		if err != nil {
-			return nil, fmt.Errorf("failed to create telemetrystore config material: %w", err)
+			return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to create telemetrystore config material")
 		}
 		materials = append(materials, material)
 	}
@@ -74,7 +74,7 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config installat
 	for filename, content := range config.Spec.MetaStore.Spec.Config.Data {
 		material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "metastore", config.Spec.MetaStore.Kind.String(), filename))
 		if err != nil {
-			return nil, fmt.Errorf("failed to create metastore config material: %w", err)
+			return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to create metastore config material")
 		}
 		materials = append(materials, material)
 	}
@@ -83,7 +83,7 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config installat
 	for filename, content := range config.Spec.Signoz.Spec.Config.Data {
 		material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "signoz", filename))
 		if err != nil {
-			return nil, fmt.Errorf("failed to create signoz config material: %w", err)
+			return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to create signoz config material")
 		}
 		materials = append(materials, material)
 	}
@@ -92,7 +92,7 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config installat
 	for filename, content := range config.Spec.Ingester.Spec.Config.Data {
 		material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(rootcasting.DeploymentDir, "ingester", filename))
 		if err != nil {
-			return nil, fmt.Errorf("failed to create ingester config material: %w", err)
+			return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to create ingester config material")
 		}
 		materials = append(materials, material)
 	}
@@ -106,7 +106,7 @@ func (casting *dockerComposeCasting) Cast(ctx context.Context, config installati
 	// Check if compose file exists
 	composeFile := filepath.Join(outputPath, rootcasting.DeploymentDir, "compose.yaml")
 	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
-		return fmt.Errorf("compose file does not exist at path: %s", composeFile)
+		return foundryerrors.Newf(foundryerrors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
 	}
 
 	// Create a context with 5-minute timeout
@@ -117,7 +117,7 @@ func (casting *dockerComposeCasting) Cast(ctx context.Context, config installati
 	composeCmd, err := getComposeCommand(runctx)
 	if err != nil {
 		casting.logger.ErrorContext(runctx, "Docker compose not available", slog.String("error", err.Error()))
-		return fmt.Errorf("docker compose not available: %w", err)
+		return foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "docker compose not available")
 	}
 
 	args := append(composeCmd[1:], "-f", composeFile, "up", "-d")
@@ -143,7 +143,7 @@ func getComposeMaterial(config *installation.Casting, path string) (domain.Struc
 	buf := bytes.NewBuffer(nil)
 	err := composeYAMLTemplate.Execute(buf, config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute compose yaml template: %w", err)
+		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute compose yaml template")
 	}
 
 	return domain.NewYAMLMaterial(buf.Bytes(), path)

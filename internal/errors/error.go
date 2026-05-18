@@ -1,6 +1,7 @@
 package errors
 
 import (
+	goerrors "errors"
 	"fmt"
 	"log/slog"
 )
@@ -25,6 +26,10 @@ func (b *base) Error() string {
 	}
 
 	return b.info
+}
+
+func (b *base) Unwrap() error {
+	return b.cause
 }
 
 func (b *base) WithStacktrace(stacktrace string) *base {
@@ -54,39 +59,19 @@ func Wrapf(cause error, t typ, format string, args ...any) error {
 	}
 }
 
-func Unwrapb(cause error) (typ, string, error) {
-	base, ok := cause.(*base)
-	if ok {
-		return base.t, base.info, base.cause
+func ExitCode(err error) int {
+	if err == nil {
+		return 0
 	}
 
-	return TypeInternal, cause.Error(), cause
+	var b *base
+	if goerrors.As(err, &b) {
+		return b.t.ExitCode()
+	}
+
+	return 1
 }
 
 func LogAttr(err error) slog.Attr {
-	t, info, cause := Unwrapb(err)
-
-	attrs := []slog.Attr{
-		slog.String("type", t.String()),
-		slog.String("message", info),
-		slog.String("cause", cause.Error()),
-	}
-
-	type stacktracer interface {
-		Stacktrace() string
-	}
-
-	if t == TypeFatal {
-		if st, ok := err.(stacktracer); ok && st.Stacktrace() != "" {
-			attrs = append(attrs, slog.String("stacktrace", st.Stacktrace()))
-		}
-
-		attrs = append(attrs, slog.String("action", "Please raise an issue at https://github.com/signoz/foundry/issues with the error message and stacktrace."))
-	}
-
-	if t == TypeUnsupported {
-		attrs = append(attrs, slog.String("action", "Please check the documentation for supported features or raise an issue at https://github.com/signoz/foundry/issues for feature requests."))
-	}
-
-	return slog.GroupAttrs("exception", attrs...)
+	return slog.GroupAttrs("exception", exceptionAttrs(ExceptionOf(err))...)
 }

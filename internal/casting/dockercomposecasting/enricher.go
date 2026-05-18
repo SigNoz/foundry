@@ -2,7 +2,6 @@ package dockercomposecasting
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
+	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 )
 
@@ -22,7 +22,7 @@ type dockerComposeMoldingEnricher struct {
 func newDockerComposeMoldingEnricher(config *installation.Casting) (*dockerComposeMoldingEnricher, error) {
 	material, err := getComposeMaterial(config, filepath.Join(rootcasting.DeploymentDir, "compose.yaml"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to get compose yaml material: %w", err)
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to get compose yaml material")
 	}
 
 	return &dockerComposeMoldingEnricher{material: material}, nil
@@ -34,7 +34,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		// Get telemetrystore container names
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
-			return fmt.Errorf("failed to get telemetrystore container names: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to get telemetrystore container names")
 		}
 
 		var telemetrystoreContainerNames []string
@@ -50,7 +50,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		// Get signoz container names
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
-			return fmt.Errorf("failed to get signoz container names: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to get signoz container names")
 		}
 
 		var apiServerAddr []string
@@ -68,7 +68,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		// Get telemetrykeeper container names (using service keys since they match container_name)
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
-			return fmt.Errorf("failed to get telemetrykeeper container names: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to get telemetrykeeper container names")
 		}
 
 		var telemetrykeeperContainerNames []string
@@ -97,7 +97,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		// Get metastore container names
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
-			return fmt.Errorf("failed to get metastore container names: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to get metastore container names")
 		}
 
 		var metastoreContainerNames []string
@@ -113,7 +113,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		// Get ingester container names
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
-			return fmt.Errorf("failed to get ingester container names: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to get ingester container names")
 		}
 
 		var ingesterContainerNames []string

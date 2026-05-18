@@ -3,13 +3,13 @@ package coolifycasting
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"log/slog"
 	"path/filepath"
 
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
+	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 )
 
@@ -37,12 +37,12 @@ func (c *coolifyCasting) Forge(ctx context.Context, config installation.Casting,
 	buf := bytes.NewBuffer(nil)
 	err := coolifyYAMLTemplate.Execute(buf, config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute coolify yaml template: %w", err)
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to execute coolify yaml template")
 	}
 
 	coolifyMaterial, err := domain.NewYAMLMaterial(buf.Bytes(), filepath.Join(rootcasting.DeploymentDir, "coolify.yaml"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create coolify yaml material: %w", err)
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to create coolify yaml material")
 	}
 
 	return []domain.Material{coolifyMaterial}, nil
@@ -60,7 +60,7 @@ func getCoolifyMaterial(config *installation.Casting, path string) (domain.Struc
 	buf := bytes.NewBuffer(nil)
 	err := coolifyYAMLTemplate.Execute(buf, config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute coolify yaml template: %w", err)
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to execute coolify yaml template")
 	}
 	return domain.NewYAMLMaterial(buf.Bytes(), path)
 }

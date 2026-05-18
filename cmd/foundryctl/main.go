@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -31,6 +32,6 @@ func main() {
 	defer closeRoot()
 
 	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
+		os.Exit(foundryerrors.ExitCode(err))
 	}
 }

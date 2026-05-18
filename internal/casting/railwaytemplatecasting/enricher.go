@@ -2,11 +2,11 @@ package railwaytemplatecasting
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
+	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 )
 
@@ -19,7 +19,7 @@ type railwayTemplateMoldingEnricher struct {
 func newRailwayTemplateMoldingEnricher(config *installation.Casting) (*railwayTemplateMoldingEnricher, error) {
 	material, err := getRailwayMaterial(config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get compose yaml material: %w", err)
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to get compose yaml material")
 	}
 	return &railwayTemplateMoldingEnricher{material: material}, nil
 }

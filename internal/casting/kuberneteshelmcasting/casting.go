@@ -12,6 +12,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
+	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -55,14 +56,14 @@ func (c *helmCasting) Forge(ctx context.Context, config installation.Casting, po
 	buf := bytes.NewBuffer(nil)
 	err := valuesYAMLTemplate.Execute(buf, config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute values yaml template: %w", err)
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to execute values yaml template")
 	}
 
 	valuesBytes := buf.Bytes()
 
 	valuesMaterial, err := domain.NewYAMLMaterial(valuesBytes, filepath.Join(rootcasting.DeploymentDir, "values.yaml"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create values yaml material: %w", err)
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to create values yaml material")
 	}
 
 	return []domain.Material{valuesMaterial}, nil
@@ -72,17 +73,17 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 
 	valuesFile := filepath.Join(poursPath, rootcasting.DeploymentDir, "values.yaml")
 	if _, err := os.Stat(valuesFile); os.IsNotExist(err) {
-		return fmt.Errorf("values.yaml does not exist at path %s, run 'forge' first", valuesFile)
+		return errors.Newf(errors.TypeNotFound, "values.yaml does not exist at path %s, run 'forge' first", valuesFile)
 	}
 
 	valuesBytes, err := os.ReadFile(valuesFile)
 	if err != nil {
-		return fmt.Errorf("failed to read values file: %w", err)
+		return errors.Wrapf(err, errors.TypeInternal, "failed to read values file")
 	}
 
 	vals := map[string]any{}
 	if err := yaml.Unmarshal(valuesBytes, &vals); err != nil {
-		return fmt.Errorf("failed to parse values: %w", err)
+		return errors.Wrapf(err, errors.TypeInvalidInput, "failed to parse values")
 	}
 
 	settings := cli.New()
@@ -92,14 +93,14 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 	if err := actionConfig.Init(settings.RESTClientGetter(), config.Metadata.Name, os.Getenv("HELM_DRIVER"), func(format string, v ...any) {
 		c.logger.Debug(fmt.Sprintf(format, v...))
 	}); err != nil {
-		return fmt.Errorf("failed to initialize helm action config: %w", err)
+		return errors.Wrapf(err, errors.TypeInternal, "failed to initialize helm action config")
 	}
 
 	var chartRef string
 	if c.shouldForgeChart(&config) {
 		chartRef = filepath.Join(poursPath, rootcasting.DeploymentDir, "chart", "signoz")
 		if _, err := os.Stat(chartRef); os.IsNotExist(err) {
-			return fmt.Errorf("local chart not found at %s, run 'forge' first with %s annotation set to 'true'", chartRef, annotationForgeChart)
+			return errors.Newf(errors.TypeNotFound, "local chart not found at %s, run 'forge' first with %s annotation set to 'true'", chartRef, annotationForgeChart)
 		}
 		c.logger.InfoContext(ctx, "Installing from local chart", slog.String("path", chartRef))
 	} else {
@@ -126,7 +127,7 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 
 		c.logger.InfoContext(ctx, "Adding Helm repo", slog.String("name", repoName), slog.String("url", repoURL), slog.String("chart", chartRef))
 		if err := addHelmRepo(settings, repoName, repoURL); err != nil {
-			return fmt.Errorf("failed to add helm repo: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to add helm repo")
 		}
 	}
 
@@ -150,16 +151,16 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 
 		chartPath, err := install.LocateChart(chartRef, settings)
 		if err != nil {
-			return fmt.Errorf("failed to locate chart: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to locate chart")
 		}
 
 		chart, err := loader.Load(chartPath)
 		if err != nil {
-			return fmt.Errorf("failed to load chart: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to load chart")
 		}
 
 		if _, err := install.RunWithContext(ctx, chart, vals); err != nil {
-			return fmt.Errorf("helm install failed: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "helm install failed")
 		}
 	} else {
 		upgrade := action.NewUpgrade(actionConfig)
@@ -169,16 +170,16 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 
 		chartPath, err := upgrade.LocateChart(chartRef, settings)
 		if err != nil {
-			return fmt.Errorf("failed to locate chart: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to locate chart")
 		}
 
 		chart, err := loader.Load(chartPath)
 		if err != nil {
-			return fmt.Errorf("failed to load chart: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to load chart")
 		}
 
 		if _, err := upgrade.RunWithContext(ctx, config.Metadata.Name, chart, vals); err != nil {
-			return fmt.Errorf("helm upgrade failed: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "helm upgrade failed")
 		}
 	}
 
@@ -205,12 +206,12 @@ func addHelmRepo(settings *cli.EnvSettings, name, url string) error {
 
 	r, err := repo.NewChartRepository(repoEntry, getter.All(settings))
 	if err != nil {
-		return fmt.Errorf("failed to create chart repository: %w", err)
+		return errors.Wrapf(err, errors.TypeInternal, "failed to create chart repository")
 	}
 
 	r.CachePath = settings.RepositoryCache
 	if _, err := r.DownloadIndexFile(); err != nil {
-		return fmt.Errorf("failed to download repo index: %w", err)
+		return errors.Wrapf(err, errors.TypeInternal, "failed to download repo index")
 	}
 
 	f, err := repo.LoadFile(repoFile)

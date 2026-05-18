@@ -127,13 +127,24 @@ verify_prereqs() {
 }
 
 # fetch downloads URL to OUT using whichever of curl/wget is available.
+# Pass "progress" as the third arg to render a transfer progress bar; the bar
+# is suppressed when stderr is not a TTY (e.g. CI, piped output).
 fetch() {
   local url="$1"
   local out="$2"
+  local mode="${3:-quiet}"
   if [[ "${HAS_CURL}" == "true" ]]; then
-    curl -fsSL "${url}" -o "${out}"
+    if [[ "${mode}" == "progress" ]] && [[ -t 2 ]]; then
+      curl -fL --progress-bar "${url}" -o "${out}"
+    else
+      curl -fsSL "${url}" -o "${out}"
+    fi
   else
-    wget -q -O "${out}" "${url}"
+    if [[ "${mode}" == "progress" ]] && [[ -t 2 ]]; then
+      wget -q --show-progress -O "${out}" "${url}"
+    else
+      wget -q -O "${out}" "${url}"
+    fi
   fi
 }
 
@@ -228,7 +239,7 @@ download_release() {
   CHECKSUMS_PATH="${TMP_ROOT}/${CHECKSUMS}"
 
   info "Downloading ${TARBALL_URL}"
-  fetch "${TARBALL_URL}" "${TARBALL_PATH}"
+  fetch "${TARBALL_URL}" "${TARBALL_PATH}" progress
   fetch "${CHECKSUMS_URL}" "${CHECKSUMS_PATH}"
 }
 

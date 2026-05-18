@@ -3,7 +3,6 @@ package ingestermolding
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"log/slog"
 
 	"github.com/signoz/foundry/api/v1alpha1"
@@ -61,13 +60,13 @@ func (molding *ingester) MoldV1Alpha1(ctx context.Context, config *installation.
 
 func (molding *ingester) getData(config *installation.Casting) (Data, error) {
 	if len(config.Spec.Signoz.Status.Addresses.Opamp) == 0 {
-		return Data{}, fmt.Errorf("signoz address is not set")
+		return Data{}, foundryerrors.Newf(foundryerrors.TypeInternal, "signoz address is not set")
 	}
 
 	signozAddress := config.Spec.Signoz.Status.Addresses.Opamp[0]
 
 	if len(config.Spec.TelemetryStore.Status.Addresses.TCP) == 0 {
-		return Data{}, fmt.Errorf("telemetry store address is not set")
+		return Data{}, foundryerrors.Newf(foundryerrors.TypeInternal, "telemetry store address is not set")
 	}
 
 	telemetryStoreAddress := config.Spec.TelemetryStore.Status.Addresses.TCP[0]

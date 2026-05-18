@@ -2,7 +2,6 @@ package coolifycasting
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
+	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 )
 
@@ -22,7 +22,7 @@ type coolifyMoldingEnricher struct {
 func newCoolifyMoldingEnricher(config *installation.Casting) (*coolifyMoldingEnricher, error) {
 	material, err := getCoolifyMaterial(config, filepath.Join(rootcasting.DeploymentDir, "coolify.yaml"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to get coolify yaml material: %w", err)
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to get coolify yaml material")
 	}
 	return &coolifyMoldingEnricher{material: material}, nil
 }
@@ -32,7 +32,7 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 	case v1alpha1.MoldingKindTelemetryStore:
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
-			return fmt.Errorf("failed to get telemetrystore container names: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to get telemetrystore container names")
 		}
 
 		var telemetrystoreContainerNames []string
@@ -46,7 +46,7 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 	case v1alpha1.MoldingKindSignoz:
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
-			return fmt.Errorf("failed to get signoz container names: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to get signoz container names")
 		}
 
 		var apiServerAddr []string
@@ -63,7 +63,7 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 	case v1alpha1.MoldingKindTelemetryKeeper:
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
-			return fmt.Errorf("failed to get telemetrykeeper container names: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to get telemetrykeeper container names")
 		}
 
 		var telemetrykeeperContainerNames []string
@@ -89,7 +89,7 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 		}
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
-			return fmt.Errorf("failed to get metastore container names: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to get metastore container names")
 		}
 
 		var metastoreContainerNames []string
@@ -103,7 +103,7 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 	case v1alpha1.MoldingKindIngester:
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
-			return fmt.Errorf("failed to get ingester container names: %w", err)
+			return errors.Wrapf(err, errors.TypeInternal, "failed to get ingester container names")
 		}
 
 		var ingesterContainerNames []string

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
@@ -29,6 +29,7 @@ type schemaTarget struct {
 
 var schemaTargets = []schemaTarget{
 	{v1alpha1.KindInstallation, installation.Casting{}},
+	{v1alpha1.KindCollectionAgent, collectionagent.Casting{}},
 }
 
 func registerGenCmd(rootCmd *cobra.Command) {
@@ -126,12 +127,12 @@ func runGenSchemas(_ context.Context) error {
 
 		schema, err := reflector.Reflect(target.val)
 		if err != nil {
-			return fmt.Errorf("reflect %T: %w", target.val, err)
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "reflect %T", target.val)
 		}
 
 		contents, err := json.MarshalIndent(schema, "", "  ")
 		if err != nil {
-			return fmt.Errorf("marshal %T: %w", target.val, err)
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "marshal %T", target.val)
 		}
 
 		kindDir := strings.TrimPrefix(reflect.TypeOf(target.val).PkgPath(), moduleAPIPrefix)

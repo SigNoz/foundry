@@ -35,17 +35,23 @@ func (p Properties) WithSuccess() Properties {
 	return p
 }
 
-// WithError records that the tracked operation failed and stores the typed
-// error kind, its message, and the underlying cause so analytics can group
-// failures by class while preserving the wrapped detail.
+// WithError records the typed kind, the outer message, and the next link's
+// own Message as the cause — using the link's Message (not the chained
+// Error()) gives stable grouping keys for analytics.
 func (p Properties) WithError(err error) Properties {
-	t, info, cause := errors.Unwrapb(err)
 	p.values[propertyKeySuccess] = false
-	p.values[propertyKeyErrorType] = t.String()
-	p.values[propertyKeyError] = info
-	if cause != nil {
-		p.values[propertyKeyErrorCause] = cause.Error()
+
+	e := errors.ExceptionOf(err)
+	if e == nil {
+		return p
 	}
+
+	p.values[propertyKeyErrorType] = e.Type
+	p.values[propertyKeyError] = e.Message
+	if e.Cause != nil {
+		p.values[propertyKeyErrorCause] = e.Cause.Message
+	}
+
 	return p
 }
 
