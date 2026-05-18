@@ -57,7 +57,7 @@ services:
     volumes:
       - {{ $.Metadata.Name }}-telemetrystore-{{ $shardIdx }}-{{ $replicaIdx }}-data:/var/lib/clickhouse
       - {{ $.Metadata.Name }}-telemetrystore-user-scripts:/var/lib/clickhouse/user_scripts:ro
-      - ./telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/config.yaml:/etc/clickhouse-server/config.yaml:ro
+      - ./telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml:/etc/clickhouse-server/config.yaml:ro
       - ./telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/functions.yaml:/etc/clickhouse-server/functions.yaml:ro
     healthcheck:
       test:

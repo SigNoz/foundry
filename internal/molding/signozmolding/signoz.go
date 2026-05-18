@@ -44,7 +44,10 @@ func (molding *signoz) MoldV1Alpha1(ctx context.Context, config *installation.Ca
 		molding.logger.WarnContext(ctx, "SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN is going to be overridden", slog.String("value", val))
 	}
 
-	config.Spec.Signoz.Status.Env["SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN"] = strings.Join(config.Spec.TelemetryStore.Status.Addresses.TCP, ",")
+	if len(config.Spec.TelemetryStore.Status.Addresses.TCP) == 0 {
+		return fmt.Errorf("telemetry store address is not set")
+	}
+	config.Spec.Signoz.Status.Env["SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN"] = config.Spec.TelemetryStore.Status.Addresses.TCP[0]
 
 	// Add metastore addresses
 	config.Spec.Signoz.Status.Env["SIGNOZ_SQLSTORE_PROVIDER"] = config.Spec.MetaStore.Kind.String()

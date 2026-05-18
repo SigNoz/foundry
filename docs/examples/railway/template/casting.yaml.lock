@@ -430,7 +430,7 @@ spec:
         shards: 1
       config:
         data:
-          config.yaml: |
+          config-0-0.yaml: |
             asynchronous_metric_log:
               ttl: event_date + INTERVAL 1 DAY DELETE
             dictionaries_config: '*_dictionary.xml'
@@ -550,7 +550,7 @@ spec:
         - tcp://signoz-telemetrystore-clickhouse.railway.internal:9000
       config:
         data:
-          config.yaml: |
+          config-0-0.yaml: |
             asynchronous_metric_log:
               ttl: event_date + INTERVAL 1 DAY DELETE
             dictionaries_config: '*_dictionary.xml'

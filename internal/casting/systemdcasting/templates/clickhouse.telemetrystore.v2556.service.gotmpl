@@ -11,7 +11,7 @@ Group=clickhouse
 Restart=always
 RestartSec=30
 RuntimeDirectory=clickhouse
-ExecStart=/usr/bin/clickhouse-server --config=/etc/clickhouse-server/config.yaml --pid-file=/run/clickhouse/clickhouse.pid
+ExecStart=/usr/bin/clickhouse-server --config=/etc/clickhouse-server/config-0-0.yaml --pid-file=/run/clickhouse/clickhouse.pid
 {{- range $key, $value := $.Spec.TelemetryStore.Spec.Env }}
 Environment={{ $key }}={{ $value }}
 {{- end }}

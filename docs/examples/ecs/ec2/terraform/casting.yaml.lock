@@ -414,7 +414,7 @@ spec:
         shards: 1
       config:
         data:
-          config.yaml: |
+          config-0-0.yaml: |
             path: /var/lib/clickhouse/
             tmp_path: /var/lib/clickhouse/tmp/
             user_files_path: /var/lib/clickhouse/user_files/
@@ -534,7 +534,7 @@ spec:
         - tcp://telemetrystore-clickhouse.signoz.local:9000
       config:
         data:
-          config.yaml: |
+          config-0-0.yaml: |
             path: /var/lib/clickhouse/
             tmp_path: /var/lib/clickhouse/tmp/
             user_files_path: /var/lib/clickhouse/user_files/

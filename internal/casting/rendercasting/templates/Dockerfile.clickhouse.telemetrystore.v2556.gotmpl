@@ -30,3 +30,27 @@ EOF
 RUN chmod +x /tmp/install-histogram-quantile.sh \
     && /tmp/install-histogram-quantile.sh \
     && rm /tmp/install-histogram-quantile.sh
+
+# Create wrapper entrypoint to alias the right per-node config as config.yaml
+RUN cat > /foundry-entrypoint.sh <<'EOF'
+#!/bin/bash
+set -euo pipefail
+
+# Extract shard-replica indices from service name (e.g., signoz-telemetrystore-clickhouse-0-1)
+INDICES=$(echo "${RENDER_SERVICE_NAME:-}" | grep -oE "[0-9]+-[0-9]+$" || echo "0-0")
+CONFIG_SRC="/etc/clickhouse-server/config-${INDICES}.yaml"
+
+if [ ! -f "$CONFIG_SRC" ]; then
+  echo "Config $CONFIG_SRC not found, falling back to config-0-0.yaml"
+  CONFIG_SRC="/etc/clickhouse-server/config-0-0.yaml"
+fi
+
+ln -sf "$CONFIG_SRC" /etc/clickhouse-server/config.yaml
+echo "ClickHouse starting with config: $CONFIG_SRC (aliased as config.yaml)"
+
+exec /entrypoint.sh "$@"
+EOF
+
+RUN chmod +x /foundry-entrypoint.sh
+
+ENTRYPOINT ["/foundry-entrypoint.sh"]

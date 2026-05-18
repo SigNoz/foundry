@@ -56,7 +56,7 @@ services:
       - {{ $.Metadata.Name }}-telemetrystore-{{ $shardIdx }}-{{ $replicaIdx }}-data:/var/lib/clickhouse
       - {{ $.Metadata.Name }}-telemetrystore-user-scripts:/var/lib/clickhouse/user_scripts:ro
     configs:
-      - source: telemetrystore-config
+      - source: telemetrystore-config-{{ $shardIdx }}-{{ $replicaIdx }}
         target: /etc/clickhouse-server/config.yaml
       - source: telemetrystore-functions
         target: /etc/clickhouse-server/functions.yaml
@@ -239,8 +239,12 @@ configs:
   telemetrykeeper-{{ $replicaIdx }}:
     file: telemetrykeeper/{{ $.Spec.TelemetryKeeper.Kind }}/keeper-{{ $replicaIdx }}.yaml
   {{- end }}
-  telemetrystore-config:
-    file: telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/config.yaml
+  {{- range $shardIdx := until (int $.Spec.TelemetryStore.Spec.Cluster.Shards) }}
+  {{- range $replicaIdx := until (int (add1 (int $.Spec.TelemetryStore.Spec.Cluster.Replicas))) }}
+  telemetrystore-config-{{ $shardIdx }}-{{ $replicaIdx }}:
+    file: telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml
+  {{- end }}
+  {{- end }}
   telemetrystore-functions:
     file: telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/functions.yaml
   ingester-config:

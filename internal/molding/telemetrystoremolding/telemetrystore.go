@@ -39,30 +39,40 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *install
 	// Extract enricher config overrides (applies to all nodes).
 	overrides := config.Spec.TelemetryStore.Status.Extras["_overrides"]
 
-	configBuf := bytes.NewBuffer(nil)
-	if err := ConfigClickhousev2556YAML.Execute(configBuf, data); err != nil {
-		return fmt.Errorf("failed to execute config template: %w", err)
-	}
-
 	functionBuf := bytes.NewBuffer(nil)
 	if err := FunctionsClickhousev2556YAML.Execute(functionBuf, data); err != nil {
-		return fmt.Errorf("failed to execute config template: %w", err)
+		return fmt.Errorf("failed to execute functions template: %w", err)
 	}
 
-	base := configBuf.String()
+	// Generate per-node configs (each node needs its own macros.shard / macros.replica).
+	configs := make(map[string]string, data.ShardCount*data.ReplicaCount+1)
+	for s := 0; s < data.ShardCount; s++ {
+		for r := 0; r < data.ReplicaCount; r++ {
+			data.ShardID = s
+			data.ReplicaID = r
 
-	if overrides != "" {
-		merged, err := domain.MergeYAML(base, overrides)
-		if err != nil {
-			return fmt.Errorf("failed to merge config overrides for config.yaml: %w", err)
+			configBuf := bytes.NewBuffer(nil)
+			if err := ConfigClickhousev2556YAML.Execute(configBuf, data); err != nil {
+				return fmt.Errorf("failed to execute config template for shard %d replica %d: %w", s, r, err)
+			}
+
+			key := fmt.Sprintf("config-%d-%d.yaml", s, r)
+			base := configBuf.String()
+
+			if overrides != "" {
+				merged, err := domain.MergeYAML(base, overrides)
+				if err != nil {
+					return fmt.Errorf("failed to merge config overrides for %s: %w", key, err)
+				}
+				base = merged
+			}
+
+			configs[key] = base
 		}
-		base = merged
 	}
+	configs["functions.yaml"] = functionBuf.String()
 
-	config.Spec.TelemetryStore.Status.Config.Data = map[string]string{
-		"config.yaml":    base,
-		"functions.yaml": functionBuf.String(),
-	}
+	config.Spec.TelemetryStore.Status.Config.Data = configs
 
 	return nil
 }

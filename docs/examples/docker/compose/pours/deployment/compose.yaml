@@ -124,7 +124,7 @@ services:
     volumes:
     - signoz-telemetrystore-0-0-data:/var/lib/clickhouse
     - signoz-telemetrystore-user-scripts:/var/lib/clickhouse/user_scripts:ro
-    - ./telemetrystore/clickhouse/config.yaml:/etc/clickhouse-server/config.yaml:ro
+    - ./telemetrystore/clickhouse/config-0-0.yaml:/etc/clickhouse-server/config.yaml:ro
     - ./telemetrystore/clickhouse/functions.yaml:/etc/clickhouse-server/functions.yaml:ro
   signoz-telemetrystore-clickhouse-user-scripts:
     command:

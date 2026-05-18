@@ -20,4 +20,6 @@ type Data struct {
 	KeeperAddresses []domain.Address
 	ShardCount      int
 	ReplicaCount    int
+	ShardID         int // 0-indexed, used to render per-node macros.shard
+	ReplicaID       int // 0-indexed, used to render per-node macros.replica
 }

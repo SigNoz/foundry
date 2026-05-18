@@ -412,7 +412,7 @@ spec:
         shards: 1
       config:
         data:
-          config.yaml: |
+          config-0-0.yaml: |
             async_load_databases: false
             asynchronous_metric_log:
               ttl: event_date + INTERVAL 1 DAY DELETE
@@ -586,7 +586,7 @@ spec:
         - tcp://signoz-clickhouse:9000
       config:
         data:
-          config.yaml: |
+          config-0-0.yaml: |
             async_load_databases: false
             asynchronous_metric_log:
               ttl: event_date + INTERVAL 1 DAY DELETE

@@ -96,10 +96,10 @@ services:
         target: /var/lib/clickhouse/user_scripts
         read_only: true
       - type: bind
-        source: ./configs/telemetrystore/config.yaml
+        source: ./configs/telemetrystore/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml
         target: /etc/clickhouse-server/config.yaml
         content: |
-{{ index $.Spec.TelemetryStore.Spec.Config.Data "config.yaml" | indent 10 }}
+{{ index $.Spec.TelemetryStore.Spec.Config.Data (printf "config-%d-%d.yaml" $shardIdx $replicaIdx) | indent 10 }}
       - type: bind
         source: ./configs/telemetrystore/functions.yaml
         target: /etc/clickhouse-server/functions.yaml

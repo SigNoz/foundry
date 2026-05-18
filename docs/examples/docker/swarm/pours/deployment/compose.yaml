@@ -5,8 +5,8 @@ configs:
     file: ingester/opamp.yaml
   telemetrykeeper-0:
     file: telemetrykeeper/clickhousekeeper/keeper-0.yaml
-  telemetrystore-config:
-    file: telemetrystore/clickhouse/config.yaml
+  telemetrystore-config-0-0:
+    file: telemetrystore/clickhouse/config-0-0.yaml
   telemetrystore-functions:
     file: telemetrystore/clickhouse/functions.yaml
 networks:
@@ -115,7 +115,7 @@ services:
     - signoz-telemetrykeeper-0-data:/var/lib/clickhouse-keeper
   signoz-telemetrystore-clickhouse-0-0:
     configs:
-    - source: telemetrystore-config
+    - source: telemetrystore-config-0-0
       target: /etc/clickhouse-server/config.yaml
     - source: telemetrystore-functions
       target: /etc/clickhouse-server/functions.yaml

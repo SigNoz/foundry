@@ -7,7 +7,7 @@ RUN mkdir -p /etc/clickhouse-server/user_scripts/ \
 
 ARG VERSION=v0.0.1
 
-ENV CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.yaml
+ENV CLICKHOUSE_CONFIG=/etc/clickhouse-server/config-0-0.yaml
 ENV CLICKHOUSE_SKIP_USER_SETUP=1
 
 # Download and install histogram-quantile binary
