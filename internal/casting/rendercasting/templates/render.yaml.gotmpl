@@ -73,7 +73,8 @@ services:
   {{ end }}
 
   {{ if $.Spec.Signoz.Spec.Enabled }}
-  - name: {{ $.Metadata.Name }}-signoz
+  {{ range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
+  - name: {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}
     type: web
     plan: standard
     runtime: image
@@ -102,6 +103,7 @@ services:
           property: host
     {{ end }}
     {{ end }}
+  {{ end }}
   {{ end }}
 
   {{ if $.Spec.TelemetryStore.Spec.Enabled }}

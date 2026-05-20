@@ -15,7 +15,7 @@ networks:
     driver: overlay
     name: signoz-network
 services:
-  signoz-ingester:
+  signoz-ingester-0:
     command:
     - -c
     - |
@@ -58,9 +58,8 @@ services:
     - signoz-network
     volumes:
     - signoz-metastore-postgres-0-data:/var/lib/postgresql/data
-  signoz-signoz:
+  signoz-signoz-0:
     deploy:
-      replicas: 1
       restart_policy:
         condition: on-failure
     environment:

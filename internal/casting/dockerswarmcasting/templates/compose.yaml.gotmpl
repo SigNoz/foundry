@@ -125,7 +125,8 @@ services:
       start_period: 30s
   {{- end }}
   {{- end }}
-  {{ $.Metadata.Name }}-ingester:
+  {{- range $replicaIdx := until (int $.Spec.Ingester.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-ingester-{{ $replicaIdx }}:
     image: {{ $.Spec.Ingester.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
@@ -153,7 +154,9 @@ services:
       - {{ $key }}={{ $value }}
       {{- end }}
     {{- end }}
-  {{ $.Metadata.Name }}-signoz:
+  {{- end }}
+  {{- range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}:
     image: {{ $.Spec.Signoz.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
@@ -170,7 +173,6 @@ services:
       - {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-data:{{ dir (index $.Spec.Signoz.Spec.Env "SIGNOZ_SQLSTORE_SQLITE_PATH") }}
     {{- end }}
     deploy:
-      replicas: {{ int $.Spec.Signoz.Spec.Cluster.Replicas }}
       restart_policy:
         condition: on-failure
     healthcheck:
@@ -184,6 +186,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+  {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-migrator:
     image: {{ $.Spec.Ingester.Spec.Image }}
     networks:

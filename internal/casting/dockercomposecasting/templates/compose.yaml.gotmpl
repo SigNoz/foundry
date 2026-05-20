@@ -116,8 +116,9 @@ services:
       start_period: 30s
   {{- end }}
   {{- end }}
-  {{ $.Metadata.Name }}-ingester:
-    container_name: {{ $.Metadata.Name }}-ingester
+  {{- range $replicaIdx := until (int $.Spec.Ingester.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-ingester-{{ $replicaIdx }}:
+    container_name: {{ $.Metadata.Name }}-ingester-{{ $replicaIdx }}
     image: {{ $.Spec.Ingester.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
@@ -144,11 +145,12 @@ services:
       {{- end }}
     {{- end }}
     deploy:
-      replicas: {{ int $.Spec.Ingester.Spec.Cluster.Replicas }}
       restart_policy:
         condition: on-failure
-  {{ $.Metadata.Name }}-signoz:
-    container_name: {{ $.Metadata.Name }}-signoz
+  {{- end }}
+  {{- range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}:
+    container_name: {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}
     image: {{ $.Spec.Signoz.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
@@ -178,6 +180,7 @@ services:
     deploy:
       restart_policy:
         condition: on-failure
+  {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-migrator:
     container_name: {{ $.Metadata.Name }}-telemetrystore-migrator
     image: {{ $.Spec.Ingester.Spec.Image }}
