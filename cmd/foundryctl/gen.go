@@ -12,9 +12,9 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
+	installationcasting "github.com/signoz/foundry/internal/casting/installation"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
-	"github.com/signoz/foundry/internal/foundry"
 	"github.com/signoz/foundry/internal/instrumentation"
 	"github.com/spf13/cobra"
 	"github.com/swaggest/jsonschema-go"
@@ -72,31 +72,24 @@ func registerGenSchemas(rootCmd *cobra.Command) {
 }
 
 func runGenExamples(ctx context.Context, logger *slog.Logger) error {
-	foundry, err := foundry.New(logger)
-	if err != nil {
-		logger.ErrorContext(ctx, "failed to create foundry, please report this issues to developers at https://github.com/signoz/foundry/issues", foundryerrors.LogAttr(err))
-		return err
-	}
+	registry := installationcasting.NewRegistry(logger)
 
-	for deployment := range foundry.Registry.CastingItems() {
+	for deployment := range registry.CastingItems() {
 		logger.InfoContext(ctx, "generating example files for deployment", slog.Any("deployment", deployment))
 
 		config := installation.Example()
 		config.Spec.Deployment = deployment
 
 		rootPath := filepath.Join("docs", "examples/", deployment.Platform.String(), deployment.Mode.String(), deployment.Flavor.String())
-		err = os.MkdirAll(rootPath, 0755)
-		if err != nil {
+		if err := os.MkdirAll(rootPath, 0755); err != nil {
 			return err
 		}
 
-		err = os.WriteFile(filepath.Join(rootPath, "casting.yaml"), domain.MustMarshalYAML(config), 0644)
-		if err != nil {
+		if err := os.WriteFile(filepath.Join(rootPath, "casting.yaml"), domain.MustMarshalYAML(config), 0644); err != nil {
 			return err
 		}
 
-		_, err = runForge(ctx, logger, filepath.Join(rootPath, "casting.yaml"), filepath.Join(rootPath, "pours"))
-		if err != nil {
+		if _, err := runForge(ctx, logger, filepath.Join(rootPath, "casting.yaml"), filepath.Join(rootPath, "pours")); err != nil {
 			logger.ErrorContext(ctx, "failed to forge casting", slog.Any("deployment", deployment), foundryerrors.LogAttr(err))
 			continue
 		}

@@ -14,16 +14,25 @@ import (
 	"github.com/signoz/foundry/internal/errors"
 )
 
-type yamlConfig struct{}
+type yamlConfig struct {
+	loaders map[v1alpha1.Kind]loaderFn
+}
+
+type loaderFn func(bytes []byte, path string) (v1alpha1.Machinery, error)
 
 func New() config.Config {
-	return &yamlConfig{}
+	return &yamlConfig{
+		loaders: map[v1alpha1.Kind]loaderFn{
+			v1alpha1.KindInstallation:    loadInstallation,
+			v1alpha1.KindCollectionAgent: loadCollectionAgent,
+		},
+	}
 }
 
 // GetV1Alpha1 reads, peeks at kind, dispatches to the per-Kind loader, merges
 // defaults, validates against the per-Kind schema, and returns the resolved
 // casting wrapped as v1alpha1.Machinery.
-func (*yamlConfig) GetV1Alpha1(ctx context.Context, path string) (v1alpha1.Machinery, error) {
+func (c *yamlConfig) GetV1Alpha1(ctx context.Context, path string) (v1alpha1.Machinery, error) {
 	bytes, err := os.ReadFile(path)
 	if err != nil {
 		return nil, errors.Wrapf(err, errors.TypeNotFound, "failed to read yaml file")
@@ -34,13 +43,11 @@ func (*yamlConfig) GetV1Alpha1(ctx context.Context, path string) (v1alpha1.Machi
 		return nil, err
 	}
 
-	switch kind {
-	case v1alpha1.KindInstallation:
-		return loadInstallation(bytes, path)
-	case v1alpha1.KindCollectionAgent:
-		return loadCollectionAgent(bytes, path)
+	load, ok := c.loaders[kind]
+	if !ok {
+		return nil, errors.Newf(errors.TypeUnsupported, "unknown casting kind %q", kind)
 	}
-	return nil, errors.Newf(errors.TypeUnsupported, "unknown casting kind %q", kind)
+	return load(bytes, path)
 }
 
 // peekKind decodes only the kind field from raw bytes. Empty or missing kind
