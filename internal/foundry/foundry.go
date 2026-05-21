@@ -6,6 +6,8 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/config"
 	"github.com/signoz/foundry/internal/config/yamlconfig"
+	"github.com/signoz/foundry/internal/infrastructure"
+	terraformgenerator "github.com/signoz/foundry/internal/infrastructure/terraform"
 	"github.com/signoz/foundry/internal/patch"
 	"github.com/signoz/foundry/internal/patch/jsonpatch"
 )
@@ -14,9 +16,10 @@ import (
 // moldings, casting strategies, enrichers) live behind the planner abstraction
 // in planner.go and are constructed on demand from a Machinery.
 type Foundry struct {
-	Config   config.Config
-	Patchers map[string]patch.Patch
-	Logger   *slog.Logger
+	Config                  config.Config
+	Patchers                map[string]patch.Patch
+	InfrastructureGenerator infrastructure.Generator
+	Logger                  *slog.Logger
 }
 
 func New(logger *slog.Logger) (*Foundry, error) {
@@ -25,6 +28,7 @@ func New(logger *slog.Logger) (*Foundry, error) {
 		Patchers: map[string]patch.Patch{
 			v1alpha1.PatchTypeJSONPatch: jsonpatch.New(),
 		},
-		Logger: logger,
+		InfrastructureGenerator: terraformgenerator.New(logger),
+		Logger:                  logger,
 	}, nil
 }

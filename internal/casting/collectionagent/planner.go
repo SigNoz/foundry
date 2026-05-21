@@ -17,13 +17,12 @@ import (
 // the foundry planner contract by exposing this Kind's moldings, enricher,
 // and casting strategy as verbs on a single value.
 type Planner struct {
-	config       *collectionagent.Casting
-	logger       *slog.Logger
-	casting      Casting
-	toolers      []tooler.Tooler
-	enricher     collectionagentmolding.MoldingEnricher
-	moldingKinds []v1alpha1.MoldingKind
-	moldings     map[v1alpha1.MoldingKind]collectionagentmolding.Molding
+	config   *collectionagent.Casting
+	logger   *slog.Logger
+	casting  Casting
+	toolers  []tooler.Tooler
+	enricher collectionagentmolding.MoldingEnricher
+	moldings []collectionagentmolding.Molding
 }
 
 func NewPlanner(ctx context.Context, c *collectionagent.Casting, logger *slog.Logger) (*Planner, error) {
@@ -44,39 +43,42 @@ func NewPlanner(ctx context.Context, c *collectionagent.Casting, logger *slog.Lo
 		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to get molding enricher")
 	}
 
-	moldingKinds := []v1alpha1.MoldingKind{
-		v1alpha1.MoldingKindCollector,
-	}
-
-	moldings := map[v1alpha1.MoldingKind]collectionagentmolding.Molding{
-		v1alpha1.MoldingKindCollector: collectormolding.New(logger),
+	moldings := []collectionagentmolding.Molding{
+		collectormolding.New(logger),
 	}
 
 	return &Planner{
-		config:       c,
-		logger:       logger,
-		casting:      castingStrategy,
-		toolers:      toolers,
-		enricher:     enricher,
-		moldingKinds: moldingKinds,
-		moldings:     moldings,
+		config:   c,
+		logger:   logger,
+		casting:  castingStrategy,
+		toolers:  toolers,
+		enricher: enricher,
+		moldings: moldings,
 	}, nil
 }
 
-func (p *Planner) Machinery() v1alpha1.Machinery        { return p.config }
-func (p *Planner) Patches() []v1alpha1.PatchEntry       { return p.config.Spec.Patches }
-func (p *Planner) MoldingKinds() []v1alpha1.MoldingKind { return p.moldingKinds }
+func (p *Planner) Machinery() v1alpha1.Machinery  { return p.config }
+func (p *Planner) Patches() []v1alpha1.PatchEntry { return p.config.Spec.Patches }
+
+func (p *Planner) MoldingKinds() []v1alpha1.MoldingKind {
+	kinds := make([]v1alpha1.MoldingKind, len(p.moldings))
+	for i, m := range p.moldings {
+		kinds[i] = m.Kind()
+	}
+	return kinds
+}
 
 func (p *Planner) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind) error {
 	return p.enricher.EnrichStatus(ctx, kind, p.config)
 }
 
 func (p *Planner) Mold(ctx context.Context, kind v1alpha1.MoldingKind) error {
-	m, ok := p.moldings[kind]
-	if !ok {
-		return foundryerrors.Newf(foundryerrors.TypeInternal, "molding %q not registered for collectionagent planner", kind)
+	for _, m := range p.moldings {
+		if m.Kind() == kind {
+			return m.MoldV1Alpha1(ctx, p.config)
+		}
 	}
-	return m.MoldV1Alpha1(ctx, p.config)
+	return foundryerrors.Newf(foundryerrors.TypeInternal, "molding %q not registered for collectionagent planner", kind)
 }
 
 func (p *Planner) MergeStatusIntoSpec() error {
@@ -91,6 +93,4 @@ func (p *Planner) Cast(ctx context.Context, poursPath string) error {
 	return p.casting.Cast(ctx, *p.config, poursPath)
 }
 
-func (p *Planner) Gauge(ctx context.Context) error {
-	return tooler.GaugeAll(ctx, p.logger, p.toolers)
-}
+func (p *Planner) Toolers() []tooler.Tooler { return p.toolers }

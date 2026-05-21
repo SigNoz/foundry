@@ -16,19 +16,19 @@ import (
 	"github.com/signoz/foundry/internal/molding/telemetrykeepermolding"
 	"github.com/signoz/foundry/internal/molding/telemetrystoremolding"
 	"github.com/signoz/foundry/internal/tooler"
+	"github.com/signoz/foundry/internal/tooler/terraformtooler"
 )
 
 // Planner is the Installation Kind's per-Kind orchestrator. It satisfies the
 // foundry planner contract by exposing this Kind's moldings, enricher, and
 // casting strategy as verbs on a single value.
 type Planner struct {
-	config       *installation.Casting
-	logger       *slog.Logger
-	casting      casting.Casting
-	toolers      []tooler.Tooler
-	enricher     molding.MoldingEnricher
-	moldingKinds []v1alpha1.MoldingKind
-	moldings     map[v1alpha1.MoldingKind]molding.Molding
+	config   *installation.Casting
+	logger   *slog.Logger
+	casting  casting.Casting
+	toolers  []tooler.Tooler
+	enricher molding.MoldingEnricher
+	moldings []molding.Molding
 }
 
 func NewPlanner(ctx context.Context, c *installation.Casting, logger *slog.Logger) (*Planner, error) {
@@ -49,47 +49,46 @@ func NewPlanner(ctx context.Context, c *installation.Casting, logger *slog.Logge
 		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to get molding enricher")
 	}
 
-	moldingKinds := []v1alpha1.MoldingKind{
-		v1alpha1.MoldingKindTelemetryKeeper,
-		v1alpha1.MoldingKindTelemetryStore,
-		v1alpha1.MoldingKindMetaStore,
-		v1alpha1.MoldingKindSignoz,
-		v1alpha1.MoldingKindIngester,
-	}
-
-	moldings := map[v1alpha1.MoldingKind]molding.Molding{
-		v1alpha1.MoldingKindTelemetryKeeper: telemetrykeepermolding.New(logger),
-		v1alpha1.MoldingKindTelemetryStore:  telemetrystoremolding.New(logger),
-		v1alpha1.MoldingKindMetaStore:       metastoremolding.New(logger),
-		v1alpha1.MoldingKindSignoz:          signozmolding.New(logger),
-		v1alpha1.MoldingKindIngester:        ingestermolding.New(logger),
+	moldings := []molding.Molding{
+		telemetrykeepermolding.New(logger),
+		telemetrystoremolding.New(logger),
+		metastoremolding.New(logger),
+		signozmolding.New(logger),
+		ingestermolding.New(logger),
 	}
 
 	return &Planner{
-		config:       c,
-		logger:       logger,
-		casting:      castingStrategy,
-		toolers:      toolers,
-		enricher:     enricher,
-		moldingKinds: moldingKinds,
-		moldings:     moldings,
+		config:   c,
+		logger:   logger,
+		casting:  castingStrategy,
+		toolers:  toolers,
+		enricher: enricher,
+		moldings: moldings,
 	}, nil
 }
 
-func (p *Planner) Machinery() v1alpha1.Machinery        { return p.config }
-func (p *Planner) Patches() []v1alpha1.PatchEntry       { return p.config.Spec.Patches }
-func (p *Planner) MoldingKinds() []v1alpha1.MoldingKind { return p.moldingKinds }
+func (p *Planner) Machinery() v1alpha1.Machinery  { return p.config }
+func (p *Planner) Patches() []v1alpha1.PatchEntry { return p.config.Spec.Patches }
+
+func (p *Planner) MoldingKinds() []v1alpha1.MoldingKind {
+	kinds := make([]v1alpha1.MoldingKind, len(p.moldings))
+	for i, m := range p.moldings {
+		kinds[i] = m.Kind()
+	}
+	return kinds
+}
 
 func (p *Planner) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind) error {
 	return p.enricher.EnrichStatus(ctx, kind, p.config)
 }
 
 func (p *Planner) Mold(ctx context.Context, kind v1alpha1.MoldingKind) error {
-	m, ok := p.moldings[kind]
-	if !ok {
-		return foundryerrors.Newf(foundryerrors.TypeInternal, "molding %q not registered for installation planner", kind)
+	for _, m := range p.moldings {
+		if m.Kind() == kind {
+			return m.MoldV1Alpha1(ctx, p.config)
+		}
 	}
-	return m.MoldV1Alpha1(ctx, p.config)
+	return foundryerrors.Newf(foundryerrors.TypeInternal, "molding %q not registered for installation planner", kind)
 }
 
 func (p *Planner) MergeStatusIntoSpec() error {
@@ -104,6 +103,10 @@ func (p *Planner) Cast(ctx context.Context, poursPath string) error {
 	return p.casting.Cast(ctx, *p.config, poursPath)
 }
 
-func (p *Planner) Gauge(ctx context.Context) error {
-	return tooler.GaugeAll(ctx, p.logger, p.toolers)
+func (p *Planner) Toolers() []tooler.Tooler {
+	toolers := p.toolers
+	if p.config.Spec.Infrastructure.Enabled {
+		toolers = append(toolers, terraformtooler.New())
+	}
+	return toolers
 }
