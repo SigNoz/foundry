@@ -155,7 +155,8 @@ spec:
     status:
       addresses:
         otlp:
-        - tcp://signoz-ingester-0:4317
+        - tcp://signoz-ingester:4318
+        - tcp://signoz-ingester:4317
       config:
         data:
           ingester.yaml: |

@@ -180,10 +180,13 @@ services:
         max-size: 50m
         max-file: "3"
   {{- end }}
-  {{- range $replicaIdx := until (int $.Spec.Ingester.Spec.Cluster.Replicas) }}
-  {{ $.Metadata.Name }}-ingester-{{ $replicaIdx }}:
-    container_name: {{ $.Metadata.Name }}-ingester-{{ $replicaIdx }}
+  {{- $ingesterReplicas := int $.Spec.Ingester.Spec.Cluster.Replicas }}
+  ingester:
     image: {{ $.Spec.Ingester.Spec.Image }}
+    networks:
+      default:
+        aliases:
+          - {{ $.Metadata.Name }}-ingester
     depends_on:
       {{- range $shardIdx := $.Spec.TelemetryStore.Spec.Cluster.Shards }}
       {{- range $storeReplicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
@@ -227,7 +230,8 @@ services:
       options:
         max-size: 50m
         max-file: "3"
-  {{- end }}
+    deploy:
+      replicas: {{ $ingesterReplicas }}
   {{ $.Metadata.Name }}-telemetrystore-migrator:
     image: {{ $.Spec.Ingester.Spec.Image }}
     depends_on:

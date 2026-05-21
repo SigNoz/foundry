@@ -101,18 +101,14 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 		config.Spec.MetaStore.Status.Addresses.DSN = metastoreContainerNames
 
 	case v1alpha1.MoldingKindIngester:
-		containerNames, err := enricher.material.GetStringSlice("services|@keys")
-		if err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to get ingester container names")
-		}
+		// The ingester is scaled via `deploy.replicas` and reached through the
+		// `<metadata.name>-ingester` network alias on the default network,
+		// which compose load-balances across all replicas.
+		config.Spec.Ingester.Status.Addresses.OTLP = []string{
+			domain.MustNewAddress("tcp", config.Metadata.Name+"-ingester", 4318).String(),
+			domain.MustNewAddress("tcp", config.Metadata.Name+"-ingester", 4317).String(),
 
-		var ingesterContainerNames []string
-		for _, containerName := range containerNames {
-			if strings.Contains(containerName, "ingester") {
-				ingesterContainerNames = append(ingesterContainerNames, domain.MustNewAddress("tcp", containerName, 4318).String())
-			}
 		}
-		config.Spec.Ingester.Status.Addresses.OTLP = ingesterContainerNames
 	}
 
 	return nil

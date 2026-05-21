@@ -125,11 +125,13 @@ services:
       start_period: 30s
   {{- end }}
   {{- end }}
-  {{- range $replicaIdx := until (int $.Spec.Ingester.Spec.Cluster.Replicas) }}
-  {{ $.Metadata.Name }}-ingester-{{ $replicaIdx }}:
+  {{- $ingesterReplicas := int $.Spec.Ingester.Spec.Cluster.Replicas }}
+  ingester:
     image: {{ $.Spec.Ingester.Spec.Image }}
     networks:
-      - {{ $.Metadata.Name }}-network
+      {{ $.Metadata.Name }}-network:
+        aliases:
+          - {{ $.Metadata.Name }}-ingester
     entrypoint:
       - /bin/sh
     command:
@@ -143,8 +145,8 @@ services:
       - source: manager-config
         target: /etc/opamp-config.yaml
     ports:
-      - "{{ add 4317 (mul $replicaIdx 1000) }}:4317"
-      - "{{ add 4318 (mul $replicaIdx 1000) }}:4318"
+      - "4317:4317"
+      - "4318:4318"
     environment:
 {{ if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
       - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN={{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
@@ -154,7 +156,8 @@ services:
       - {{ $key }}={{ $value }}
       {{- end }}
     {{- end }}
-  {{- end }}
+    deploy:
+      replicas: {{ $ingesterReplicas }}
   {{- range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}:
     image: {{ $.Spec.Signoz.Spec.Image }}

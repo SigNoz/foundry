@@ -1,11 +1,10 @@
 services:
-  signoz-ingester-0:
+  ingester:
     command:
     - -c
     - |
       /signoz-otel-collector migrate sync check &&
       /signoz-otel-collector --config=/etc/otel-collector-config.yaml --manager-config=/etc/opamp-config.yaml --copy-path=/var/tmp/collector-config.yaml
-    container_name: signoz-ingester-0
     depends_on:
       signoz-signoz-0:
         condition: service_started
@@ -13,6 +12,8 @@ services:
         condition: service_healthy
       signoz-telemetrystore-migrator:
         condition: service_completed_successfully
+    deploy:
+      replicas: 1
     entrypoint:
     - /bin/sh
     environment:
@@ -24,6 +25,10 @@ services:
       options:
         max-file: "3"
         max-size: 50m
+    networks:
+      default:
+        aliases:
+        - signoz-ingester
     volumes:
     - content: |
         connectors:
