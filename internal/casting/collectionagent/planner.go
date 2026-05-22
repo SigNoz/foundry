@@ -10,8 +10,11 @@ import (
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	collectionagentmolding "github.com/signoz/foundry/internal/molding/collectionagent"
 	"github.com/signoz/foundry/internal/molding/collectionagent/collectormolding"
+	"github.com/signoz/foundry/internal/planner"
 	"github.com/signoz/foundry/internal/tooler"
 )
+
+var _ planner.Planner = (*Planner)(nil)
 
 // Planner is the CollectionAgent Kind's per-Kind orchestrator. It satisfies
 // the foundry planner contract by exposing this Kind's moldings, enricher,
@@ -25,7 +28,7 @@ type Planner struct {
 	moldings []collectionagentmolding.Molding
 }
 
-func NewPlanner(ctx context.Context, c *collectionagent.Casting, logger *slog.Logger) (*Planner, error) {
+func NewPlanner(ctx context.Context, c *collectionagent.Casting, logger *slog.Logger) (planner.Planner, error) {
 	registry := NewRegistry(logger)
 
 	castingStrategy, err := registry.Casting(c.Spec.Deployment)

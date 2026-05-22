@@ -15,9 +15,12 @@ import (
 	"github.com/signoz/foundry/internal/molding/signozmolding"
 	"github.com/signoz/foundry/internal/molding/telemetrykeepermolding"
 	"github.com/signoz/foundry/internal/molding/telemetrystoremolding"
+	"github.com/signoz/foundry/internal/planner"
 	"github.com/signoz/foundry/internal/tooler"
 	"github.com/signoz/foundry/internal/tooler/terraformtooler"
 )
+
+var _ planner.Planner = (*Planner)(nil)
 
 // Planner is the Installation Kind's per-Kind orchestrator. It satisfies the
 // foundry planner contract by exposing this Kind's moldings, enricher, and
@@ -31,7 +34,7 @@ type Planner struct {
 	moldings []molding.Molding
 }
 
-func NewPlanner(ctx context.Context, c *installation.Casting, logger *slog.Logger) (*Planner, error) {
+func NewPlanner(ctx context.Context, c *installation.Casting, logger *slog.Logger) (planner.Planner, error) {
 	registry := NewRegistry(logger)
 
 	castingStrategy, err := registry.Casting(c.Spec.Deployment)

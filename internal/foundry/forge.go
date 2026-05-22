@@ -13,7 +13,7 @@ import (
 )
 
 func (f *Foundry) Forge(ctx context.Context, machinery v1alpha1.Machinery, path string, opts *writer.Options) error {
-	p, err := newPlanner(ctx, machinery, f.Logger)
+	p, err := f.newPlanner(ctx, machinery)
 	if err != nil {
 		return err
 	}

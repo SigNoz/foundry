@@ -10,7 +10,7 @@ import (
 )
 
 func (f *Foundry) Gauge(ctx context.Context, machinery v1alpha1.Machinery) error {
-	p, err := newPlanner(ctx, machinery, f.Logger)
+	p, err := f.newPlanner(ctx, machinery)
 	if err != nil {
 		return err
 	}

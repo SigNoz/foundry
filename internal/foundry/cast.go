@@ -7,7 +7,7 @@ import (
 )
 
 func (f *Foundry) Cast(ctx context.Context, machinery v1alpha1.Machinery, poursPath string) error {
-	p, err := newPlanner(ctx, machinery, f.Logger)
+	p, err := f.newPlanner(ctx, machinery)
 	if err != nil {
 		return err
 	}
