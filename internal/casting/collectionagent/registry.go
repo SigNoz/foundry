@@ -4,11 +4,8 @@ import (
 	"log/slog"
 
 	"github.com/signoz/foundry/api/v1alpha1"
-	"github.com/signoz/foundry/internal/casting/collectionagent/dockercomposecasting"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/tooler"
-	"github.com/signoz/foundry/internal/tooler/dockercomposetooler"
-	"github.com/signoz/foundry/internal/tooler/dockertooler"
 )
 
 type CastingItem struct {
@@ -22,15 +19,7 @@ type Registry struct {
 
 func NewRegistry(logger *slog.Logger) *Registry {
 	return &Registry{
-		castings: map[v1alpha1.TypeDeployment]CastingItem{
-			{
-				Mode:   v1alpha1.ModeDocker,
-				Flavor: v1alpha1.FlavorCompose,
-			}: {
-				Casting: dockercomposecasting.New(logger),
-				Toolers: []tooler.Tooler{dockertooler.New(), dockercomposetooler.New()},
-			},
-		},
+		castings: map[v1alpha1.TypeDeployment]CastingItem{},
 	}
 }
 
