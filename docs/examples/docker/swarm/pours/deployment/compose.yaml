@@ -15,7 +15,7 @@ networks:
     driver: overlay
     name: signoz-network
 services:
-  signoz-ingester:
+  ingester:
     command:
     - -c
     - |
@@ -26,6 +26,8 @@ services:
       target: /etc/otel-collector-config.yaml
     - source: manager-config
       target: /etc/opamp-config.yaml
+    deploy:
+      replicas: 1
     entrypoint:
     - /bin/sh
     environment:
@@ -33,7 +35,9 @@ services:
     - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
     image: signoz/signoz-otel-collector:latest
     networks:
-    - signoz-network
+      signoz-network:
+        aliases:
+        - signoz-ingester
     ports:
     - 4317:4317
     - 4318:4318
@@ -58,9 +62,8 @@ services:
     - signoz-network
     volumes:
     - signoz-metastore-postgres-0-data:/var/lib/postgresql/data
-  signoz-signoz:
+  signoz-signoz-0:
     deploy:
-      replicas: 1
       restart_policy:
         condition: on-failure
     environment:

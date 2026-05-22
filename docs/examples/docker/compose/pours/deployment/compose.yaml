@@ -1,16 +1,15 @@
+name: signoz
 networks:
   signoz-network:
     name: signoz-network
 services:
-  signoz-ingester:
+  ingester:
     command:
     - -c
     - |
       /signoz-otel-collector migrate sync check &&
       /signoz-otel-collector --config=/etc/otel-collector-config.yaml --manager-config=/etc/opamp-config.yaml --copy-path=/var/tmp/collector-config.yaml
-    container_name: signoz-ingester
     deploy:
-      replicas: 1
       restart_policy:
         condition: on-failure
     entrypoint:
@@ -20,7 +19,9 @@ services:
     - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
     image: signoz/signoz-otel-collector:latest
     networks:
-    - signoz-network
+      signoz-network:
+        aliases:
+        - signoz-ingester
     ports:
     - 4317:4317
     - 4318:4318
@@ -46,8 +47,8 @@ services:
     - signoz-network
     volumes:
     - signoz-metastore-postgres-0-data:/var/lib/postgresql/data
-  signoz-signoz:
-    container_name: signoz-signoz
+  signoz-signoz-0:
+    container_name: signoz-signoz-0
     deploy:
       restart_policy:
         condition: on-failure

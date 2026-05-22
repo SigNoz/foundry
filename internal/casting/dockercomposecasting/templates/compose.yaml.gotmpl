@@ -1,3 +1,4 @@
+name: {{ $.Metadata.Name }}
 services:
   {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}:
@@ -116,11 +117,13 @@ services:
       start_period: 30s
   {{- end }}
   {{- end }}
-  {{ $.Metadata.Name }}-ingester:
-    container_name: {{ $.Metadata.Name }}-ingester
+  {{- $ingesterReplicas := int $.Spec.Ingester.Spec.Cluster.Replicas }}
+  ingester:
     image: {{ $.Spec.Ingester.Spec.Image }}
     networks:
-      - {{ $.Metadata.Name }}-network
+      {{ $.Metadata.Name }}-network:
+        aliases:
+          - {{ $.Metadata.Name }}-ingester
     entrypoint:
       - /bin/sh
     command:
@@ -131,9 +134,15 @@ services:
     volumes:
       - ./ingester/ingester.yaml:/etc/otel-collector-config.yaml:ro
       - ./ingester/opamp.yaml:/etc/opamp-config.yaml:ro
+    {{- if eq $ingesterReplicas 1 }}
     ports:
       - "4317:4317"
       - "4318:4318"
+    {{- else }}
+    expose:
+      - "4317"
+      - "4318"
+    {{- end }}
     environment:
 {{ if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
       - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN={{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
@@ -144,11 +153,14 @@ services:
       {{- end }}
     {{- end }}
     deploy:
-      replicas: {{ int $.Spec.Ingester.Spec.Cluster.Replicas }}
+      {{- if gt $ingesterReplicas 1 }}
+      replicas: {{ $ingesterReplicas }}
+      {{- end }}
       restart_policy:
         condition: on-failure
-  {{ $.Metadata.Name }}-signoz:
-    container_name: {{ $.Metadata.Name }}-signoz
+  {{- range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}:
+    container_name: {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}
     image: {{ $.Spec.Signoz.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
@@ -159,10 +171,10 @@ services:
       {{- end }}
     {{- end }}
     ports:
-      - "8080:8080"
+      - "{{ add 8080 (mul $replicaIdx 1000) }}:8080"
     {{- if eq $.Spec.MetaStore.Kind.String "sqlite" }}
     volumes:
-      - {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-data:{{ dir (index $.Spec.Signoz.Spec.Env "SIGNOZ_SQLSTORE_SQLITE_PATH") }}
+      - {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}-data:{{ dir (index $.Spec.Signoz.Spec.Env "SIGNOZ_SQLSTORE_SQLITE_PATH") }}
     {{- end }}
     healthcheck:
       test:
@@ -178,6 +190,7 @@ services:
     deploy:
       restart_policy:
         condition: on-failure
+  {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-migrator:
     container_name: {{ $.Metadata.Name }}-telemetrystore-migrator
     image: {{ $.Spec.Ingester.Spec.Image }}
@@ -224,6 +237,8 @@ volumes:
   {{- end }}
   {{- end }}
   {{- if eq $.Spec.MetaStore.Kind.String "sqlite" }}
-  {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-data:
-    name: {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-data
+  {{- range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}-data:
+    name: {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}-data
+  {{- end }}
   {{- end }}

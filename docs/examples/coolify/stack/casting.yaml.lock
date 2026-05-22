@@ -146,7 +146,7 @@ spec:
                   exporters:
                     - signozclickhousemeter
           opamp.yaml: |
-            server_endpoint: ws://signoz-signoz:4320/v1/opamp
+            server_endpoint: ws://signoz-signoz-0:4320/v1/opamp
       enabled: true
       env:
         SIGNOZ_OTEL_COLLECTOR_TIMEOUT: 10m
@@ -156,6 +156,7 @@ spec:
       addresses:
         otlp:
         - tcp://signoz-ingester:4318
+        - tcp://signoz-ingester:4317
       config:
         data:
           ingester.yaml: |
@@ -292,7 +293,7 @@ spec:
                   exporters:
                     - signozclickhousemeter
           opamp.yaml: |
-            server_endpoint: ws://signoz-signoz:4320/v1/opamp
+            server_endpoint: ws://signoz-signoz-0:4320/v1/opamp
       env:
         SIGNOZ_OTEL_COLLECTOR_TIMEOUT: 10m
   metastore:
@@ -333,9 +334,9 @@ spec:
     status:
       addresses:
         apiserver:
-        - tcp://signoz-signoz:8080
+        - tcp://signoz-signoz-0:8080
         opamp:
-        - ws://signoz-signoz:4320
+        - ws://signoz-signoz-0:4320
       config: {}
       env:
         SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@signoz-metastore-postgres-0:5432/signoz?sslmode=disable

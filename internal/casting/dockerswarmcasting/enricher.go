@@ -99,18 +99,13 @@ func (enricher *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, ki
 		config.Spec.MetaStore.Status.Addresses.DSN = metastoreAddresses
 
 	case v1alpha1.MoldingKindIngester:
-		containerNames, err := enricher.material.GetStringSlice("services|@keys")
-		if err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to get ingester service names")
+		// The ingester is scaled via `deploy.replicas` and reached through the
+		// `<metadata.name>-ingester` network alias, which Swarm's routing mesh
+		// load-balances across all replicas.
+		config.Spec.Ingester.Status.Addresses.OTLP = []string{
+			domain.MustNewAddress("tcp", config.Metadata.Name+"-ingester", 4318).String(),
+			domain.MustNewAddress("tcp", config.Metadata.Name+"-ingester", 4317).String(),
 		}
-
-		var ingesterAddresses []string
-		for _, name := range containerNames {
-			if strings.Contains(name, "ingester") {
-				ingesterAddresses = append(ingesterAddresses, domain.MustNewAddress("tcp", name, 9000).String())
-			}
-		}
-		config.Spec.Ingester.Status.Addresses.OTLP = ingesterAddresses
 	}
 
 	return nil

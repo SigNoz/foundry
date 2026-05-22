@@ -136,8 +136,9 @@ services:
         max-file: "3"
   {{- end }}
   {{- end }}
-  {{ $.Metadata.Name }}-signoz:
-    container_name: {{ $.Metadata.Name }}-signoz
+  {{- range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}:
+    container_name: {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}
     image: {{ $.Spec.Signoz.Spec.Image }}
     depends_on:
       {{- if ne $.Spec.MetaStore.Kind.String "sqlite" }}
@@ -172,26 +173,33 @@ services:
       {{- end }}
     volumes:
       - type: volume
-        source: {{ $.Metadata.Name }}-signoz-data
+        source: {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}-data
         target: /var/lib/signoz/
     logging:
       options:
         max-size: 50m
         max-file: "3"
-  {{ $.Metadata.Name }}-ingester:
-    container_name: {{ $.Metadata.Name }}-ingester
+  {{- end }}
+  {{- $ingesterReplicas := int $.Spec.Ingester.Spec.Cluster.Replicas }}
+  ingester:
     image: {{ $.Spec.Ingester.Spec.Image }}
+    networks:
+      default:
+        aliases:
+          - {{ $.Metadata.Name }}-ingester
     depends_on:
       {{- range $shardIdx := $.Spec.TelemetryStore.Spec.Cluster.Shards }}
-      {{- range $replicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
-      {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}:
+      {{- range $storeReplicaIdx := add $.Spec.TelemetryStore.Spec.Cluster.Replicas 1 }}
+      {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $storeReplicaIdx }}:
         condition: service_healthy
       {{- end }}
       {{- end }}
       {{ $.Metadata.Name }}-telemetrystore-migrator:
         condition: service_completed_successfully
-      {{ $.Metadata.Name }}-signoz:
+      {{- range $signozReplicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
+      {{ $.Metadata.Name }}-signoz-{{ $signozReplicaIdx }}:
         condition: service_started
+      {{- end }}
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
       - LOW_CARDINAL_EXCEPTION_GROUPING=false
@@ -222,6 +230,8 @@ services:
       options:
         max-size: 50m
         max-file: "3"
+    deploy:
+      replicas: {{ $ingesterReplicas }}
   {{ $.Metadata.Name }}-telemetrystore-migrator:
     image: {{ $.Spec.Ingester.Spec.Image }}
     depends_on:
@@ -270,5 +280,7 @@ volumes:
     name: {{ $.Metadata.Name }}-metastore-{{ $replicaIdx }}-data
   {{- end }}
   {{- end }}
-  {{ $.Metadata.Name }}-signoz-data:
-    name: {{ $.Metadata.Name }}-signoz-data
+  {{- range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}-data:
+    name: {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}-data
+  {{- end }}

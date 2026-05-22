@@ -125,10 +125,13 @@ services:
       start_period: 30s
   {{- end }}
   {{- end }}
-  {{ $.Metadata.Name }}-ingester:
+  {{- $ingesterReplicas := int $.Spec.Ingester.Spec.Cluster.Replicas }}
+  ingester:
     image: {{ $.Spec.Ingester.Spec.Image }}
     networks:
-      - {{ $.Metadata.Name }}-network
+      {{ $.Metadata.Name }}-network:
+        aliases:
+          - {{ $.Metadata.Name }}-ingester
     entrypoint:
       - /bin/sh
     command:
@@ -153,7 +156,10 @@ services:
       - {{ $key }}={{ $value }}
       {{- end }}
     {{- end }}
-  {{ $.Metadata.Name }}-signoz:
+    deploy:
+      replicas: {{ $ingesterReplicas }}
+  {{- range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}:
     image: {{ $.Spec.Signoz.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
@@ -164,13 +170,12 @@ services:
       {{- end }}
     {{- end }}
     ports:
-      - "8080:8080"
+      - "{{ add 8080 (mul $replicaIdx 1000) }}:8080"
     {{- if eq $.Spec.MetaStore.Kind.String "sqlite" }}
     volumes:
-      - {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-data:{{ dir (index $.Spec.Signoz.Spec.Env "SIGNOZ_SQLSTORE_SQLITE_PATH") }}
+      - {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}-data:{{ dir (index $.Spec.Signoz.Spec.Env "SIGNOZ_SQLSTORE_SQLITE_PATH") }}
     {{- end }}
     deploy:
-      replicas: {{ int $.Spec.Signoz.Spec.Cluster.Replicas }}
       restart_policy:
         condition: on-failure
     healthcheck:
@@ -184,6 +189,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+  {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-migrator:
     image: {{ $.Spec.Ingester.Spec.Image }}
     networks:
@@ -232,7 +238,9 @@ volumes:
   {{- end }}
   {{- end }}
   {{- if eq $.Spec.MetaStore.Kind.String "sqlite" }}
-  {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-data:
+  {{- range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}-data:
+  {{- end }}
   {{- end }}
 configs:
   {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}

@@ -1,18 +1,19 @@
 services:
-  signoz-ingester:
+  ingester:
     command:
     - -c
     - |
       /signoz-otel-collector migrate sync check &&
       /signoz-otel-collector --config=/etc/otel-collector-config.yaml --manager-config=/etc/opamp-config.yaml --copy-path=/var/tmp/collector-config.yaml
-    container_name: signoz-ingester
     depends_on:
-      signoz-signoz:
+      signoz-signoz-0:
         condition: service_started
       signoz-telemetrystore-clickhouse-0-0:
         condition: service_healthy
       signoz-telemetrystore-migrator:
         condition: service_completed_successfully
+    deploy:
+      replicas: 1
     entrypoint:
     - /bin/sh
     environment:
@@ -24,6 +25,10 @@ services:
       options:
         max-file: "3"
         max-size: 50m
+    networks:
+      default:
+        aliases:
+        - signoz-ingester
     volumes:
     - content: |
         connectors:
@@ -162,7 +167,7 @@ services:
       target: /etc/otel-collector-config.yaml
       type: bind
     - content: |
-        server_endpoint: ws://signoz-signoz:4320/v1/opamp
+        server_endpoint: ws://signoz-signoz-0:4320/v1/opamp
       source: ./configs/ingester/opamp.yaml
       target: /etc/opamp-config.yaml
       type: bind
@@ -187,8 +192,8 @@ services:
     - source: signoz-metastore-0-data
       target: /var/lib/postgresql/data
       type: volume
-  signoz-signoz:
-    container_name: signoz-signoz
+  signoz-signoz-0:
+    container_name: signoz-signoz-0
     depends_on:
       signoz-metastore-postgres-0:
         condition: service_healthy
@@ -217,7 +222,7 @@ services:
         max-file: "3"
         max-size: 50m
     volumes:
-    - source: signoz-signoz-data
+    - source: signoz-signoz-0-data
       target: /var/lib/signoz/
       type: volume
   signoz-telemetrykeeper-clickhousekeeper-0:
@@ -469,8 +474,8 @@ services:
 volumes:
   signoz-metastore-0-data:
     name: signoz-metastore-0-data
-  signoz-signoz-data:
-    name: signoz-signoz-data
+  signoz-signoz-0-data:
+    name: signoz-signoz-0-data
   signoz-telemetrykeeper-0-data:
     name: signoz-telemetrykeeper-0-data
   signoz-telemetrystore-0-0-data:
