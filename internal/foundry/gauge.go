@@ -9,23 +9,23 @@ import (
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 )
 
-func (f *Foundry) Gauge(ctx context.Context, machinery v1alpha1.Machinery) error {
-	p, err := f.newPlanner(ctx, machinery)
+func (foundry *Foundry) Gauge(ctx context.Context, machinery v1alpha1.Machinery) error {
+	p, err := foundry.newPlanner(ctx, machinery)
 	if err != nil {
 		return err
 	}
 
-	var unavailable []string
-	for _, t := range p.Toolers() {
-		if err := t.Gauge(ctx); err != nil {
-			f.Logger.ErrorContext(ctx, "tool is not available or cannot be detected properly", slog.String("tool.name", t.Name()), foundryerrors.LogAttr(err))
-			unavailable = append(unavailable, t.Name())
+	unavailableTools := []string{}
+	for _, tooler := range p.Toolers() {
+		if err := tooler.Gauge(ctx); err != nil {
+			foundry.Logger.ErrorContext(ctx, "tool is not available or cannot be detected properly", slog.String("tool.name", tooler.Name()), foundryerrors.LogAttr(err))
+			unavailableTools = append(unavailableTools, tooler.Name())
 			continue
 		}
-		f.Logger.InfoContext(ctx, "tool is available", slog.String("tool.name", t.Name()))
+		foundry.Logger.InfoContext(ctx, "tool is available", slog.String("tool.name", tooler.Name()))
 	}
-	if len(unavailable) > 0 {
-		return foundryerrors.Newf(foundryerrors.TypeNotFound, "tools are not available, please install them and try again: %s", strings.Join(unavailable, ", "))
+	if len(unavailableTools) > 0 {
+		return foundryerrors.Newf(foundryerrors.TypeNotFound, "tools are not available, please install them and try again: %s", strings.Join(unavailableTools, ", "))
 	}
 	return nil
 }

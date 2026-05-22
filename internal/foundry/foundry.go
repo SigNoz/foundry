@@ -21,14 +21,21 @@ import (
 
 type plannerCtor func(ctx context.Context, m v1alpha1.Machinery, logger *slog.Logger) (planner.Planner, error)
 
-// Foundry holds only shared facilities. Per-Kind planners are constructed on
-// demand from a Machinery via the Planners dispatch map.
 type Foundry struct {
-	Config                  config.Config
-	Patchers                map[string]patch.Patch
-	Planners                map[v1alpha1.Kind]plannerCtor
+	// Config for loading the casting configuration.
+	Config config.Config
+
+	// Patchers for applying patches to generated materials, keyed by patch type.
+	Patchers map[string]patch.Patch
+
+	// Logger for logging.
+	Logger *slog.Logger
+
+	// Planners for the different casting kinds.
+	Planners map[v1alpha1.Kind]plannerCtor
+
+	// InfrastructureGenerator for generating infrastructure-as-code manifests.
 	InfrastructureGenerator infrastructure.Generator
-	Logger                  *slog.Logger
 }
 
 func New(logger *slog.Logger) (*Foundry, error) {
@@ -37,6 +44,7 @@ func New(logger *slog.Logger) (*Foundry, error) {
 		Patchers: map[string]patch.Patch{
 			v1alpha1.PatchTypeJSONPatch: jsonpatch.New(),
 		},
+		Logger: logger,
 		Planners: map[v1alpha1.Kind]plannerCtor{
 			v1alpha1.KindInstallation: func(ctx context.Context, m v1alpha1.Machinery, logger *slog.Logger) (planner.Planner, error) {
 				return installationcasting.NewPlanner(ctx, m.(*installation.Casting), logger)
@@ -46,14 +54,13 @@ func New(logger *slog.Logger) (*Foundry, error) {
 			},
 		},
 		InfrastructureGenerator: terraformgenerator.New(logger),
-		Logger:                  logger,
 	}, nil
 }
 
-func (f *Foundry) newPlanner(ctx context.Context, m v1alpha1.Machinery) (planner.Planner, error) {
-	ctor, ok := f.Planners[m.Kind()]
+func (foundry *Foundry) newPlanner(ctx context.Context, m v1alpha1.Machinery) (planner.Planner, error) {
+	ctor, ok := foundry.Planners[m.Kind()]
 	if !ok {
 		return nil, foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported casting kind %q", m.Kind())
 	}
-	return ctor(ctx, m, f.Logger)
+	return ctor(ctx, m, foundry.Logger)
 }

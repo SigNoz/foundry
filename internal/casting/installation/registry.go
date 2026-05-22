@@ -28,12 +28,17 @@ import (
 	"github.com/signoz/foundry/internal/tooler/terraformtooler"
 )
 
+// Defines a single casting item in the registry.
 type CastingItem struct {
+	// The particular casting implementation.
 	Casting casting.Casting
+
+	// The toolers for the particular casting.
 	Toolers []tooler.Tooler
 }
 
 type Registry struct {
+	// Castings for the different deployments.
 	castings map[v1alpha1.TypeDeployment]CastingItem
 }
 
@@ -105,31 +110,33 @@ func NewRegistry(logger *slog.Logger) *Registry {
 	}
 }
 
-func (r *Registry) CastingItems() map[v1alpha1.TypeDeployment]CastingItem {
-	return r.castings
+func (registry *Registry) CastingItems() map[v1alpha1.TypeDeployment]CastingItem {
+	return registry.castings
 }
 
-func (r *Registry) lookup(deployment v1alpha1.TypeDeployment) (CastingItem, bool) {
-	if item, ok := r.castings[deployment]; ok {
+func (registry *Registry) lookup(deployment v1alpha1.TypeDeployment) (CastingItem, bool) {
+	if item, ok := registry.castings[deployment]; ok {
 		return item, true
 	}
+	// Fall back to matching without platform (platform may be set for infra generation
+	// but the casting itself is platform-agnostic, e.g. docker/compose on aws).
 	if deployment.Platform != (v1alpha1.Platform{}) {
-		item, ok := r.castings[v1alpha1.TypeDeployment{Mode: deployment.Mode, Flavor: deployment.Flavor}]
+		item, ok := registry.castings[v1alpha1.TypeDeployment{Mode: deployment.Mode, Flavor: deployment.Flavor}]
 		return item, ok
 	}
 	return CastingItem{}, false
 }
 
-func (r *Registry) Casting(deployment v1alpha1.TypeDeployment) (casting.Casting, error) {
-	item, ok := r.lookup(deployment)
+func (registry *Registry) Casting(deployment v1alpha1.TypeDeployment) (casting.Casting, error) {
+	item, ok := registry.lookup(deployment)
 	if !ok {
 		return nil, foundryerrors.Newf(foundryerrors.TypeUnsupported, "deployment '%+v' is not supported, raise an issue at https://github.com/signoz/foundry/issues to request support for this deployment", deployment)
 	}
 	return item.Casting, nil
 }
 
-func (r *Registry) Toolers(deployment v1alpha1.TypeDeployment) ([]tooler.Tooler, error) {
-	item, ok := r.lookup(deployment)
+func (registry *Registry) Toolers(deployment v1alpha1.TypeDeployment) ([]tooler.Tooler, error) {
+	item, ok := registry.lookup(deployment)
 	if !ok {
 		return nil, foundryerrors.Newf(foundryerrors.TypeUnsupported, "deployment '%+v' is not supported, raise an issue at https://github.com/signoz/foundry/issues to request support for this deployment", deployment)
 	}

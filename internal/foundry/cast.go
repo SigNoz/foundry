@@ -6,8 +6,8 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 )
 
-func (f *Foundry) Cast(ctx context.Context, machinery v1alpha1.Machinery, poursPath string) error {
-	p, err := f.newPlanner(ctx, machinery)
+func (foundry *Foundry) Cast(ctx context.Context, machinery v1alpha1.Machinery, poursPath string) error {
+	p, err := foundry.newPlanner(ctx, machinery)
 	if err != nil {
 		return err
 	}
