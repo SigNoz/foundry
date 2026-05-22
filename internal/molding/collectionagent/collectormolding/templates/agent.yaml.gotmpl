@@ -1,0 +1,79 @@
+{{- if .Extensions -}}
+extensions:
+{{- range $name, $body := .Extensions }}
+  {{ $name }}:
+{{ $body | toYaml | trimSuffix "\n" | indent 4 }}
+{{- end }}
+
+{{ end -}}
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+{{- range $name, $body := .Receivers }}
+  {{ $name }}:
+{{ $body | toYaml | trimSuffix "\n" | indent 4 }}
+{{- end }}
+
+processors:
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 4000
+    spike_limit_mib: 800
+  resourcedetection:
+    detectors:
+      - env
+      - system
+{{- range .ResourceDetectors }}
+      - {{ . }}
+{{- end }}
+    timeout: 5s
+  batch: {}
+{{- range $name, $body := .Processors }}
+  {{ $name }}:
+{{ $body | toYaml | trimSuffix "\n" | indent 4 }}
+{{- end }}
+
+exporters:
+  otlphttp:
+    endpoint: ${env:SIGNOZ_INGESTION_ENDPOINT}
+{{- if .IngestionKey }}
+    headers:
+      signoz-ingestion-key: ${env:SIGNOZ_INGESTION_KEY}
+{{- end }}
+{{- range $name, $body := .Exporters }}
+  {{ $name }}:
+{{ $body | toYaml | trimSuffix "\n" | indent 4 }}
+{{- end }}
+
+service:
+{{- if .ServiceExtensions }}
+  extensions:
+{{- range .ServiceExtensions }}
+    - {{ . }}
+{{- end }}
+{{- end }}
+  pipelines:
+{{- range $pipeline := list "traces" "metrics" "logs" }}
+    {{ $pipeline }}:
+      receivers:
+        - otlp
+{{- range index $.PipelineReceivers $pipeline }}
+        - {{ . }}
+{{- end }}
+      processors:
+        - memory_limiter
+        - resourcedetection
+        - batch
+{{- range index $.PipelineProcessors $pipeline }}
+        - {{ . }}
+{{- end }}
+      exporters:
+        - otlphttp
+{{- range index $.PipelineExporters $pipeline }}
+        - {{ . }}
+{{- end }}
+{{- end }}

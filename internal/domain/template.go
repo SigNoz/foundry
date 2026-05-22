@@ -89,6 +89,33 @@ func (t *Template) Render(data any, path string) (Material, error) {
 	return m, nil
 }
 
+// RenderInto executes the template against data and unmarshals the rendered
+// YAML/JSON output into target. Errors for non-YAML/JSON formats whose output
+// cannot meaningfully be unmarshaled into a Go value.
+func (t *Template) RenderInto(data, target any) error {
+	if t.format.String() != FormatYAML.String() && t.format.String() != FormatJSON.String() {
+		return errors.Newf(errors.TypeInvalidInput, "template %q: RenderInto requires YAML or JSON format, got %q", t.name, t.format)
+	}
+
+	buf := bytes.NewBuffer(nil)
+	if err := t.Execute(buf, data); err != nil {
+		return err
+	}
+
+	if err := yaml.Unmarshal(buf.Bytes(), target); err != nil {
+		return errors.Wrapf(err, errors.TypeInvalidInput, "template %q: failed to unmarshal rendered output", t.name)
+	}
+	return nil
+}
+
+// MustRenderInto is RenderInto that panics on error. Use only with templates
+// authored alongside the calling code; never with user-provided templates.
+func (t *Template) MustRenderInto(data, target any) {
+	if err := t.RenderInto(data, target); err != nil {
+		panic(err)
+	}
+}
+
 func (t *Template) Name() string {
 	return t.name
 }

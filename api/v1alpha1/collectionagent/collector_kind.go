@@ -17,7 +17,7 @@ var _ fmt.Stringer = (*CollectorKind)(nil)
 var _ jsonschema.Enum = (*CollectorKind)(nil)
 
 var (
-	CollectorKindAgent CollectorKind = CollectorKind{s: "agent"}
+	CollectorKindAgent   CollectorKind = CollectorKind{s: "agent"}
 )
 
 type CollectorKind struct {

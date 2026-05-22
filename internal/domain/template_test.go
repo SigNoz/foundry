@@ -86,3 +86,50 @@ func TestTemplateRender(t *testing.T) {
 		})
 	}
 }
+
+func TestTemplateRenderInto(t *testing.T) {
+	t.Run("YAMLIntoMap", func(t *testing.T) {
+		tmpl := MustNewTemplate("yaml", []byte("key: {{ .Value }}\nnested:\n  inner: 1\n"), FormatYAML)
+		var out map[string]any
+		err := tmpl.RenderInto(map[string]string{"Value": "hello"}, &out)
+		assert.NoError(t, err)
+		assert.Equal(t, "hello", out["key"])
+		nested, ok := out["nested"].(map[string]any)
+		assert.True(t, ok)
+		assert.Equal(t, float64(1), nested["inner"])
+	})
+
+	t.Run("JSONIntoStruct", func(t *testing.T) {
+		tmpl := MustNewTemplate("json", []byte(`{"name":"{{ .Name }}","count":{{ .Count }}}`), FormatJSON)
+		var out struct {
+			Name  string `json:"name"`
+			Count int    `json:"count"`
+		}
+		err := tmpl.RenderInto(map[string]any{"Name": "alpha", "Count": 7}, &out)
+		assert.NoError(t, err)
+		assert.Equal(t, "alpha", out.Name)
+		assert.Equal(t, 7, out.Count)
+	})
+
+	t.Run("UnsupportedFormat", func(t *testing.T) {
+		tmpl := MustNewTemplate("text", []byte("hello"), FormatText)
+		var out map[string]any
+		err := tmpl.RenderInto(nil, &out)
+		assert.Error(t, err)
+	})
+
+	t.Run("MalformedOutput", func(t *testing.T) {
+		tmpl := MustNewTemplate("bad", []byte("key: : :"), FormatYAML)
+		var out map[string]any
+		err := tmpl.RenderInto(nil, &out)
+		assert.Error(t, err)
+	})
+
+	t.Run("MustRenderIntoPanicsOnUnsupportedFormat", func(t *testing.T) {
+		tmpl := MustNewTemplate("text", []byte("hello"), FormatText)
+		assert.Panics(t, func() {
+			var out map[string]any
+			tmpl.MustRenderInto(nil, &out)
+		})
+	})
+}
