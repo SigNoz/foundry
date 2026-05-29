@@ -21,6 +21,14 @@ type TypeConfig struct {
 	_    struct{}          `additionalProperties:"false"`
 }
 
+// Set writes content at a path into the config data, allocating Data if needed.
+func (config *TypeConfig) Set(path string, content []byte) {
+	if config.Data == nil {
+		config.Data = map[string]string{}
+	}
+	config.Data[path] = string(content)
+}
+
 type TypeDeployment struct {
 	// Platform: cloud or hosting provider where an installation runs.
 	Platform Platform `json:"platform,omitzero" yaml:"platform,omitempty" description:"Provider where an installation runs on"`

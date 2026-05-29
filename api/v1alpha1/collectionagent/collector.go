@@ -15,27 +15,14 @@ type Collector struct {
 	_ struct{} `additionalProperties:"false"`
 }
 
-// CollectorStatus is the contract surface between casting enrichers (which
-// fill the slots) and the collector molding (which renders the mold cavity).
-// Fields carry platform-necessary OTel components the casting contributes;
-// each Component map entry colocates its body with the pipelines it plugs into.
+// CollectorStatus carries the molding's collector config in Config.Data, a
+// config map of path -> content. The casting enricher writes its OTel additions
+// at the kind's ConfigKey; the molding merges them over its base config and
+// writes the result back to the same key.
 type CollectorStatus struct {
 	v1alpha1.MoldingStatus `json:",inline" yaml:",inline"`
 
-	Receivers         map[string]Component      `json:"receivers,omitempty" yaml:"receivers,omitempty" description:"OTel receivers contributed by the casting, with the pipelines each feeds"`
-	Processors        map[string]Component      `json:"processors,omitempty" yaml:"processors,omitempty" description:"OTel processors contributed by the casting, with the pipelines each runs in"`
-	Exporters         map[string]Component      `json:"exporters,omitempty" yaml:"exporters,omitempty" description:"OTel exporters contributed by the casting, with the pipelines each receives from"`
-	Extensions        map[string]map[string]any `json:"extensions,omitempty" yaml:"extensions,omitempty" description:"OTel extensions contributed by the casting; declared entries are activated under service.extensions"`
-	ResourceDetectors []string                  `json:"resourceDetectors,omitempty" yaml:"resourceDetectors,omitempty" description:"Detectors appended to the baked-in [env, system] list on the resourcedetection processor"`
-
 	_ struct{} `additionalProperties:"false"`
-}
-
-// Component pairs an OTel component body with the pipelines it participates in.
-type Component struct {
-	Body      map[string]any `json:"body" yaml:"body" description:"OTel component body, an opaque map preserving the upstream schema"`
-	Pipelines []string       `json:"pipelines,omitempty" yaml:"pipelines,omitempty" description:"Pipelines (traces|metrics|logs) this component plugs into"`
-	_         struct{}       `additionalProperties:"false"`
 }
 
 func DefaultCollector() Collector {

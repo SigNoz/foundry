@@ -30,7 +30,7 @@ type entry struct {
 }
 
 // New constructs a Pourer staged at kindDir. Each Kind's Planner builds one
-// per Forge / Cast call (e.g. pourer.New("agent") for CollectionAgent).
+// per Forge / Cast call (e.g. pourer.New("collectionagent")).
 func New(kindDir string) *Pourer {
 	return &Pourer{kindDir: kindDir}
 }

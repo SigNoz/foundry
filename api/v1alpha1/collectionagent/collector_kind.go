@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 
+	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/swaggest/jsonschema-go"
 	"go.yaml.in/yaml/v3"
 )
@@ -17,7 +19,7 @@ var _ fmt.Stringer = (*CollectorKind)(nil)
 var _ jsonschema.Enum = (*CollectorKind)(nil)
 
 var (
-	CollectorKindAgent   CollectorKind = CollectorKind{s: "agent"}
+	CollectorKindAgent CollectorKind = CollectorKind{s: "agent"}
 )
 
 type CollectorKind struct {
@@ -26,6 +28,12 @@ type CollectorKind struct {
 
 func (kind CollectorKind) String() string {
 	return kind.s
+}
+
+// ConfigKey is the collector's key in the config map (TypeConfig.Data) for this
+// kind: collector/<kind>/<kind>.yaml.
+func (kind CollectorKind) ConfigKey() string {
+	return filepath.Join(v1alpha1.MoldingKindCollector.String(), kind.String(), kind.String()+".yaml")
 }
 
 func CollectorKinds() []CollectorKind {

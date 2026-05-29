@@ -52,7 +52,7 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *instal
 		base := configBuf.String()
 
 		if overrides != "" {
-			merged, err := domain.MergeYAML(base, overrides)
+			merged, err := domain.MergeYAML(base, overrides, nil)
 			if err != nil {
 				return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to merge config overrides for %s", key)
 			}

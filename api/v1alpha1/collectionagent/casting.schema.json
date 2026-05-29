@@ -48,69 +48,12 @@
           },
           "type": "object"
         },
-        "exporters": {
-          "description": "OTel exporters contributed by the casting, with the pipelines each receives from",
-          "additionalProperties": {
-            "$ref": "#/definitions/CollectionagentComponent"
-          },
-          "type": "object"
-        },
-        "extensions": {
-          "description": "OTel extensions contributed by the casting; declared entries are activated under service.extensions",
-          "additionalProperties": {
-            "additionalProperties": {},
-            "type": "object"
-          },
-          "type": "object"
-        },
         "extras": {
           "description": "Extra information about the molding",
           "additionalProperties": {
             "type": "string"
           },
           "type": "object"
-        },
-        "processors": {
-          "description": "OTel processors contributed by the casting, with the pipelines each runs in",
-          "additionalProperties": {
-            "$ref": "#/definitions/CollectionagentComponent"
-          },
-          "type": "object"
-        },
-        "receivers": {
-          "description": "OTel receivers contributed by the casting, with the pipelines each feeds",
-          "additionalProperties": {
-            "$ref": "#/definitions/CollectionagentComponent"
-          },
-          "type": "object"
-        },
-        "resourceDetectors": {
-          "description": "Detectors appended to the baked-in [env, system] list on the resourcedetection processor",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        }
-      },
-      "type": "object"
-    },
-    "CollectionagentComponent": {
-      "additionalProperties": false,
-      "properties": {
-        "body": {
-          "description": "OTel component body, an opaque map preserving the upstream schema",
-          "additionalProperties": {},
-          "type": [
-            "object",
-            "null"
-          ]
-        },
-        "pipelines": {
-          "description": "Pipelines (traces|metrics|logs) this component plugs into",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
         }
       },
       "type": "object"
