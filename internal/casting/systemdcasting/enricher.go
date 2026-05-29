@@ -2,6 +2,7 @@ package systemdcasting
 
 import (
 	"context"
+	"path"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
@@ -141,6 +142,17 @@ func (e *linuxMoldingEnricher) enrichSignoz(config *installation.Casting) error 
 		}
 		config.Metadata.Annotations["foundry.signoz.io/signoz-binary-path"] = signozBin
 	}
+
+	// The binary defaults these to its in-container paths, so point them at the
+	// extracted tarball tree (binary lives at <root>/bin/signoz).
+	root := path.Dir(path.Dir(signozBin))
+	if config.Spec.Signoz.Status.Env == nil {
+		config.Spec.Signoz.Status.Env = make(map[string]string)
+	}
+	env := config.Spec.Signoz.Status.Env
+	env["SIGNOZ_WEB_DIRECTORY"] = path.Join(root, "web")
+	env["SIGNOZ_EMAILING_TEMPLATES_DIRECTORY"] = path.Join(root, "templates", "email")
+	env["SIGNOZ_ALERTMANAGER_SIGNOZ_TEMPLATES"] = path.Join(root, "templates", "alertmanager", "*.gotmpl")
 
 	return nil
 }

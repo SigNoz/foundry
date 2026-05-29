@@ -25,6 +25,23 @@ sudo chown -R signoz:signoz /opt/signoz /var/lib/signoz /opt/ingester /var/lib/i
 
 The `signoz` user must also have traverse permissions to the `pours/` output directory.
 
+## Download SigNoz
+
+Download the SigNoz release tarball and extract it into `/opt/signoz`:
+
+```bash
+ARCH=$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
+sudo mkdir -p /opt/signoz
+curl -fsSL "https://github.com/SigNoz/signoz/releases/latest/download/signoz_linux_${ARCH}.tar.gz" \
+  | sudo tar -xz --strip-components=1 -C /opt/signoz
+```
+
+> [!IMPORTANT]
+> Extract the full tarball, do not move the `signoz` binary on its own. SigNoz resolves
+> the web frontend and notification templates relative to the binary, so `bin/`, `web/`,
+> `templates/`, and `conf/` must stay together under `/opt/signoz`. Moving only the binary
+> leaves the UI and alert/email templates unresolved.
+
 ## Configuration
 
 ```yaml

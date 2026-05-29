@@ -328,10 +328,13 @@ spec:
       config: {}
       enabled: true
       env:
+        SIGNOZ_ALERTMANAGER_SIGNOZ_TEMPLATES: /opt/signoz/templates/alertmanager/*.gotmpl
+        SIGNOZ_EMAILING_TEMPLATES_DIRECTORY: /opt/signoz/templates/email
         SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@localhost:5432/signoz?sslmode=disable
         SIGNOZ_SQLSTORE_PROVIDER: postgres
         SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://localhost:9000
         SIGNOZ_TELEMETRYSTORE_PROVIDER: clickhouse
+        SIGNOZ_WEB_DIRECTORY: /opt/signoz/web
       image: signoz/signoz:latest
       version: latest
     status:
@@ -342,10 +345,13 @@ spec:
         - ws://localhost:4320
       config: {}
       env:
+        SIGNOZ_ALERTMANAGER_SIGNOZ_TEMPLATES: /opt/signoz/templates/alertmanager/*.gotmpl
+        SIGNOZ_EMAILING_TEMPLATES_DIRECTORY: /opt/signoz/templates/email
         SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@localhost:5432/signoz?sslmode=disable
         SIGNOZ_SQLSTORE_PROVIDER: postgres
         SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://localhost:9000
         SIGNOZ_TELEMETRYSTORE_PROVIDER: clickhouse
+        SIGNOZ_WEB_DIRECTORY: /opt/signoz/web
   telemetrykeeper:
     kind: clickhousekeeper
     spec:
