@@ -28,6 +28,7 @@ func main() {
 	registerGenCmd(rootCmd)
 	registerCatalogCmd(rootCmd)
 	registerVersionCmd(rootCmd)
+	registerMechanicCmd(rootCmd)
 
 	defer closeRoot()
 
