@@ -12,7 +12,7 @@ import (
 	"github.com/signoz/foundry/internal/errors"
 )
 
-// Resource is a parsed mechanic resource path. The canonical form is
+// Resource is a parsed mechanic resource path.
 type Resource struct {
 	Kind         v1alpha1.Kind
 	KindExplicit bool
