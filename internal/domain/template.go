@@ -104,6 +104,9 @@ func (t *Template) Format() Format {
 // templateFuncMap layers the project's helpers on top of sprig:
 //   - derefInt / derefIntDefault: nil-safe int pointer access for spec fields
 //     that distinguish "unset" from zero.
+//   - derefBool: nil-safe bool pointer access; needed to gate on *bool fields
+//     like MoldingSpec.Enabled, since a non-nil pointer is always truthy in a
+//     template's {{ if }}.
 //   - toYaml / fromYaml: round-trip a value through YAML inside templates.
 //   - flattenKeys: flatten a nested map into "/"-joined leaf keys (used to
 //     project hierarchical config into flat env-var-style maps).
@@ -112,6 +115,12 @@ func templateFuncMap() template.FuncMap {
 	fm["derefInt"] = func(p *int) int {
 		if p == nil {
 			return 0
+		}
+		return *p
+	}
+	fm["derefBool"] = func(p *bool) bool {
+		if p == nil {
+			return false
 		}
 		return *p
 	}

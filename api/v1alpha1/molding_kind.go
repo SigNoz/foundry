@@ -18,6 +18,7 @@ var (
 	MoldingKindMetaStore       MoldingKind = MoldingKind{s: "metastore"}
 	MoldingKindSignoz          MoldingKind = MoldingKind{s: "signoz"}
 	MoldingKindCollector       MoldingKind = MoldingKind{s: "collector"}
+	MoldingKindMCP             MoldingKind = MoldingKind{s: "mcp"}
 )
 
 type MoldingKind struct {

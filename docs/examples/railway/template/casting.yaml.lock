@@ -295,6 +295,18 @@ spec:
             server_endpoint: ws://signoz-signoz.railway.internal:4320/v1/opamp
       env:
         SIGNOZ_OTEL_COLLECTOR_TIMEOUT: 10m
+  mcp:
+    spec:
+      cluster:
+        replicas: 1
+      config: {}
+      enabled: false
+      image: signoz/signoz-mcp-server:latest
+      version: latest
+    status:
+      addresses:
+        http: null
+      config: {}
   metastore:
     kind: postgres
     spec:
