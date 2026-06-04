@@ -104,4 +104,5 @@ spec:
 - [Casting](casting.md) - the full casting file structure
 - [Annotations](annotations.md) - deployment-specific parameters
 - [Patches](patches.md) - platform-level overrides on generated files
+- [MCP server](mcp-server.md) - deploy the SigNoz MCP server alongside the stack
 - [Casting file reference](../reference/casting-file.md) - complete field reference

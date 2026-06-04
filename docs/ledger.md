@@ -17,6 +17,7 @@ Each command execution sends a single event with the following properties:
 | `metastore_kind` | MetaStore backend type | `postgres`, `sqlite` |
 | `telemetry_store_kind` | TelemetryStore backend type | `clickhouse` |
 | `telemetry_keeper_kind` | TelemetryKeeper backend type | `clickhousekeeper` |
+| `mcp_enabled` | Whether the MCP server molding is enabled | `true` / `false` |
 | `success` | Whether the command succeeded | `true` / `false` |
 | `error` | Error message (on failure only) | `missing tool: docker` |
 | `os` | Operating system | `linux`, `darwin` |
