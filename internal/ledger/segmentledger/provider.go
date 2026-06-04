@@ -36,18 +36,11 @@ func New(config ledger.Config) ledger.Ledger {
 }
 
 func (p *provider) Track(_ context.Context, event domain.Event, properties domain.Properties) {
-
-	agent := ledger.AIAgent(os.Getenv)
-
 	properties = properties.
 		Set("os", runtime.GOOS).
 		Set("arch", runtime.GOARCH).
 		Set("foundry_version", version.Info.Version()).
-		Set("ai_invoked", agent != "")
-
-	if agent != "" {
-		properties = properties.Set("ai_agent", agent)
-	}
+		WithAIAgent(domain.NewAIAgent(os.Getenv))
 
 	props := segment.NewProperties()
 	for k, v := range properties.Map() {

@@ -2,7 +2,7 @@
 // Copyright 2026 Pulumi Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-package ledger
+package domain
 
 import "strings"
 
@@ -40,25 +40,38 @@ var aiAgentAliases = map[string]string{
 	"github-copilot-cli": "github-copilot",
 }
 
-// AIAgent returns a normalized name for the AI coding agent driving the
-// CLI (e.g. "claude", "cursor", "codex"), or "" if none is detected. "" means
-// unknown, not human: some agents are undetectable by design.
-//
-// Precedence: AI_AGENT (self-declared) > known per-agent environment markers.
-func AIAgent(getEnv func(string) string) string {
+// AIAgent is the normalized name of the AI coding agent driving the CLI
+// (e.g. "claude", "cursor", "codex"). The zero value means no agent was
+// detected: unknown, not human, since some agents are undetectable by design.
+type AIAgent struct {
+	value string
+}
+
+// NewAIAgent detects the AI coding agent from the environment.
+// AI_AGENT (self-declared) takes precedence over known per-agent markers.
+func NewAIAgent(getEnv func(string) string) AIAgent {
 	if agent := normalizeAIAgent(getEnv("AI_AGENT")); agent != "" {
-		return agent
+		return AIAgent{value: agent}
 	}
 
 	for _, d := range aiAgentDetectors {
 		for _, envVar := range d.envs {
 			if getEnv(envVar) != "" {
-				return d.name
+				return AIAgent{value: d.name}
 			}
 		}
 	}
 
-	return ""
+	return AIAgent{}
+}
+
+// Detected reports whether an AI agent was identified.
+func (a AIAgent) Detected() bool {
+	return a.value != ""
+}
+
+func (a AIAgent) String() string {
+	return a.value
 }
 
 // normalizeAIAgent lowercases the agent name and keeps the leading token,
