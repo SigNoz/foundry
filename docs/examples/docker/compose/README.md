@@ -80,6 +80,33 @@ cd pours/deployment && docker compose down
 > [!NOTE]
 > - `foundryctl cast` detects whether `docker compose` (v2 plugin) or `docker-compose` (legacy standalone) is available and uses whichever it finds, preferring the v2 plugin.
 
+## MCP server (optional)
+
+Foundry can deploy the [SigNoz MCP server](https://github.com/SigNoz/signoz-mcp-server) alongside the stack so AI clients can query your telemetry. It is disabled by default; enable it in the casting:
+
+```yaml
+spec:
+  deployment:
+    mode: docker
+    flavor: compose
+  mcp:
+    spec:
+      enabled: true
+```
+
+```bash
+foundryctl cast -f casting.yaml
+```
+
+This adds a `signoz-mcp` service on port `8000`:
+
+```bash
+docker ps | grep signoz-mcp
+curl -fsS localhost:8000/livez && echo " OK"   # -> 200
+```
+
+To connect an AI client (mint an API key, configure Claude Code or Claude Desktop), see [MCP server](../../../concepts/mcp-server.md).
+
 ## Customization
 
 Override component images, replicas, or environment variables in the casting spec. For platform-level changes to the generated `compose.yaml` (memory limits, networks, volumes), use [patches](../../../concepts/patches.md).
