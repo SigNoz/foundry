@@ -11,14 +11,11 @@ const (
 	propertyKeyError      = "error"
 	propertyKeyErrorType  = "error_type"
 	propertyKeyErrorCause = "error_cause"
-	propertyKeyAIInvoked  = "ai_invoked"
-	propertyKeyAIAgent    = "ai_agent"
 )
 
 // Properties is a string-keyed bag of telemetry values with a fixed shape for
-// the success/error and ai-agent envelopes (see WithSuccess, WithError, and
-// WithAIAgent). Set and the With* methods mutate the underlying map and
-// return the receiver for chaining.
+// the success/error envelope (see WithSuccess and WithError). Set, WithSuccess,
+// and WithError mutate the underlying map and return the receiver for chaining.
 type Properties struct {
 	values map[string]any
 }
@@ -53,17 +50,6 @@ func (p Properties) WithError(err error) Properties {
 	p.values[propertyKeyError] = e.Message
 	if e.Cause != nil {
 		p.values[propertyKeyErrorCause] = e.Cause.Message
-	}
-
-	return p
-}
-
-// WithAIAgent records whether an AI coding agent invoked the command, and
-// its name only when one was detected — absence means unknown, not human.
-func (p Properties) WithAIAgent(agent AIAgent) Properties {
-	p.values[propertyKeyAIInvoked] = agent.Detected()
-	if agent.Detected() {
-		p.values[propertyKeyAIAgent] = agent.String()
 	}
 
 	return p

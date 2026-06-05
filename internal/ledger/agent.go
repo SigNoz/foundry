@@ -2,13 +2,13 @@
 // Copyright 2026 Pulumi Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-package domain
+package ledger
 
 import "strings"
 
-// aiAgentDetector pairs an agent name with the marker environment variables
+// agentDetector pairs an agent name with the marker environment variables
 // that identify it.
-type aiAgentDetector struct {
+type agentDetector struct {
 	name string
 	envs []string
 }
@@ -18,7 +18,7 @@ type aiAgentDetector struct {
 // environment variables set by AI agents and tools.
 //
 // Order matters: specific forms should be identified before broad IDE/tool markers.
-var aiAgentDetectors = []aiAgentDetector{
+var agentDetectors = []agentDetector{
 	{name: "cursor", envs: []string{"CURSOR_TRACE_ID"}},
 	{name: "cursor-cli", envs: []string{"CURSOR_AGENT"}},
 	{name: "gemini", envs: []string{"GEMINI_CLI"}},
@@ -33,54 +33,41 @@ var aiAgentDetectors = []aiAgentDetector{
 	{name: "goose", envs: []string{"GOOSE_PROVIDER"}},
 }
 
-// aiAgentAliases collapses self-declared names to the detector names so a
+// agentAliases collapses self-declared names to the detector names so a
 // tool reports one name regardless of detection path.
-var aiAgentAliases = map[string]string{
+var agentAliases = map[string]string{
 	"claude-code":        "claude",
 	"github-copilot-cli": "github-copilot",
 }
 
-// AIAgent is the normalized name of the AI coding agent driving the CLI
-// (e.g. "claude", "cursor", "codex"). The zero value means no agent was
-// detected: unknown, not human, since some agents are undetectable by design.
-type AIAgent struct {
-	value string
-}
-
-// NewAIAgent detects the AI coding agent from the environment.
-// AI_AGENT (self-declared) takes precedence over known per-agent markers.
-func NewAIAgent(getEnv func(string) string) AIAgent {
-	if agent := normalizeAIAgent(getEnv("AI_AGENT")); agent != "" {
-		return AIAgent{value: agent}
+// AgentName returns a normalized name for the AI coding agent driving the
+// CLI (e.g. "claude", "cursor", "codex"), or "" if none is detected. "" means
+// unknown, not human: some agents are undetectable by design.
+//
+// Precedence: AI_AGENT (self-declared) > known per-agent environment markers.
+func AgentName(getEnv func(string) string) string {
+	if agent := normalizeAgentName(getEnv("AI_AGENT")); agent != "" {
+		return agent
 	}
 
-	for _, d := range aiAgentDetectors {
+	for _, d := range agentDetectors {
 		for _, envVar := range d.envs {
 			if getEnv(envVar) != "" {
-				return AIAgent{value: d.name}
+				return d.name
 			}
 		}
 	}
 
-	return AIAgent{}
+	return ""
 }
 
-// Detected reports whether an AI agent was identified.
-func (a AIAgent) Detected() bool {
-	return a.value != ""
-}
-
-func (a AIAgent) String() string {
-	return a.value
-}
-
-// normalizeAIAgent lowercases the agent name and keeps the leading token,
+// normalizeAgentName lowercases the agent name and keeps the leading token,
 // since self-declared values carry suffixes after the first underscore, e.g.
 // "claude-code_2-1-161_agent" -> "claude-code".
-func normalizeAIAgent(agent string) string {
+func normalizeAgentName(agent string) string {
 	agent = strings.TrimSpace(strings.ToLower(agent))
 	agent, _, _ = strings.Cut(agent, "_")
-	if alias, ok := aiAgentAliases[agent]; ok {
+	if alias, ok := agentAliases[agent]; ok {
 		return alias
 	}
 

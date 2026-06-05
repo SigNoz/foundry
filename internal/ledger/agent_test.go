@@ -1,4 +1,4 @@
-package domain
+package ledger
 
 import (
 	"testing"
@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewAIAgent(t *testing.T) {
+func TestAgentName(t *testing.T) {
 	tests := []struct {
 		name     string
 		env      map[string]string
@@ -76,34 +76,7 @@ func TestNewAIAgent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			getEnv := func(key string) string { return tt.env[key] }
-			assert.Equal(t, tt.expected, NewAIAgent(getEnv).String())
-		})
-	}
-}
-
-func TestWithAIAgent(t *testing.T) {
-	tests := []struct {
-		name     string
-		env      map[string]string
-		expected map[string]any
-	}{
-		{
-			name:     "Detected_BothKeys",
-			env:      map[string]string{"CLAUDECODE": "1"},
-			expected: map[string]any{"ai_invoked": true, "ai_agent": "claude"},
-		},
-		{
-			name:     "Undetected_InvokedOnly",
-			env:      map[string]string{},
-			expected: map[string]any{"ai_invoked": false},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			getEnv := func(key string) string { return tt.env[key] }
-			props := NewProperties().WithAIAgent(NewAIAgent(getEnv))
-			assert.Equal(t, tt.expected, props.Map())
+			assert.Equal(t, tt.expected, AgentName(getEnv))
 		})
 	}
 }
