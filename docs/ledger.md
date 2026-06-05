@@ -8,21 +8,27 @@ Each command execution sends a single event with the following properties:
 
 | Property | Description | Example |
 |---|---|---|
+| `kind` | Casting kind | `Installation`, `CollectionAgent` |
 | `platform` | Deployment platform from casting.yaml | `aws`, `docker`, `linux` |
 | `mode` | Deployment mode | `docker`, `systemd`, `kubernetes` |
 | `flavor` | Deployment flavor | `compose`, `binary`, `helm` |
-| `patches_configured` | Whether patches are defined | `true` / `false` |
-| `patch_count` | Number of patch entries | `0`, `2` |
+| `patches_count` | Number of patch entries | `0`, `2` |
 | `infrastructure_enabled` | Whether IaC generation is enabled | `true` / `false` |
 | `metastore_kind` | MetaStore backend type | `postgres`, `sqlite` |
-| `telemetry_store_kind` | TelemetryStore backend type | `clickhouse` |
-| `telemetry_keeper_kind` | TelemetryKeeper backend type | `clickhousekeeper` |
+| `telemetrystore_kind` | TelemetryStore backend type | `clickhouse` |
+| `telemetrykeeper_kind` | TelemetryKeeper backend type | `clickhousekeeper` |
+| `collector_kind` | Collector type (CollectionAgent castings only) | `agent` |
 | `mcp_enabled` | Whether the MCP server molding is enabled | `true` / `false` |
 | `success` | Whether the command succeeded | `true` / `false` |
 | `error` | Error message (on failure only) | `missing tool: docker` |
+| `error_type` | Error type (on failure only) | `invalid-input` |
+| `error_cause` | Underlying error message (on failure only) | `missing tool: docker` |
 | `os` | Operating system | `linux`, `darwin` |
 | `arch` | CPU architecture | `amd64`, `arm64` |
 | `foundry_version` | foundryctl version | `0.1.0` |
+| `invoked_by` | Who invoked the command, detected from environment variables. `unknown` means undetected, not necessarily human | `agent`, `unknown` |
+| `agent_name` | Normalized AI agent name (only sent when `invoked_by` is `agent`) | `claude`, `cursor`, `codex` |
+| `agent_fullname` | Full self-declared agent identifier (only sent when `invoked_by` is `agent`) | `claude-code_2-1-161_agent` |
 
 ### Identity
 
@@ -30,7 +36,7 @@ Events are attributed using a hashed machine ID (HMAC-SHA256 of the OS machine I
 
 ## Tracked commands
 
-All commands send the same `foundryctl` event, differentiated by the `command` property:
+Each command sends an event named `foundryctl: <command> <outcome>`, for example `foundryctl: forge succeeded` or `foundryctl: cast failed`:
 
 - `gauge`
 - `forge`

@@ -40,6 +40,10 @@ func (p *provider) Track(_ context.Context, event domain.Event, properties domai
 		Set("arch", runtime.GOARCH).
 		Set("foundry_version", version.Info.Version())
 
+	for key, value := range ledger.NewAgentProperties() {
+		properties = properties.Set(key, value)
+	}
+
 	props := segment.NewProperties()
 	for k, v := range properties.Map() {
 		props.Set(k, v)
