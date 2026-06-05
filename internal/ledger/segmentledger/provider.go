@@ -3,7 +3,6 @@ package segmentledger
 import (
 	"context"
 	"fmt"
-	"os"
 	"runtime"
 
 	segment "github.com/segmentio/analytics-go/v3"
@@ -41,10 +40,8 @@ func (p *provider) Track(_ context.Context, event domain.Event, properties domai
 		Set("arch", runtime.GOARCH).
 		Set("foundry_version", version.Info.Version())
 
-	if agent := ledger.AgentName(os.Getenv); agent != "" {
-		properties = properties.Set("invoked_by", "agent").Set("agent_name", agent)
-	} else {
-		properties = properties.Set("invoked_by", "unknown")
+	for key, value := range ledger.NewAgentProperties() {
+		properties = properties.Set(key, value)
 	}
 
 	props := segment.NewProperties()

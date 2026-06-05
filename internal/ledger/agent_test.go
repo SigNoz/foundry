@@ -6,32 +6,28 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestAgentName(t *testing.T) {
+func TestNewAgentProperties(t *testing.T) {
 	tests := []struct {
 		name     string
 		env      map[string]string
-		expected string
+		expected map[string]string
 	}{
 		{
 			name:     "Empty_Unknown",
 			env:      map[string]string{},
-			expected: "",
+			expected: map[string]string{"invoked_by": "unknown"},
 		},
 		{
 			name: "AIAgent_NormalizedToLeadingToken",
 			env: map[string]string{
-				"AI_AGENT":               "claude-code_2-1-161_agent",
-				"CLAUDECODE":             "1",
-				"CLAUDE_CODE_ENTRYPOINT": "cli",
+				"AI_AGENT":   "claude-code_2-1-161_agent",
+				"CLAUDECODE": "1",
 			},
-			expected: "claude",
-		},
-		{
-			name: "AIAgent_CopilotCLIAlias",
-			env: map[string]string{
-				"AI_AGENT": "GitHub-Copilot-CLI",
+			expected: map[string]string{
+				"invoked_by":     "agent",
+				"agent_name":     "claude",
+				"agent_fullname": "claude-code_2-1-161_agent",
 			},
-			expected: "github-copilot",
 		},
 		{
 			name: "AIAgent_WinsOverMarkers",
@@ -39,22 +35,22 @@ func TestAgentName(t *testing.T) {
 				"AI_AGENT":   "cursor",
 				"CLAUDECODE": "1",
 			},
-			expected: "cursor",
-		},
-		{
-			name: "AIAgent_WhitespaceIgnored",
-			env: map[string]string{
-				"AI_AGENT":   "   ",
-				"CLAUDECODE": "1",
+			expected: map[string]string{
+				"invoked_by":     "agent",
+				"agent_name":     "cursor",
+				"agent_fullname": "cursor",
 			},
-			expected: "claude",
 		},
 		{
 			name: "MarkerTable_Claude",
 			env: map[string]string{
 				"CLAUDECODE": "1",
 			},
-			expected: "claude",
+			expected: map[string]string{
+				"invoked_by":     "agent",
+				"agent_name":     "claude",
+				"agent_fullname": "claude",
+			},
 		},
 		{
 			name: "MarkerTable_CoworkBeforeClaude",
@@ -62,21 +58,30 @@ func TestAgentName(t *testing.T) {
 				"CLAUDE_CODE_IS_COWORK": "1",
 				"CLAUDECODE":            "1",
 			},
-			expected: "cowork",
-		},
-		{
-			name: "MarkerTable_Codex",
-			env: map[string]string{
-				"CODEX_THREAD_ID": "thread-1",
+			expected: map[string]string{
+				"invoked_by":     "agent",
+				"agent_name":     "cowork",
+				"agent_fullname": "cowork",
 			},
-			expected: "codex",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			getEnv := func(key string) string { return tt.env[key] }
-			assert.Equal(t, tt.expected, AgentName(getEnv))
+			// Empty out every variable the detection reads so the
+			// environment running the tests (e.g. an AI agent session)
+			// cannot leak in, then apply the case's environment.
+			t.Setenv("AI_AGENT", "")
+			for _, d := range agentDetectors {
+				for _, envVar := range d.envs {
+					t.Setenv(envVar, "")
+				}
+			}
+			for key, value := range tt.env {
+				t.Setenv(key, value)
+			}
+
+			assert.Equal(t, tt.expected, NewAgentProperties())
 		})
 	}
 }

@@ -4,7 +4,10 @@
 
 package ledger
 
-import "strings"
+import (
+	"os"
+	"strings"
+)
 
 // agentDetector pairs an agent name with the marker environment variables
 // that identify it.
@@ -40,32 +43,56 @@ var agentAliases = map[string]string{
 	"github-copilot-cli": "github-copilot",
 }
 
-// AgentName returns a normalized name for the AI coding agent driving the
-// CLI (e.g. "claude", "cursor", "codex"), or "" if none is detected. "" means
-// unknown, not human: some agents are undetectable by design.
+const (
+	propertyKeyInvokedBy     = "invoked_by"
+	propertyKeyAgentName     = "agent_name"
+	propertyKeyAgentFullname = "agent_fullname"
+
+	invokedByAgent   = "agent"
+	invokedByUnknown = "unknown"
+)
+
+// NewAgentProperties returns the ledger properties describing who invoked
+// the CLI. invoked_by is "agent" or "unknown" — never "human", since some
+// agents are undetectable by design. When invoked_by is "agent", agent_name
+// carries the normalized agent name (e.g. "claude", "cursor") and
+// agent_fullname the full self-declared identifier (e.g.
+// "claude-code_2-1-161_agent").
 //
 // Precedence: AI_AGENT (self-declared) > known per-agent environment markers.
-func AgentName(getEnv func(string) string) string {
-	if agent := normalizeAgentName(getEnv("AI_AGENT")); agent != "" {
-		return agent
+func NewAgentProperties() map[string]string {
+	if fullname := strings.TrimSpace(strings.ToLower(os.Getenv("AI_AGENT"))); fullname != "" {
+		name := normalizeAgentName(fullname)
+		if name == "" {
+			name = fullname
+		}
+
+		return map[string]string{
+			propertyKeyInvokedBy:     invokedByAgent,
+			propertyKeyAgentName:     name,
+			propertyKeyAgentFullname: fullname,
+		}
 	}
 
 	for _, d := range agentDetectors {
 		for _, envVar := range d.envs {
-			if getEnv(envVar) != "" {
-				return d.name
+			if os.Getenv(envVar) != "" {
+				return map[string]string{
+					propertyKeyInvokedBy:     invokedByAgent,
+					propertyKeyAgentName:     d.name,
+					propertyKeyAgentFullname: d.name,
+				}
 			}
 		}
 	}
 
-	return ""
+	return map[string]string{propertyKeyInvokedBy: invokedByUnknown}
 }
 
-// normalizeAgentName lowercases the agent name and keeps the leading token,
-// since self-declared values carry suffixes after the first underscore, e.g.
-// "claude-code_2-1-161_agent" -> "claude-code".
+// normalizeAgentName keeps the leading token, since self-declared values
+// carry suffixes after the first underscore, e.g. "claude-code_2-1-161_agent"
+// -> "claude-code", then collapses aliases to the detector names.
 func normalizeAgentName(agent string) string {
-	agent = strings.TrimSpace(strings.ToLower(agent))
 	agent, _, _ = strings.Cut(agent, "_")
 	if alias, ok := agentAliases[agent]; ok {
 		return alias

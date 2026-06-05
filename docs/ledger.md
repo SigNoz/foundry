@@ -27,7 +27,8 @@ Each command execution sends a single event with the following properties:
 | `arch` | CPU architecture | `amd64`, `arm64` |
 | `foundry_version` | foundryctl version | `0.1.0` |
 | `invoked_by` | Who invoked the command, detected from environment variables. `unknown` means undetected, not necessarily human | `agent`, `unknown` |
-| `agent_name` | Detected AI agent name (only sent when `invoked_by` is `agent`) | `claude`, `cursor`, `codex` |
+| `agent_name` | Normalized AI agent name (only sent when `invoked_by` is `agent`) | `claude`, `cursor`, `codex` |
+| `agent_fullname` | Full self-declared agent identifier (only sent when `invoked_by` is `agent`) | `claude-code_2-1-161_agent` |
 
 ### Identity
 
