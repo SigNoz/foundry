@@ -22,6 +22,7 @@ type Spec struct {
 	TelemetryKeeper TelemetryKeeper         `json:"telemetrykeeper,omitzero" yaml:"telemetrykeeper,omitempty" description:"The configuration for the telemetry keeper molding"`
 	MetaStore       MetaStore               `json:"metastore,omitzero" yaml:"metastore,omitempty" description:"The configuration for the meta store molding"`
 	Ingester        Ingester                `json:"ingester,omitzero" yaml:"ingester,omitempty" description:"The configuration for the ingester molding"`
+	MCP             MCP                     `json:"mcp,omitzero" yaml:"mcp,omitempty" description:"The configuration for the MCP server molding"`
 	_               struct{}                `additionalProperties:"false"`
 }
 
@@ -43,6 +44,7 @@ func Default() *Casting {
 			TelemetryKeeper: DefaultTelemetryKeeper(),
 			MetaStore:       DefaultMetaStore(),
 			Ingester:        DefaultIngester(),
+			MCP:             DefaultMCP(),
 		},
 	}
 }
@@ -81,6 +83,9 @@ func (c *Casting) MergeStatusIntoSpec() error {
 	if err := c.Spec.Ingester.Spec.MergeStatus(c.Spec.Ingester.Status.MoldingStatus); err != nil {
 		return err
 	}
+	if err := c.Spec.MCP.Spec.MergeStatus(c.Spec.MCP.Status.MoldingStatus); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -95,5 +100,6 @@ func (c *Casting) TrackableProperties() domain.Properties {
 		Set("infrastructure_enabled", c.Spec.Infrastructure.Enabled).
 		Set("metastore_kind", c.Spec.MetaStore.Kind.String()).
 		Set("telemetrystore_kind", c.Spec.TelemetryStore.Kind.String()).
-		Set("telemetrykeeper_kind", c.Spec.TelemetryKeeper.Kind.String())
+		Set("telemetrykeeper_kind", c.Spec.TelemetryKeeper.Kind.String()).
+		Set("mcp_enabled", c.Spec.MCP.Spec.IsEnabled())
 }

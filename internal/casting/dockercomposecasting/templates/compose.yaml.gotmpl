@@ -191,6 +191,35 @@ services:
       restart_policy:
         condition: on-failure
   {{- end }}
+  {{- if derefBool $.Spec.MCP.Spec.Enabled }}
+  {{ $.Metadata.Name }}-mcp:
+    container_name: {{ $.Metadata.Name }}-mcp
+    image: {{ $.Spec.MCP.Spec.Image }}
+    networks:
+      - {{ $.Metadata.Name }}-network
+    {{- if $.Spec.MCP.Spec.Env }}
+    environment:
+      {{- range $key, $value := $.Spec.MCP.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    {{- end }}
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+      - "CMD"
+      - "wget"
+      - "--spider"
+      - "-q"
+      - "http://localhost:8000/livez"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      restart_policy:
+        condition: on-failure
+  {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-migrator:
     container_name: {{ $.Metadata.Name }}-telemetrystore-migrator
     image: {{ $.Spec.Ingester.Spec.Image }}

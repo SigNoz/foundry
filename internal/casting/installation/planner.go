@@ -11,6 +11,7 @@ import (
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 	"github.com/signoz/foundry/internal/molding/ingestermolding"
+	"github.com/signoz/foundry/internal/molding/mcpmolding"
 	"github.com/signoz/foundry/internal/molding/metastoremolding"
 	"github.com/signoz/foundry/internal/molding/signozmolding"
 	"github.com/signoz/foundry/internal/molding/telemetrykeepermolding"
@@ -58,6 +59,7 @@ func NewPlanner(ctx context.Context, c *installation.Casting, logger *slog.Logge
 		metastoremolding.New(logger),
 		signozmolding.New(logger),
 		ingestermolding.New(logger),
+		mcpmolding.New(logger),
 	}
 
 	return &Planner{

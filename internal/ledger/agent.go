@@ -1,0 +1,102 @@
+// Copyright (c) 2026 SigNoz, Inc.
+// Copyright 2026 Pulumi Corporation
+// SPDX-License-Identifier: Apache-2.0
+
+package ledger
+
+import (
+	"os"
+	"strings"
+)
+
+// agentDetector pairs an agent name with the marker environment variables
+// that identify it.
+type agentDetector struct {
+	name string
+	envs []string
+}
+
+// These are sourced from https://github.com/unjs/std-env/blob/main/src/agents.ts and
+// https://github.com/vercel/vercel/blob/main/packages/detect-agent/src/index.ts, as a reference for common
+// environment variables set by AI agents and tools.
+//
+// Order matters: specific forms should be identified before broad IDE/tool markers.
+var agentDetectors = []agentDetector{
+	{name: "cursor", envs: []string{"CURSOR_TRACE_ID"}},
+	{name: "cursor-cli", envs: []string{"CURSOR_AGENT"}},
+	{name: "gemini", envs: []string{"GEMINI_CLI"}},
+	{name: "codex", envs: []string{"CODEX_SANDBOX", "CODEX_CI", "CODEX_THREAD_ID"}},
+	{name: "antigravity", envs: []string{"ANTIGRAVITY_AGENT"}},
+	{name: "augment-cli", envs: []string{"AUGMENT_AGENT"}},
+	{name: "opencode", envs: []string{"OPENCODE", "OPENCODE_CALLER", "OPENCODE_CLIENT"}},
+	{name: "cowork", envs: []string{"CLAUDE_CODE_IS_COWORK"}},
+	{name: "claude", envs: []string{"CLAUDECODE", "CLAUDE_CODE"}},
+	{name: "replit", envs: []string{"REPL_ID"}},
+	{name: "github-copilot", envs: []string{"COPILOT_MODEL", "COPILOT_ALLOW_ALL", "COPILOT_GITHUB_TOKEN"}},
+	{name: "goose", envs: []string{"GOOSE_PROVIDER"}},
+}
+
+// agentAliases collapses self-declared names to the detector names so a
+// tool reports one name regardless of detection path.
+var agentAliases = map[string]string{
+	"claude-code":        "claude",
+	"github-copilot-cli": "github-copilot",
+}
+
+const (
+	propertyKeyInvokedBy     = "invoked_by"
+	propertyKeyAgentName     = "agent_name"
+	propertyKeyAgentFullname = "agent_fullname"
+
+	invokedByAgent   = "agent"
+	invokedByUnknown = "unknown"
+)
+
+// NewAgentProperties returns the ledger properties describing who invoked
+// the CLI. invoked_by is "agent" or "unknown" — never "human", since some
+// agents are undetectable by design. When invoked_by is "agent", agent_name
+// carries the normalized agent name (e.g. "claude", "cursor") and
+// agent_fullname the full self-declared identifier (e.g.
+// "claude-code_2-1-161_agent").
+//
+// Precedence: AI_AGENT (self-declared) > known per-agent environment markers.
+func NewAgentProperties() map[string]string {
+	if fullname := strings.TrimSpace(strings.ToLower(os.Getenv("AI_AGENT"))); fullname != "" {
+		name := normalizeAgentName(fullname)
+		if name == "" {
+			name = fullname
+		}
+
+		return map[string]string{
+			propertyKeyInvokedBy:     invokedByAgent,
+			propertyKeyAgentName:     name,
+			propertyKeyAgentFullname: fullname,
+		}
+	}
+
+	for _, d := range agentDetectors {
+		for _, envVar := range d.envs {
+			if os.Getenv(envVar) != "" {
+				return map[string]string{
+					propertyKeyInvokedBy:     invokedByAgent,
+					propertyKeyAgentName:     d.name,
+					propertyKeyAgentFullname: d.name,
+				}
+			}
+		}
+	}
+
+	return map[string]string{propertyKeyInvokedBy: invokedByUnknown}
+}
+
+// normalizeAgentName keeps the leading token, since self-declared values
+// carry suffixes after the first underscore, e.g. "claude-code_2-1-161_agent"
+// -> "claude-code", then collapses aliases to the detector names.
+func normalizeAgentName(agent string) string {
+	agent, _, _ = strings.Cut(agent, "_")
+	if alias, ok := agentAliases[agent]; ok {
+		return alias
+	}
+
+	return agent
+}
