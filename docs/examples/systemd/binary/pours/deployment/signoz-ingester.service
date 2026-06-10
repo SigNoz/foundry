@@ -3,6 +3,9 @@ WantedBy=multi-user.target
 
 [Service]
 Environment=SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://localhost:9000
+Environment=LOW_CARDINAL_EXCEPTION_GROUPING=false
+Environment=SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER=cluster
+Environment=SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION=true
 Environment=SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
 ExecStart=/opt/ingester/bin/signoz-otel-collector --config=%Y/ingester/ingester.yaml --manager-config=%Y/ingester/opamp.yaml --copy-path=/var/lib/ingester/ingester.yaml
 ExecStartPre=/opt/ingester/bin/signoz-otel-collector migrate sync check

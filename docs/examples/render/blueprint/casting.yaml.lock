@@ -149,6 +149,9 @@ spec:
             server_endpoint: ws://signoz-signoz-0:4320/v1/opamp
       enabled: true
       env:
+        LOW_CARDINAL_EXCEPTION_GROUPING: "false"
+        SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER: cluster
+        SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION: "true"
         SIGNOZ_OTEL_COLLECTOR_TIMEOUT: 10m
       image: signoz/signoz-otel-collector:latest
       version: latest
@@ -294,6 +297,9 @@ spec:
           opamp.yaml: |
             server_endpoint: ws://signoz-signoz-0:4320/v1/opamp
       env:
+        LOW_CARDINAL_EXCEPTION_GROUPING: "false"
+        SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER: cluster
+        SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION: "true"
         SIGNOZ_OTEL_COLLECTOR_TIMEOUT: 10m
   mcp:
     spec:

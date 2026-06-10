@@ -16,6 +16,9 @@ services:
     - /bin/sh
     environment:
     - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://signoz-telemetrystore-clickhouse-0-0:9000
+    - LOW_CARDINAL_EXCEPTION_GROUPING=false
+    - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER=cluster
+    - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION=true
     - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
     image: signoz/signoz-otel-collector:latest
     networks:
@@ -159,6 +162,9 @@ services:
     - /bin/sh
     environment:
     - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://signoz-telemetrystore-clickhouse-0-0:9000
+    - LOW_CARDINAL_EXCEPTION_GROUPING=false
+    - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER=cluster
+    - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION=true
     - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
     image: signoz/signoz-otel-collector:latest
     networks:

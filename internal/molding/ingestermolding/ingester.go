@@ -54,6 +54,9 @@ func (molding *ingester) MoldV1Alpha1(ctx context.Context, config *installation.
 		config.Spec.Ingester.Status.Env = make(map[string]string)
 	}
 	config.Spec.Ingester.Status.Env["SIGNOZ_OTEL_COLLECTOR_TIMEOUT"] = "10m"
+	config.Spec.Ingester.Status.Env["LOW_CARDINAL_EXCEPTION_GROUPING"] = "false"
+	config.Spec.Ingester.Status.Env["SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER"] = "cluster"
+	config.Spec.Ingester.Status.Env["SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION"] = "true"
 
 	return nil
 }

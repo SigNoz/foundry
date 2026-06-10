@@ -19,6 +19,9 @@ services:
     environment:
     - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
     - LOW_CARDINAL_EXCEPTION_GROUPING=false
+    - LOW_CARDINAL_EXCEPTION_GROUPING=false
+    - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER=cluster
+    - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION=true
     - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
     image: signoz/signoz-otel-collector:latest
     logging:
@@ -463,6 +466,9 @@ services:
     - /bin/sh
     - -c
     environment:
+    - LOW_CARDINAL_EXCEPTION_GROUPING=false
+    - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER=cluster
+    - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION=true
     - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
     exclude_from_hc: true
     image: signoz/signoz-otel-collector:latest

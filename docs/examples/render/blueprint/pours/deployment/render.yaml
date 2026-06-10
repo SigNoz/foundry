@@ -39,6 +39,12 @@ services:
 - dockerContext: configs/ingester
   dockerfilePath: configs/ingester/Dockerfile
   envVars:
+  - key: LOW_CARDINAL_EXCEPTION_GROUPING
+    value: false
+  - key: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER
+    value: cluster
+  - key: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION
+    value: true
   - key: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
     value: 10m
   - fromService:
@@ -80,6 +86,12 @@ services:
   envVars:
   - key: CLICKHOUSE_DSN
     value: tcp://signoz-telemetrystore-clickhouse-0-0:9000
+  - key: LOW_CARDINAL_EXCEPTION_GROUPING
+    value: false
+  - key: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER
+    value: cluster
+  - key: SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION
+    value: true
   - key: SIGNOZ_OTEL_COLLECTOR_TIMEOUT
     value: 10m
   - fromService:
