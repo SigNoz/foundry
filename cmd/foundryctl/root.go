@@ -11,31 +11,40 @@ import (
 	"github.com/signoz/foundry/internal/ledger"
 	"github.com/signoz/foundry/internal/ledger/noopledger"
 	"github.com/signoz/foundry/internal/ledger/segmentledger"
+	"github.com/signoz/foundry/internal/update"
 	"github.com/signoz/foundry/internal/writer"
 	"github.com/spf13/cobra"
 )
 
 var (
-	rootLogger  *slog.Logger
-	rootTracker ledger.Ledger
+	rootLogger   *slog.Logger
+	rootTracker  ledger.Ledger
+	rootNotifier *update.Notifier
 )
 
 // newRoot is wired as rootCmd.PersistentPreRunE so it fires after persistent
 // flags are parsed and before any command's RunE runs.
-func newRoot(_ *cobra.Command, _ []string) error {
+func newRoot(cmd *cobra.Command, _ []string) error {
 	rootLogger = instrumentation.NewLogger(commonCfg.Debug)
 
-	config := ledger.NewConfig()
+	ledgerConfig := ledger.NewConfig()
 	if commonCfg.NoLedger {
-		config.Enabled = false
+		ledgerConfig.Enabled = false
 	}
 
-	switch config.Provider() {
+	switch ledgerConfig.Provider() {
 	case "segment":
-		rootTracker = segmentledger.New(config)
+		rootTracker = segmentledger.New(ledgerConfig)
 	default:
 		rootTracker = noopledger.New()
 	}
+
+	updateConfig := update.NewConfig()
+	if commonCfg.NoUpdateCheck {
+		updateConfig.Enabled = false
+	}
+	rootNotifier = update.NewNotifier(updateConfig, rootLogger)
+	rootNotifier.Notify(cmd.Context())
 
 	return nil
 }

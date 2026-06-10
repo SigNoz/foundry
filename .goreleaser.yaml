@@ -29,6 +29,7 @@ builds:
       - -X github.com/signoz/foundry/internal/version.version=v{{ .Version }}
       - -X github.com/signoz/foundry/internal/version.hash={{ .ShortCommit }}
       - -X github.com/signoz/foundry/internal/ledger.key=YPscRxkyHv2Fn0aOucmLrMYBBVAC1AFu
+      - -X github.com/signoz/foundry/internal/update.repository=SigNoz/foundry
     tags:
       - timetzdata
 

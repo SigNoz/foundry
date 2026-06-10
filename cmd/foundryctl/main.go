@@ -4,6 +4,7 @@ import (
 	"os"
 
 	foundryerrors "github.com/signoz/foundry/internal/errors"
+	"github.com/signoz/foundry/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -29,9 +30,14 @@ func main() {
 	registerCatalogCmd(rootCmd)
 	registerVersionCmd(rootCmd)
 
-	defer closeRoot()
+	err := rootCmd.Execute()
 
-	if err := rootCmd.Execute(); err != nil {
+	if rootNotifier != nil {
+		rootNotifier.Finish(version.Info.Version(), os.Stderr)
+	}
+	
+	closeRoot()
+	if err != nil {
 		os.Exit(foundryerrors.ExitCode(err))
 	}
 }
