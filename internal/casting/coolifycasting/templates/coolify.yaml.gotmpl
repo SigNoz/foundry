@@ -202,7 +202,6 @@ services:
       {{- end }}
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
-      - LOW_CARDINAL_EXCEPTION_GROUPING=false
       {{- if $.Spec.Ingester.Spec.Env }}
       {{- range $key, $value := $.Spec.Ingester.Spec.Env }}
       - {{ $key }}={{ $value }}
