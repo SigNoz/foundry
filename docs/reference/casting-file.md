@@ -75,6 +75,24 @@ Each molding (`signoz`, `ingester`, `telemetrystore`, `telemetrykeeper`) accepts
 | `env` | map | `{}` | Environment variables as key-value pairs |
 | `config.data` | map | `{}` | Config file overrides: filename to file contents |
 
+## TelemetryKeeper
+
+The telemetry keeper has an additional `kind` field to select the backend. The image and version default to the selected kind.
+
+```yaml
+spec:
+  telemetrykeeper:
+    kind: <string>
+    spec: <molding-spec>
+```
+
+| Kind | Backend | Notes |
+| --- | --- | --- |
+| `clickhousekeeper` | ClickHouse Keeper | Default. Lightweight, no JVM required. |
+| `zookeeper` | ZooKeeper | Apache ZooKeeper, the widely operated JVM based coordination service. |
+
+The `zookeeper` kind is not supported with `mode: systemd` yet.
+
 ## MetaStore
 
 The metastore has an additional `kind` field to select the backend.

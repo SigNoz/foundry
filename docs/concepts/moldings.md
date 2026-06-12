@@ -8,7 +8,7 @@ Foundry ships with sensible defaults for every molding. Override only what you n
 
 | Key in `spec` | Component | Role |
 |---|---|---|
-| `telemetrykeeper` | ClickHouse Keeper | Cluster coordination for ClickHouse |
+| `telemetrykeeper` | ClickHouse Keeper or ZooKeeper | Cluster coordination for ClickHouse |
 | `telemetrystore` | ClickHouse | Stores logs, traces, and metrics |
 | `metastore` | PostgreSQL or SQLite | Stores metadata (dashboards, alerts, users) |
 | `signoz` | SigNoz | UI and API server |
@@ -81,6 +81,23 @@ spec:
 
 > [!NOTE]
 > `config.data` overrides application-level config files that Foundry understands and manages. For platform-level files (compose files, service units, Kubernetes manifests), use [patches](patches.md) instead.
+
+### TelemetryKeeper kind
+
+The telemetry keeper supports two backends. Set the `kind` field to choose; the image and version default to the selected kind:
+
+```yaml
+spec:
+  telemetrykeeper:
+    kind: clickhousekeeper   # default
+```
+
+| Kind | Backend | Notes |
+|---|---|---|
+| `clickhousekeeper` | ClickHouse Keeper | Default. Lightweight, no JVM required. |
+| `zookeeper` | ZooKeeper | Apache ZooKeeper, the widely operated JVM based coordination service. |
+
+The `zookeeper` kind is not supported with `mode: systemd` yet.
 
 ### MetaStore kind
 
