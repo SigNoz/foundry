@@ -17,11 +17,14 @@ var _ fmt.Stringer = (*TelemetryKeeperKind)(nil)
 var _ jsonschema.Enum = (*TelemetryKeeperKind)(nil)
 
 var (
-	TelemetryKeeperKindClickhouseKeeper TelemetryKeeperKind = TelemetryKeeperKind{s: "clickhousekeeper"}
+	TelemetryKeeperKindClickhouseKeeper TelemetryKeeperKind = TelemetryKeeperKind{s: "clickhousekeeper", image: "clickhouse/clickhouse-keeper:25.5.6", version: "25.5.6"}
+	TelemetryKeeperKindZookeeper        TelemetryKeeperKind = TelemetryKeeperKind{s: "zookeeper", image: "signoz/zookeeper:3.7.1", version: "3.7.1"}
 )
 
 type TelemetryKeeperKind struct {
-	s string
+	s       string
+	image   string
+	version string
 }
 
 func (kind TelemetryKeeperKind) String() string {
@@ -29,7 +32,7 @@ func (kind TelemetryKeeperKind) String() string {
 }
 
 func TelemetryKeeperKinds() []TelemetryKeeperKind {
-	return []TelemetryKeeperKind{TelemetryKeeperKindClickhouseKeeper}
+	return []TelemetryKeeperKind{TelemetryKeeperKindClickhouseKeeper, TelemetryKeeperKindZookeeper}
 }
 
 func (kind TelemetryKeeperKind) MarshalJSON() ([]byte, error) {

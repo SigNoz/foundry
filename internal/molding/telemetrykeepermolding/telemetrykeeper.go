@@ -30,6 +30,17 @@ func (molding *telemetrykeeper) Kind() v1alpha1.MoldingKind {
 }
 
 func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *installation.Casting) error {
+	switch config.Spec.TelemetryKeeper.Kind {
+	case installation.TelemetryKeeperKindClickhouseKeeper:
+		return molding.moldClickhouseKeeper(ctx, config)
+	case installation.TelemetryKeeperKindZookeeper:
+		return molding.moldZookeeper(ctx, config)
+	default:
+		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported telemetrykeeper kind %q", config.Spec.TelemetryKeeper.Kind)
+	}
+}
+
+func (molding *telemetrykeeper) moldClickhouseKeeper(ctx context.Context, config *installation.Casting) error {
 	data, err := newData(config)
 	if err != nil {
 		molding.logger.ErrorContext(ctx, "failed to get data", foundryerrors.LogAttr(err))
@@ -63,5 +74,18 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *instal
 	}
 
 	config.Spec.TelemetryKeeper.Status.Config.Data = configs
+	return nil
+}
+
+func (molding *telemetrykeeper) moldZookeeper(_ context.Context, config *installation.Casting) error {
+	if config.Spec.TelemetryKeeper.Status.Env == nil {
+		config.Spec.TelemetryKeeper.Status.Env = make(map[string]string)
+	}
+
+	config.Spec.TelemetryKeeper.Status.Env["ALLOW_ANONYMOUS_LOGIN"] = "yes"
+	config.Spec.TelemetryKeeper.Status.Env["ZOO_AUTOPURGE_INTERVAL"] = "1"
+	config.Spec.TelemetryKeeper.Status.Env["ZOO_ENABLE_PROMETHEUS_METRICS"] = "yes"
+	config.Spec.TelemetryKeeper.Status.Env["ZOO_PROMETHEUS_METRICS_PORT_NUMBER"] = "9141"
+
 	return nil
 }
