@@ -87,10 +87,15 @@ func (e *linuxMoldingEnricher) enrichTelemetryKeeper(config *installation.Castin
 		return errors.Newf(errors.TypeUnsupported, "deployment mode '%s' does not support Distributed Clickhouse Setup, raise an issue at https://github.com/signoz/foundry/issues", config.Spec.Deployment.Mode)
 	}
 
+	clientPort, raftPort := baseTelemetryKeeperClientPort, baseTelemetryKeeperRaftPort
+	if spec.Kind == installation.TelemetryKeeperKindZookeeper {
+		clientPort, raftPort = 2181, 2888
+	}
+
 	var clientAddresses, raftAddresses []string
 	for r := 0; r < replicas; r++ {
-		clientAddresses = append(clientAddresses, domain.MustNewAddress("tcp", "localhost", baseTelemetryKeeperClientPort+r).String())
-		raftAddresses = append(raftAddresses, domain.MustNewAddress("tcp", "localhost", baseTelemetryKeeperRaftPort+r).String())
+		clientAddresses = append(clientAddresses, domain.MustNewAddress("tcp", "localhost", clientPort+r).String())
+		raftAddresses = append(raftAddresses, domain.MustNewAddress("tcp", "localhost", raftPort+r).String())
 	}
 
 	config.Spec.TelemetryKeeper.Status.Addresses.Client = clientAddresses

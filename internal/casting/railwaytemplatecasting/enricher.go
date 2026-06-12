@@ -60,9 +60,13 @@ func (enricher *railwayTemplateMoldingEnricher) EnrichStatus(ctx context.Context
 		if !config.Spec.TelemetryKeeper.Spec.IsEnabled() {
 			return nil
 		}
+		clientPort, raftPort := 9181, 9234
+		if config.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindZookeeper {
+			clientPort, raftPort = 2181, 2888
+		}
 		svc := name + "-telemetrykeeper-" + config.Spec.TelemetryKeeper.Kind.String()
-		config.Spec.TelemetryKeeper.Status.Addresses.Client = []string{domain.MustNewAddress("tcp", railwayInternalHost(svc), 9181).String()}
-		config.Spec.TelemetryKeeper.Status.Addresses.Raft = []string{domain.MustNewAddress("tcp", railwayInternalHost(svc), 9234).String()}
+		config.Spec.TelemetryKeeper.Status.Addresses.Client = []string{domain.MustNewAddress("tcp", railwayInternalHost(svc), clientPort).String()}
+		config.Spec.TelemetryKeeper.Status.Addresses.Raft = []string{domain.MustNewAddress("tcp", railwayInternalHost(svc), raftPort).String()}
 		if config.Spec.TelemetryKeeper.Status.Extras == nil {
 			config.Spec.TelemetryKeeper.Status.Extras = make(map[string]string)
 		}

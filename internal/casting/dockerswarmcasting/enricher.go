@@ -68,10 +68,15 @@ func (enricher *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, ki
 			return errors.Wrapf(err, errors.TypeInternal, "failed to get telemetrykeeper service names")
 		}
 
+		clientPort, raftPort := 9181, 9234
+		if config.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindZookeeper {
+			clientPort, raftPort = 2181, 2888
+		}
+
 		var clientAddresses []string
 		for _, name := range containerNames {
 			if strings.Contains(name, "telemetrykeeper") {
-				clientAddresses = append(clientAddresses, domain.MustNewAddress("tcp", name, 9181).String())
+				clientAddresses = append(clientAddresses, domain.MustNewAddress("tcp", name, clientPort).String())
 			}
 		}
 		config.Spec.TelemetryKeeper.Status.Addresses.Client = clientAddresses
@@ -79,7 +84,7 @@ func (enricher *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, ki
 		var raftAddresses []string
 		for _, name := range containerNames {
 			if strings.Contains(name, "telemetrykeeper") {
-				raftAddresses = append(raftAddresses, domain.MustNewAddress("tcp", name, 9234).String())
+				raftAddresses = append(raftAddresses, domain.MustNewAddress("tcp", name, raftPort).String())
 			}
 		}
 		config.Spec.TelemetryKeeper.Status.Addresses.Raft = raftAddresses

@@ -34,6 +34,7 @@ func New(logger *slog.Logger) *systemdCasting {
 		logger: logger,
 		castings: []*domain.Template{
 			telemetryKeeperServiceTemplate,
+			zookeeperServiceTemplate,
 			telemetryStoreServiceTemplate,
 			metaStoreServiceTemplate,
 			signozServiceTemplate,
@@ -126,10 +127,15 @@ func (c *systemdCasting) forgeCasting(tmpl *domain.Template, cfg *installation.C
 		}
 		return c.forgeTelemetryStore(tmpl, cfg)
 	case telemetryKeeperServiceTemplate:
-		if !cfg.Spec.TelemetryKeeper.Spec.IsEnabled() {
+		if !cfg.Spec.TelemetryKeeper.Spec.IsEnabled() || cfg.Spec.TelemetryKeeper.Kind != installation.TelemetryKeeperKindClickhouseKeeper {
 			return nil, nil
 		}
 		return c.forgeTelemetryKeeper(tmpl, cfg)
+	case zookeeperServiceTemplate:
+		if !cfg.Spec.TelemetryKeeper.Spec.IsEnabled() || cfg.Spec.TelemetryKeeper.Kind != installation.TelemetryKeeperKindZookeeper {
+			return nil, nil
+		}
+		return c.forgeTelemetryKeeperZookeeper(tmpl, cfg)
 	case telemetryStoreMigratorServiceTemplate:
 		if !cfg.Spec.TelemetryStore.Spec.IsEnabled() {
 			return nil, nil
@@ -273,6 +279,22 @@ func (c *systemdCasting) forgeTelemetryKeeper(tmpl *domain.Template, cfg *instal
 	return materials, nil
 }
 
+func (c *systemdCasting) forgeTelemetryKeeperZookeeper(tmpl *domain.Template, cfg *installation.Casting) ([]domain.Material, error) {
+	kind := cfg.Spec.TelemetryKeeper.Kind.String()
+
+	cfgMat, err := c.renderTemplate(zookeeperConfigTemplate, cfg, filepath.Join("telemetrykeeper", kind, "zoo.cfg"))
+	if err != nil {
+		return nil, err
+	}
+
+	svcMat, err := c.renderTemplate(tmpl, cfg, fmt.Sprintf("%s-telemetrykeeper-%s-0%s", cfg.Metadata.Name, kind, svcSuffix))
+	if err != nil {
+		return nil, err
+	}
+
+	return []domain.Material{svcMat, cfgMat}, nil
+}
+
 func (c *systemdCasting) forgeMigrator(tmpl *domain.Template, cfg *installation.Casting) ([]domain.Material, error) {
 	var materials []domain.Material
 
@@ -363,9 +385,14 @@ func (c *systemdCasting) setupSystemEnvironment(ctx context.Context, config *ins
 		}
 	}
 	if config.Spec.TelemetryKeeper.Spec.IsEnabled() {
+		keeperConfigDir := "/etc/clickhouse-keeper/"
+		if config.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindZookeeper {
+			keeperConfigDir = "/etc/zookeeper/"
+		}
+
 		src := filepath.Join(poursPath, rootcasting.DeploymentDir, "telemetrykeeper", config.Spec.TelemetryKeeper.Kind.String())
-		if err := c.copyDir(src, "/etc/clickhouse-keeper/"); err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to copy clickhouse-keeper configs")
+		if err := c.copyDir(src, keeperConfigDir); err != nil {
+			return errors.Wrapf(err, errors.TypeInternal, "failed to copy telemetrykeeper configs")
 		}
 	}
 
