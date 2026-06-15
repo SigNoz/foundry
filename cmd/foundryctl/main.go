@@ -35,7 +35,7 @@ func main() {
 	if rootNotifier != nil {
 		rootNotifier.Finish(version.Info.Version(), os.Stderr)
 	}
-	
+
 	closeRoot()
 	if err != nil {
 		os.Exit(foundryerrors.ExitCode(err))

@@ -17,10 +17,10 @@ var (
 )
 
 type commonConfig struct {
-	File          string
-	Debug         bool
-	Format        string
-	NoLedger      bool
+	File      string
+	Debug     bool
+	Format    string
+	NoLedger  bool
 	NoUpdater bool
 }
 
