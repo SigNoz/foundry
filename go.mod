@@ -14,6 +14,7 @@ require (
 	github.com/swaggest/jsonschema-go v0.3.79
 	github.com/tidwall/gjson v1.18.0
 	go.yaml.in/yaml/v3 v3.0.4
+	golang.org/x/mod v0.31.0
 	gopkg.in/ini.v1 v1.67.1
 	helm.sh/helm/v3 v3.20.2
 	k8s.io/apimachinery v0.35.1
