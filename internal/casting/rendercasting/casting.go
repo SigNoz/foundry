@@ -48,8 +48,9 @@ func (c *renderCasting) Forge(ctx context.Context, config installation.Casting, 
 	}
 	materials = append(materials, blueprintMaterial)
 
-	// Generate Dockerfile for telemetrykeeper services
-	if config.Spec.TelemetryKeeper.Spec.IsEnabled() {
+	// Generate Dockerfile for telemetrykeeper services. The zookeeper kind runs
+	// straight from its image (runtime: image), so no Dockerfile is needed.
+	if config.Spec.TelemetryKeeper.Spec.IsEnabled() && config.Spec.TelemetryKeeper.Kind != installation.TelemetryKeeperKindZookeeper {
 		dockerfileBuf := bytes.NewBuffer(nil)
 		err := telemetryKeeperDockerfileTemplate.Execute(dockerfileBuf, config)
 		if err != nil {

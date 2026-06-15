@@ -66,13 +66,13 @@ func peekKind(bytes []byte) (v1alpha1.Kind, error) {
 }
 
 func loadInstallation(bytes []byte, path string) (v1alpha1.Machinery, error) {
-	var loaded installation.Casting
-	if err := domain.UnmarshalYAML(bytes, &loaded); err != nil {
+	var declared installation.Casting
+	if err := domain.UnmarshalYAML(bytes, &declared); err != nil {
 		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "failed to unmarshal installation casting")
 	}
 
-	base := installation.Default()
-	if err := v1alpha1.Merge(base, &loaded); err != nil {
+	base := installation.Default(&declared)
+	if err := v1alpha1.Merge(base, &declared); err != nil {
 		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to merge default installation casting")
 	}
 

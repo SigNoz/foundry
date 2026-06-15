@@ -325,7 +325,8 @@
           "$ref": "#/definitions/InstallationTelemetryKeeperKind",
           "description": "Kind of the telemetry keeper to use",
           "examples": [
-            "clickhousekeeper"
+            "clickhousekeeper",
+            "zookeeper"
           ]
         },
         "spec": {
@@ -341,7 +342,8 @@
     },
     "InstallationTelemetryKeeperKind": {
       "enum": [
-        "clickhousekeeper"
+        "clickhousekeeper",
+        "zookeeper"
       ],
       "type": "string"
     },
