@@ -11,7 +11,7 @@ import (
 	"github.com/signoz/foundry/internal/ledger"
 	"github.com/signoz/foundry/internal/ledger/noopledger"
 	"github.com/signoz/foundry/internal/ledger/segmentledger"
-	"github.com/signoz/foundry/internal/update"
+	"github.com/signoz/foundry/internal/updater"
 	"github.com/signoz/foundry/internal/writer"
 	"github.com/spf13/cobra"
 )
@@ -19,7 +19,7 @@ import (
 var (
 	rootLogger   *slog.Logger
 	rootTracker  ledger.Ledger
-	rootNotifier *update.Notifier
+	rootNotifier *updater.Notifier
 )
 
 // newRoot is wired as rootCmd.PersistentPreRunE so it fires after persistent
@@ -39,11 +39,11 @@ func newRoot(cmd *cobra.Command, _ []string) error {
 		rootTracker = noopledger.New()
 	}
 
-	updateConfig := update.NewConfig()
-	if commonCfg.NoUpdateCheck {
-		updateConfig.Enabled = false
+	updaterConfig := updater.NewConfig()
+	if commonCfg.NoUpdater {
+		updaterConfig.Enabled = false
 	}
-	rootNotifier = update.NewNotifier(updateConfig, rootLogger)
+	rootNotifier = updater.NewNotifier(updaterConfig, rootLogger)
 	rootNotifier.Notify(cmd.Context())
 
 	return nil

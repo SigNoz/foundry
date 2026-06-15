@@ -21,7 +21,7 @@ type commonConfig struct {
 	Debug         bool
 	Format        string
 	NoLedger      bool
-	NoUpdateCheck bool
+	NoUpdater bool
 }
 
 func (c *commonConfig) RegisterFlags(cmd *cobra.Command) {
@@ -29,7 +29,7 @@ func (c *commonConfig) RegisterFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().BoolVarP(&c.Debug, "debug", "d", false, "Enable debug mode.")
 	cmd.PersistentFlags().StringVar(&c.Format, "format", "json", "Output format for results and errors (json|text).")
 	cmd.PersistentFlags().BoolVar(&c.NoLedger, "no-ledger", false, "Disable anonymous usage ledger.")
-	cmd.PersistentFlags().BoolVar(&c.NoUpdateCheck, "no-update", false, "Disable the update notifier.")
+	cmd.PersistentFlags().BoolVar(&c.NoUpdater, "no-updater", false, "Disable the update notifier.")
 }
 
 type poursConfig struct {

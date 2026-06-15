@@ -1,6 +1,6 @@
-// Package update surfaces a stderr notice when a newer foundryctl release is
+// Package updater surfaces a stderr notice when a newer foundryctl release is
 // available on GitHub, following /releases/latest's redirect to read the tag.
-package update
+package updater
 
 import (
 	"context"
