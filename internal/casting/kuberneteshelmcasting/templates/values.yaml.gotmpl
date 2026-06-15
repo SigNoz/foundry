@@ -16,12 +16,20 @@ clickhouse:
   zookeeper:
     enabled: {{ $.Spec.TelemetryKeeper.Spec.Enabled }}
     fullnameOverride: {{ $.Metadata.Name }}-telemetrykeeper-zookeeper
+    {{- if eq $.Spec.TelemetryKeeper.Kind.String "zookeeper" }}
     {{- with $.Spec.TelemetryKeeper.Spec.Image }}
     {{- $parts := splitn ":" 2 . }}
+    image:
+      repository: {{ $parts._0 }}
+      tag: {{ $parts._1 | default "latest" }}
+    {{- end }}
+    {{- else }}
+    {{- with $.Spec.TelemetryKeeper.Spec.Image }}
     image:
       {{/* Currently charts does not support clickhousekeeper, we will render the keeper image here once we support clickhousekeeper in charts */}}
       repository: signoz/zookeeper
       tag: 3.7.1
+    {{- end }}
     {{- end }}
     replicaCount: {{ $.Spec.TelemetryKeeper.Spec.Cluster.Replicas }}
 signoz:

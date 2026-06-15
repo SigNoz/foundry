@@ -16,7 +16,7 @@ func TestSchema(t *testing.T) {
 func TestSchemaValidatesDefault(t *testing.T) {
 	t.Parallel()
 
-	contents, err := json.Marshal(Default())
+	contents, err := json.Marshal(Default(&Casting{}))
 	require.NoError(t, err)
 
 	var payload map[string]any

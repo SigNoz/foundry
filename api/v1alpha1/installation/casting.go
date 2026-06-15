@@ -28,9 +28,11 @@ type Spec struct {
 
 var _ v1alpha1.Machinery = (*Casting)(nil)
 
-// Default returns an Installation with every molding initialised from its
-// default.
-func Default() *Casting {
+// Default returns the default Installation for the declared casting.
+// Components whose defaults depend on a declared kind (telemetrykeeper) are
+// defaulted for that kind; the zero declaration yields the static defaults.
+// The declared casting is read, never written.
+func Default(declared *Casting) *Casting {
 	return &Casting{
 		CastingMeta: v1alpha1.CastingMeta{
 			TypeVersion: v1alpha1.TypeVersion{APIVersion: "v1alpha1"},
@@ -41,7 +43,7 @@ func Default() *Casting {
 			Infrastructure:  DefaultInfrastructure(),
 			Signoz:          DefaultSigNoz(),
 			TelemetryStore:  DefaultTelemetryStore(),
-			TelemetryKeeper: DefaultTelemetryKeeper(),
+			TelemetryKeeper: DefaultTelemetryKeeper(declared.Spec.TelemetryKeeper.Kind),
 			MetaStore:       DefaultMetaStore(),
 			Ingester:        DefaultIngester(),
 			MCP:             DefaultMCP(),

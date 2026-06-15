@@ -56,9 +56,15 @@ func (enricher *ecsMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alp
 		if err != nil {
 			return errors.Wrapf(err, errors.TypeInternal, "failed to get telemetrykeeper service discovery name")
 		}
+
+		clientPort, raftPort := telemetryKeeperClientPort, telemetryKeeperRaftPort
+		if config.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindZookeeper {
+			clientPort, raftPort = 2181, 2888
+		}
+
 		fqdn := fmt.Sprintf("%s.%s", string(sdName), namespace)
-		config.Spec.TelemetryKeeper.Status.Addresses.Client = []string{domain.MustNewAddress("tcp", fqdn, telemetryKeeperClientPort).String()}
-		config.Spec.TelemetryKeeper.Status.Addresses.Raft = []string{domain.MustNewAddress("tcp", fqdn, telemetryKeeperRaftPort).String()}
+		config.Spec.TelemetryKeeper.Status.Addresses.Client = []string{domain.MustNewAddress("tcp", fqdn, clientPort).String()}
+		config.Spec.TelemetryKeeper.Status.Addresses.Raft = []string{domain.MustNewAddress("tcp", fqdn, raftPort).String()}
 
 	case v1alpha1.MoldingKindMetaStore:
 		sdName, err := enricher.materials[3].GetBytes("resource.aws_service_discovery_service.metastore.name")

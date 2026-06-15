@@ -1,5 +1,30 @@
 services:
   {{ if $.Spec.TelemetryKeeper.Spec.Enabled }}
+  {{ if eq $.Spec.TelemetryKeeper.Kind.String "zookeeper" }}
+  {{ range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
+  - name: {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}
+    type: pserv
+    plan: standard
+    runtime: image
+    image:
+      url: docker.io/{{ $.Spec.TelemetryKeeper.Spec.Image }}
+    envVars:
+      - key: ZOO_SERVER_ID
+        value: "{{ add $replicaIdx 1 }}"
+      {{ if gt (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) 1 }}
+      - key: ZOO_SERVERS
+        value: {{ range $serverIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}{{ if $serverIdx }},{{ end }}{{ if eq $serverIdx $replicaIdx }}0.0.0.0{{ else }}{{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $serverIdx }}{{ end }}:2888:3888{{ end }}
+      {{ end }}
+      {{ range $key, $value := $.Spec.TelemetryKeeper.Spec.Env }}
+      - key: {{ $key }}
+        value: "{{ $value }}"
+      {{ end }}
+    disk:
+      name: {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}-data
+      mountPath: /bitnami/zookeeper
+      sizeGB: 5
+  {{ end }}
+  {{ else }}
   {{ range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
   - name: {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}
     type: pserv
@@ -11,6 +36,7 @@ services:
       name: {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}-data
       mountPath: /var/lib/clickhouse-keeper
       sizeGB: 5
+  {{ end }}
   {{ end }}
   {{ end }}
 

@@ -75,6 +75,10 @@ func (e *linuxMoldingEnricher) enrichTelemetryStore(config *installation.Casting
 }
 
 func (e *linuxMoldingEnricher) enrichTelemetryKeeper(config *installation.Casting) error {
+	if config.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindZookeeper {
+		return errors.Newf(errors.TypeUnsupported, "telemetrykeeper kind %q is not supported by the systemd casting yet", config.Spec.TelemetryKeeper.Kind)
+	}
+
 	spec := &config.Spec.TelemetryKeeper
 	cluster := spec.Spec.Cluster
 
