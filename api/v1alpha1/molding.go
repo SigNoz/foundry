@@ -1,6 +1,10 @@
 package v1alpha1
 
-import "maps"
+import (
+	"maps"
+
+	"github.com/signoz/foundry/internal/domain"
+)
 
 type MoldingSpec struct {
 	// Whether the molding is enabled
@@ -58,11 +62,31 @@ func (spec *MoldingSpec) MergeStatus(status MoldingStatus) error {
 	maps.Copy(status.Env, spec.Env)
 	spec.Env = status.Env
 
-	if err := Merge(&status.Config, spec.Config); err != nil {
-		return err
+	// Config.Data is taken out of the strategic merge: a strategic merge of
+	// map[string]string replaces the whole value at each config-key-path, which
+	// forces a user to restate an entire generated file to change one field.
+	// Instead deep-merge the user's spec delta on top of the molding-generated
+	// status config, per file. User keys win at every leaf; base-only keys
+	// survive. (nil strategy = plain deep-merge, lists replaced; per-path list
+	// policy is applied earlier, in the molding, where the template's table lives.)
+	merged := status.Config.Data
+	if merged == nil {
+		merged = make(map[string]string, len(spec.Config.Data))
 	}
+	for path, override := range spec.Config.Data {
+		base, ok := merged[path]
+		if !ok {
+			merged[path] = override
+			continue
+		}
 
-	spec.Config = status.Config
+		out, err := domain.MergeYAML(base, override, nil)
+		if err != nil {
+			return err
+		}
+		merged[path] = out
+	}
+	spec.Config.Data = merged
 
 	return nil
 }
