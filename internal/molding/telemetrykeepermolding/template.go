@@ -15,16 +15,6 @@ var (
 	KeeperClickhousev2556YAML *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/keeper.clickhouse.v2556.yaml.gotmpl", domain.FormatYAML)
 )
 
-// KeeperClickhousev2556ListMerge declares how a user override merges with the
-// output of KeeperClickhousev2556YAML, per list path. The raft server set is
-// Foundry-owned topology derived from addresses, so an override replaces it
-// wholesale. Atomic is the default; the entry states intent and keeps this
-// object-list off Set/Ordered. It lives beside the template because it
-// describes that template's rendered shape, not the molding's logic.
-var KeeperClickhousev2556ListMerge = map[string]domain.ListMerge{
-	"keeper_server.raft_configuration.server": domain.ListMergeReplace,
-}
-
 // Data is the template data for rendering ClickHouse Keeper configs.
 type Data struct {
 	RaftAddresses   []domain.Address // Inter-keeper consensus addresses

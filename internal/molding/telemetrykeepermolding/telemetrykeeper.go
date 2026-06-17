@@ -63,7 +63,7 @@ func (molding *telemetrykeeper) moldClickhouseKeeper(ctx context.Context, config
 		base := configBuf.String()
 
 		if overrides != "" {
-			merged, err := domain.MergeYAML(base, overrides, KeeperClickhousev2556ListMerge)
+			merged, err := domain.MergeYAML(base, overrides)
 			if err != nil {
 				return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to merge config overrides for %s", key)
 			}

@@ -1,5 +1,11 @@
 package v1alpha1
 
+import (
+	"maps"
+
+	"github.com/signoz/foundry/internal/domain"
+)
+
 type TypeVersion struct {
 	APIVersion string `json:"apiVersion" yaml:"apiVersion" required:"true" nullable:"false" enum:"v1alpha1" description:"API Version of the configuration schema." default:"v1alpha1" example:"v1alpha1"`
 }
@@ -19,6 +25,28 @@ type TypeCluster struct {
 type TypeConfig struct {
 	Data map[string]string `json:"data,omitempty" yaml:"data,omitempty" description:"Configuration data as key-value pairs."`
 	_    struct{}          `additionalProperties:"false"`
+}
+
+// mergedWith returns a copy of c with override's data deep-merged on top, per key.
+func (c TypeConfig) mergedWith(override TypeConfig) (TypeConfig, error) {
+	data := make(map[string]string, len(c.Data)+len(override.Data))
+	maps.Copy(data, c.Data)
+
+	for key, doc := range override.Data {
+		base, ok := data[key]
+		if !ok {
+			data[key] = doc
+			continue
+		}
+
+		merged, err := domain.MergeYAML(base, doc)
+		if err != nil {
+			return TypeConfig{}, err
+		}
+		data[key] = merged
+	}
+
+	return TypeConfig{Data: data}, nil
 }
 
 type TypeDeployment struct {
