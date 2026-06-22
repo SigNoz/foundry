@@ -17,7 +17,7 @@ An OpenTelemetry-native observability backend in a single Docker image. The stan
 - **SQLite** - metadata storage
 - **[Foundry](https://github.com/SigNoz/foundry)** - deployment orchestration via `foundryctl`
 
-Applications can send telemetry using OpenTelemetry's standard defaults (OTLP gRPC/HTTP) without additional configuration. On first boot, Foundry generates all service configs and starts components via systemd.
+Applications can send telemetry using OpenTelemetry's standard defaults (OTLP gRPC/HTTP) without additional configuration. On first boot the container fetches the SigNoz app binaries (see [Versions](#versions)), then Foundry generates all service configs and starts components via systemd.
 
 ## Prerequisites
 
@@ -39,6 +39,21 @@ Send telemetry to:
 
 - OTLP gRPC: `localhost:4317`
 - OTLP HTTP: `localhost:4318`
+
+## Versions
+
+The SigNoz, OTel Collector, and `foundryctl` binaries are fetched at container start, so you can pin them per run (only ClickHouse is baked into the image):
+
+```bash
+docker run -d --name signoz --privileged \
+    -e SIGNOZ_VERSION=v0.x.y \
+    -e INGESTER_VERSION=v0.x.y \
+    -e FOUNDRY_VERSION=v0.x.y \
+    -p 8080:8080 -p 4317:4317 -p 4318:4318 \
+    signoz/signoz-standalone:latest
+```
+
+> First start needs network access to fetch these binaries.
 
 ## Customization
 
