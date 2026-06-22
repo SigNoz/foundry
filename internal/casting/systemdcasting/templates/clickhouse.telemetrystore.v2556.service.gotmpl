@@ -11,7 +11,10 @@ Group=clickhouse
 Restart=always
 RestartSec=30
 RuntimeDirectory=clickhouse
-ExecStart=/usr/bin/clickhouse-server --config=/etc/clickhouse-server/config-0-0.yaml --pid-file=/run/clickhouse/clickhouse.pid
+{{- if and $.Metadata.Annotations (index $.Metadata.Annotations "foundry.signoz.io/telemetrystore-clickhouse-binary-path") }}
+{{- $clickhouseBinary := index $.Metadata.Annotations "foundry.signoz.io/telemetrystore-clickhouse-binary-path" }}
+ExecStart={{ $clickhouseBinary }} server --config=/etc/clickhouse-server/config-0-0.yaml --pid-file=/run/clickhouse/clickhouse.pid
+{{- end }}
 {{- range $key, $value := $.Spec.TelemetryStore.Spec.Env }}
 Environment={{ $key }}={{ $value }}
 {{- end }}

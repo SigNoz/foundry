@@ -51,6 +51,23 @@ Not all deployment modes require annotations. Most modes (Docker Compose, Docker
 
 For the complete list of annotation keys and their descriptions, see [Casting File Reference](../reference/casting-file.md#annotations).
 
+## Annotation catalog
+
+Foundry's annotations are defined centrally: the `Annotation` value object lives in `api/v1alpha1`, and the entries (key, default, mode, description) live with their Kind - the Installation catalog is in `api/v1alpha1/installation`. Each entry records the **mode** it applies to; an annotation set outside its mode is ignored, and omitting one falls back to its default.
+
+### Systemd (binary)
+
+Absolute paths to the component binaries the generated `.service` units exec.
+
+| Annotation | Default | Description |
+|---|---|---|
+| `foundry.signoz.io/signoz-binary-path` | `/opt/signoz/bin/signoz` | Absolute path to the SigNoz server binary. |
+| `foundry.signoz.io/ingester-binary-path` | `/opt/ingester/bin/signoz-otel-collector` | Absolute path to the SigNoz OTel Collector (ingester) binary. |
+| `foundry.signoz.io/metastore-postgres-binary-path` | `/usr/bin/postgres` | Absolute path to the PostgreSQL server binary; its bindir also holds initdb and pg_ctl. |
+| `foundry.signoz.io/telemetrystore-clickhouse-binary-path` | `/usr/bin/clickhouse` | Absolute path to the ClickHouse binary, run as `clickhouse server`. |
+| `foundry.signoz.io/telemetrykeeper-clickhousekeeper-binary-path` | `/usr/bin/clickhouse` | Absolute path to the ClickHouse binary, run as `clickhouse keeper`. |
+
+
 ## Next steps
 
 - [Patches](patches.md) - post-generation modifications

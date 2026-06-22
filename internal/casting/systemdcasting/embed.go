@@ -16,4 +16,5 @@ var (
 	telemetryKeeperServiceTemplate        *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/clickhousekeeper.telemetrykeeper.v2556.service.gotmpl", domain.FormatINI)
 	metaStoreServiceTemplate              *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/postgres.metastore.service.gotmpl", domain.FormatINI)
 	telemetryStoreMigratorServiceTemplate *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/migrator.telemetrystore.service.gotmpl", domain.FormatINI)
+	mcpServiceTemplate                    *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/mcp.service.gotmpl", domain.FormatINI)
 )

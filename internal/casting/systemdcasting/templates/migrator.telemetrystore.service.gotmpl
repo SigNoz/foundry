@@ -10,9 +10,9 @@ RestartSec=5
 User=signoz
 Group=signoz
 {{- if and $.Metadata.Annotations (index $.Metadata.Annotations "foundry.signoz.io/ingester-binary-path") }}
-{{- $migratorBinary := index $.Metadata.Annotations "foundry.signoz.io/ingester-binary-path" }}
-ExecStartPre={{ $migratorBinary }} migrate ready
-ExecStart=/bin/bash -c '{{ $migratorBinary }} migrate bootstrap && {{ $migratorBinary }} migrate sync up && {{ $migratorBinary }} migrate async up'
+{{- $ingesterBinary := index $.Metadata.Annotations "foundry.signoz.io/ingester-binary-path" }}
+ExecStartPre={{ $ingesterBinary }} migrate ready
+ExecStart=/bin/bash -c '{{ $ingesterBinary }} migrate bootstrap && {{ $ingesterBinary }} migrate sync up && {{ $ingesterBinary }} migrate async up'
 {{- end }}
 {{- if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
 Environment=SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN={{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}

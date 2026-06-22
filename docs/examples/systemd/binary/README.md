@@ -8,44 +8,42 @@
 
 ## Overview
 
-Deploys SigNoz on bare metal using systemd service units. Each SigNoz component runs as a separate systemd service under a dedicated `signoz` user. Foundry generates the service files and config directories, and `foundryctl cast` installs and starts them.
+Deploys SigNoz on bare metal as systemd units — one service per component (SigNoz, OTel Collector, ClickHouse, ClickHouse Keeper, and PostgreSQL when used), running under a dedicated `signoz` service user. `foundryctl cast` generates the units and starts them.
 
 ## Prerequisites
 
-- [ClickHouse](https://clickhouse.com/docs/en/install) (`clickhouse-server` and `clickhouse-keeper`)
-- [PostgreSQL](https://www.postgresql.org/download/) for the metadata store
-- [SigNoz binary](https://github.com/SigNoz/signoz/releases/latest) installed to `/opt/signoz`
-- [SigNoz OTel Collector binary](https://github.com/SigNoz/signoz-otel-collector/releases/latest) installed to `/opt/ingester`
-- A `signoz` system user with ownership of binary and data directories:
+Install the component binaries below; `cast` handles everything else. They are expected at standard locations — install elsewhere and point to them with [annotations](#annotations).
 
-```bash
-sudo useradd -r -s /sbin/nologin signoz
-sudo chown -R signoz:signoz /opt/signoz /var/lib/signoz /opt/ingester /var/lib/ingester
-```
-
-The `signoz` user must also have traverse permissions to the `pours/` output directory.
-
-## Download SigNoz
-
-Download the SigNoz release tarball and extract it into `/opt/signoz`:
-
-```bash
-ARCH=$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
-sudo mkdir -p /opt/signoz
-curl -fsSL "https://github.com/SigNoz/signoz/releases/latest/download/signoz_linux_${ARCH}.tar.gz" \
-  | sudo tar -xz --strip-components=1 -C /opt/signoz
-```
+- [SigNoz](https://github.com/SigNoz/signoz/releases/latest)
+- [SigNoz OTel Collector](https://github.com/SigNoz/signoz-otel-collector/releases/latest)
+- [ClickHouse](https://clickhouse.com/docs/install) — a single `clickhouse` binary serves both the telemetry store and the keeper
+- [PostgreSQL](https://www.postgresql.org/download/) — only when `metastore.kind` is `postgres`
+- [SigNoz MCP Server](https://github.com/SigNoz/signoz-mcp-server#self-hosted-installation) — only when MCP is enabled (`spec.mcp.spec.enabled: true`)
 
 > [!IMPORTANT]
-> Extract the full tarball, do not move the `signoz` binary on its own. SigNoz resolves
-> the web frontend and notification templates relative to the binary, so `bin/`, `web/`,
-> `templates/`, and `conf/` must stay together under `/opt/signoz`. Moving only the binary
-> leaves the UI and alert/email templates unresolved.
+> Install SigNoz by extracting the **full** release tarball into `/opt/signoz` — do not move the `signoz` binary on its own. It resolves the web UI and email/alert templates relative to itself, so `bin/`, `web/`, `templates/`, and `conf/` must stay together:
+>
+> ```bash
+> ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+> sudo mkdir -p /opt/signoz
+> curl -fsSL "https://github.com/SigNoz/signoz/releases/latest/download/signoz_linux_${ARCH}.tar.gz" \
+>   | sudo tar -xz --strip-components=1 -C /opt/signoz
+> ```
+
+> [!NOTE]
+> The MCP server is optional. When `spec.mcp.spec.enabled` is `true`, install its [self-hosted binary](https://github.com/SigNoz/signoz-mcp-server#self-hosted-installation) to the default location:
+>
+> ```bash
+> ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+> curl -fsSL "https://github.com/SigNoz/signoz-mcp-server/releases/latest/download/signoz-mcp-server_linux_${ARCH}.tar.gz" | tar -xz
+> sudo install -D signoz-mcp-server /opt/mcp/bin/signoz-mcp-server
+> ```
 
 ## Configuration
 
 ```yaml
 apiVersion: v1alpha1
+kind: Installation
 metadata:
   name: signoz
 spec:
@@ -56,29 +54,23 @@ spec:
 
 ## Deploy
 
-Run the full pipeline (validate prerequisites, generate files, install and start services):
-
 ```bash
 sudo foundryctl cast -f casting.yaml
 ```
 
-> [!NOTE]
-> `foundryctl cast` requires `sudo` because it manages systemd services, creates system users, and writes to system directories.
+`cast` checks the binaries are present, then installs and starts the systemd units.
 
-Step-by-step alternative:
+> [!NOTE]
+> `cast` requires `sudo` because it manages systemd services, creates the service users, and writes to system directories.
+
+To inspect before deploying:
 
 ```bash
-# 1. Validate prerequisites
+# Check the orchestration tool (systemctl) is available
 foundryctl gauge -f casting.yaml
 
-# 2. Generate deployment files
+# Generate the unit files and configs into pours/ without touching the host
 foundryctl forge -f casting.yaml
-
-# 3. Install and start services manually from pours/deployment/
-sudo cp pours/deployment/*.service /etc/systemd/system/
-sudo cp -r pours/deployment/configs/ /etc/signoz/
-sudo systemctl daemon-reload
-sudo systemctl enable --now signoz-*.service
 ```
 
 ## Generated output
@@ -91,63 +83,46 @@ pours/deployment/
   signoz-telemetrykeeper-clickhousekeeper-0.service
   signoz-telemetrystore-clickhouse-0-0.service
   signoz-telemetrystore-migrator.service
-  configs/
-    ingester/
-      ingester.yaml
-      opamp.yaml
-    telemetrykeeper/
-      keeper-0.yaml
-    telemetrystore/
-      config.yaml
-      functions.yaml
+  ingester/
+    ingester.yaml
+    opamp.yaml
+  telemetrykeeper/clickhousekeeper/
+    keeper-0.yaml
+  telemetrystore/clickhouse/
+    config-0-0.yaml
+    functions.yaml
 ```
 
-## After deployment
+## Operating
 
-Check service status (replace `signoz` with your `metadata.name`):
-
-```bash
-systemctl status signoz-signoz.service
-systemctl status signoz-ingester.service
-systemctl status signoz-telemetrystore-clickhouse-0-0.service
-systemctl status signoz-telemetrykeeper-clickhousekeeper-0.service
-systemctl status signoz-metastore-postgres.service
-```
-
-View logs for a specific service:
+Services are named `<metadata.name>-<component>.service`.
 
 ```bash
+# Status of all services
+systemctl status 'signoz-*'
+
+# Follow logs for one service
 journalctl -u signoz-signoz.service -f
-```
 
-View logs for all SigNoz services:
-
-```bash
+# Follow logs for all services
 journalctl -u 'signoz-*' -f
 ```
 
 ## Annotations
 
-Use annotations to specify custom binary paths when binaries are not installed in the default locations.
+Set an annotation only when a binary is installed outside its default location.
 
-| Annotation | Type | Description |
+| Annotation | Default | Binary |
 | --- | --- | --- |
-| `foundry.signoz.io/signoz-binary-path` | `string` | Path to the SigNoz binary |
-| `foundry.signoz.io/ingester-binary-path` | `string` | Path to the OTel Collector binary |
-| `foundry.signoz.io/metastore-postgres-binary-path` | `string` | Path to the PostgreSQL binary |
-
-Example with custom binary paths:
+| `foundry.signoz.io/signoz-binary-path` | `/opt/signoz/bin/signoz` | SigNoz |
+| `foundry.signoz.io/ingester-binary-path` | `/opt/ingester/bin/signoz-otel-collector` | OTel Collector |
+| `foundry.signoz.io/metastore-postgres-binary-path` | `/usr/bin/postgres` | PostgreSQL (its directory must also hold `initdb`) |
+| `foundry.signoz.io/telemetrystore-clickhouse-binary-path` | `/usr/bin/clickhouse` | ClickHouse, run as `clickhouse server` |
+| `foundry.signoz.io/telemetrykeeper-clickhousekeeper-binary-path` | `/usr/bin/clickhouse` | ClickHouse, run as `clickhouse keeper` |
+| `foundry.signoz.io/mcp-binary-path` | `/opt/mcp/bin/signoz-mcp-server` | SigNoz MCP server |
 
 ```yaml
-apiVersion: v1alpha1
 metadata:
-  name: signoz
   annotations:
-    foundry.signoz.io/signoz-binary-path: /opt/signoz/bin/signoz
-    foundry.signoz.io/ingester-binary-path: /opt/ingester/bin/signoz-otel-collector
-    foundry.signoz.io/metastore-postgres-binary-path: /usr/bin/postgres
-spec:
-  deployment:
-    flavor: binary
-    mode: systemd
+    foundry.signoz.io/signoz-binary-path: /custom/bin/signoz
 ```
