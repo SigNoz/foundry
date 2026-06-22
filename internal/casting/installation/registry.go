@@ -16,14 +16,11 @@ import (
 	"github.com/signoz/foundry/internal/casting/systemdcasting"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/tooler"
-	"github.com/signoz/foundry/internal/tooler/clickhousekeepertooler"
-	"github.com/signoz/foundry/internal/tooler/clickhousetooler"
 	"github.com/signoz/foundry/internal/tooler/dockercomposetooler"
 	"github.com/signoz/foundry/internal/tooler/dockerswarmtooler"
 	"github.com/signoz/foundry/internal/tooler/dockertooler"
 	"github.com/signoz/foundry/internal/tooler/helmtooler"
 	"github.com/signoz/foundry/internal/tooler/kubectltooler"
-	"github.com/signoz/foundry/internal/tooler/postgrestooler"
 	"github.com/signoz/foundry/internal/tooler/systemdtooler"
 	"github.com/signoz/foundry/internal/tooler/terraformtooler"
 )
@@ -57,7 +54,7 @@ func NewRegistry(logger *slog.Logger) *Registry {
 				Flavor: v1alpha1.FlavorBinary,
 			}: {
 				Casting: systemdcasting.New(logger),
-				Toolers: []tooler.Tooler{systemdtooler.New(), clickhousekeepertooler.New(), clickhousetooler.New(), postgrestooler.New()},
+				Toolers: []tooler.Tooler{systemdtooler.New()},
 			},
 			{
 				Mode:   v1alpha1.ModeDocker,

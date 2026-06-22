@@ -9,12 +9,10 @@ Type=simple
 KillMode=mixed
 Restart=on-failure
 RestartSec=5
-{{- if and $.Metadata.Annotations (index $.Metadata.Annotations "foundry.signoz.io/ingester-binary-path") }}
-{{- $ingesterBinaryPath := index $.Metadata.Annotations "foundry.signoz.io/ingester-binary-path" }}
 {{- if and $.Spec.Ingester.Status.Extras (index $.Spec.Ingester.Status.Extras "cfgPath") (index $.Spec.Ingester.Status.Extras "cfgOpampPath") }}
-ExecStartPre={{ $ingesterBinaryPath }} migrate sync check
-ExecStart={{ $ingesterBinaryPath }} --config=%Y/{{ index $.Spec.Ingester.Status.Extras "cfgPath" }} --manager-config=%Y/{{ index $.Spec.Ingester.Status.Extras "cfgOpampPath" }} --copy-path=/var/lib/ingester/ingester.yaml
-{{- end }}
+{{- $ingesterBinary := index $.Metadata.Annotations "foundry.signoz.io/ingester-binary-path" }}
+ExecStartPre={{ $ingesterBinary }} migrate sync check
+ExecStart={{ $ingesterBinary }} --config=/opt/ingester/{{ base (index $.Spec.Ingester.Status.Extras "cfgPath") }} --manager-config=/opt/ingester/{{ base (index $.Spec.Ingester.Status.Extras "cfgOpampPath") }} --copy-path=/var/lib/ingester/ingester.yaml
 {{- end }}
 {{- if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
 Environment=SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN={{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
