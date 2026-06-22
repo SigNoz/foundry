@@ -12,32 +12,36 @@ Deploys SigNoz on bare metal as systemd units — one service per component (Sig
 
 ## Prerequisites
 
-Install the component binaries below; `cast` handles everything else. They are expected at standard locations — install elsewhere and point to them with [annotations](#annotations).
+Install the component binaries to their default locations; `cast` handles everything else. To install elsewhere, point to them with [annotations](#annotations).
 
-- [SigNoz](https://github.com/SigNoz/signoz/releases/latest)
-- [SigNoz OTel Collector](https://github.com/SigNoz/signoz-otel-collector/releases/latest)
-- [ClickHouse](https://clickhouse.com/docs/install) — a single `clickhouse` binary serves both the telemetry store and the keeper
-- [PostgreSQL](https://www.postgresql.org/download/) — only when `metastore.kind` is `postgres`
-- [SigNoz MCP Server](https://github.com/SigNoz/signoz-mcp-server#self-hosted-installation) — only when MCP is enabled (`spec.mcp.spec.enabled: true`)
+The SigNoz binaries are GitHub release tarballs, each extracted into its `/opt` directory:
+
+```bash
+ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+
+# SigNoz (query engine + UI)
+sudo mkdir -p /opt/signoz
+curl -fsSL "https://github.com/SigNoz/signoz/releases/latest/download/signoz_linux_${ARCH}.tar.gz" \
+  | sudo tar -xz --strip-components=1 -C /opt/signoz
+
+# OTel Collector (ingester)
+sudo mkdir -p /opt/ingester
+curl -fsSL "https://github.com/SigNoz/signoz-otel-collector/releases/latest/download/signoz-otel-collector_linux_${ARCH}.tar.gz" \
+  | sudo tar -xz --strip-components=1 -C /opt/ingester
+
+# MCP server (only when spec.mcp.spec.enabled is true)
+sudo mkdir -p /opt/mcp
+curl -fsSL "https://github.com/SigNoz/signoz-mcp-server/releases/latest/download/signoz-mcp-server_linux_${ARCH}.tar.gz" \
+  | sudo tar -xz --strip-components=1 -C /opt/mcp
+```
 
 > [!IMPORTANT]
-> Install SigNoz by extracting the **full** release tarball into `/opt/signoz` — do not move the `signoz` binary on its own. It resolves the web UI and email/alert templates relative to itself, so `bin/`, `web/`, `templates/`, and `conf/` must stay together:
->
-> ```bash
-> ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
-> sudo mkdir -p /opt/signoz
-> curl -fsSL "https://github.com/SigNoz/signoz/releases/latest/download/signoz_linux_${ARCH}.tar.gz" \
->   | sudo tar -xz --strip-components=1 -C /opt/signoz
-> ```
+> Extract the **full** SigNoz tarball; do not move the `signoz` binary on its own. It loads the web UI and email/alert templates relative to itself, so `bin/`, `web/`, `templates/`, and `conf/` must stay together.
 
-> [!NOTE]
-> The MCP server is optional. When `spec.mcp.spec.enabled` is `true`, install its [self-hosted binary](https://github.com/SigNoz/signoz-mcp-server#self-hosted-installation) to the default location:
->
-> ```bash
-> ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
-> curl -fsSL "https://github.com/SigNoz/signoz-mcp-server/releases/latest/download/signoz-mcp-server_linux_${ARCH}.tar.gz" | tar -xz
-> sudo install -D signoz-mcp-server /opt/mcp/bin/signoz-mcp-server
-> ```
+ClickHouse and PostgreSQL are installed from their own packages:
+
+- [ClickHouse](https://clickhouse.com/docs/install): one `clickhouse` binary serves both the telemetry store and the keeper
+- [PostgreSQL](https://www.postgresql.org/download/): only when `metastore.kind` is `postgres`
 
 ## Configuration
 
