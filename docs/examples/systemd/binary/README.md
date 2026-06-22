@@ -18,6 +18,7 @@ Install the component binaries below; `cast` handles everything else. They are e
 - [SigNoz OTel Collector](https://github.com/SigNoz/signoz-otel-collector/releases/latest)
 - [ClickHouse](https://clickhouse.com/docs/install) — a single `clickhouse` binary serves both the telemetry store and the keeper
 - [PostgreSQL](https://www.postgresql.org/download/) — only when `metastore.kind` is `postgres`
+- [SigNoz MCP Server](https://github.com/SigNoz/signoz-mcp-server#self-hosted-installation) — only when MCP is enabled (`spec.mcp.spec.enabled: true`)
 
 > [!IMPORTANT]
 > Install SigNoz by extracting the **full** release tarball into `/opt/signoz` — do not move the `signoz` binary on its own. It resolves the web UI and email/alert templates relative to itself, so `bin/`, `web/`, `templates/`, and `conf/` must stay together:
@@ -27,6 +28,15 @@ Install the component binaries below; `cast` handles everything else. They are e
 > sudo mkdir -p /opt/signoz
 > curl -fsSL "https://github.com/SigNoz/signoz/releases/latest/download/signoz_linux_${ARCH}.tar.gz" \
 >   | sudo tar -xz --strip-components=1 -C /opt/signoz
+> ```
+
+> [!NOTE]
+> The MCP server is optional. When `spec.mcp.spec.enabled` is `true`, install its [self-hosted binary](https://github.com/SigNoz/signoz-mcp-server#self-hosted-installation) to the default location:
+>
+> ```bash
+> ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+> curl -fsSL "https://github.com/SigNoz/signoz-mcp-server/releases/latest/download/signoz-mcp-server_linux_${ARCH}.tar.gz" | tar -xz
+> sudo install -D signoz-mcp-server /opt/mcp/bin/signoz-mcp-server
 > ```
 
 ## Configuration
@@ -109,6 +119,7 @@ Set an annotation only when a binary is installed outside its default location.
 | `foundry.signoz.io/metastore-postgres-binary-path` | `/usr/bin/postgres` | PostgreSQL (its directory must also hold `initdb`) |
 | `foundry.signoz.io/telemetrystore-clickhouse-binary-path` | `/usr/bin/clickhouse` | ClickHouse, run as `clickhouse server` |
 | `foundry.signoz.io/telemetrykeeper-clickhousekeeper-binary-path` | `/usr/bin/clickhouse` | ClickHouse, run as `clickhouse keeper` |
+| `foundry.signoz.io/mcp-binary-path` | `/opt/mcp/bin/signoz-mcp-server` | SigNoz MCP server |
 
 ```yaml
 metadata:

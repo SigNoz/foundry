@@ -47,6 +47,7 @@ func (c *systemdCasting) Forge(ctx context.Context, cfg installation.Casting, po
 		c.forgeMetaStore,
 		c.forgeSignoz,
 		c.forgeIngester,
+		c.forgeMCP,
 		c.forgeMigrator,
 	}
 
@@ -200,6 +201,18 @@ func (c *systemdCasting) forgeIngester(cfg *installation.Casting) ([]domain.Mate
 	return append([]domain.Material{svcMat}, cfgMats...), nil
 }
 
+func (c *systemdCasting) forgeMCP(cfg *installation.Casting) ([]domain.Material, error) {
+	if !cfg.Spec.MCP.Spec.IsEnabled() {
+		return nil, nil
+	}
+
+	svcMat, err := c.renderTemplate(mcpServiceTemplate, cfg, cfg.Metadata.Name+"-mcp"+svcSuffix)
+	if err != nil {
+		return nil, err
+	}
+	return []domain.Material{svcMat}, nil
+}
+
 func (c *systemdCasting) forgeMigrator(cfg *installation.Casting) ([]domain.Material, error) {
 	if !cfg.Spec.TelemetryStore.Spec.IsEnabled() {
 		return nil, nil
@@ -351,6 +364,9 @@ func (c *systemdCasting) validateBinaries(ctx context.Context, config *installat
 	}
 	if config.Spec.Ingester.Spec.IsEnabled() {
 		binaries = append(binaries, binarytooler.New("ingester", installation.IngesterBinaryPath.Resolve(annotations)))
+	}
+	if config.Spec.MCP.Spec.IsEnabled() {
+		binaries = append(binaries, binarytooler.New("mcp", installation.MCPBinaryPath.Resolve(annotations)))
 	}
 
 	for _, t := range binaries {

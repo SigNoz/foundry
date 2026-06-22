@@ -37,6 +37,12 @@ var (
 		Mode:        v1alpha1.ModeSystemd,
 		Description: "Absolute path to the ClickHouse binary, run as `clickhouse keeper`.",
 	}
+	MCPBinaryPath = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/mcp-binary-path",
+		Default:     "/opt/mcp/bin/signoz-mcp-server",
+		Mode:        v1alpha1.ModeSystemd,
+		Description: "Absolute path to the SigNoz MCP server binary.",
+	}
 )
 
 // Annotations returns the Installation annotation catalog.
@@ -47,5 +53,6 @@ func Annotations() []v1alpha1.Annotation {
 		MetaStorePostgresBinaryPath,
 		TelemetryStoreClickHouseBinaryPath,
 		TelemetryKeeperClickHouseKeeperBinaryPath,
+		MCPBinaryPath,
 	}
 }
