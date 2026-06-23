@@ -48,7 +48,7 @@ spec:
 | `cluster.replicas` | Number of replicas |
 | `cluster.shards` | Number of shards (TelemetryStore only) |
 | `env` | Environment variables as a key-value map |
-| `config.data` | Config file overrides: filename to file contents |
+| `config.data` | Config file overrides merged with the generated config: filename to contents |
 
 ### Disabling a molding
 
@@ -63,7 +63,7 @@ spec:
 
 ### Custom config files
 
-Use `config.data` to override the contents of a component's config files. The key is the filename; the value is the file contents.
+Use `config.data` to override a component's config files. The key is the filename; whatever you set gets merged with the config Foundry generates, so you only set what you want to change.
 
 ```yaml
 spec:

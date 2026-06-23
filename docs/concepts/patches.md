@@ -16,7 +16,7 @@ This gives you full coverage over the generated output without Foundry needing t
 | Field | Required | Description |
 |---|---|---|
 | `type` | No | Patch driver. Defaults to `jsonpatch`. |
-| `target` | Yes | Output file to patch. Supports exact path, basename, or glob. |
+| `target` | Yes | Output file to patch, relative to `pours/` (e.g. `deployment/compose.yaml`). Exact path or glob. |
 | `operations` | Yes | List of JSON Patch (RFC 6902) operations. |
 
 ## JSON Patch operations
@@ -31,6 +31,8 @@ This gives you full coverage over the generated output without Foundry needing t
 | `test` | Assert a value equals the given value. Fails if not. | `op`, `path`, `value` |
 
 ## Target matching
+
+Targets are matched against each generated file's path relative to `pours/`, so every path begins with `deployment/`.
 
 - **Exact path:** `target: "deployment/compose.yaml"`
 - **Glob:** `target: "deployment/telemetrystore-*.yaml"` matches multiple files
@@ -47,7 +49,7 @@ Set a memory limit on ClickHouse and add a custom environment variable to SigNoz
 ```yaml
 spec:
   patches:
-    - target: "compose.yaml"
+    - target: "deployment/compose.yaml"
       operations:
         - op: replace
           path: /services/clickhouse/mem_limit
@@ -64,7 +66,7 @@ Change the restart policy and add a memory limit on a service unit:
 ```yaml
 spec:
   patches:
-    - target: "signoz-ingester.service"
+    - target: "deployment/signoz-ingester.service"
       operations:
         - op: replace
           path: /Service/Restart
