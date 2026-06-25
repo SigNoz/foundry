@@ -34,7 +34,7 @@
       },
       {
         "name": "signoz-telemetrystore-clickhouse-0-0",
-        "image": "clickhouse/clickhouse-server:25.5.6",
+        "image": "clickhouse/clickhouse-server:25.12.5",
         "essential": true,
         "environment": [{"name":"CLICKHOUSE_SKIP_USER_SETUP","value":"1"}],
         "portMappings": [

@@ -17,7 +17,7 @@ var _ fmt.Stringer = (*TelemetryKeeperKind)(nil)
 var _ jsonschema.Enum = (*TelemetryKeeperKind)(nil)
 
 var (
-	TelemetryKeeperKindClickhouseKeeper TelemetryKeeperKind = TelemetryKeeperKind{s: "clickhousekeeper", image: "clickhouse/clickhouse-keeper:25.5.6", version: "25.5.6"}
+	TelemetryKeeperKindClickhouseKeeper TelemetryKeeperKind = TelemetryKeeperKind{s: "clickhousekeeper", image: "clickhouse/clickhouse-keeper:25.12.5", version: "25.12.5"}
 	TelemetryKeeperKindZookeeper        TelemetryKeeperKind = TelemetryKeeperKind{s: "zookeeper", image: "signoz/zookeeper:3.7.1", version: "3.7.1"}
 )
 
