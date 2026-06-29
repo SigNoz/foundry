@@ -10,10 +10,12 @@ import (
 
 func TestNotEmptyAndValid(t *testing.T) {
 	serviceTemplates := map[string]*domain.Template{
-		"telemetryKeeperDockerfilev2556": telemetryKeeperDockerfilev2556,
-		"telemetryStoreDockerfilev2556":  telemetryStoreDockerfilev2556,
-		"ingesterDockerfileTemplate":     ingesterDockerfileTemplate,
-		"renderYAMLTemplate":             renderYAMLTemplate,
+		"telemetryKeeperDockerfilev2556":  telemetryKeeperDockerfilev2556,
+		"telemetryKeeperDockerfilev25125": telemetryKeeperDockerfilev25125,
+		"telemetryStoreDockerfilev2556":   telemetryStoreDockerfilev2556,
+		"telemetryStoreDockerfilev25125":  telemetryStoreDockerfilev25125,
+		"ingesterDockerfileTemplate":      ingesterDockerfileTemplate,
+		"renderYAMLTemplate":              renderYAMLTemplate,
 	}
 
 	for name, st := range serviceTemplates {

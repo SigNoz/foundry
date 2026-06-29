@@ -18,12 +18,16 @@ var (
 
 	// Version-stamped ClickHouse units, dispatched by the configured store/keeper version.
 	telemetryStoreServicev2556     *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/clickhouse.telemetrystore.v2556.service.gotmpl", domain.FormatINI)
-	telemetryStoreServiceTemplates                  = domain.NewVersionedTemplates("25.5.6", map[string]*domain.Template{
-		"25.5.6": telemetryStoreServicev2556,
+	telemetryStoreServicev25125    *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/clickhouse.telemetrystore.v25125.service.gotmpl", domain.FormatINI)
+	telemetryStoreServiceTemplates                  = domain.NewVersionedTemplates("25.12.5", map[string]*domain.Template{
+		"25.5.6":  telemetryStoreServicev2556,
+		"25.12.5": telemetryStoreServicev25125,
 	})
 
 	telemetryKeeperServicev2556     *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/clickhousekeeper.telemetrykeeper.v2556.service.gotmpl", domain.FormatINI)
-	telemetryKeeperServiceTemplates                  = domain.NewVersionedTemplates("25.5.6", map[string]*domain.Template{
-		"25.5.6": telemetryKeeperServicev2556,
+	telemetryKeeperServicev25125    *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/clickhousekeeper.telemetrykeeper.v25125.service.gotmpl", domain.FormatINI)
+	telemetryKeeperServiceTemplates                  = domain.NewVersionedTemplates("25.12.5", map[string]*domain.Template{
+		"25.5.6":  telemetryKeeperServicev2556,
+		"25.12.5": telemetryKeeperServicev25125,
 	})
 )

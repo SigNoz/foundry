@@ -39,8 +39,8 @@ spec:
 				assert.True(t, *casting.Spec.Ingester.Spec.Enabled)
 				// The default telemetrykeeper kind carries its image and version
 				assert.Equal(t, installation.TelemetryKeeperKindClickhouseKeeper, casting.Spec.TelemetryKeeper.Kind)
-				assert.Equal(t, "clickhouse/clickhouse-keeper:25.5.6", casting.Spec.TelemetryKeeper.Spec.Image)
-				assert.Equal(t, "25.5.6", casting.Spec.TelemetryKeeper.Spec.Version)
+				assert.Equal(t, "clickhouse/clickhouse-keeper:25.12.5", casting.Spec.TelemetryKeeper.Spec.Image)
+				assert.Equal(t, "25.12.5", casting.Spec.TelemetryKeeper.Spec.Version)
 			},
 		},
 		{

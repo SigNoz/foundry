@@ -12,12 +12,14 @@ import (
 var templates embed.FS
 
 var (
-	keeperClickhousev2556YAML *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/keeper.clickhouse.v2556.yaml.gotmpl", domain.FormatYAML)
+	keeperClickhousev2556YAML  *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/keeper.clickhouse.v2556.yaml.gotmpl", domain.FormatYAML)
+	keeperClickhousev25125YAML *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/keeper.clickhouse.v25125.yaml.gotmpl", domain.FormatYAML)
 
 	// keeperConfigTemplates selects the ClickHouse Keeper config by the configured
 	// keeper version, falling back to the latest when unknown.
-	keeperConfigTemplates = domain.NewVersionedTemplates("25.5.6", map[string]*domain.Template{
-		"25.5.6": keeperClickhousev2556YAML,
+	keeperConfigTemplates = domain.NewVersionedTemplates("25.12.5", map[string]*domain.Template{
+		"25.5.6":  keeperClickhousev2556YAML,
+		"25.12.5": keeperClickhousev25125YAML,
 	})
 )
 

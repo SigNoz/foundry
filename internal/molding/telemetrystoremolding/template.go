@@ -10,20 +10,24 @@ import (
 var templates embed.FS
 
 var (
-	configClickhousev2556YAML *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/config.clickhouse.v2556.yaml.gotmpl", domain.FormatYAML)
+	configClickhousev2556YAML  *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/config.clickhouse.v2556.yaml.gotmpl", domain.FormatYAML)
+	configClickhousev25125YAML *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/config.clickhouse.v25125.yaml.gotmpl", domain.FormatYAML)
 
-	functionsClickhousev2556YAML *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/functions.clickhouse.v2556.yaml.gotmpl", domain.FormatYAML)
+	functionsClickhousev2556YAML  *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/functions.clickhouse.v2556.yaml.gotmpl", domain.FormatYAML)
+	functionsClickhousev25125YAML *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/functions.clickhouse.v25125.yaml.gotmpl", domain.FormatYAML)
 
 	// clickhouseConfigTemplates selects the per-node ClickHouse server config by
 	// the configured store version, falling back to the latest when unknown.
-	clickhouseConfigTemplates = domain.NewVersionedTemplates("25.5.6", map[string]*domain.Template{
-		"25.5.6": configClickhousev2556YAML,
+	clickhouseConfigTemplates = domain.NewVersionedTemplates("25.12.5", map[string]*domain.Template{
+		"25.5.6":  configClickhousev2556YAML,
+		"25.12.5": configClickhousev25125YAML,
 	})
 
 	// clickhouseFunctionsTemplates selects the ClickHouse UDF functions config by
 	// the configured store version, falling back to the latest when unknown.
-	clickhouseFunctionsTemplates = domain.NewVersionedTemplates("25.5.6", map[string]*domain.Template{
-		"25.5.6": functionsClickhousev2556YAML,
+	clickhouseFunctionsTemplates = domain.NewVersionedTemplates("25.12.5", map[string]*domain.Template{
+		"25.5.6":  functionsClickhousev2556YAML,
+		"25.12.5": functionsClickhousev25125YAML,
 	})
 )
 

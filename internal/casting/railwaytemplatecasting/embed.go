@@ -17,13 +17,17 @@ var (
 
 	// Version-stamped ClickHouse Dockerfiles, dispatched by the configured store/keeper version.
 	telemetryKeeperClickhouseKeeperDockerfilev2556     *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.clickhousekeeper.telemetrykeeper.v2556.gotmpl", domain.FormatText)
-	telemetryKeeperClickhouseKeeperDockerfileTemplates                  = domain.NewVersionedTemplates("25.5.6", map[string]*domain.Template{
-		"25.5.6": telemetryKeeperClickhouseKeeperDockerfilev2556,
+	telemetryKeeperClickhouseKeeperDockerfilev25125    *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.clickhousekeeper.telemetrykeeper.v25125.gotmpl", domain.FormatText)
+	telemetryKeeperClickhouseKeeperDockerfileTemplates                  = domain.NewVersionedTemplates("25.12.5", map[string]*domain.Template{
+		"25.5.6":  telemetryKeeperClickhouseKeeperDockerfilev2556,
+		"25.12.5": telemetryKeeperClickhouseKeeperDockerfilev25125,
 	})
 
 	telemetryStoreDockerfilev2556     *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.clickhouse.telemetrystore.v2556.gotmpl", domain.FormatText)
-	telemetryStoreDockerfileTemplates                  = domain.NewVersionedTemplates("25.5.6", map[string]*domain.Template{
-		"25.5.6": telemetryStoreDockerfilev2556,
+	telemetryStoreDockerfilev25125    *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.clickhouse.telemetrystore.v25125.gotmpl", domain.FormatText)
+	telemetryStoreDockerfileTemplates                  = domain.NewVersionedTemplates("25.12.5", map[string]*domain.Template{
+		"25.5.6":  telemetryStoreDockerfilev2556,
+		"25.12.5": telemetryStoreDockerfilev25125,
 	})
 
 	railwayTelemetryKeeperTemplate        *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/railway.telemetrykeeper.json.gotmpl", domain.FormatText)

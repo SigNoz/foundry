@@ -32,7 +32,7 @@ Override a molding by giving it a `spec` block. Whatever you set gets merged wit
 spec:
   telemetrystore:
     spec:
-      image: clickhouse/clickhouse-server:25.5.6
+      image: clickhouse/clickhouse-server:25.12.5
       cluster:
         replicas: 1
         shards: 1

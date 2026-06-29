@@ -1,4 +1,4 @@
-FROM clickhouse/clickhouse-server:25.12.5
+FROM {{$.Spec.TelemetryStore.Spec.Image }}
 
 COPY config.d/ /etc/clickhouse-server/
 
@@ -9,6 +9,10 @@ ARG VERSION=v0.0.1
 
 ENV CLICKHOUSE_CONFIG=/etc/clickhouse-server/config-0-0.yaml
 ENV CLICKHOUSE_SKIP_USER_SETUP=1
+
+{{- range $key, $value := $.Spec.TelemetryStore.Spec.Env }}
+ENV {{ $key }}={{ $value }}
+{{- end }}
 
 # Download and install histogram-quantile binary
 RUN cat > /tmp/install-histogram-quantile.sh <<'EOF'

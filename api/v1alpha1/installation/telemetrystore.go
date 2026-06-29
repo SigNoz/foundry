@@ -39,8 +39,8 @@ func DefaultTelemetryStore() TelemetryStore {
 				Replicas: v1alpha1.IntPtr(0),
 				Shards:   v1alpha1.IntPtr(1),
 			},
-			Version: "25.5.6",
-			Image:   "clickhouse/clickhouse-server:25.5.6",
+			Version: "25.12.5",
+			Image:   "clickhouse/clickhouse-server:25.12.5",
 		},
 	}
 }
