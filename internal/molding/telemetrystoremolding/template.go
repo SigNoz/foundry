@@ -18,14 +18,14 @@ var (
 
 	// clickhouseConfigTemplates selects the per-node ClickHouse server config by
 	// the configured store version, falling back to the latest when unknown.
-	clickhouseConfigTemplates = domain.NewVersionedTemplates("25.12.5", map[string]*domain.Template{
+	clickhouseConfigTemplates = domain.MustNewVersionedTemplates("25.12.5", map[string]*domain.Template{
 		"25.5.6":  configClickhousev2556YAML,
 		"25.12.5": configClickhousev25125YAML,
 	})
 
 	// clickhouseFunctionsTemplates selects the ClickHouse UDF functions config by
 	// the configured store version, falling back to the latest when unknown.
-	clickhouseFunctionsTemplates = domain.NewVersionedTemplates("25.12.5", map[string]*domain.Template{
+	clickhouseFunctionsTemplates = domain.MustNewVersionedTemplates("25.12.5", map[string]*domain.Template{
 		"25.5.6":  functionsClickhousev2556YAML,
 		"25.12.5": functionsClickhousev25125YAML,
 	})

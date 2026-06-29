@@ -17,7 +17,7 @@ var (
 
 	// keeperConfigTemplates selects the ClickHouse Keeper config by the configured
 	// keeper version, falling back to the latest when unknown.
-	keeperConfigTemplates = domain.NewVersionedTemplates("25.12.5", map[string]*domain.Template{
+	keeperConfigTemplates = domain.MustNewVersionedTemplates("25.12.5", map[string]*domain.Template{
 		"25.5.6":  keeperClickhousev2556YAML,
 		"25.12.5": keeperClickhousev25125YAML,
 	})

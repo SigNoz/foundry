@@ -6,22 +6,26 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestTelemetryStore(t *testing.T) {
-	t.Parallel()
-
-	// Every supported version resolves to a dedicated, non-nil template.
-	for _, version := range []string{"25.5.6", "25.12.5"} {
-		config, ok := clickhouseConfigTemplates.Resolve(version)
-		assert.True(t, ok, "config template should exist for %s", version)
-		assert.NotEmpty(t, config)
-
-		functions, ok := clickhouseFunctionsTemplates.Resolve(version)
-		assert.True(t, ok, "functions template should exist for %s", version)
-		assert.NotEmpty(t, functions)
+func TestTelemetryStoreTemplates(t *testing.T) {
+	tests := []struct {
+		name    string
+		version string
+		exact   bool
+	}{
+		{"Version2556_ResolvesExact", "25.5.6", true},
+		{"Version25125_ResolvesExact", "25.12.5", true},
+		{"UnknownVersion_FallsBackToLatest", "0.0.0", false},
 	}
 
-	// An unknown version falls back to the latest supported template.
-	config, ok := clickhouseConfigTemplates.Resolve("0.0.0")
-	assert.False(t, ok)
-	assert.NotEmpty(t, config)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config, ok := clickhouseConfigTemplates.Resolve(tt.version)
+			assert.Equal(t, tt.exact, ok)
+			assert.NotEmpty(t, config)
+
+			functions, ok := clickhouseFunctionsTemplates.Resolve(tt.version)
+			assert.Equal(t, tt.exact, ok)
+			assert.NotEmpty(t, functions)
+		})
+	}
 }

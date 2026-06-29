@@ -1,5 +1,7 @@
 package domain
 
+import "github.com/signoz/foundry/internal/errors"
+
 // VersionedTemplates dispatches to a Template by a component version string. It
 // is the selection primitive for materials whose content can diverge across
 // component versions (for example, per-ClickHouse-version server configs). When
@@ -12,11 +14,21 @@ type VersionedTemplates struct {
 
 // NewVersionedTemplates builds a dispatch table keyed by version. latest is the
 // fallback version returned for unknown lookups and must have a template.
-func NewVersionedTemplates(latest string, templates map[string]*Template) *VersionedTemplates {
+func NewVersionedTemplates(latest string, templates map[string]*Template) (*VersionedTemplates, error) {
 	if _, ok := templates[latest]; !ok {
-		panic("domain: VersionedTemplates latest version " + latest + " has no template")
+		return nil, errors.Newf(errors.TypeInvalidInput, "failed to create versioned templates: latest version %q has no template", latest)
 	}
-	return &VersionedTemplates{latest: latest, templates: templates}
+	return &VersionedTemplates{latest: latest, templates: templates}, nil
+}
+
+// MustNewVersionedTemplates is like NewVersionedTemplates but panics on error.
+// Use for package-level tables built from known-good literals.
+func MustNewVersionedTemplates(latest string, templates map[string]*Template) *VersionedTemplates {
+	vt, err := NewVersionedTemplates(latest, templates)
+	if err != nil {
+		panic(err)
+	}
+	return vt
 }
 
 // Resolve returns the template for version, or the latest-version template when
