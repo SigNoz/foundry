@@ -10,12 +10,21 @@ import (
 var templates embed.FS
 
 var (
-	telemetryKeeperClickhouseKeeperDockerfileTemplate *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.clickhousekeeper.telemetrykeeper.v2556.gotmpl", domain.FormatText)
-	telemetryKeeperZookeeperDockerfileTemplate        *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.zookeeper.telemetrykeeper.v371.gotmpl", domain.FormatText)
-	telemetryStoreDockerfileTemplate                  *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.clickhouse.telemetrystore.v2556.gotmpl", domain.FormatText)
-	ingesterDockerfileTemplate                        *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.ingester.gotmpl", domain.FormatText)
-	signozDockerfileTemplate                          *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.signoz.gotmpl", domain.FormatText)
-	telemetryStoreMigratorDockerfileTemplate          *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.telemetrystore-migrator.gotmpl", domain.FormatText)
+	telemetryKeeperZookeeperDockerfileTemplate *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.zookeeper.telemetrykeeper.v371.gotmpl", domain.FormatText)
+	ingesterDockerfileTemplate                 *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.ingester.gotmpl", domain.FormatText)
+	signozDockerfileTemplate                   *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.signoz.gotmpl", domain.FormatText)
+	telemetryStoreMigratorDockerfileTemplate   *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.telemetrystore-migrator.gotmpl", domain.FormatText)
+
+	// Version-stamped ClickHouse Dockerfiles, dispatched by the configured store/keeper version.
+	telemetryKeeperClickhouseKeeperDockerfilev2556     *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.clickhousekeeper.telemetrykeeper.v2556.gotmpl", domain.FormatText)
+	telemetryKeeperClickhouseKeeperDockerfileTemplates                  = domain.NewVersionedTemplates("25.5.6", map[string]*domain.Template{
+		"25.5.6": telemetryKeeperClickhouseKeeperDockerfilev2556,
+	})
+
+	telemetryStoreDockerfilev2556     *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.clickhouse.telemetrystore.v2556.gotmpl", domain.FormatText)
+	telemetryStoreDockerfileTemplates                  = domain.NewVersionedTemplates("25.5.6", map[string]*domain.Template{
+		"25.5.6": telemetryStoreDockerfilev2556,
+	})
 
 	railwayTelemetryKeeperTemplate        *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/railway.telemetrykeeper.json.gotmpl", domain.FormatText)
 	railwayTelemetryStoreTemplate         *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/railway.telemetrystore.json.gotmpl", domain.FormatText)

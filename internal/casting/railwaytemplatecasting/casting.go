@@ -24,8 +24,6 @@ func New(logger *slog.Logger) *railwayTemplateCasting {
 	return &railwayTemplateCasting{
 		logger: logger,
 		castings: []*domain.Template{
-			telemetryKeeperClickhouseKeeperDockerfileTemplate,
-			telemetryStoreDockerfileTemplate,
 			ingesterDockerfileTemplate,
 			signozDockerfileTemplate,
 			telemetryStoreMigratorDockerfileTemplate,
@@ -49,9 +47,9 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config installation.
 
 	// TelemetryKeeper: Dockerfile + configs + railway.json
 	if config.Spec.TelemetryKeeper.Spec.IsEnabled() {
-		keeperDockerfileTemplate := telemetryKeeperClickhouseKeeperDockerfileTemplate
-		if config.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindZookeeper {
-			keeperDockerfileTemplate = telemetryKeeperZookeeperDockerfileTemplate
+		keeperDockerfileTemplate := telemetryKeeperZookeeperDockerfileTemplate
+		if config.Spec.TelemetryKeeper.Kind != installation.TelemetryKeeperKindZookeeper {
+			keeperDockerfileTemplate, _ = telemetryKeeperClickhouseKeeperDockerfileTemplates.Resolve(config.Spec.TelemetryKeeper.Spec.Version)
 		}
 
 		dockerfileBuf := bytes.NewBuffer(nil)
@@ -76,7 +74,8 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config installation.
 	// TelemetryStore: Dockerfile + configs + railway.json
 	if config.Spec.TelemetryStore.Spec.IsEnabled() {
 		dockerfileBuf := bytes.NewBuffer(nil)
-		if err := telemetryStoreDockerfileTemplate.Execute(dockerfileBuf, config); err != nil {
+		storeDockerfile, _ := telemetryStoreDockerfileTemplates.Resolve(config.Spec.TelemetryStore.Spec.Version)
+		if err := storeDockerfile.Execute(dockerfileBuf, config); err != nil {
 			return nil, errors.Wrapf(err, errors.TypeInternal, "telemetrystore dockerfile")
 		}
 		materials = append(materials, domain.NewBlobMaterial(dockerfileBuf.Bytes(), filepath.Join(casting.DeploymentDir, "telemetrystore/Dockerfile")))

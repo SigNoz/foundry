@@ -7,5 +7,14 @@ import (
 )
 
 func TestTelemetryStore(t *testing.T) {
-	assert.NotEmpty(t, KeeperClickhousev2556YAML)
+	t.Parallel()
+
+	keeper, ok := keeperConfigTemplates.Resolve("25.5.6")
+	assert.True(t, ok)
+	assert.NotEmpty(t, keeper)
+
+	// An unknown version falls back to the latest supported template.
+	keeper, ok = keeperConfigTemplates.Resolve("0.0.0")
+	assert.False(t, ok)
+	assert.NotEmpty(t, keeper)
 }

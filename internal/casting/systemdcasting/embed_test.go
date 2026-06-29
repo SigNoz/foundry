@@ -10,8 +10,8 @@ import (
 
 func TestNotEmptyAndValid(t *testing.T) {
 	serviceTemplates := map[string]*domain.Template{
-		"telemetryStoreServiceTemplate":  telemetryStoreServiceTemplate,
-		"telemetryKeeperServiceTemplate": telemetryKeeperServiceTemplate,
+		"telemetryStoreServicev2556":     telemetryStoreServicev2556,
+		"telemetryKeeperServicev2556":    telemetryKeeperServicev2556,
 		"metaStoreServiceTemplate":       metaStoreServiceTemplate,
 		"signozServiceTemplate":          signozServiceTemplate,
 		"ingesterServiceTemplate":        ingesterServiceTemplate,

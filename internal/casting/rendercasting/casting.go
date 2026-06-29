@@ -26,8 +26,6 @@ func New(logger *slog.Logger) *renderCasting {
 		logger: logger,
 		castings: []*domain.Template{
 			renderYAMLTemplate,
-			telemetryKeeperDockerfileTemplate,
-			telemetryStoreDockerfileTemplate,
 			ingesterDockerfileTemplate,
 		},
 	}
@@ -52,7 +50,8 @@ func (c *renderCasting) Forge(ctx context.Context, config installation.Casting, 
 	// straight from its image (runtime: image), so no Dockerfile is needed.
 	if config.Spec.TelemetryKeeper.Spec.IsEnabled() && config.Spec.TelemetryKeeper.Kind != installation.TelemetryKeeperKindZookeeper {
 		dockerfileBuf := bytes.NewBuffer(nil)
-		err := telemetryKeeperDockerfileTemplate.Execute(dockerfileBuf, config)
+		keeperDockerfile, _ := telemetryKeeperDockerfileTemplates.Resolve(config.Spec.TelemetryKeeper.Spec.Version)
+		err := keeperDockerfile.Execute(dockerfileBuf, config)
 		if err != nil {
 			return nil, errors.Wrapf(err, errors.TypeInternal, "failed to execute dockerfile keeper template")
 		}
@@ -72,7 +71,8 @@ func (c *renderCasting) Forge(ctx context.Context, config installation.Casting, 
 	// Add Dockerfile for telemetrystore services
 	if config.Spec.TelemetryStore.Spec.IsEnabled() {
 		dockerfileBuf := bytes.NewBuffer(nil)
-		err := telemetryStoreDockerfileTemplate.Execute(dockerfileBuf, config)
+		storeDockerfile, _ := telemetryStoreDockerfileTemplates.Resolve(config.Spec.TelemetryStore.Spec.Version)
+		err := storeDockerfile.Execute(dockerfileBuf, config)
 		if err != nil {
 			return nil, errors.Wrapf(err, errors.TypeInternal, "failed to execute dockerfile clickhouse template")
 		}

@@ -50,12 +50,19 @@ func (molding *telemetrykeeper) moldClickhouseKeeper(ctx context.Context, config
 	// Extract enricher config overrides (applies to all keeper nodes).
 	overrides := config.Spec.TelemetryKeeper.Status.Extras["_overrides"]
 
+	// Select the keeper config template for the configured ClickHouse version.
+	version := config.Spec.TelemetryKeeper.Spec.Version
+	keeperTmpl, ok := keeperConfigTemplates.Resolve(version)
+	if !ok {
+		molding.logger.WarnContext(ctx, "no ClickHouse Keeper config template for version, using latest supported", slog.String("version", version))
+	}
+
 	// Generate per-server configs (each keeper node needs its own server_id)
 	configs := make(map[string]string, data.ServerCount)
 	for i := 0; i < data.ServerCount; i++ {
 		configBuf := bytes.NewBuffer(nil)
 		data.ServerID = i // 0-indexed, used for array indexing in template
-		if err := KeeperClickhousev2556YAML.Execute(configBuf, data); err != nil {
+		if err := keeperTmpl.Execute(configBuf, data); err != nil {
 			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute keeper template for server %d", data.ServerID)
 		}
 

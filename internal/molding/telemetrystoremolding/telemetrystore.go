@@ -39,8 +39,16 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *install
 	// Extract enricher config overrides (applies to all nodes).
 	overrides := config.Spec.TelemetryStore.Status.Extras["_overrides"]
 
+	// Select the config templates for the configured ClickHouse version.
+	version := config.Spec.TelemetryStore.Spec.Version
+	configTmpl, ok := clickhouseConfigTemplates.Resolve(version)
+	if !ok {
+		molding.logger.WarnContext(ctx, "no ClickHouse config template for version, using latest supported", slog.String("version", version))
+	}
+	functionsTmpl, _ := clickhouseFunctionsTemplates.Resolve(version)
+
 	functionBuf := bytes.NewBuffer(nil)
-	if err := FunctionsClickhousev2556YAML.Execute(functionBuf, data); err != nil {
+	if err := functionsTmpl.Execute(functionBuf, data); err != nil {
 		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute functions template")
 	}
 
@@ -52,7 +60,7 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *install
 			data.ReplicaID = r
 
 			configBuf := bytes.NewBuffer(nil)
-			if err := ConfigClickhousev2556YAML.Execute(configBuf, data); err != nil {
+			if err := configTmpl.Execute(configBuf, data); err != nil {
 				return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute config template for shard %d replica %d", s, r)
 			}
 

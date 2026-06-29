@@ -111,9 +111,11 @@ func (c *systemdCasting) forgeTelemetryKeeper(cfg *installation.Casting) ([]doma
 		spec.Status.Extras["cfgPath"] = filepath.Join("/etc/clickhouse-keeper/", filepath.Base(cfgMats[0].Path()))
 	}
 
+	keeperSvcTmpl, _ := telemetryKeeperServiceTemplates.Resolve(spec.Spec.Version)
+
 	var materials []domain.Material
 	for r := range reps {
-		svcMat, err := c.renderTemplate(telemetryKeeperServiceTemplate, cfg, fmt.Sprintf("%s-telemetrykeeper-%s-%d%s", cfg.Metadata.Name, kind, r, svcSuffix))
+		svcMat, err := c.renderTemplate(keeperSvcTmpl, cfg, fmt.Sprintf("%s-telemetrykeeper-%s-%d%s", cfg.Metadata.Name, kind, r, svcSuffix))
 		if err != nil {
 			return nil, err
 		}
@@ -133,10 +135,12 @@ func (c *systemdCasting) forgeTelemetryStore(cfg *installation.Casting) ([]domai
 	reps := max(1, *spec.Spec.Cluster.Replicas+1)
 	shards := max(1, *spec.Spec.Cluster.Shards)
 
+	storeSvcTmpl, _ := telemetryStoreServiceTemplates.Resolve(spec.Spec.Version)
+
 	var materials []domain.Material
 	for s := range shards {
 		for r := range reps {
-			svcMat, err := c.renderTemplate(telemetryStoreServiceTemplate, cfg, fmt.Sprintf("%s-telemetrystore-%s-%d-%d%s", cfg.Metadata.Name, kind, s, r, svcSuffix))
+			svcMat, err := c.renderTemplate(storeSvcTmpl, cfg, fmt.Sprintf("%s-telemetrystore-%s-%d-%d%s", cfg.Metadata.Name, kind, s, r, svcSuffix))
 			if err != nil {
 				return nil, err
 			}

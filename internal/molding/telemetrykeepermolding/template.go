@@ -12,7 +12,13 @@ import (
 var templates embed.FS
 
 var (
-	KeeperClickhousev2556YAML *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/keeper.clickhouse.v2556.yaml.gotmpl", domain.FormatYAML)
+	keeperClickhousev2556YAML *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/keeper.clickhouse.v2556.yaml.gotmpl", domain.FormatYAML)
+
+	// keeperConfigTemplates selects the ClickHouse Keeper config by the configured
+	// keeper version, falling back to the latest when unknown.
+	keeperConfigTemplates = domain.NewVersionedTemplates("25.5.6", map[string]*domain.Template{
+		"25.5.6": keeperClickhousev2556YAML,
+	})
 )
 
 // Data is the template data for rendering ClickHouse Keeper configs.
