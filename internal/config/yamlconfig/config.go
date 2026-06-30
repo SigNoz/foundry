@@ -10,6 +10,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
+	installationcompat "github.com/signoz/foundry/internal/compat/installation"
 	"github.com/signoz/foundry/internal/config"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/errors"
@@ -91,7 +92,7 @@ func (c *yamlConfig) loadInstallation(bytes []byte, path string) (v1alpha1.Machi
 		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "invalid casting file %s", path)
 	}
 
-	if err := base.CheckCompatibility(c.logger); err != nil {
+	if err := installationcompat.Compatibility(base, c.logger); err != nil {
 		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "invalid casting file %s", path)
 	}
 

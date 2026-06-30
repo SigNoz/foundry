@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -29,13 +30,13 @@ func TestCheckCompatibility(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			casting := &Casting{}
+			casting := &installation.Casting{}
 			casting.Spec.Ingester.Spec.Enabled = v1alpha1.BoolPtr(!tt.collectorDisabled)
 			casting.Spec.Ingester.Spec.Image = tt.collector
 			casting.Spec.TelemetryStore.Spec.Enabled = v1alpha1.BoolPtr(true)
 			casting.Spec.TelemetryStore.Spec.Image = tt.clickhouse
 
-			err := casting.CheckCompatibility(logger)
+			err := Compatibility(casting, logger)
 			if !tt.pass {
 				assert.Error(t, err)
 				return

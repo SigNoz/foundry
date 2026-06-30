@@ -1,6 +1,5 @@
 // Package compat evaluates version-compatibility rules between deployment
-// components. It is Kind-agnostic: it operates only on molding kinds and
-// resolved versions, so any casting Kind can supply its own rule set.
+// components, keyed by molding kind.
 package compat
 
 import (
@@ -14,9 +13,7 @@ import (
 
 // Rule declares a compatibility requirement: when the Subject component's
 // version satisfies When, the Target component's version must satisfy Requires.
-// When and Requires are semver constraint strings, so a rule is a plain literal.
-// Subject and Target are typed molding kinds so a rule cannot name a component
-// that does not exist.
+// When and Requires are semver constraint strings.
 type Rule struct {
 	Subject  v1alpha1.MoldingKind
 	When     string
