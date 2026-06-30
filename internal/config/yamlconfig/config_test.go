@@ -2,6 +2,8 @@ package yamlconfig
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -307,7 +309,7 @@ spec:
 			err := os.WriteFile(castingPath, []byte(tc.input), 0644)
 			require.NoError(t, err)
 
-			cfg := New()
+			cfg := New(slog.New(slog.NewTextHandler(io.Discard, nil)))
 			casting, err := cfg.GetV1Alpha1(context.Background(), castingPath)
 			require.NoError(t, err)
 
