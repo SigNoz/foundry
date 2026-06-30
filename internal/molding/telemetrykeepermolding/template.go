@@ -12,7 +12,7 @@ import (
 var templates embed.FS
 
 var (
-	KeeperClickhousev2556YAML *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/keeper.clickhouse.v2556.yaml.gotmpl", domain.FormatYAML)
+	KeeperClickhousev25125YAML *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/keeper.clickhouse.v25125.yaml.gotmpl", domain.FormatYAML)
 )
 
 // Data is the template data for rendering ClickHouse Keeper configs.

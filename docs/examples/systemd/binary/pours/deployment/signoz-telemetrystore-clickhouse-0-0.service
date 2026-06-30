@@ -15,6 +15,6 @@ User=clickhouse
 
 [Unit]
 After=time-sync.target network-online.target
-Description=ClickHouse Server (v25.5.6)
+Description=ClickHouse Server (v25.12.5)
 Requires=network-online.target
 Wants=time-sync.target

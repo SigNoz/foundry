@@ -129,7 +129,7 @@ spec:
       image: signoz/signoz:v0.110.0
   telemetrystore:
     spec:
-      image: clickhouse/clickhouse-server:25.5.6
+      image: clickhouse/clickhouse-server:25.12.5
       cluster:
         replicas: 1
         shards: 1
