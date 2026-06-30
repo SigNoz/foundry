@@ -1,7 +1,6 @@
 package compat
 
 import (
-	"io"
 	"log/slog"
 	"testing"
 
@@ -10,7 +9,7 @@ import (
 )
 
 func TestCheck(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	rules := []Rule{
 		{Subject: v1alpha1.MoldingKindIngester, When: ">0.144.5", Target: v1alpha1.MoldingKindTelemetryStore, Requires: "=25.12.5", Advice: "advice"},
 	}

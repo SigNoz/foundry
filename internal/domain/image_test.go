@@ -8,11 +8,11 @@ import (
 
 func TestParseImage(t *testing.T) {
 	tests := []struct {
-		name       string
-		raw        string
-		repository string
-		tag        string
-		pass       bool
+		name               string
+		raw                string
+		expectedRepository string
+		expectedTag        string
+		pass               bool
 	}{
 		{"RepositoryAndTag_Valid", "clickhouse/clickhouse-server:25.12.5", "clickhouse/clickhouse-server", "25.12.5", true},
 		{"FlavoredTag_Valid", "clickhouse/clickhouse-server:25.12.5-alpine", "clickhouse/clickhouse-server", "25.12.5-alpine", true},
@@ -29,17 +29,17 @@ func TestParseImage(t *testing.T) {
 				return
 			}
 			assert.NoError(t, err)
-			assert.Equal(t, tt.repository, image.Repository())
-			assert.Equal(t, tt.tag, image.Tag())
+			assert.Equal(t, tt.expectedRepository, image.Repository())
+			assert.Equal(t, tt.expectedTag, image.Tag())
 		})
 	}
 }
 
 func TestImageVersion(t *testing.T) {
 	tests := []struct {
-		name string
-		raw  string
-		ok   bool
+		name       string
+		raw        string
+		expectedOK bool
 	}{
 		{"SemverTag_Resolves", "clickhouse/clickhouse-server:25.12.5", true},
 		{"FlavoredTag_Resolves", "clickhouse/clickhouse-server:25.12.5-alpine", true},
@@ -51,12 +51,26 @@ func TestImageVersion(t *testing.T) {
 			image, err := ParseImage(tt.raw)
 			assert.NoError(t, err)
 			_, ok := image.Version()
-			assert.Equal(t, tt.ok, ok)
+			assert.Equal(t, tt.expectedOK, ok)
 		})
 	}
 }
 
 func TestImageWithTag(t *testing.T) {
-	image := MustNewImage("clickhouse/clickhouse-server", "25.5.6")
-	assert.Equal(t, "clickhouse/clickhouse-server:25.12.5", image.WithTag("25.12.5").String())
+	tests := []struct {
+		name       string
+		repository string
+		tag        string
+		newTag     string
+		expected   string
+	}{
+		{"Tag_Replaced", "clickhouse/clickhouse-server", "25.5.6", "25.12.5", "clickhouse/clickhouse-server:25.12.5"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			image := MustNewImage(tt.repository, tt.tag)
+			assert.Equal(t, tt.expected, image.WithTag(tt.newTag).String())
+		})
+	}
 }

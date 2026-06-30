@@ -40,9 +40,9 @@ func TestVersionSatisfies(t *testing.T) {
 	assert.NoError(t, err)
 
 	tests := []struct {
-		name      string
-		raw       string
-		satisfies bool
+		name     string
+		raw      string
+		expected bool
 	}{
 		{"Equal_Satisfies", "25.12.5", true},
 		{"FlavoredEqual_Satisfies", "25.12.5-alpine", true},
@@ -54,7 +54,7 @@ func TestVersionSatisfies(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.satisfies, MustParseVersion(tt.raw).Satisfies(constraint))
+			assert.Equal(t, tt.expected, MustParseVersion(tt.raw).Satisfies(constraint))
 		})
 	}
 }
