@@ -4,6 +4,7 @@ services:
   {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}:
     container_name: {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}
     image: {{ $.Spec.TelemetryKeeper.Spec.Image }}
+    restart: unless-stopped
     networks:
       - {{ $.Metadata.Name }}-network
     {{- if eq $.Spec.TelemetryKeeper.Kind.String "zookeeper" }}
@@ -66,6 +67,7 @@ services:
         condition: service_healthy
       {{- end }}
     image: {{ $.Spec.TelemetryStore.Spec.Image }}
+    restart: unless-stopped
     networks:
       - {{ $.Metadata.Name }}-network
     environment:
@@ -97,6 +99,7 @@ services:
   {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts:
     container_name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts
     image: {{ $.Spec.TelemetryStore.Spec.Image }}
+    restart: on-failure
     networks:
       - {{ $.Metadata.Name }}-network
     volumes:
@@ -118,6 +121,7 @@ services:
   {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}:
     container_name: {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}
     image: {{ $.Spec.MetaStore.Spec.Image }}
+    restart: unless-stopped
     networks:
       - {{ $.Metadata.Name }}-network
     {{- if $.Spec.MetaStore.Spec.Env }}
@@ -141,6 +145,7 @@ services:
   {{- $ingesterReplicas := int $.Spec.Ingester.Spec.Cluster.Replicas }}
   ingester:
     image: {{ $.Spec.Ingester.Spec.Image }}
+    restart: unless-stopped
     networks:
       {{ $.Metadata.Name }}-network:
         aliases:
@@ -173,16 +178,15 @@ services:
       - {{ $key }}={{ $value }}
       {{- end }}
     {{- end }}
+    {{- if gt $ingesterReplicas 1 }}
     deploy:
-      {{- if gt $ingesterReplicas 1 }}
       replicas: {{ $ingesterReplicas }}
-      {{- end }}
-      restart_policy:
-        condition: on-failure
+    {{- end }}
   {{- range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}:
     container_name: {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}
     image: {{ $.Spec.Signoz.Spec.Image }}
+    restart: unless-stopped
     networks:
       - {{ $.Metadata.Name }}-network
     {{- if $.Spec.Signoz.Spec.Env }}
@@ -208,14 +212,12 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    deploy:
-      restart_policy:
-        condition: on-failure
   {{- end }}
   {{- if derefBool $.Spec.MCP.Spec.Enabled }}
   {{ $.Metadata.Name }}-mcp:
     container_name: {{ $.Metadata.Name }}-mcp
     image: {{ $.Spec.MCP.Spec.Image }}
+    restart: unless-stopped
     networks:
       - {{ $.Metadata.Name }}-network
     {{- if $.Spec.MCP.Spec.Env }}
@@ -237,13 +239,11 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-    deploy:
-      restart_policy:
-        condition: on-failure
   {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-migrator:
     container_name: {{ $.Metadata.Name }}-telemetrystore-migrator
     image: {{ $.Spec.Ingester.Spec.Image }}
+    restart: on-failure
     networks:
       - {{ $.Metadata.Name }}-network
     entrypoint:
