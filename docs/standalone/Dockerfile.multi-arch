@@ -29,7 +29,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install ClickHouse from the official DEB repo (https://clickhouse.com/docs/install),
 # pinned to the release Foundry targets. Keep CLICKHOUSE_VERSION in sync with the
 # default image tag in api/v1alpha1/installation/telemetrystore.go.
-ARG CLICKHOUSE_VERSION=25.5.6
+ARG CLICKHOUSE_VERSION=25.12.5
 RUN curl -fsSL 'https://packages.clickhouse.com/rpm/lts/repodata/repomd.xml.key' | \
         gpg --dearmor -o /usr/share/keyrings/clickhouse-keyring.gpg && \
     echo "deb [signed-by=/usr/share/keyrings/clickhouse-keyring.gpg arch=$(dpkg --print-architecture)] https://packages.clickhouse.com/deb stable main" \

@@ -55,7 +55,7 @@ func (molding *telemetrykeeper) moldClickhouseKeeper(ctx context.Context, config
 	for i := 0; i < data.ServerCount; i++ {
 		configBuf := bytes.NewBuffer(nil)
 		data.ServerID = i // 0-indexed, used for array indexing in template
-		if err := KeeperClickhousev2556YAML.Execute(configBuf, data); err != nil {
+		if err := KeeperClickhousev25125YAML.Execute(configBuf, data); err != nil {
 			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute keeper template for server %d", data.ServerID)
 		}
 

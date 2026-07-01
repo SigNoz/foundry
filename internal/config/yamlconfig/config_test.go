@@ -2,6 +2,7 @@ package yamlconfig
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -39,8 +40,8 @@ spec:
 				assert.True(t, *casting.Spec.Ingester.Spec.Enabled)
 				// The default telemetrykeeper kind carries its image and version
 				assert.Equal(t, installation.TelemetryKeeperKindClickhouseKeeper, casting.Spec.TelemetryKeeper.Kind)
-				assert.Equal(t, "clickhouse/clickhouse-keeper:25.5.6", casting.Spec.TelemetryKeeper.Spec.Image)
-				assert.Equal(t, "25.5.6", casting.Spec.TelemetryKeeper.Spec.Version)
+				assert.Equal(t, "clickhouse/clickhouse-keeper:25.12.5", casting.Spec.TelemetryKeeper.Spec.Image)
+				assert.Equal(t, "25.12.5", casting.Spec.TelemetryKeeper.Spec.Version)
 			},
 		},
 		{
@@ -307,7 +308,7 @@ spec:
 			err := os.WriteFile(castingPath, []byte(tc.input), 0644)
 			require.NoError(t, err)
 
-			cfg := New()
+			cfg := New(slog.New(slog.DiscardHandler))
 			casting, err := cfg.GetV1Alpha1(context.Background(), castingPath)
 			require.NoError(t, err)
 

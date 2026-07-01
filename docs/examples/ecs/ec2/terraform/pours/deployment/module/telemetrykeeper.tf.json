@@ -19,7 +19,7 @@
       },
       {
         "name": "signoz-telemetrykeeper-clickhousekeeper-0",
-        "image": "clickhouse/clickhouse-keeper:25.5.6",
+        "image": "clickhouse/clickhouse-keeper:25.12.5",
         "essential": true,
         "entryPoint": ["/usr/bin/clickhouse-keeper", "--config-file=/etc/clickhouse-keeper/keeper.yaml"],
         "portMappings": [
