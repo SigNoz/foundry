@@ -1,4 +1,5 @@
 apiVersion: v1alpha1
+kind: Installation
 metadata:
   name: signoz
   annotations:

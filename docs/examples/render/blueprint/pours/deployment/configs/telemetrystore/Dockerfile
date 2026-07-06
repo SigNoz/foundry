@@ -1,4 +1,4 @@
-FROM clickhouse/clickhouse-server:25.5.6
+FROM clickhouse/clickhouse-server:25.12.5
 
 COPY config.d/ /etc/clickhouse-server/
 

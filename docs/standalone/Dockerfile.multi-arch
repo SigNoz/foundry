@@ -3,12 +3,12 @@ ARG DEBIAN_SHA="pass-a-valid-docker-sha-otherwise-this-will-fail"
 FROM debian@sha256:${DEBIAN_SHA}
 LABEL maintainer="signoz"
 
-ARG OS="linux"
-ARG ARCH
-
-ARG SIGNOZ_VERSION=latest
-ARG INGESTER_VERSION=latest
-ARG FOUNDRY_VERSION=latest
+# All SigNoz binaries (signoz, otel-collector, foundryctl) are fetched at
+# container start by entrypoint.sh; versions are overridable at `docker run`
+# (e.g. -e SIGNOZ_VERSION=v0.x.y). Only ClickHouse is baked in (via apt).
+ENV SIGNOZ_VERSION=latest
+ENV INGESTER_VERSION=latest
+ENV FOUNDRY_VERSION=latest
 
 # Install systemd
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -26,49 +26,37 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
           /lib/systemd/system/sysinit.target.wants/systemd-tmpfiles-setup* \
           /lib/systemd/system/systemd-update-utmp*
 
-# SigNoz
-RUN mkdir -p /opt/signoz && \
-    curl -fsSL "https://github.com/SigNoz/signoz/releases/${SIGNOZ_VERSION}/download/signoz_${OS}_${ARCH}.tar.gz" | \
-        tar -xz --strip-components=1 -C /opt/signoz && \
-    chmod +x /opt/signoz/bin/signoz
-
-# OTel Collector (ingester)
-RUN mkdir -p /opt/ingester && \
-    curl -fsSL "https://github.com/SigNoz/signoz-otel-collector/releases/${INGESTER_VERSION}/download/signoz-otel-collector_${OS}_${ARCH}.tar.gz" | \
-        tar -xz --strip-components=1 -C /opt/ingester && \
-    chmod +x /opt/ingester/bin/signoz-otel-collector
-
-# Foundry
-RUN mkdir -p /usr/local/bin && \
-    curl -fsSL "https://github.com/SigNoz/foundry/releases/${FOUNDRY_VERSION}/download/foundry_${OS}_${ARCH}.tar.gz" | \
-        tar -xz --strip-components=1 -C /tmp && \
-    mv /tmp/bin/foundryctl /usr/local/bin/foundryctl && \
-    chmod +x /usr/local/bin/foundryctl
-
-
-# Install ClickHouse from apt repo
+# Install ClickHouse from the official DEB repo (https://clickhouse.com/docs/install),
+# pinned to the release Foundry targets. Keep CLICKHOUSE_VERSION in sync with the
+# default image tag in api/v1alpha1/installation/telemetrystore.go.
+ARG CLICKHOUSE_VERSION=25.12.5
 RUN curl -fsSL 'https://packages.clickhouse.com/rpm/lts/repodata/repomd.xml.key' | \
         gpg --dearmor -o /usr/share/keyrings/clickhouse-keyring.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/clickhouse-keyring.gpg] https://packages.clickhouse.com/deb stable main" \
+    echo "deb [signed-by=/usr/share/keyrings/clickhouse-keyring.gpg arch=$(dpkg --print-architecture)] https://packages.clickhouse.com/deb stable main" \
         > /etc/apt/sources.list.d/clickhouse.list && \
     apt-get update && \
+    pkg_version="$(apt-cache madison clickhouse-server | awk -v v="${CLICKHOUSE_VERSION}." 'index($3, v) == 1 { print $3; exit }')" && \
+    if [ -z "${pkg_version}" ]; then echo "ClickHouse ${CLICKHOUSE_VERSION} not available in the apt repo" >&2; exit 1; fi && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        clickhouse-server \
-        clickhouse-client && \
+        clickhouse-common-static="${pkg_version}" \
+        clickhouse-server="${pkg_version}" \
+        clickhouse-client="${pkg_version}" && \
     systemctl disable clickhouse-server || true
 
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -r -m -d /opt/signoz -s /bin/false signoz && \
-    mkdir -p /var/lib/signoz /var/lib/ingester /etc/foundry /opt/signoz/web && \
-    chown signoz:signoz /var/lib/signoz /var/lib/ingester /opt/signoz
+    mkdir -p /var/lib/signoz /var/lib/ingester /etc/foundry /opt/signoz /opt/ingester && \
+    chown signoz:signoz /var/lib/signoz /var/lib/ingester /opt/signoz /opt/ingester
 
 COPY docs/standalone/casting.yaml /etc/foundry/casting.yaml
 COPY docs/standalone/foundry-setup.service /etc/systemd/system/foundry-setup.service
-RUN mkdir -p /var/lib/foundry && systemctl enable foundry-setup.service
+COPY docs/standalone/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh && mkdir -p /var/lib/foundry && systemctl enable foundry-setup.service
 
 EXPOSE 8080 4317 4318
 VOLUME ["/var/lib/clickhouse", "/var/lib/signoz"]
 
 STOPSIGNAL SIGRTMIN+3
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["/sbin/init"]

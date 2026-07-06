@@ -7,5 +7,5 @@ import (
 )
 
 func TestTelemetryStore(t *testing.T) {
-	assert.NotEmpty(t, KeeperClickhousev2556YAML)
+	assert.NotEmpty(t, KeeperClickhousev25125YAML)
 }

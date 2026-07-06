@@ -27,6 +27,19 @@ spec:
     mode: docker
 ```
 
+### Telemetry keeper kinds
+
+The telemetry keeper defaults to ClickHouse Keeper. To use ZooKeeper instead, set the kind and Foundry resolves the right image and configuration for it:
+
+```yaml
+spec:
+  telemetrykeeper:
+    kind: zookeeper
+    spec:
+      cluster:
+        replicas: 1
+```
+
 ## Deploy
 
 ```bash

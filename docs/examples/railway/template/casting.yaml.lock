@@ -391,8 +391,8 @@ spec:
               console: true
               level: information
       enabled: true
-      image: clickhouse/clickhouse-keeper:25.5.6
-      version: 25.5.6
+      image: clickhouse/clickhouse-keeper:25.12.5
+      version: 25.12.5
     status:
       addresses:
         client:
@@ -560,8 +560,8 @@ spec:
               return_type: Float64
               type: executable
       enabled: true
-      image: clickhouse/clickhouse-server:25.5.6
-      version: 25.5.6
+      image: clickhouse/clickhouse-server:25.12.5
+      version: 25.12.5
     status:
       addresses:
         tcp:

@@ -40,7 +40,7 @@ type Foundry struct {
 
 func New(logger *slog.Logger) (*Foundry, error) {
 	return &Foundry{
-		Config: yamlconfig.New(),
+		Config: yamlconfig.New(logger),
 		Patchers: map[string]patch.Patch{
 			v1alpha1.PatchTypeJSONPatch: jsonpatch.New(),
 		},

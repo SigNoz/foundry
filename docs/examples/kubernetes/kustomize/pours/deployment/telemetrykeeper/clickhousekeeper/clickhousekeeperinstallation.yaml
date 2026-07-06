@@ -30,7 +30,7 @@ spec:
       name: default
       spec:
         containers:
-        - image: clickhouse/clickhouse-keeper:25.5.6
+        - image: clickhouse/clickhouse-keeper:25.12.5
           imagePullPolicy: IfNotPresent
           name: clickhouse-keeper
           resources:

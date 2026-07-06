@@ -4,8 +4,29 @@ services:
   {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}:
     container_name: {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}
     image: {{ $.Spec.TelemetryKeeper.Spec.Image }}
+    restart: unless-stopped
     networks:
       - {{ $.Metadata.Name }}-network
+    {{- if eq $.Spec.TelemetryKeeper.Kind.String "zookeeper" }}
+    environment:
+      - ZOO_SERVER_ID={{ add $replicaIdx 1 }}
+      {{- if gt (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) 1 }}
+      - ZOO_SERVERS={{ range $serverIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}{{ if $serverIdx }},{{ end }}{{ if eq $serverIdx $replicaIdx }}0.0.0.0{{ else }}{{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $serverIdx }}{{ end }}:2888:3888{{ end }}
+      {{- end }}
+      {{- range $key, $value := $.Spec.TelemetryKeeper.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    volumes:
+      - {{ $.Metadata.Name }}-telemetrykeeper-{{ $replicaIdx }}-data:/bitnami/zookeeper
+    healthcheck:
+      test:
+      - "CMD-SHELL"
+      - "curl -s -m 2 http://localhost:8080/commands/ruok | grep error | grep null"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    {{- else }}
     {{- if $.Spec.TelemetryKeeper.Spec.Env }}
     environment:
       {{- range $key, $value := $.Spec.TelemetryKeeper.Spec.Env }}
@@ -32,6 +53,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    {{- end }}
   {{- end }}
   {{- range $shardIdx := until (int $.Spec.TelemetryStore.Spec.Cluster.Shards) }}
   {{- range $replicaIdx := until (int (add 1 (int $.Spec.TelemetryStore.Spec.Cluster.Replicas))) }}
@@ -45,6 +67,7 @@ services:
         condition: service_healthy
       {{- end }}
     image: {{ $.Spec.TelemetryStore.Spec.Image }}
+    restart: unless-stopped
     networks:
       - {{ $.Metadata.Name }}-network
     environment:
@@ -76,6 +99,7 @@ services:
   {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts:
     container_name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts
     image: {{ $.Spec.TelemetryStore.Spec.Image }}
+    restart: on-failure
     networks:
       - {{ $.Metadata.Name }}-network
     volumes:
@@ -97,6 +121,7 @@ services:
   {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}:
     container_name: {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}
     image: {{ $.Spec.MetaStore.Spec.Image }}
+    restart: unless-stopped
     networks:
       - {{ $.Metadata.Name }}-network
     {{- if $.Spec.MetaStore.Spec.Env }}
@@ -120,6 +145,7 @@ services:
   {{- $ingesterReplicas := int $.Spec.Ingester.Spec.Cluster.Replicas }}
   ingester:
     image: {{ $.Spec.Ingester.Spec.Image }}
+    restart: unless-stopped
     networks:
       {{ $.Metadata.Name }}-network:
         aliases:
@@ -152,16 +178,15 @@ services:
       - {{ $key }}={{ $value }}
       {{- end }}
     {{- end }}
+    {{- if gt $ingesterReplicas 1 }}
     deploy:
-      {{- if gt $ingesterReplicas 1 }}
       replicas: {{ $ingesterReplicas }}
-      {{- end }}
-      restart_policy:
-        condition: on-failure
+    {{- end }}
   {{- range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}:
     container_name: {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}
     image: {{ $.Spec.Signoz.Spec.Image }}
+    restart: unless-stopped
     networks:
       - {{ $.Metadata.Name }}-network
     {{- if $.Spec.Signoz.Spec.Env }}
@@ -187,14 +212,12 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    deploy:
-      restart_policy:
-        condition: on-failure
   {{- end }}
   {{- if derefBool $.Spec.MCP.Spec.Enabled }}
   {{ $.Metadata.Name }}-mcp:
     container_name: {{ $.Metadata.Name }}-mcp
     image: {{ $.Spec.MCP.Spec.Image }}
+    restart: unless-stopped
     networks:
       - {{ $.Metadata.Name }}-network
     {{- if $.Spec.MCP.Spec.Env }}
@@ -216,13 +239,11 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-    deploy:
-      restart_policy:
-        condition: on-failure
   {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-migrator:
     container_name: {{ $.Metadata.Name }}-telemetrystore-migrator
     image: {{ $.Spec.Ingester.Spec.Image }}
+    restart: on-failure
     networks:
       - {{ $.Metadata.Name }}-network
     entrypoint:

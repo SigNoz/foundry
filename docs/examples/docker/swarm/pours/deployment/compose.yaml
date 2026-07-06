@@ -114,7 +114,7 @@ services:
       - -q
       - ls
       timeout: 10s
-    image: clickhouse/clickhouse-keeper:25.5.6
+    image: clickhouse/clickhouse-keeper:25.12.5
     networks:
     - signoz-network
     volumes:
@@ -143,7 +143,7 @@ services:
       - http://localhost:8123/ping
       timeout: 10s
     hostname: signoz-telemetrystore-clickhouse-0-0
-    image: clickhouse/clickhouse-server:25.5.6
+    image: clickhouse/clickhouse-server:25.12.5
     networks:
     - signoz-network
     volumes:
@@ -166,7 +166,7 @@ services:
       mode: global
       restart_policy:
         condition: none
-    image: clickhouse/clickhouse-server:25.5.6
+    image: clickhouse/clickhouse-server:25.12.5
     networks:
     - signoz-network
     volumes:

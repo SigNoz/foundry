@@ -2,6 +2,7 @@ package yamlconfig
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -37,6 +38,51 @@ spec:
 				assert.True(t, *casting.Spec.TelemetryKeeper.Spec.Enabled)
 				assert.True(t, *casting.Spec.MetaStore.Spec.Enabled)
 				assert.True(t, *casting.Spec.Ingester.Spec.Enabled)
+				// The default telemetrykeeper kind carries its image and version
+				assert.Equal(t, installation.TelemetryKeeperKindClickhouseKeeper, casting.Spec.TelemetryKeeper.Kind)
+				assert.Equal(t, "clickhouse/clickhouse-keeper:25.12.5", casting.Spec.TelemetryKeeper.Spec.Image)
+				assert.Equal(t, "25.12.5", casting.Spec.TelemetryKeeper.Spec.Version)
+			},
+		},
+		{
+			name: "TelemetryKeeperZookeeperKindDefaults",
+			input: `
+apiVersion: v1alpha1
+metadata:
+  name: signoz
+spec:
+  deployment:
+    mode: docker
+    flavor: compose
+  telemetrykeeper:
+    kind: zookeeper
+`,
+			assert: func(t *testing.T, casting installation.Casting) {
+				assert.Equal(t, installation.TelemetryKeeperKindZookeeper, casting.Spec.TelemetryKeeper.Kind)
+				assert.Equal(t, "signoz/zookeeper:3.7.1", casting.Spec.TelemetryKeeper.Spec.Image)
+				assert.Equal(t, "3.7.1", casting.Spec.TelemetryKeeper.Spec.Version)
+			},
+		},
+		{
+			name: "TelemetryKeeperZookeeperKindUserImageWins",
+			input: `
+apiVersion: v1alpha1
+metadata:
+  name: signoz
+spec:
+  deployment:
+    mode: docker
+    flavor: compose
+  telemetrykeeper:
+    kind: zookeeper
+    spec:
+      image: signoz/zookeeper:3.8.4
+      version: 3.8.4
+`,
+			assert: func(t *testing.T, casting installation.Casting) {
+				assert.Equal(t, installation.TelemetryKeeperKindZookeeper, casting.Spec.TelemetryKeeper.Kind)
+				assert.Equal(t, "signoz/zookeeper:3.8.4", casting.Spec.TelemetryKeeper.Spec.Image)
+				assert.Equal(t, "3.8.4", casting.Spec.TelemetryKeeper.Spec.Version)
 			},
 		},
 		{
@@ -262,7 +308,7 @@ spec:
 			err := os.WriteFile(castingPath, []byte(tc.input), 0644)
 			require.NoError(t, err)
 
-			cfg := New()
+			cfg := New(slog.New(slog.DiscardHandler))
 			casting, err := cfg.GetV1Alpha1(context.Background(), castingPath)
 			require.NoError(t, err)
 
@@ -282,7 +328,7 @@ func TestGetV1Alpha1Merge(t *testing.T) {
 	}{
 		{
 			name:     "EmptyOverride",
-			base:     *installation.Default(),
+			base:     *installation.Default(&installation.Casting{}),
 			override: installation.Casting{},
 			assert: func(t *testing.T, casting installation.Casting) {
 				assert.True(t, *casting.Spec.Signoz.Spec.Enabled)
@@ -293,7 +339,7 @@ func TestGetV1Alpha1Merge(t *testing.T) {
 		},
 		{
 			name: "DisabledMoldingOverride",
-			base: *installation.Default(),
+			base: *installation.Default(&installation.Casting{}),
 			override: installation.Casting{
 				Spec: installation.Spec{
 					MetaStore: installation.MetaStore{
