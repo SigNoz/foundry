@@ -479,9 +479,6 @@ spec:
               default:
                 allow_experimental_window_functions: "1"
                 allow_nondeterministic_mutations: "1"
-                allow_simdjson: 0
-                load_balancing: random
-                log_queries: 1
                 max_threads: 16
                 query_plan_max_limit_for_lazy_materialization: "0"
                 secondary_indices_enable_bulk_filtering: "0"
@@ -498,15 +495,6 @@ spec:
               ttl: event_date + INTERVAL 1 DAY DELETE
             query_views_log:
               ttl: event_date + INTERVAL 1 DAY DELETE
-            quotas:
-              default:
-                interval:
-                  duration: 3600
-                  errors: 0
-                  execution_time: 0
-                  queries: 0
-                  read_rows: 0
-                  result_rows: 0
             remote_servers:
               cluster:
                 shard:
@@ -559,16 +547,6 @@ spec:
                 password: 27ff0399-0d3a-4bd8-919d-17c2181e6fb9
                 profile: default
                 quota: default
-              default:
-                access_management: 1
-                named_collection_control: 1
-                networks:
-                  ip: ::/0
-                password: ""
-                profile: default
-                quota: default
-                show_named_collection: 1
-                show_named_collection_secrets: 1
             zookeeper:
               node:
               - host: signoz-clickhouse-keeper-0
@@ -589,6 +567,32 @@ spec:
               name: histogramQuantile
               return_type: Float64
               type: executable
+          users.yaml: |
+            profiles:
+                default:
+                    allow_simdjson: 0
+                    load_balancing: random
+                    log_queries: 1
+            quotas:
+                default:
+                    interval:
+                        duration: 3600
+                        errors: 0
+                        execution_time: 0
+                        queries: 0
+                        read_rows: 0
+                        result_rows: 0
+            users:
+                default:
+                    access_management: 1
+                    named_collection_control: 1
+                    networks:
+                        ip: ::/0
+                    password: ""
+                    profile: default
+                    quota: default
+                    show_named_collection: 1
+                    show_named_collection_secrets: 1
       enabled: true
       image: clickhouse/clickhouse-server:25.12.5
       version: 25.12.5
@@ -653,9 +657,6 @@ spec:
               default:
                 allow_experimental_window_functions: "1"
                 allow_nondeterministic_mutations: "1"
-                allow_simdjson: 0
-                load_balancing: random
-                log_queries: 1
                 max_threads: 16
                 query_plan_max_limit_for_lazy_materialization: "0"
                 secondary_indices_enable_bulk_filtering: "0"
@@ -672,15 +673,6 @@ spec:
               ttl: event_date + INTERVAL 1 DAY DELETE
             query_views_log:
               ttl: event_date + INTERVAL 1 DAY DELETE
-            quotas:
-              default:
-                interval:
-                  duration: 3600
-                  errors: 0
-                  execution_time: 0
-                  queries: 0
-                  read_rows: 0
-                  result_rows: 0
             remote_servers:
               cluster:
                 shard:
@@ -733,16 +725,6 @@ spec:
                 password: 27ff0399-0d3a-4bd8-919d-17c2181e6fb9
                 profile: default
                 quota: default
-              default:
-                access_management: 1
-                named_collection_control: 1
-                networks:
-                  ip: ::/0
-                password: ""
-                profile: default
-                quota: default
-                show_named_collection: 1
-                show_named_collection_secrets: 1
             zookeeper:
               node:
               - host: signoz-clickhouse-keeper-0
@@ -763,6 +745,32 @@ spec:
               name: histogramQuantile
               return_type: Float64
               type: executable
+          users.yaml: |
+            profiles:
+                default:
+                    allow_simdjson: 0
+                    load_balancing: random
+                    log_queries: 1
+            quotas:
+                default:
+                    interval:
+                        duration: 3600
+                        errors: 0
+                        execution_time: 0
+                        queries: 0
+                        read_rows: 0
+                        result_rows: 0
+            users:
+                default:
+                    access_management: 1
+                    named_collection_control: 1
+                    networks:
+                        ip: ::/0
+                    password: ""
+                    profile: default
+                    quota: default
+                    show_named_collection: 1
+                    show_named_collection_secrets: 1
       extras:
         _overrides: |
           async_load_databases: false

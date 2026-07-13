@@ -16,6 +16,10 @@ spec:
     files:
 {{- $configData := $.Spec.TelemetryStore.Status.Config.Data }}
 {{- $config := index $configData "config-0-0.yaml" | fromYaml }}
+{{- /* profiles/users/quotas now live in the users.d overlay (users.yaml); the
+       ClickHouse operator maps them into the CHI spec itself, so read them from
+       there rather than config.yaml. */ -}}
+{{- $users := index $configData "users.yaml" | fromYaml }}
 {{- if $config }}
 {{- $files := omit $config "profiles" "users" "quotas" "remote_servers" "zookeeper" "macros" "tcp_port" "http_port" "interserver_http_port" "listen_host" "display_name" "distributed_ddl" }}
       config.d/crash.yaml: |
@@ -51,13 +55,13 @@ spec:
           string created_at = 7;
           string elements_chain = 8;
         }
-{{- if $config }}
+{{- if $users }}
     profiles:
-{{ index $config "profiles" | flattenKeys | toYaml | indent 6 }}
+{{ index $users "profiles" | flattenKeys | toYaml | indent 6 }}
     users:
-{{ index $config "users" | flattenKeys | toYaml | indent 6 }}
+{{ index $users "users" | flattenKeys | toYaml | indent 6 }}
     quotas:
-{{ index $config "quotas" | flattenKeys | toYaml | indent 6 }}
+{{ index $users "quotas" | flattenKeys | toYaml | indent 6 }}
 {{- end }}
     clusters:
     - name: cluster

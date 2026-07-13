@@ -132,6 +132,11 @@ services:
         target: /etc/clickhouse-server/functions.yaml
         content: |
 {{ index $.Spec.TelemetryStore.Spec.Config.Data "functions.yaml" | indent 10 }}
+      - type: bind
+        source: ./configs/telemetrystore/users.yaml
+        target: /etc/clickhouse-server/users.d/users.yaml
+        content: |
+{{ index $.Spec.TelemetryStore.Spec.Config.Data "users.yaml" | indent 10 }}
     logging:
       options:
         max-size: 50m

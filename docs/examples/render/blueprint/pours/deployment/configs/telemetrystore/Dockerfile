@@ -2,6 +2,11 @@ FROM clickhouse/clickhouse-server:25.12.5
 
 COPY config.d/ /etc/clickhouse-server/
 
+# Relocate the users/profiles/quotas overlay into users.d/ so ClickHouse merges
+# it over the image's stock users.xml (the config.d COPY lands it flat otherwise).
+RUN mkdir -p /etc/clickhouse-server/users.d \
+    && mv /etc/clickhouse-server/users.yaml /etc/clickhouse-server/users.d/users.yaml
+
 RUN mkdir -p /var/lib/clickhouse/user_scripts/ \
     && chown clickhouse:clickhouse /var/lib/clickhouse/user_scripts
 

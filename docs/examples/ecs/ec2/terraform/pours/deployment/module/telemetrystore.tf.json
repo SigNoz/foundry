@@ -37,6 +37,8 @@
         "image": "clickhouse/clickhouse-server:25.12.5",
         "essential": true,
         "environment": [{"name":"CLICKHOUSE_SKIP_USER_SETUP","value":"1"}],
+        "entryPoint": ["/bin/sh", "-c"],
+        "command": ["mkdir -p /etc/clickhouse-server/users.d && if [ -f /etc/clickhouse-server/config.d/users.yaml ]; then mv /etc/clickhouse-server/config.d/users.yaml /etc/clickhouse-server/users.d/users.yaml; fi; exec /entrypoint.sh"],
         "portMappings": [
           {"name": "native", "containerPort": 9000, "protocol": "tcp"},
           {"name": "http", "containerPort": 8123, "protocol": "tcp", "appProtocol": "http"},

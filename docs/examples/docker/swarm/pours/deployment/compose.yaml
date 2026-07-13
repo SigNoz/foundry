@@ -9,6 +9,8 @@ configs:
     file: telemetrystore/clickhouse/config-0-0.yaml
   telemetrystore-functions:
     file: telemetrystore/clickhouse/functions.yaml
+  telemetrystore-users:
+    file: telemetrystore/clickhouse/users.yaml
 networks:
   signoz-network:
     attachable: true
@@ -122,6 +124,8 @@ services:
       target: /etc/clickhouse-server/config.yaml
     - source: telemetrystore-functions
       target: /etc/clickhouse-server/functions.yaml
+    - source: telemetrystore-users
+      target: /etc/clickhouse-server/users.d/users.yaml
     deploy:
       restart_policy:
         condition: on-failure

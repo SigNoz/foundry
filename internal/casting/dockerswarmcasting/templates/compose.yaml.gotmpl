@@ -84,6 +84,8 @@ services:
         target: /etc/clickhouse-server/config.yaml
       - source: telemetrystore-functions
         target: /etc/clickhouse-server/functions.yaml
+      - source: telemetrystore-users
+        target: /etc/clickhouse-server/users.d/users.yaml
     deploy:
       restart_policy:
         condition: on-failure
@@ -281,6 +283,8 @@ configs:
   {{- end }}
   telemetrystore-functions:
     file: telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/functions.yaml
+  telemetrystore-users:
+    file: telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/users.yaml
   ingester-config:
     file: ingester/ingester.yaml
   manager-config:

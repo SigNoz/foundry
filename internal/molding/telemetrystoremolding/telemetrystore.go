@@ -44,6 +44,12 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *install
 		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute functions template")
 	}
 
+	// Generate the users/profiles/quotas overlay. This is cluster-wide.
+	usersBuf := bytes.NewBuffer(nil)
+	if err := UsersClickhousev25125YAML.Execute(usersBuf, data); err != nil {
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute users template")
+	}
+
 	// Generate per-node configs (each node needs its own macros.shard / macros.replica).
 	configs := make(map[string]string, data.ShardCount*data.ReplicaCount+1)
 	for s := 0; s < data.ShardCount; s++ {
@@ -71,6 +77,7 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *install
 		}
 	}
 	configs["functions.yaml"] = functionBuf.String()
+	configs["users.yaml"] = usersBuf.String()
 
 	config.Spec.TelemetryStore.Status.Config.Data = configs
 

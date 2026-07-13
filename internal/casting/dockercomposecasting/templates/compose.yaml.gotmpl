@@ -83,6 +83,7 @@ services:
       - {{ $.Metadata.Name }}-telemetrystore-user-scripts:/var/lib/clickhouse/user_scripts:ro
       - ./telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml:/etc/clickhouse-server/config.yaml:ro
       - ./telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/functions.yaml:/etc/clickhouse-server/functions.yaml:ro
+      - ./telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/users.yaml:/etc/clickhouse-server/users.d/users.yaml:ro
     healthcheck:
       test:
        - "CMD"

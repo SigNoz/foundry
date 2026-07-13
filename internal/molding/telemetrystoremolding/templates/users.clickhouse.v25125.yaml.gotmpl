@@ -1,0 +1,25 @@
+profiles:
+    default:
+        allow_simdjson: 0
+        load_balancing: random
+        log_queries: 1
+quotas:
+    default:
+        interval:
+            duration: 3600
+            errors: 0
+            execution_time: 0
+            queries: 0
+            read_rows: 0
+            result_rows: 0
+users:
+    default:
+        access_management: 1
+        named_collection_control: 1
+        networks:
+            ip: ::/0
+        password: ""
+        profile: default
+        quota: default
+        show_named_collection: 1
+        show_named_collection_secrets: 1

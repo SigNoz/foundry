@@ -332,20 +332,6 @@ services:
         macros:
             replica: "00"
             shard: "00"
-        profiles:
-            default:
-                allow_simdjson: 0
-                load_balancing: random
-                log_queries: 1
-        quotas:
-            default:
-                interval:
-                    duration: 3600
-                    errors: 0
-                    execution_time: 0
-                    queries: 0
-                    read_rows: 0
-                    result_rows: 0
         user_directories:
           users_xml:
             path: users.xml
@@ -396,17 +382,6 @@ services:
         tcp_port: 9000
         user_defined_executable_functions_config: '*function.yaml'
         user_scripts_path: /var/lib/clickhouse/user_scripts/
-        users:
-            default:
-                access_management: 1
-                named_collection_control: 1
-                networks:
-                    ip: ::/0
-                password: ""
-                profile: default
-                quota: default
-                show_named_collection: 1
-                show_named_collection_secrets: 1
       source: ./configs/telemetrystore/config-0-0.yaml
       target: /etc/clickhouse-server/config.yaml
       type: bind
@@ -426,6 +401,35 @@ services:
           type: executable
       source: ./configs/telemetrystore/functions.yaml
       target: /etc/clickhouse-server/functions.yaml
+      type: bind
+    - content: |
+        profiles:
+            default:
+                allow_simdjson: 0
+                load_balancing: random
+                log_queries: 1
+        quotas:
+            default:
+                interval:
+                    duration: 3600
+                    errors: 0
+                    execution_time: 0
+                    queries: 0
+                    read_rows: 0
+                    result_rows: 0
+        users:
+            default:
+                access_management: 1
+                named_collection_control: 1
+                networks:
+                    ip: ::/0
+                password: ""
+                profile: default
+                quota: default
+                show_named_collection: 1
+                show_named_collection_secrets: 1
+      source: ./configs/telemetrystore/users.yaml
+      target: /etc/clickhouse-server/users.d/users.yaml
       type: bind
   signoz-telemetrystore-clickhouse-user-scripts:
     command:

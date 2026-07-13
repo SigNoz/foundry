@@ -447,20 +447,6 @@ spec:
             macros:
                 replica: "00"
                 shard: "00"
-            profiles:
-                default:
-                    allow_simdjson: 0
-                    load_balancing: random
-                    log_queries: 1
-            quotas:
-                default:
-                    interval:
-                        duration: 3600
-                        errors: 0
-                        execution_time: 0
-                        queries: 0
-                        read_rows: 0
-                        result_rows: 0
             user_directories:
               users_xml:
                 path: users.xml
@@ -511,17 +497,6 @@ spec:
             tcp_port: 9000
             user_defined_executable_functions_config: '*function.yaml'
             user_scripts_path: /var/lib/clickhouse/user_scripts/
-            users:
-                default:
-                    access_management: 1
-                    named_collection_control: 1
-                    networks:
-                        ip: ::/0
-                    password: ""
-                    profile: default
-                    quota: default
-                    show_named_collection: 1
-                    show_named_collection_secrets: 1
           functions.yaml: |
             functions:
               argument:
@@ -536,6 +511,32 @@ spec:
               name: histogramQuantile
               return_type: Float64
               type: executable
+          users.yaml: |
+            profiles:
+                default:
+                    allow_simdjson: 0
+                    load_balancing: random
+                    log_queries: 1
+            quotas:
+                default:
+                    interval:
+                        duration: 3600
+                        errors: 0
+                        execution_time: 0
+                        queries: 0
+                        read_rows: 0
+                        result_rows: 0
+            users:
+                default:
+                    access_management: 1
+                    named_collection_control: 1
+                    networks:
+                        ip: ::/0
+                    password: ""
+                    profile: default
+                    quota: default
+                    show_named_collection: 1
+                    show_named_collection_secrets: 1
       enabled: true
       image: clickhouse/clickhouse-server:25.12.5
       version: 25.12.5
@@ -567,20 +568,6 @@ spec:
             macros:
                 replica: "00"
                 shard: "00"
-            profiles:
-                default:
-                    allow_simdjson: 0
-                    load_balancing: random
-                    log_queries: 1
-            quotas:
-                default:
-                    interval:
-                        duration: 3600
-                        errors: 0
-                        execution_time: 0
-                        queries: 0
-                        read_rows: 0
-                        result_rows: 0
             user_directories:
               users_xml:
                 path: users.xml
@@ -631,17 +618,6 @@ spec:
             tcp_port: 9000
             user_defined_executable_functions_config: '*function.yaml'
             user_scripts_path: /var/lib/clickhouse/user_scripts/
-            users:
-                default:
-                    access_management: 1
-                    named_collection_control: 1
-                    networks:
-                        ip: ::/0
-                    password: ""
-                    profile: default
-                    quota: default
-                    show_named_collection: 1
-                    show_named_collection_secrets: 1
           functions.yaml: |
             functions:
               argument:
@@ -656,5 +632,31 @@ spec:
               name: histogramQuantile
               return_type: Float64
               type: executable
+          users.yaml: |
+            profiles:
+                default:
+                    allow_simdjson: 0
+                    load_balancing: random
+                    log_queries: 1
+            quotas:
+                default:
+                    interval:
+                        duration: 3600
+                        errors: 0
+                        execution_time: 0
+                        queries: 0
+                        read_rows: 0
+                        result_rows: 0
+            users:
+                default:
+                    access_management: 1
+                    named_collection_control: 1
+                    networks:
+                        ip: ::/0
+                    password: ""
+                    profile: default
+                    quota: default
+                    show_named_collection: 1
+                    show_named_collection_secrets: 1
       extras:
         service_names: signoz-telemetrystore-clickhouse-0-0

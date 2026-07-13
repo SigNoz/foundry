@@ -126,6 +126,7 @@ services:
     - signoz-telemetrystore-user-scripts:/var/lib/clickhouse/user_scripts:ro
     - ./telemetrystore/clickhouse/config-0-0.yaml:/etc/clickhouse-server/config.yaml:ro
     - ./telemetrystore/clickhouse/functions.yaml:/etc/clickhouse-server/functions.yaml:ro
+    - ./telemetrystore/clickhouse/users.yaml:/etc/clickhouse-server/users.d/users.yaml:ro
   signoz-telemetrystore-clickhouse-user-scripts:
     command:
     - bash

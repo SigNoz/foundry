@@ -121,17 +121,9 @@ spec:
           string elements_chain = 8;
         }
     profiles:
-      admin/max_threads: 16
-      admin/query_plan_max_limit_for_lazy_materialization: "0"
-      admin/secondary_indices_enable_bulk_filtering: "0"
-      default/allow_experimental_window_functions: "1"
-      default/allow_nondeterministic_mutations: "1"
       default/allow_simdjson: 0
       default/load_balancing: random
       default/log_queries: 1
-      default/max_threads: 16
-      default/query_plan_max_limit_for_lazy_materialization: "0"
-      default/secondary_indices_enable_bulk_filtering: "0"
     quotas:
       default/interval/duration: 3600
       default/interval/errors: 0
@@ -140,16 +132,6 @@ spec:
       default/interval/read_rows: 0
       default/interval/result_rows: 0
     users:
-      admin/networks/ip:
-      - 10.0.0.0/8
-      - 100.64.0.0/10
-      - 172.16.0.0/12
-      - 192.0.0.0/24
-      - 198.18.0.0/15
-      - 192.168.0.0/16
-      admin/password: 27ff0399-0d3a-4bd8-919d-17c2181e6fb9
-      admin/profile: default
-      admin/quota: default
       default/access_management: 1
       default/named_collection_control: 1
       default/networks/ip: ::/0
