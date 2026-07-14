@@ -6,8 +6,10 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
+	infrastructurev1alpha1 "github.com/signoz/foundry/api/v1alpha1/infrastructure"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	collectionagentcasting "github.com/signoz/foundry/internal/casting/collectionagent"
+	infrastructurecasting "github.com/signoz/foundry/internal/casting/infrastructure"
 	installationcasting "github.com/signoz/foundry/internal/casting/installation"
 	"github.com/signoz/foundry/internal/config"
 	"github.com/signoz/foundry/internal/config/yamlconfig"
@@ -51,6 +53,9 @@ func New(logger *slog.Logger) (*Foundry, error) {
 			},
 			v1alpha1.KindCollectionAgent: func(ctx context.Context, m v1alpha1.Machinery, logger *slog.Logger) (planner.Planner, error) {
 				return collectionagentcasting.NewPlanner(ctx, m.(*collectionagent.Casting), logger)
+			},
+			v1alpha1.KindInfrastructure: func(ctx context.Context, m v1alpha1.Machinery, logger *slog.Logger) (planner.Planner, error) {
+				return infrastructurecasting.NewPlanner(ctx, m.(*infrastructurev1alpha1.Casting), logger)
 			},
 		},
 		InfrastructureGenerator: terraformgenerator.New(logger),

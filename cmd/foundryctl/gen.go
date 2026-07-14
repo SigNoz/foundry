@@ -11,6 +11,7 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
+	"github.com/signoz/foundry/api/v1alpha1/infrastructure"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	installationcasting "github.com/signoz/foundry/internal/casting/installation"
 	"github.com/signoz/foundry/internal/domain"
@@ -30,6 +31,7 @@ type schemaTarget struct {
 var schemaTargets = []schemaTarget{
 	{v1alpha1.KindInstallation, installation.Casting{}},
 	{v1alpha1.KindCollectionAgent, collectionagent.Casting{}},
+	{v1alpha1.KindInfrastructure, infrastructure.Casting{}},
 }
 
 func registerGenCmd(rootCmd *cobra.Command) {
@@ -100,28 +102,26 @@ func runGenExamples(ctx context.Context, logger *slog.Logger) error {
 
 func runGenSchemas(_ context.Context) error {
 	var oneOf []jsonschema.SchemaOrBool
-	kindType := reflect.TypeFor[v1alpha1.Kind]()
 
 	for _, t := range schemaTargets {
 		target := t
 		reflector := jsonschema.Reflector{}
-		// v1alpha1.Kind's Enum() returns all Kinds (the type permits any).
-		// For this per-Kind schema, the kind field is always this Casting's
-		// Kind, so we narrow the enum at reflection.
-		reflector.DefaultOptions = append(reflector.DefaultOptions,
-			jsonschema.InterceptSchema(func(params jsonschema.InterceptSchemaParams) (bool, error) {
-				if !params.Processed || params.Value.Type() != kindType {
-					return false, nil
-				}
-				params.Schema.Enum = []any{target.kind.String()}
-				return false, nil
-			}),
-		)
 
 		schema, err := reflector.Reflect(target.val)
 		if err != nil {
 			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "reflect %T", target.val)
 		}
+
+		// v1alpha1.Kind's Enum() returns all Kinds (the type permits any, and
+		// nested Kind-typed fields such as resource refs must keep the full
+		// enum). Only the TOP-LEVEL kind field is always this Casting's Kind,
+		// so it is narrowed here with an inline schema instead of the shared
+		// Kind definition.
+		narrowedKind := (&jsonschema.Schema{}).
+			WithType(jsonschema.String.Type()).
+			WithEnum(target.kind.String()).
+			WithDescription("Kind of the casting resource.")
+		schema.WithPropertiesItem("kind", narrowedKind.ToSchemaOrBool())
 
 		contents, err := json.MarshalIndent(schema, "", "  ")
 		if err != nil {
