@@ -120,9 +120,7 @@ func (casting *dockerComposeCasting) Cast(ctx context.Context, config installati
 		return foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "docker compose not available")
 	}
 
-	// Force recreation so config file changes reach running containers; compose
-	// does not recreate services when only bind-mounted file contents change.
-	args := append(composeCmd[1:], "-f", composeFile, "up", "-d", "--force-recreate")
+	args := append(composeCmd[1:], "-f", composeFile, "up", "-d")
 
 	casting.logger.DebugContext(runctx, "Running command", slog.String("command", strings.Join(append([]string{composeCmd[0]}, args...), " ")))
 
