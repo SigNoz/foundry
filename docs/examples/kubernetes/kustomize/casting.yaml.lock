@@ -543,7 +543,7 @@ spec:
             user_defined_executable_functions_config: /etc/clickhouse-server/functions/custom-functions.xml
             user_directories:
               users_xml:
-                path: users.xml
+                path: config.yaml
             user_files_path: /var/lib/clickhouse/user_files/
             user_scripts_path: /var/lib/clickhouse/user_scripts/
             users:
@@ -717,7 +717,7 @@ spec:
             user_defined_executable_functions_config: /etc/clickhouse-server/functions/custom-functions.xml
             user_directories:
               users_xml:
-                path: users.xml
+                path: config.yaml
             user_files_path: /var/lib/clickhouse/user_files/
             user_scripts_path: /var/lib/clickhouse/user_scripts/
             users:

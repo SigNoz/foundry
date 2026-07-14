@@ -348,7 +348,7 @@ services:
                     result_rows: 0
         user_directories:
           users_xml:
-            path: users.xml
+            path: config.yaml
         remote_servers:
           cluster:
             shard:
