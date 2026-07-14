@@ -10,6 +10,7 @@ LimitNOFILE=500000
 Restart=always
 RestartSec=30
 RuntimeDirectory=clickhouse-keeper
+StateDirectory=clickhouse-keeper
 Type=simple
 User=clickhouse
 

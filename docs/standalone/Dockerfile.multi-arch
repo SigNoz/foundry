@@ -46,8 +46,9 @@ RUN curl -fsSL 'https://packages.clickhouse.com/rpm/lts/repodata/repomd.xml.key'
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -r -m -d /opt/signoz -s /bin/false signoz && \
-    mkdir -p /var/lib/signoz /var/lib/ingester /etc/foundry /opt/signoz /opt/ingester && \
-    chown signoz:signoz /var/lib/signoz /var/lib/ingester /opt/signoz /opt/ingester
+    mkdir -p /var/lib/signoz /var/lib/ingester /etc/foundry /opt/signoz /opt/ingester /var/lib/clickhouse-keeper && \
+    chown signoz:signoz /var/lib/signoz /var/lib/ingester /opt/signoz /opt/ingester && \
+    chown clickhouse:clickhouse /var/lib/clickhouse-keeper
 
 COPY docs/standalone/casting.yaml /etc/foundry/casting.yaml
 COPY docs/standalone/foundry-setup.service /etc/systemd/system/foundry-setup.service
@@ -55,7 +56,7 @@ COPY docs/standalone/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh && mkdir -p /var/lib/foundry && systemctl enable foundry-setup.service
 
 EXPOSE 8080 4317 4318
-VOLUME ["/var/lib/clickhouse", "/var/lib/signoz"]
+VOLUME ["/var/lib/clickhouse", "/var/lib/clickhouse-keeper", "/var/lib/signoz"]
 
 STOPSIGNAL SIGRTMIN+3
 ENTRYPOINT ["/entrypoint.sh"]

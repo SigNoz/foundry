@@ -67,6 +67,18 @@ sudo foundryctl cast -f casting.yaml
 > [!NOTE]
 > `cast` requires `sudo` because it manages systemd services, creates the service users, and writes to system directories.
 
+> [!IMPORTANT]
+> **Upgrading an existing installation:** ClickHouse Keeper now stores its Raft state in `/var/lib/clickhouse-keeper` (created automatically by the unit's `StateDirectory=`) instead of `/var/lib/clickhouse`. Move the existing coordination data before re-running `cast`, otherwise the keeper starts with empty state:
+>
+> ```bash
+> sudo systemctl stop 'signoz-telemetrykeeper-*'
+> sudo mkdir -p /var/lib/clickhouse-keeper
+> sudo mv /var/lib/clickhouse/coordination /var/lib/clickhouse-keeper/
+> sudo chown -R clickhouse:clickhouse /var/lib/clickhouse-keeper
+> ```
+>
+> Fresh installations need no action.
+
 To inspect before deploying:
 
 ```bash
