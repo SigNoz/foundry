@@ -11,6 +11,7 @@ Group=clickhouse
 Restart=always
 RestartSec=30
 RuntimeDirectory=clickhouse-keeper
+StateDirectory=clickhouse-keeper
 {{- if and $.Spec.TelemetryKeeper.Status.Extras (index $.Spec.TelemetryKeeper.Status.Extras "cfgPath") }}
 {{- $keeperBinary := index $.Metadata.Annotations "foundry.signoz.io/telemetrykeeper-clickhousekeeper-binary-path" }}
 ExecStart={{ $keeperBinary }} keeper --config={{ index $.Spec.TelemetryKeeper.Status.Extras "cfgPath" }} --pid-file=/run/clickhouse-keeper/clickhouse-keeper.pid

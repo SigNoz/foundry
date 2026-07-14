@@ -78,6 +78,7 @@ docker run -d --name signoz --privileged \
     -p 4317:4317 \
     -p 4318:4318 \
     -v signoz-clickhouse:/var/lib/clickhouse \
+    -v signoz-keeper:/var/lib/clickhouse-keeper \
     -v signoz-data:/var/lib/signoz \
     signoz/signoz-standalone:latest
 ```
