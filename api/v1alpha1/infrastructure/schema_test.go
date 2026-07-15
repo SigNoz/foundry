@@ -21,24 +21,16 @@ func TestSchemaValidate(t *testing.T) {
 		{
 			name: "ResourceProvided_Valid",
 			mutate: func(casting *Casting) {
-				casting.Spec.Resource = Resource{
-					Kind: ResourceKindInstallation,
-					Spec: ResourceSpec{
-						TypeCastingRef: v1alpha1.TypeCastingRef{APIVersion: "v1alpha1", Name: "signoz"},
-					},
-				}
+				casting.Spec.Resource.Kind = ResourceKindInstallation
+				casting.Spec.Resource.Spec.Name = "signoz"
 			},
 			pass: true,
 		},
 		{
-			name: "ResourceAPIVersionOmitted_Valid",
+			name: "CollectionAgentResource_Valid",
 			mutate: func(casting *Casting) {
-				casting.Spec.Resource = Resource{
-					Kind: ResourceKindCollectionAgent,
-					Spec: ResourceSpec{
-						TypeCastingRef: v1alpha1.TypeCastingRef{Name: "signoz-gateway"},
-					},
-				}
+				casting.Spec.Resource.Kind = ResourceKindCollectionAgent
+				casting.Spec.Resource.Spec.Name = "signoz-gateway"
 			},
 			pass: true,
 		},
@@ -50,18 +42,26 @@ func TestSchemaValidate(t *testing.T) {
 		{
 			name: "ResourceKindMissing_Invalid",
 			mutate: func(casting *Casting) {
-				casting.Spec.Resource = Resource{
-					Spec: ResourceSpec{
-						TypeCastingRef: v1alpha1.TypeCastingRef{Name: "signoz"},
-					},
-				}
+				casting.Spec.Resource.Spec.Name = "signoz"
 			},
 			pass: false,
 		},
 		{
 			name: "ResourceNameMissing_Invalid",
 			mutate: func(casting *Casting) {
-				casting.Spec.Resource = Resource{Kind: ResourceKindInstallation}
+				casting.Spec.Resource.Kind = ResourceKindInstallation
+			},
+			pass: false,
+		},
+		{
+			name: "ResourceAPIVersionMissing_Invalid",
+			mutate: func(casting *Casting) {
+				casting.Spec.Resource = Resource{
+					Kind: ResourceKindInstallation,
+					Spec: ResourceSpec{
+						TypeCastingRefSpec: v1alpha1.TypeCastingRefSpec{Name: "signoz"},
+					},
+				}
 			},
 			pass: false,
 		},

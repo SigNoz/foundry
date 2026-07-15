@@ -468,6 +468,9 @@ spec:
 
 			casting, ok := machinery.(*infrastructure.Casting)
 			assert.True(t, ok)
+			if !ok {
+				return
+			}
 			assert.Equal(t, v1alpha1.KindInfrastructure, casting.Kind())
 			assert.Equal(t, tt.expectedResource, casting.Spec.Resource.Kind)
 			assert.Equal(t, "signoz", casting.Spec.Resource.Spec.Name)

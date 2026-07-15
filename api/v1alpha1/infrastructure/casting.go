@@ -32,6 +32,13 @@ func Default() *Casting {
 		},
 		Spec: Spec{
 			Deployment: v1alpha1.TypeDeployment{Flavor: v1alpha1.FlavorTerraform},
+			Resource: Resource{
+				Spec: ResourceSpec{
+					TypeCastingRefSpec: v1alpha1.TypeCastingRefSpec{
+						TypeVersion: v1alpha1.TypeVersion{APIVersion: "v1alpha1"},
+					},
+				},
+			},
 		},
 	}
 }

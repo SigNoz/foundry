@@ -41,12 +41,13 @@
     },
     "InfrastructureResourceSpec": {
       "required": [
+        "apiVersion",
         "name"
       ],
       "additionalProperties": false,
       "properties": {
         "apiVersion": {
-          "description": "API version of the referenced casting.",
+          "description": "API Version of the configuration schema.",
           "default": "v1alpha1",
           "examples": [
             "v1alpha1"
@@ -68,6 +69,14 @@
     "InfrastructureResourceStatus": {
       "additionalProperties": false,
       "properties": {
+        "casting": {
+          "description": "The resolved casting, verbatim",
+          "type": "string"
+        },
+        "checksum": {
+          "description": "Checksum of the casting file",
+          "type": "string"
+        },
         "config": {
           "$ref": "#/definitions/V1Alpha1TypeConfig",
           "description": "Configuration for the molding"
@@ -85,24 +94,6 @@
             "type": "string"
           },
           "type": "object"
-        },
-        "resolution": {
-          "$ref": "#/definitions/InfrastructureResourceStatusResolution",
-          "description": "The casting the resource resolved to"
-        }
-      },
-      "type": "object"
-    },
-    "InfrastructureResourceStatusResolution": {
-      "additionalProperties": false,
-      "properties": {
-        "casting": {
-          "description": "The resolved casting, verbatim",
-          "type": "string"
-        },
-        "checksum": {
-          "description": "Checksum of the resolved casting",
-          "type": "string"
         }
       },
       "type": "object"

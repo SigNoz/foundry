@@ -18,7 +18,7 @@ type Resource struct {
 
 // ResourceSpec carries the identity of the casting embodying the resource.
 type ResourceSpec struct {
-	v1alpha1.TypeCastingRef `json:",inline" yaml:",inline"`
+	v1alpha1.TypeCastingRefSpec `json:",inline" yaml:",inline"`
 
 	_ struct{} `additionalProperties:"false"`
 }
@@ -26,14 +26,7 @@ type ResourceSpec struct {
 type ResourceStatus struct {
 	v1alpha1.MoldingStatus `json:",inline" yaml:",inline"`
 
-	Resolution ResourceStatusResolution `json:"resolution,omitzero" yaml:"resolution,omitempty" description:"The casting the resource resolved to"`
+	v1alpha1.TypeCastingRefStatus `json:",inline" yaml:",inline"`
 
 	_ struct{} `additionalProperties:"false"`
-}
-
-// ResourceStatusResolution records the casting the resource resolved to.
-type ResourceStatusResolution struct {
-	Checksum string   `json:"checksum,omitempty" yaml:"checksum,omitempty" description:"Checksum of the resolved casting"`
-	Casting  string   `json:"casting,omitempty" yaml:"casting,omitempty" description:"The resolved casting, verbatim"`
-	_        struct{} `additionalProperties:"false"`
 }
