@@ -134,13 +134,6 @@ func (*yamlConfig) loadInfrastructure(bytes []byte, path string) (v1alpha1.Machi
 		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "failed to unmarshal infrastructure casting")
 	}
 
-	// Checked before the merge: merging round-trips through JSON, where an
-	// absent kind unmarshals to the backward-compatibility default and would
-	// silently pass validation as an Installation reference.
-	if loaded.Spec.Resource.Kind == (v1alpha1.Kind{}) {
-		return nil, errors.Newf(errors.TypeInvalidInput, "invalid casting file %s: spec.resource.kind is required", path)
-	}
-
 	base := infrastructure.Default()
 	if err := v1alpha1.Merge(base, &loaded); err != nil {
 		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to merge default infrastructure casting")
@@ -157,10 +150,6 @@ func (*yamlConfig) loadInfrastructure(bytes []byte, path string) (v1alpha1.Machi
 
 	if err := infrastructure.Schema().Validate(toValidate); err != nil {
 		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "invalid casting file %s", path)
-	}
-
-	if kind := base.Spec.Resource.Kind; kind != v1alpha1.KindInstallation && kind != v1alpha1.KindCollectionAgent {
-		return nil, errors.Newf(errors.TypeInvalidInput, "invalid casting file %s: infrastructure cannot serve resource kind %q, supported kinds are %q and %q", path, kind, v1alpha1.KindInstallation, v1alpha1.KindCollectionAgent)
 	}
 
 	return base, nil

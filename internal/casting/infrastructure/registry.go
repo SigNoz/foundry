@@ -23,7 +23,9 @@ func NewRegistry(logger *slog.Logger) *Registry {
 	return &Registry{
 		castings: map[v1alpha1.TypeDeployment]CastingItem{
 			{
-				Flavor: v1alpha1.FlavorTerraform,
+				Platform: v1alpha1.PlatformECS,
+				Mode:     v1alpha1.ModeEC2,
+				Flavor:   v1alpha1.FlavorTerraform,
 			}: {
 				Casting: terraformcasting.New(logger),
 				Toolers: []tooler.Tooler{terraformtooler.New()},
@@ -32,17 +34,11 @@ func NewRegistry(logger *slog.Logger) *Registry {
 	}
 }
 
+// lookup is an exact match: every platform x mode x flavor combination gets
+// its own casting.
 func (registry *Registry) lookup(deployment v1alpha1.TypeDeployment) (CastingItem, bool) {
-	if item, ok := registry.castings[deployment]; ok {
-		return item, true
-	}
-	// Fall back to matching without platform: the platform selects the provider
-	// inside the casting, not the casting itself.
-	if deployment.Platform != (v1alpha1.Platform{}) {
-		item, ok := registry.castings[v1alpha1.TypeDeployment{Mode: deployment.Mode, Flavor: deployment.Flavor}]
-		return item, ok
-	}
-	return CastingItem{}, false
+	item, ok := registry.castings[deployment]
+	return item, ok
 }
 
 func (registry *Registry) Casting(deployment v1alpha1.TypeDeployment) (Casting, error) {

@@ -376,7 +376,7 @@ func TestGetV1Alpha1Infrastructure(t *testing.T) {
 	tests := []struct {
 		name             string
 		input            string
-		expectedResource v1alpha1.Kind
+		expectedResource infrastructure.ResourceKind
 		pass             bool
 	}{
 		{
@@ -389,12 +389,14 @@ metadata:
 spec:
   deployment:
     platform: ecs
+    mode: ec2
     flavor: terraform
   resource:
     kind: Installation
-    name: signoz
+    spec:
+      name: signoz
 `,
-			expectedResource: v1alpha1.KindInstallation,
+			expectedResource: infrastructure.ResourceKindInstallation,
 			pass:             true,
 		},
 		{
@@ -407,6 +409,7 @@ metadata:
 spec:
   deployment:
     platform: ecs
+    mode: ec2
     flavor: terraform
 `,
 			pass: false,
@@ -421,10 +424,12 @@ metadata:
 spec:
   deployment:
     platform: ecs
+    mode: ec2
     flavor: terraform
   resource:
     kind: Infrastructure
-    name: signoz
+    spec:
+      name: signoz
 `,
 			pass: false,
 		},
@@ -438,9 +443,11 @@ metadata:
 spec:
   deployment:
     platform: ecs
+    mode: ec2
     flavor: terraform
   resource:
-    name: signoz
+    spec:
+      name: signoz
 `,
 			pass: false,
 		},
@@ -463,6 +470,7 @@ spec:
 			assert.True(t, ok)
 			assert.Equal(t, v1alpha1.KindInfrastructure, casting.Kind())
 			assert.Equal(t, tt.expectedResource, casting.Spec.Resource.Kind)
+			assert.Equal(t, "signoz", casting.Spec.Resource.Spec.Name)
 		})
 	}
 }

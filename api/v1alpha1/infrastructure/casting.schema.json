@@ -7,6 +7,112 @@
   ],
   "additionalProperties": false,
   "definitions": {
+    "InfrastructureResource": {
+      "required": [
+        "kind",
+        "spec"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/InfrastructureResourceKind",
+          "description": "Kind of the resource this infrastructure serves",
+          "examples": [
+            "Installation"
+          ]
+        },
+        "spec": {
+          "$ref": "#/definitions/InfrastructureResourceSpec",
+          "description": "Specification for the resource"
+        },
+        "status": {
+          "$ref": "#/definitions/InfrastructureResourceStatus",
+          "description": "Status of the resource"
+        }
+      },
+      "type": "object"
+    },
+    "InfrastructureResourceKind": {
+      "enum": [
+        "Installation",
+        "CollectionAgent"
+      ],
+      "type": "string"
+    },
+    "InfrastructureResourceSpec": {
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "apiVersion": {
+          "description": "API version of the referenced casting.",
+          "default": "v1alpha1",
+          "examples": [
+            "v1alpha1"
+          ],
+          "enum": [
+            "v1alpha1"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "description": "Name of the referenced casting.",
+          "maxLength": 63,
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "InfrastructureResourceStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "addresses": {
+          "$ref": "#/definitions/InfrastructureResourceStatusAddresses",
+          "description": "Addresses the resource exposes"
+        },
+        "config": {
+          "$ref": "#/definitions/V1Alpha1TypeConfig",
+          "description": "Configuration for the molding"
+        },
+        "env": {
+          "description": "Environment variables for the molding",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "extras": {
+          "description": "Extra information about the molding",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "InfrastructureResourceStatusAddresses": {
+      "additionalProperties": false,
+      "properties": {
+        "otlp": {
+          "description": "OTLP addresses",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "ui": {
+          "description": "UI addresses",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
     "InfrastructureSpec": {
       "required": [
         "deployment",
@@ -26,8 +132,8 @@
           "type": "array"
         },
         "resource": {
-          "$ref": "#/definitions/V1Alpha1TypeResourceRef",
-          "description": "The resource this infrastructure serves"
+          "$ref": "#/definitions/InfrastructureResource",
+          "description": "The configuration for the resource molding"
         }
       },
       "type": "object"
@@ -170,6 +276,19 @@
       },
       "type": "object"
     },
+    "V1Alpha1TypeConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "description": "Configuration data as key-value pairs.",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
     "V1Alpha1TypeDeployment": {
       "additionalProperties": false,
       "properties": {
@@ -210,36 +329,6 @@
           "examples": [
             "signoz"
           ],
-          "maxLength": 63,
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "V1Alpha1TypeResourceRef": {
-      "required": [
-        "kind",
-        "name"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "apiVersion": {
-          "description": "API version of the referenced casting.",
-          "examples": [
-            "v1alpha1"
-          ],
-          "enum": [
-            "v1alpha1"
-          ],
-          "type": "string"
-        },
-        "kind": {
-          "$ref": "#/definitions/V1Alpha1Kind",
-          "description": "Kind of the referenced casting."
-        },
-        "name": {
-          "description": "Name of the referenced casting.",
           "maxLength": 63,
           "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
           "type": "string"

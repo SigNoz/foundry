@@ -14,10 +14,10 @@ type Casting struct {
 
 // Spec is the Infrastructure-specific configuration.
 type Spec struct {
-	Deployment v1alpha1.TypeDeployment  `json:"deployment" yaml:"deployment" required:"true" description:"Deployment configuration for the platform"`
-	Resource   v1alpha1.TypeResourceRef `json:"resource" yaml:"resource" required:"true" description:"The resource this infrastructure serves"`
-	Patches    []v1alpha1.PatchEntry    `json:"patches,omitempty" yaml:"patches,omitempty" description:"Patch operations to apply to generated materials"`
-	_          struct{}                 `additionalProperties:"false"`
+	Deployment v1alpha1.TypeDeployment `json:"deployment" yaml:"deployment" required:"true" description:"Deployment configuration for the platform"`
+	Resource   Resource                `json:"resource" yaml:"resource" required:"true" description:"The configuration for the resource molding"`
+	Patches    []v1alpha1.PatchEntry   `json:"patches,omitempty" yaml:"patches,omitempty" description:"Patch operations to apply to generated materials"`
+	_          struct{}                `additionalProperties:"false"`
 }
 
 var _ v1alpha1.Machinery = (*Casting)(nil)
@@ -55,7 +55,8 @@ func (c *Casting) Kind() v1alpha1.Kind {
 }
 
 // MergeStatusIntoSpec folds molding-written status into spec. The resource
-// reference's status is its own home; nothing shadows spec fields.
+// molding's unit stays in status (addresses are read from status, as on other
+// kinds); its spec carries identity only, so nothing merges.
 func (c *Casting) MergeStatusIntoSpec() error {
 	return nil
 }

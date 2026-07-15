@@ -6,6 +6,7 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1/infrastructure"
 	"github.com/signoz/foundry/internal/domain"
+	infrastructuremolding "github.com/signoz/foundry/internal/molding/infrastructure"
 )
 
 type terraformCasting struct {
@@ -14,6 +15,10 @@ type terraformCasting struct {
 
 func New(logger *slog.Logger) *terraformCasting {
 	return &terraformCasting{logger: logger}
+}
+
+func (c *terraformCasting) Enricher(ctx context.Context, config *infrastructure.Casting) (infrastructuremolding.MoldingEnricher, error) {
+	return &enricher{logger: c.logger}, nil
 }
 
 func (c *terraformCasting) Forge(ctx context.Context, config infrastructure.Casting, poursPath string) ([]domain.Material, error) {
