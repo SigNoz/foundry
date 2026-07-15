@@ -229,6 +229,9 @@
           "examples": [
             "v1alpha1"
           ],
+          "enum": [
+            "v1alpha1"
+          ],
           "type": "string"
         },
         "kind": {
@@ -237,6 +240,8 @@
         },
         "name": {
           "description": "Name of the referenced casting.",
+          "maxLength": 63,
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
           "type": "string"
         }
       },

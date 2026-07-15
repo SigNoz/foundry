@@ -32,11 +32,6 @@ func Default() *Casting {
 		},
 		Spec: Spec{
 			Deployment: v1alpha1.TypeDeployment{Flavor: v1alpha1.FlavorTerraform},
-			Resource: v1alpha1.TypeResourceRef{
-				APIVersion: "v1alpha1",
-				Kind:       v1alpha1.KindInstallation,
-				Name:       "signoz",
-			},
 		},
 	}
 }

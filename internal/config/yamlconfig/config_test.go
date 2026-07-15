@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/infrastructure"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/stretchr/testify/assert"
@@ -367,6 +368,101 @@ func TestGetV1Alpha1Merge(t *testing.T) {
 			err := v1alpha1.Merge(&base, &override)
 			require.NoError(t, err)
 			tc.assert(t, base)
+		})
+	}
+}
+
+func TestGetV1Alpha1Infrastructure(t *testing.T) {
+	tests := []struct {
+		name             string
+		input            string
+		expectedResource v1alpha1.Kind
+		pass             bool
+	}{
+		{
+			name: "InstallationResource_Valid",
+			input: `
+apiVersion: v1alpha1
+kind: Infrastructure
+metadata:
+  name: signoz
+spec:
+  deployment:
+    platform: ecs
+    flavor: terraform
+  resource:
+    kind: Installation
+    name: signoz
+`,
+			expectedResource: v1alpha1.KindInstallation,
+			pass:             true,
+		},
+		{
+			name: "ResourceMissing_Invalid",
+			input: `
+apiVersion: v1alpha1
+kind: Infrastructure
+metadata:
+  name: signoz
+spec:
+  deployment:
+    platform: ecs
+    flavor: terraform
+`,
+			pass: false,
+		},
+		{
+			name: "SelfReference_Invalid",
+			input: `
+apiVersion: v1alpha1
+kind: Infrastructure
+metadata:
+  name: signoz
+spec:
+  deployment:
+    platform: ecs
+    flavor: terraform
+  resource:
+    kind: Infrastructure
+    name: signoz
+`,
+			pass: false,
+		},
+		{
+			name: "ResourceKindMissing_Invalid",
+			input: `
+apiVersion: v1alpha1
+kind: Infrastructure
+metadata:
+  name: signoz
+spec:
+  deployment:
+    platform: ecs
+    flavor: terraform
+  resource:
+    name: signoz
+`,
+			pass: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			castingPath := filepath.Join(t.TempDir(), "casting.yaml")
+			assert.NoError(t, os.WriteFile(castingPath, []byte(tt.input), 0644))
+
+			cfg := New(slog.New(slog.DiscardHandler))
+			machinery, err := cfg.GetV1Alpha1(context.Background(), castingPath)
+			if !tt.pass {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+
+			casting, ok := machinery.(*infrastructure.Casting)
+			assert.True(t, ok)
+			assert.Equal(t, v1alpha1.KindInfrastructure, casting.Kind())
+			assert.Equal(t, tt.expectedResource, casting.Spec.Resource.Kind)
 		})
 	}
 }
