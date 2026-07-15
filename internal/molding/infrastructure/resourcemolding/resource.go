@@ -24,9 +24,6 @@ func (molding *resourceMolding) Kind() v1alpha1.MoldingKind {
 	return v1alpha1.MoldingKindResource
 }
 
-// MoldV1Alpha1 molds the unit to be hosted, dispatched on the resource kind.
-// Status content enters only with the casting that consumes it, sourced from
-// the consumer casting's own molded facts.
 func (molding *resourceMolding) MoldV1Alpha1(ctx context.Context, config *infrastructure.Casting) error {
 	switch config.Spec.Resource.Kind {
 	case infrastructure.ResourceKindInstallation, infrastructure.ResourceKindCollectionAgent:

@@ -98,9 +98,7 @@
     },
     "V1Alpha1Kind": {
       "enum": [
-        "Installation",
-        "CollectionAgent",
-        "Infrastructure"
+        "CollectionAgent"
       ],
       "type": "string"
     },
@@ -366,11 +364,8 @@
       "type": "string"
     },
     "kind": {
-      "description": "Kind of the casting resource.",
-      "enum": [
-        "CollectionAgent"
-      ],
-      "type": "string"
+      "$ref": "#/definitions/V1Alpha1Kind",
+      "description": "Kind of the casting resource."
     },
     "metadata": {
       "$ref": "#/definitions/V1Alpha1TypeMetadata",

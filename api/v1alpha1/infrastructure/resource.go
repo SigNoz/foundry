@@ -2,8 +2,7 @@ package infrastructure
 
 import "github.com/signoz/foundry/api/v1alpha1"
 
-// Resource is the infrastructure kind's molding: the unit to be hosted. Its
-// kinds are the consumer casting kinds.
+// Resource is the resource this infrastructure serves.
 type Resource struct {
 	// Kind of the resource this infrastructure serves.
 	Kind ResourceKind `json:"kind,omitzero" yaml:"kind,omitempty" required:"true" description:"Kind of the resource this infrastructure serves" examples:"[\"Installation\"]"`
@@ -27,17 +26,14 @@ type ResourceSpec struct {
 type ResourceStatus struct {
 	v1alpha1.MoldingStatus `json:",inline" yaml:",inline"`
 
-	Resolution ResourceStatusResolution `json:"resolution,omitzero" yaml:"resolution,omitempty" description:"Record of the resolution: the casting the infrastructure used for the resource"`
+	Resolution ResourceStatusResolution `json:"resolution,omitzero" yaml:"resolution,omitempty" description:"The casting the resource resolved to"`
 
 	_ struct{} `additionalProperties:"false"`
 }
 
-// ResourceStatusResolution records what the resource resolved to. The casting
-// field is a record, not an API: castings consume typed facts from the
-// status, never parse the embedded document.
+// ResourceStatusResolution records the casting the resource resolved to.
 type ResourceStatusResolution struct {
-	Source   string   `json:"source,omitempty" yaml:"source,omitempty" description:"The document the resource resolved to"`
 	Checksum string   `json:"checksum,omitempty" yaml:"checksum,omitempty" description:"Checksum of the resolved casting"`
-	Casting  string   `json:"casting,omitempty" yaml:"casting,omitempty" description:"The resolved casting used for the resource, verbatim"`
+	Casting  string   `json:"casting,omitempty" yaml:"casting,omitempty" description:"The resolved casting, verbatim"`
 	_        struct{} `additionalProperties:"false"`
 }

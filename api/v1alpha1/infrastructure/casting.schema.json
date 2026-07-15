@@ -88,7 +88,7 @@
         },
         "resolution": {
           "$ref": "#/definitions/InfrastructureResourceStatusResolution",
-          "description": "Record of the resolution: the casting the infrastructure used for the resource"
+          "description": "The casting the resource resolved to"
         }
       },
       "type": "object"
@@ -97,15 +97,11 @@
       "additionalProperties": false,
       "properties": {
         "casting": {
-          "description": "The resolved casting used for the resource, verbatim",
+          "description": "The resolved casting, verbatim",
           "type": "string"
         },
         "checksum": {
           "description": "Checksum of the resolved casting",
-          "type": "string"
-        },
-        "source": {
-          "description": "The document the resource resolved to",
           "type": "string"
         }
       },
@@ -152,8 +148,6 @@
     },
     "V1Alpha1Kind": {
       "enum": [
-        "Installation",
-        "CollectionAgent",
         "Infrastructure"
       ],
       "type": "string"
@@ -348,11 +342,8 @@
       "type": "string"
     },
     "kind": {
-      "description": "Kind of the casting resource.",
-      "enum": [
-        "Infrastructure"
-      ],
-      "type": "string"
+      "$ref": "#/definitions/V1Alpha1Kind",
+      "description": "Kind of the casting resource."
     },
     "metadata": {
       "$ref": "#/definitions/V1Alpha1TypeMetadata",

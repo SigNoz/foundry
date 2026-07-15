@@ -55,8 +55,7 @@ func (c *Casting) Kind() v1alpha1.Kind {
 }
 
 // MergeStatusIntoSpec folds molding-written status into spec. The resource
-// molding's unit stays in status (addresses are read from status, as on other
-// kinds); its spec carries identity only, so nothing merges.
+// spec carries identity only; nothing merges.
 func (c *Casting) MergeStatusIntoSpec() error {
 	return nil
 }
