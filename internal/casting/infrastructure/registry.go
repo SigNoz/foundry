@@ -4,7 +4,7 @@ import (
 	"log/slog"
 
 	"github.com/signoz/foundry/api/v1alpha1"
-	"github.com/signoz/foundry/internal/casting/infrastructure/terraformcasting"
+	"github.com/signoz/foundry/internal/casting/infrastructure/ecsec2terraformcasting"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/tooler"
 	"github.com/signoz/foundry/internal/tooler/terraformtooler"
@@ -27,15 +27,15 @@ func NewRegistry(logger *slog.Logger) *Registry {
 				Mode:     v1alpha1.ModeEC2,
 				Flavor:   v1alpha1.FlavorTerraform,
 			}: {
-				Casting: terraformcasting.New(logger),
+				Casting: ecsec2terraformcasting.New(logger),
 				Toolers: []tooler.Tooler{terraformtooler.New()},
 			},
 		},
 	}
 }
 
-// lookup is an exact match: every platform x mode x flavor combination gets
-// its own casting.
+// lookup matches the exact deployment; each platform, mode, and flavor
+// combination registers its own casting.
 func (registry *Registry) lookup(deployment v1alpha1.TypeDeployment) (CastingItem, bool) {
 	item, ok := registry.castings[deployment]
 	return item, ok

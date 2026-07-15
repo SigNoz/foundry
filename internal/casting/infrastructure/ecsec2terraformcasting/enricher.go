@@ -1,4 +1,4 @@
-package terraformcasting
+package ecsec2terraformcasting
 
 import (
 	"context"
