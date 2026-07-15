@@ -19,7 +19,7 @@ func TestSchemaValidate(t *testing.T) {
 		pass   bool
 	}{
 		{
-			name: "ResourceProvided_Valid",
+			name: "InstallationResource_Valid",
 			mutate: func(casting *Casting) {
 				casting.Spec.Resource.Kind = ResourceKindInstallation
 				casting.Spec.Resource.Spec.Name = "signoz"
