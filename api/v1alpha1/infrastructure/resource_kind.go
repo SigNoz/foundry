@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/swaggest/jsonschema-go"
 	"go.yaml.in/yaml/v3"
 )
@@ -17,8 +18,8 @@ var _ fmt.Stringer = (*ResourceKind)(nil)
 var _ jsonschema.Enum = (*ResourceKind)(nil)
 
 var (
-	ResourceKindInstallation    ResourceKind = ResourceKind{s: "Installation"}
-	ResourceKindCollectionAgent ResourceKind = ResourceKind{s: "CollectionAgent"}
+	ResourceKindInstallation    ResourceKind = ResourceKind{s: v1alpha1.KindInstallation.String()}
+	ResourceKindCollectionAgent ResourceKind = ResourceKind{s: v1alpha1.KindCollectionAgent.String()}
 )
 
 type ResourceKind struct {

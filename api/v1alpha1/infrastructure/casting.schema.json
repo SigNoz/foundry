@@ -69,10 +69,6 @@
     "InfrastructureResourceStatus": {
       "additionalProperties": false,
       "properties": {
-        "casting": {
-          "description": "The resolved casting, verbatim",
-          "type": "string"
-        },
         "checksum": {
           "description": "Checksum of the casting file",
           "type": "string"

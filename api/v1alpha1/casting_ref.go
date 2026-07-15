@@ -2,14 +2,7 @@ package v1alpha1
 
 import "encoding/json"
 
-// TypeCastingRef references a casting: the identity it is declared with and
-// the casting it resolved to.
-type TypeCastingRef struct {
-	Spec   TypeCastingRefSpec   `json:"spec" yaml:"spec" required:"true" description:"Identity of the referenced casting"`
-	Status TypeCastingRefStatus `json:"status,omitzero" yaml:"status,omitempty" description:"Status of the reference"`
-	_      struct{}             `additionalProperties:"false"`
-}
-
+// TypeCastingRefSpec is the identity a casting is referenced by.
 type TypeCastingRefSpec struct {
 	TypeVersion `json:",inline" yaml:",inline"`
 
@@ -29,11 +22,4 @@ func (spec TypeCastingRefSpec) MarshalJSON() ([]byte, error) {
 		m["name"] = spec.Name
 	}
 	return json.Marshal(m)
-}
-
-type TypeCastingRefStatus struct {
-	Status `json:",inline" yaml:",inline"`
-
-	Casting string   `json:"casting,omitempty" yaml:"casting,omitempty" description:"The resolved casting, verbatim"`
-	_       struct{} `additionalProperties:"false"`
 }

@@ -31,7 +31,6 @@ func Default() *Casting {
 			Metadata:    v1alpha1.TypeMetadata{Name: "signoz"},
 		},
 		Spec: Spec{
-			Deployment: v1alpha1.TypeDeployment{Flavor: v1alpha1.FlavorTerraform},
 			Resource: Resource{
 				Spec: ResourceSpec{
 					TypeCastingRefSpec: v1alpha1.TypeCastingRefSpec{

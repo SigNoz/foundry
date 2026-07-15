@@ -26,7 +26,7 @@ type ResourceSpec struct {
 type ResourceStatus struct {
 	v1alpha1.MoldingStatus `json:",inline" yaml:",inline"`
 
-	v1alpha1.TypeCastingRefStatus `json:",inline" yaml:",inline"`
+	v1alpha1.Status `json:",inline" yaml:",inline"`
 
 	_ struct{} `additionalProperties:"false"`
 }
