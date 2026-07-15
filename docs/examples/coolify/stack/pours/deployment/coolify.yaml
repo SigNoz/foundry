@@ -173,9 +173,9 @@ services:
       type: bind
   signoz-metastore-postgres-0:
     environment:
-    - POSTGRES_USER=signoz
-    - POSTGRES_PASSWORD=signoz
     - POSTGRES_DB=signoz
+    - POSTGRES_PASSWORD=signoz
+    - POSTGRES_USER=signoz
     healthcheck:
       interval: 30s
       retries: 3
