@@ -166,41 +166,11 @@
         "checksum": {
           "description": "Checksum of the casting file",
           "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "V1Alpha1TypeCondition": {
-      "required": [
-        "type",
-        "status"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "message": {
-          "description": "Human-readable message for the condition.",
-          "type": "string"
         },
-        "reason": {
-          "description": "Machine-readable reason for the condition.",
-          "type": "string"
-        },
-        "status": {
-          "description": "Status of the condition.",
-          "examples": [
-            "True",
-            "False"
-          ],
-          "type": "string"
-        },
-        "type": {
-          "description": "Type of the condition.",
-          "examples": [
-            "ResolvedRefs",
-            "Accepted",
-            "Programmed"
-          ],
-          "type": "string"
+        "outputs": {
+          "description": "Provider outputs captured by cast, verbatim. Written only by cast and preserved by forge.",
+          "additionalProperties": {},
+          "type": "object"
         }
       },
       "type": "object"
@@ -272,35 +242,6 @@
         },
         "name": {
           "description": "Name of the referenced casting.",
-          "type": "string"
-        },
-        "path": {
-          "description": "Relative path to the casting file containing the referenced casting, resolved against the declaring file's directory. Empty means the declaring file itself.",
-          "type": "string"
-        },
-        "status": {
-          "$ref": "#/definitions/V1Alpha1TypeResourceRefStatus",
-          "description": "Status of the reference. This is populated by foundry and written to the lock file."
-        }
-      },
-      "type": "object"
-    },
-    "V1Alpha1TypeResourceRefStatus": {
-      "additionalProperties": false,
-      "properties": {
-        "checksum": {
-          "description": "Checksum of the referenced casting source, as seen at forge.",
-          "type": "string"
-        },
-        "conditions": {
-          "description": "Conditions observed while resolving the reference.",
-          "items": {
-            "$ref": "#/definitions/V1Alpha1TypeCondition"
-          },
-          "type": "array"
-        },
-        "path": {
-          "description": "Resolved source of the referenced casting.",
           "type": "string"
         }
       },

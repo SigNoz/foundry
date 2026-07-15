@@ -650,6 +650,11 @@
         "checksum": {
           "description": "Checksum of the casting file",
           "type": "string"
+        },
+        "outputs": {
+          "description": "Provider outputs captured by cast, verbatim. Written only by cast and preserved by forge.",
+          "additionalProperties": {},
+          "type": "object"
         }
       },
       "type": "object"

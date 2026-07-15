@@ -10,8 +10,10 @@ type CastingMeta struct {
 	_           struct{}     `additionalProperties:"false"`
 }
 
-// Status carries the casting file's checksum.
+// Status carries the casting file's checksum and, for kinds whose cast
+// captures provider outputs, those outputs verbatim.
 type Status struct {
-	Checksum string   `json:"checksum" yaml:"checksum" description:"Checksum of the casting file"`
-	_        struct{} `additionalProperties:"false"`
+	Checksum string         `json:"checksum" yaml:"checksum" description:"Checksum of the casting file"`
+	Outputs  map[string]any `json:"outputs,omitempty" yaml:"outputs,omitempty" description:"Provider outputs captured by cast, verbatim. Written only by cast and preserved by forge."`
+	_        struct{}       `additionalProperties:"false"`
 }
