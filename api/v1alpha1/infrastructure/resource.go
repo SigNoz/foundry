@@ -27,5 +27,17 @@ type ResourceSpec struct {
 type ResourceStatus struct {
 	v1alpha1.MoldingStatus `json:",inline" yaml:",inline"`
 
+	Resolution ResourceStatusResolution `json:"resolution,omitzero" yaml:"resolution,omitempty" description:"Record of the resolution: the casting the infrastructure used for the resource"`
+
 	_ struct{} `additionalProperties:"false"`
+}
+
+// ResourceStatusResolution records what the resource resolved to. The casting
+// field is a record, not an API: castings consume typed facts from the
+// status, never parse the embedded document.
+type ResourceStatusResolution struct {
+	Source   string   `json:"source,omitempty" yaml:"source,omitempty" description:"The document the resource resolved to"`
+	Checksum string   `json:"checksum,omitempty" yaml:"checksum,omitempty" description:"Checksum of the resolved casting"`
+	Casting  string   `json:"casting,omitempty" yaml:"casting,omitempty" description:"The resolved casting used for the resource, verbatim"`
+	_        struct{} `additionalProperties:"false"`
 }

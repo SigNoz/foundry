@@ -85,6 +85,28 @@
             "type": "string"
           },
           "type": "object"
+        },
+        "resolution": {
+          "$ref": "#/definitions/InfrastructureResourceStatusResolution",
+          "description": "Record of the resolution: the casting the infrastructure used for the resource"
+        }
+      },
+      "type": "object"
+    },
+    "InfrastructureResourceStatusResolution": {
+      "additionalProperties": false,
+      "properties": {
+        "casting": {
+          "description": "The resolved casting used for the resource, verbatim",
+          "type": "string"
+        },
+        "checksum": {
+          "description": "Checksum of the resolved casting",
+          "type": "string"
+        },
+        "source": {
+          "description": "The document the resource resolved to",
+          "type": "string"
         }
       },
       "type": "object"
