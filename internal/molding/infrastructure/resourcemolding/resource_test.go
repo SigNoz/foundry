@@ -11,24 +11,19 @@ import (
 
 func TestMoldV1Alpha1(t *testing.T) {
 	tests := []struct {
-		name         string
-		kind         infrastructure.ResourceKind
-		expectedOTLP []string
-		expectedUI   []string
-		pass         bool
+		name string
+		kind infrastructure.ResourceKind
+		pass bool
 	}{
 		{
-			name:         "InstallationResource_ExposesOtlpAndUi",
-			kind:         infrastructure.ResourceKindInstallation,
-			expectedOTLP: []string{":4317", ":4318"},
-			expectedUI:   []string{":8080"},
-			pass:         true,
+			name: "InstallationResource_Supported",
+			kind: infrastructure.ResourceKindInstallation,
+			pass: true,
 		},
 		{
-			name:         "CollectionAgentResource_ExposesOtlpOnly",
-			kind:         infrastructure.ResourceKindCollectionAgent,
-			expectedOTLP: []string{":4317", ":4318"},
-			pass:         true,
+			name: "CollectionAgentResource_Supported",
+			kind: infrastructure.ResourceKindCollectionAgent,
+			pass: true,
 		},
 		{
 			name: "UnknownResourceKind_Unsupported",
@@ -48,8 +43,6 @@ func TestMoldV1Alpha1(t *testing.T) {
 				return
 			}
 			assert.NoError(t, err)
-			assert.Equal(t, tt.expectedOTLP, config.Spec.Resource.Status.Addresses.OTLP)
-			assert.Equal(t, tt.expectedUI, config.Spec.Resource.Status.Addresses.UI)
 		})
 	}
 }

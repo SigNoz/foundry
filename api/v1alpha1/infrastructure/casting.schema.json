@@ -68,10 +68,6 @@
     "InfrastructureResourceStatus": {
       "additionalProperties": false,
       "properties": {
-        "addresses": {
-          "$ref": "#/definitions/InfrastructureResourceStatusAddresses",
-          "description": "Addresses the resource exposes"
-        },
         "config": {
           "$ref": "#/definitions/V1Alpha1TypeConfig",
           "description": "Configuration for the molding"
@@ -89,26 +85,6 @@
             "type": "string"
           },
           "type": "object"
-        }
-      },
-      "type": "object"
-    },
-    "InfrastructureResourceStatusAddresses": {
-      "additionalProperties": false,
-      "properties": {
-        "otlp": {
-          "description": "OTLP addresses",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "ui": {
-          "description": "UI addresses",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
         }
       },
       "type": "object"

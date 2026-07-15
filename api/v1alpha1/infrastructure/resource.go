@@ -27,15 +27,5 @@ type ResourceSpec struct {
 type ResourceStatus struct {
 	v1alpha1.MoldingStatus `json:",inline" yaml:",inline"`
 
-	Addresses ResourceStatusAddresses `json:"addresses,omitzero" yaml:"addresses,omitempty" description:"Addresses the resource exposes"`
-
-	_ struct{} `additionalProperties:"false"`
-}
-
-type ResourceStatusAddresses struct {
-	OTLP []string `json:"otlp,omitempty" yaml:"otlp,omitempty" description:"OTLP addresses"`
-
-	UI []string `json:"ui,omitempty" yaml:"ui,omitempty" description:"UI addresses"`
-
 	_ struct{} `additionalProperties:"false"`
 }
