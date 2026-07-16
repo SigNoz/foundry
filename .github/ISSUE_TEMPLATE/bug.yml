@@ -100,7 +100,6 @@ body:
         - render
         - kubernetes
         - railway
-        - render
     validations:
       required: false
 
