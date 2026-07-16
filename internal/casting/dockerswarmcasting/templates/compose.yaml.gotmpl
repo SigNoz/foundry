@@ -70,7 +70,7 @@ services:
       - {{ $.Metadata.Name }}-network
     environment:
       - CLICKHOUSE_SKIP_USER_SETUP=1
-      - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.yaml
+      - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml
     {{- if $.Spec.TelemetryStore.Spec.Env }}
       {{- range $key, $value := $.Spec.TelemetryStore.Spec.Env }}
       - {{ $key }}={{ $value }}
@@ -81,7 +81,7 @@ services:
       - {{ $.Metadata.Name }}-telemetrystore-user-scripts:/var/lib/clickhouse/user_scripts:ro
     configs:
       - source: telemetrystore-config-{{ $shardIdx }}-{{ $replicaIdx }}
-        target: /etc/clickhouse-server/config.yaml
+        target: /etc/clickhouse-server/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml
       - source: telemetrystore-functions
         target: /etc/clickhouse-server/functions.yaml
     deploy:

@@ -119,7 +119,7 @@ services:
   signoz-telemetrystore-clickhouse-0-0:
     configs:
     - source: telemetrystore-config-0-0
-      target: /etc/clickhouse-server/config.yaml
+      target: /etc/clickhouse-server/config-0-0.yaml
     - source: telemetrystore-functions
       target: /etc/clickhouse-server/functions.yaml
     deploy:
@@ -127,7 +127,7 @@ services:
         condition: on-failure
     environment:
     - CLICKHOUSE_SKIP_USER_SETUP=1
-    - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.yaml
+    - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config-0-0.yaml
     healthcheck:
       interval: 30s
       retries: 3

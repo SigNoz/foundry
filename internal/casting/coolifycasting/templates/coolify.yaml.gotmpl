@@ -103,7 +103,7 @@ services:
       {{- end }}
     environment:
       - CLICKHOUSE_SKIP_USER_SETUP=1
-      - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.yaml
+      - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml
     healthcheck:
       test:
         - CMD
@@ -124,7 +124,7 @@ services:
         read_only: true
       - type: bind
         source: ./configs/telemetrystore/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml
-        target: /etc/clickhouse-server/config.yaml
+        target: /etc/clickhouse-server/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml
         content: |
 {{ index $.Spec.TelemetryStore.Spec.Config.Data (printf "config-%d-%d.yaml" $shardIdx $replicaIdx) | indent 10 }}
       - type: bind
