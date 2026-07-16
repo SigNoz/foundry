@@ -2,7 +2,6 @@ package signozmolding
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"net/url"
 	"testing"
@@ -22,7 +21,7 @@ func newPostgresCasting(env map[string]string) *installation.Casting {
 }
 
 func TestPostgresDSN(t *testing.T) {
-	molding := New(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	molding := New(slog.New(slog.DiscardHandler))
 
 	t.Run("default credentials render unchanged", func(t *testing.T) {
 		config := newPostgresCasting(map[string]string{
