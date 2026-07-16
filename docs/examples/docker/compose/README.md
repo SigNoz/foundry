@@ -59,6 +59,15 @@ foundryctl forge -f casting.yaml
 cd pours/deployment && docker compose up -d
 ```
 
+> [!IMPORTANT]
+> **Upgrading an existing installation:** re-running `cast` regenerates the config files, but Docker Compose does not restart containers when only mounted file contents change. Recreate the stack so the new configs take effect:
+>
+> ```bash
+> docker compose -f pours/deployment/compose.yaml up -d --force-recreate
+> ```
+>
+> Recreate all services in one command rather than restarting them individually. Restarting only the keeper leaves ClickHouse unable to reconnect until it is restarted as well. Telemetry data is stored in volumes and is not affected.
+
 ## Generated output
 
 ```text

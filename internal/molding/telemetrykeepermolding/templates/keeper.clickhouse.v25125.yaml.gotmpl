@@ -11,7 +11,7 @@ keeper_server:
     force_sync: false
     snapshot_distance: 100000
     snapshots_to_keep: 3
-  log_storage_path: /var/lib/clickhouse/coordination/log
+  log_storage_path: /var/lib/clickhouse-keeper/coordination/log
   raft_configuration:
     server:
     {{- range $i := until .ServerCount }}
@@ -21,5 +21,5 @@ keeper_server:
       id: {{ $i }}
     {{- end }}
   server_id: {{ .ServerID }}
-  snapshot_storage_path: /var/lib/clickhouse/coordination/snapshots
+  snapshot_storage_path: /var/lib/clickhouse-keeper/coordination/snapshots
   tcp_port: {{ (index .ClientAddresses .ServerID).Port }}
