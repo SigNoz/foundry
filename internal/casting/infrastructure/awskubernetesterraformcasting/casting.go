@@ -3,8 +3,10 @@ package awskubernetesterraformcasting
 import (
 	"context"
 	"log/slog"
+	"path/filepath"
 
 	"github.com/signoz/foundry/api/v1alpha1/infrastructure"
+	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
 	infrastructuremolding "github.com/signoz/foundry/internal/molding/infrastructure"
 )
@@ -22,11 +24,29 @@ func (c *awsKubernetesTerraformCasting) Enricher(ctx context.Context, config *in
 }
 
 func (c *awsKubernetesTerraformCasting) Forge(ctx context.Context, config infrastructure.Casting, poursPath string) ([]domain.Material, error) {
-	c.logger.WarnContext(ctx, "the infrastructure kind is not implemented yet, no materials generated")
-	return nil, nil
+	items := []struct {
+		template *domain.Template
+		path     string
+	}{
+		{providersTFTemplate, "providers.tf.json"},
+		{mainTFTemplate, "main.tf.json"},
+		{variablesTFTemplate, "variables.tf.json"},
+		{outputsTFTemplate, "outputs.tf.json"},
+	}
+
+	materials := make([]domain.Material, 0, len(items))
+	for _, item := range items {
+		material, err := item.template.Render(config, filepath.Join(rootcasting.DeploymentDir, item.path))
+		if err != nil {
+			return nil, err
+		}
+		materials = append(materials, material)
+	}
+
+	return materials, nil
 }
 
 func (c *awsKubernetesTerraformCasting) Cast(ctx context.Context, config infrastructure.Casting, poursPath string) error {
-	c.logger.WarnContext(ctx, "the infrastructure kind is not implemented yet, nothing to cast")
+	c.logger.WarnContext(ctx, "casting the infrastructure is not implemented yet, run terraform init and apply from the pours directory", slog.String("path", filepath.Join(poursPath, rootcasting.DeploymentDir)))
 	return nil
 }
