@@ -1,0 +1,44 @@
+{
+  "variable": {
+    "aws_region": {
+      "description": "AWS region to deploy resources",
+      "type": "string",
+      "default": "us-east-1"
+    },
+    "vpc_cidr": {
+      "description": "CIDR block for the VPC",
+      "type": "string",
+      "default": "10.0.0.0/16"
+    },
+    "az_count": {
+      "description": "Number of availability zones to use",
+      "type": "number",
+      "default": 2
+    },
+    "name": {
+      "description": "The name of the deployment",
+      "type": "string",
+      "default": "signoz"
+    },
+    "kubernetes_version": {
+      "description": "Kubernetes version for the EKS cluster",
+      "type": "string",
+      "default": "1.33"
+    },
+    "node_default_instance_type": {
+      "description": "EC2 instance type for the default node group; empty resolves the declared criteria against the platform's instance catalog",
+      "type": "string",
+      "default": ""
+    },
+    "node_default_count": {
+      "description": "Number of nodes in the default node group; elastic bounds belong with a cluster autoscaler",
+      "type": "number",
+      "default": 2
+    },
+    "node_default_disk_size": {
+      "description": "Root volume size (GB) for the default nodes",
+      "type": "number",
+      "default": 50
+    }
+  }
+}

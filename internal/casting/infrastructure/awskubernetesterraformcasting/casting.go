@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/signoz/foundry/api/v1alpha1/infrastructure"
-	rootcasting "github.com/signoz/foundry/internal/casting"
+	infrastructurecasting "github.com/signoz/foundry/internal/casting/infrastructure/casting"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	infrastructuremolding "github.com/signoz/foundry/internal/molding/infrastructure"
@@ -21,6 +21,7 @@ type Data struct {
 	NodeGroups   []DataNodeGroup
 }
 
+// DataNodeGroup carries one node group's criteria for the templates.
 type DataNodeGroup struct {
 	Name   string
 	Count  int
@@ -28,6 +29,8 @@ type DataNodeGroup struct {
 	Memory int
 	Disk   int
 }
+
+var _ infrastructurecasting.Casting = (*awsKubernetesTerraformCasting)(nil)
 
 type awsKubernetesTerraformCasting struct {
 	logger *slog.Logger
@@ -59,7 +62,7 @@ func (c *awsKubernetesTerraformCasting) Forge(ctx context.Context, config infras
 
 	materials := make([]domain.Material, 0, len(items))
 	for _, item := range items {
-		material, err := item.template.Render(data, filepath.Join(rootcasting.DeploymentDir, item.path))
+		material, err := item.template.Render(data, filepath.Join(infrastructurecasting.InfrastructureDir, item.path))
 		if err != nil {
 			return nil, err
 		}
@@ -70,7 +73,7 @@ func (c *awsKubernetesTerraformCasting) Forge(ctx context.Context, config infras
 }
 
 func (c *awsKubernetesTerraformCasting) Cast(ctx context.Context, config infrastructure.Casting, poursPath string) error {
-	c.logger.WarnContext(ctx, "casting the infrastructure is not implemented yet, run terraform init and apply from the pours directory", slog.String("path", filepath.Join(poursPath, rootcasting.DeploymentDir)))
+	c.logger.WarnContext(ctx, "casting the infrastructure is not implemented yet, run terraform init and apply from the pours directory", slog.String("path", filepath.Join(poursPath, infrastructurecasting.InfrastructureDir)))
 	return nil
 }
 

@@ -71,6 +71,7 @@ func (c *Casting) TrackableProperties() domain.Properties {
 	return domain.NewProperties().
 		Set("kind", v1alpha1.KindInfrastructure.String()).
 		Set("platform", c.Spec.Deployment.Platform.String()).
+		Set("mode", c.Spec.Deployment.Mode.String()).
 		Set("flavor", c.Spec.Deployment.Flavor.String()).
 		Set("resource_kind", c.Spec.Resource.Kind.String()).
 		Set("patches_count", len(c.Spec.Patches))

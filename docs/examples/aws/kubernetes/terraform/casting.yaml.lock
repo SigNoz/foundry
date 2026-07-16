@@ -1,0 +1,32 @@
+apiVersion: v1alpha1
+kind: Infrastructure
+metadata:
+  name: signoz
+spec:
+  deployment:
+    flavor: terraform
+    mode: kubernetes
+    platform: aws
+  resource:
+    kind: Installation
+    spec:
+      apiVersion: v1alpha1
+      name: signoz
+    status:
+      addresses:
+        apiserver:
+        - tcp://0.0.0.0:8080
+        otlp:
+        - tcp://0.0.0.0:4317
+        - tcp://0.0.0.0:4318
+      config:
+        data:
+          resource.yaml: |
+            nodeGroups:
+            - count: 2
+              disk: 50
+              memory: 8
+              name: default
+              vcpus: 2
+            storage:
+              persistent: true

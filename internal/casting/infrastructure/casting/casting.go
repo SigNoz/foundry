@@ -1,4 +1,4 @@
-package infrastructure
+package casting
 
 import (
 	"context"
@@ -7,6 +7,10 @@ import (
 	"github.com/signoz/foundry/internal/domain"
 	infrastructuremolding "github.com/signoz/foundry/internal/molding/infrastructure"
 )
+
+// InfrastructureDir is the subdirectory within the pours directory where
+// infrastructure materials are written.
+const InfrastructureDir = "infrastructure"
 
 type Casting interface {
 	Enricher(ctx context.Context, config *infrastructure.Casting) (infrastructuremolding.MoldingEnricher, error)

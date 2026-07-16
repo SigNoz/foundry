@@ -5,14 +5,14 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/casting/infrastructure/awskubernetesterraformcasting"
-	"github.com/signoz/foundry/internal/casting/infrastructure/ecsec2terraformcasting"
+	infrastructurecasting "github.com/signoz/foundry/internal/casting/infrastructure/casting"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/tooler"
 	"github.com/signoz/foundry/internal/tooler/terraformtooler"
 )
 
 type CastingItem struct {
-	Casting Casting
+	Casting infrastructurecasting.Casting
 	Toolers []tooler.Tooler
 }
 
@@ -23,14 +23,6 @@ type Registry struct {
 func NewRegistry(logger *slog.Logger) *Registry {
 	return &Registry{
 		castings: map[v1alpha1.TypeDeployment]CastingItem{
-			{
-				Platform: v1alpha1.PlatformECS,
-				Mode:     v1alpha1.ModeEC2,
-				Flavor:   v1alpha1.FlavorTerraform,
-			}: {
-				Casting: ecsec2terraformcasting.New(logger),
-				Toolers: []tooler.Tooler{terraformtooler.New()},
-			},
 			{
 				Platform: v1alpha1.PlatformAWS,
 				Mode:     v1alpha1.ModeKubernetes,
@@ -50,7 +42,7 @@ func (registry *Registry) lookup(deployment v1alpha1.TypeDeployment) (CastingIte
 	return item, ok
 }
 
-func (registry *Registry) Casting(deployment v1alpha1.TypeDeployment) (Casting, error) {
+func (registry *Registry) Casting(deployment v1alpha1.TypeDeployment) (infrastructurecasting.Casting, error) {
 	item, ok := registry.lookup(deployment)
 	if !ok {
 		return nil, foundryerrors.Newf(foundryerrors.TypeUnsupported, "infrastructure deployment '%+v' is not supported", deployment)
