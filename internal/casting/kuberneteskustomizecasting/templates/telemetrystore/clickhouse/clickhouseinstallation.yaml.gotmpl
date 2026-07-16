@@ -14,7 +14,7 @@ metadata:
 spec:
   configuration:
     files:
-{{- $configData := $.Spec.TelemetryStore.Status.Config.Data }}
+{{- $configData := $.Spec.TelemetryStore.Spec.Config.Data }}
 {{- $config := index $configData "config-0-0.yaml" | fromYaml }}
 {{- if $config }}
 {{- $files := omit $config "profiles" "users" "quotas" "remote_servers" "zookeeper" "macros" "tcp_port" "http_port" "interserver_http_port" "listen_host" "display_name" "distributed_ddl" }}
