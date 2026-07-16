@@ -28,14 +28,16 @@
     "public_subnet_ids": {
       "description": "IDs of the public subnets",
       "value": "${aws_subnet.public[*].id}"
-    },
-    "node_group_arn": {
-      "description": "ARN of the node group",
-      "value": "${aws_eks_node_group.main.arn}"
-    },
-    "node_group_status": {
-      "description": "Status of the node group",
-      "value": "${aws_eks_node_group.main.status}"
     }
+    {{- range $group := .NodeGroups }},
+    "node_group_{{ $group.Name }}_arn": {
+      "description": "ARN of the {{ $group.Name }} node group",
+      "value": "${aws_eks_node_group.{{ $group.Name }}.arn}"
+    },
+    "node_group_{{ $group.Name }}_status": {
+      "description": "Status of the {{ $group.Name }} node group",
+      "value": "${aws_eks_node_group.{{ $group.Name }}.status}"
+    }
+    {{- end }}
   }
 }

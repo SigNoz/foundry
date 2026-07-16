@@ -3,15 +3,19 @@ package awskubernetesterraformcasting
 import (
 	"testing"
 
-	"github.com/signoz/foundry/api/v1alpha1/infrastructure"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestTemplates_RenderValidJSON(t *testing.T) {
-	config := infrastructure.Default()
-	config.Spec.Resource.Kind = infrastructure.ResourceKindInstallation
-	config.Spec.Resource.Spec.Name = "signoz"
+	data := &Data{
+		Name:         "signoz",
+		ResourceKind: "Installation",
+		Persistent:   true,
+		NodeGroups: []DataNodeGroup{
+			{Name: "default", Count: 2, VCPUs: 2, Memory: 8, Disk: 50},
+		},
+	}
 
 	testCases := []struct {
 		name     string
@@ -25,7 +29,7 @@ func TestTemplates_RenderValidJSON(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			material, err := tc.template.Render(*config, "out.tf.json")
+			material, err := tc.template.Render(data, "out.tf.json")
 			assert.NoError(t, err)
 			assert.NotEmpty(t, material.FmtContents())
 		})

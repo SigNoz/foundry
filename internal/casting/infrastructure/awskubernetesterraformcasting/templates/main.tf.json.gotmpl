@@ -1,12 +1,29 @@
 {
   "locals": {
-    "name": "{{ .Metadata.Name }}"
+    "name": "{{ .Name }}"
+    {{- range $group := .NodeGroups }},
+    "node_{{ $group.Name }}_instance_type": "${var.node_{{ $group.Name }}_instance_type != \"\" ? var.node_{{ $group.Name }}_instance_type : sort(data.aws_ec2_instance_types.{{ $group.Name }}.instance_types)[0]}"
+    {{- end }}
   },
   "data": {
     "aws_availability_zones": {
       "available": {
         "state": "available"
       }
+    },
+    "aws_ec2_instance_types": {
+      {{- range $i, $group := .NodeGroups }}{{ if $i }},{{ end }}
+      "{{ $group.Name }}": {
+        "filter": [
+          {"name": "instance-type", "values": ["m*", "c*"]},
+          {"name": "processor-info.supported-architecture", "values": ["x86_64"]},
+          {"name": "current-generation", "values": ["true"]},
+          {"name": "burstable-performance-supported", "values": ["false"]},
+          {"name": "vcpu-info.default-vcpus", "values": ["{{ $group.VCPUs }}"]},
+          {"name": "memory-info.size-in-mib", "values": ["{{ mul $group.Memory 1024 }}"]}
+        ]
+      }
+      {{- end }}
     }
   },
   "resource": {
@@ -17,8 +34,8 @@
         "enable_dns_support": true,
         "tags": {
           "app.kubernetes.io/managed-by": "foundry",
-          "foundry.signoz.io/name": "{{ .Metadata.Name }}",
-          "foundry.signoz.io/resource-kind": "{{ .Spec.Resource.Kind }}",
+          "foundry.signoz.io/name": "{{ .Name }}",
+          "foundry.signoz.io/resource-kind": "{{ .ResourceKind }}",
           "Name": "${local.name}-vpc",
           "kubernetes.io/cluster/${local.name}": "shared"
         }
@@ -32,8 +49,8 @@
         "availability_zone": "${data.aws_availability_zones.available.names[count.index]}",
         "tags": {
           "app.kubernetes.io/managed-by": "foundry",
-          "foundry.signoz.io/name": "{{ .Metadata.Name }}",
-          "foundry.signoz.io/resource-kind": "{{ .Spec.Resource.Kind }}",
+          "foundry.signoz.io/name": "{{ .Name }}",
+          "foundry.signoz.io/resource-kind": "{{ .ResourceKind }}",
           "Name": "${local.name}-private-${count.index}",
           "kubernetes.io/cluster/${local.name}": "shared",
           "kubernetes.io/role/internal-elb": "1"
@@ -47,8 +64,8 @@
         "map_public_ip_on_launch": true,
         "tags": {
           "app.kubernetes.io/managed-by": "foundry",
-          "foundry.signoz.io/name": "{{ .Metadata.Name }}",
-          "foundry.signoz.io/resource-kind": "{{ .Spec.Resource.Kind }}",
+          "foundry.signoz.io/name": "{{ .Name }}",
+          "foundry.signoz.io/resource-kind": "{{ .ResourceKind }}",
           "Name": "${local.name}-public-${count.index}",
           "kubernetes.io/cluster/${local.name}": "shared",
           "kubernetes.io/role/elb": "1"
@@ -60,8 +77,8 @@
         "vpc_id": "${aws_vpc.main.id}",
         "tags": {
           "app.kubernetes.io/managed-by": "foundry",
-          "foundry.signoz.io/name": "{{ .Metadata.Name }}",
-          "foundry.signoz.io/resource-kind": "{{ .Spec.Resource.Kind }}",
+          "foundry.signoz.io/name": "{{ .Name }}",
+          "foundry.signoz.io/resource-kind": "{{ .ResourceKind }}",
           "Name": "${local.name}-igw"
         }
       }
@@ -72,8 +89,8 @@
         "domain": "vpc",
         "tags": {
           "app.kubernetes.io/managed-by": "foundry",
-          "foundry.signoz.io/name": "{{ .Metadata.Name }}",
-          "foundry.signoz.io/resource-kind": "{{ .Spec.Resource.Kind }}",
+          "foundry.signoz.io/name": "{{ .Name }}",
+          "foundry.signoz.io/resource-kind": "{{ .ResourceKind }}",
           "Name": "${local.name}-nat-eip-${count.index}"
         }
       }
@@ -85,8 +102,8 @@
         "subnet_id": "${aws_subnet.public[count.index].id}",
         "tags": {
           "app.kubernetes.io/managed-by": "foundry",
-          "foundry.signoz.io/name": "{{ .Metadata.Name }}",
-          "foundry.signoz.io/resource-kind": "{{ .Spec.Resource.Kind }}",
+          "foundry.signoz.io/name": "{{ .Name }}",
+          "foundry.signoz.io/resource-kind": "{{ .ResourceKind }}",
           "Name": "${local.name}-nat-${count.index}"
         },
         "depends_on": ["aws_internet_gateway.main"]
@@ -97,8 +114,8 @@
         "vpc_id": "${aws_vpc.main.id}",
         "tags": {
           "app.kubernetes.io/managed-by": "foundry",
-          "foundry.signoz.io/name": "{{ .Metadata.Name }}",
-          "foundry.signoz.io/resource-kind": "{{ .Spec.Resource.Kind }}",
+          "foundry.signoz.io/name": "{{ .Name }}",
+          "foundry.signoz.io/resource-kind": "{{ .ResourceKind }}",
           "Name": "${local.name}-public-rt"
         }
       },
@@ -107,8 +124,8 @@
         "vpc_id": "${aws_vpc.main.id}",
         "tags": {
           "app.kubernetes.io/managed-by": "foundry",
-          "foundry.signoz.io/name": "{{ .Metadata.Name }}",
-          "foundry.signoz.io/resource-kind": "{{ .Spec.Resource.Kind }}",
+          "foundry.signoz.io/name": "{{ .Name }}",
+          "foundry.signoz.io/resource-kind": "{{ .ResourceKind }}",
           "Name": "${local.name}-private-rt-${count.index}"
         }
       }
@@ -144,8 +161,8 @@
         "assume_role_policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Action\" = \"sts:AssumeRole\", \"Effect\" = \"Allow\", \"Principal\" = {\"Service\" = \"eks.amazonaws.com\"}}]})}",
         "tags": {
           "app.kubernetes.io/managed-by": "foundry",
-          "foundry.signoz.io/name": "{{ .Metadata.Name }}",
-          "foundry.signoz.io/resource-kind": "{{ .Spec.Resource.Kind }}"
+          "foundry.signoz.io/name": "{{ .Name }}",
+          "foundry.signoz.io/resource-kind": "{{ .ResourceKind }}"
         }
       },
       "eks_node_group": {
@@ -153,8 +170,8 @@
         "assume_role_policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Action\" = \"sts:AssumeRole\", \"Effect\" = \"Allow\", \"Principal\" = {\"Service\" = \"ec2.amazonaws.com\"}}]})}",
         "tags": {
           "app.kubernetes.io/managed-by": "foundry",
-          "foundry.signoz.io/name": "{{ .Metadata.Name }}",
-          "foundry.signoz.io/resource-kind": "{{ .Spec.Resource.Kind }}"
+          "foundry.signoz.io/name": "{{ .Name }}",
+          "foundry.signoz.io/resource-kind": "{{ .ResourceKind }}"
         }
       }
     },
@@ -174,11 +191,11 @@
       "eks_container_registry": {
         "policy_arn": "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
         "role": "${aws_iam_role.eks_node_group.name}"
-      },
+      }{{ if .Persistent }},
       "ebs_csi_driver": {
         "policy_arn": "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy",
         "role": "${aws_iam_role.eks_node_group.name}"
-      }
+      }{{ end }}
     },
     "aws_eks_cluster": {
       "main": {
@@ -192,30 +209,31 @@
         }],
         "tags": {
           "app.kubernetes.io/managed-by": "foundry",
-          "foundry.signoz.io/name": "{{ .Metadata.Name }}",
-          "foundry.signoz.io/resource-kind": "{{ .Spec.Resource.Kind }}"
+          "foundry.signoz.io/name": "{{ .Name }}",
+          "foundry.signoz.io/resource-kind": "{{ .ResourceKind }}"
         },
         "depends_on": ["aws_iam_role_policy_attachment.eks_cluster_policy"]
       }
     },
     "aws_eks_node_group": {
-      "main": {
+      {{- range $i, $group := .NodeGroups }}{{ if $i }},{{ end }}
+      "{{ $group.Name }}": {
         "cluster_name": "${aws_eks_cluster.main.name}",
-        "node_group_name": "${local.name}",
+        "node_group_name": "${local.name}-{{ $group.Name }}",
         "node_role_arn": "${aws_iam_role.eks_node_group.arn}",
         "subnet_ids": "${aws_subnet.private[*].id}",
-        "instance_types": ["${var.node_instance_type}"],
+        "instance_types": ["${local.node_{{ $group.Name }}_instance_type}"],
         "scaling_config": [{
-          "desired_size": "${var.node_desired_size}",
-          "min_size": "${var.node_min_size}",
-          "max_size": "${var.node_max_size}"
+          "desired_size": "${var.node_{{ $group.Name }}_count}",
+          "min_size": "${var.node_{{ $group.Name }}_count}",
+          "max_size": "${var.node_{{ $group.Name }}_count}"
         }],
-        "disk_size": "${var.node_disk_size}",
+        "disk_size": "${var.node_{{ $group.Name }}_disk_size}",
         "tags": {
           "app.kubernetes.io/managed-by": "foundry",
-          "foundry.signoz.io/name": "{{ .Metadata.Name }}",
-          "foundry.signoz.io/resource-kind": "{{ .Spec.Resource.Kind }}",
-          "Name": "${local.name}"
+          "foundry.signoz.io/name": "{{ $.Name }}",
+          "foundry.signoz.io/resource-kind": "{{ $.ResourceKind }}",
+          "Name": "${local.name}-{{ $group.Name }}"
         },
         "depends_on": [
           "aws_iam_role_policy_attachment.eks_worker_node_policy",
@@ -223,13 +241,14 @@
           "aws_iam_role_policy_attachment.eks_container_registry"
         ]
       }
-    },
+      {{- end }}
+    }{{ if .Persistent }},
     "aws_eks_addon": {
       "ebs_csi_driver": {
         "cluster_name": "${aws_eks_cluster.main.name}",
         "addon_name": "aws-ebs-csi-driver",
-        "depends_on": ["aws_eks_node_group.main"]
+        "depends_on": [{{ range $i, $group := .NodeGroups }}{{ if $i }}, {{ end }}"aws_eks_node_group.{{ $group.Name }}"{{ end }}]
       }
-    }
+    }{{ end }}
   }
 }

@@ -18,37 +18,29 @@
     "name": {
       "description": "The name of the deployment",
       "type": "string",
-      "default": "{{ .Metadata.Name }}"
+      "default": "{{ .Name }}"
     },
     "kubernetes_version": {
       "description": "Kubernetes version for the EKS cluster",
       "type": "string",
       "default": "1.33"
-    },
-    "node_instance_type": {
-      "description": "EC2 instance type for the node group",
-      "type": "string",
-      "default": "t3.large"
-    },
-    "node_desired_size": {
-      "description": "Desired number of nodes in the node group",
-      "type": "number",
-      "default": 2
-    },
-    "node_min_size": {
-      "description": "Minimum number of nodes in the node group",
-      "type": "number",
-      "default": 2
-    },
-    "node_max_size": {
-      "description": "Maximum number of nodes in the node group; raise together with a cluster autoscaler, bounds alone add no elasticity",
-      "type": "number",
-      "default": 2
-    },
-    "node_disk_size": {
-      "description": "Root volume size (GB) for the nodes",
-      "type": "number",
-      "default": 50
     }
+    {{- range $group := .NodeGroups }},
+    "node_{{ $group.Name }}_instance_type": {
+      "description": "EC2 instance type for the {{ $group.Name }} node group; empty resolves the declared criteria against the platform's instance catalog",
+      "type": "string",
+      "default": ""
+    },
+    "node_{{ $group.Name }}_count": {
+      "description": "Number of nodes in the {{ $group.Name }} node group; elastic bounds belong with a cluster autoscaler",
+      "type": "number",
+      "default": {{ $group.Count }}
+    },
+    "node_{{ $group.Name }}_disk_size": {
+      "description": "Root volume size (GB) for the {{ $group.Name }} nodes",
+      "type": "number",
+      "default": {{ $group.Disk }}
+    }
+    {{- end }}
   }
 }

@@ -10,12 +10,36 @@ type Resource struct {
 	// Specification for the resource.
 	Spec ResourceSpec `json:"spec" yaml:"spec" required:"true" description:"Specification for the resource"`
 
+	// Status of the resource.
+	Status ResourceStatus `json:"status" yaml:"status,omitempty" description:"Status of the resource"`
+
 	_ struct{} `additionalProperties:"false"`
 }
 
 // ResourceSpec carries the identity of the casting embodying the resource.
 type ResourceSpec struct {
 	v1alpha1.TypeCastingRefSpec `json:",inline" yaml:",inline"`
+
+	_ struct{} `additionalProperties:"false"`
+}
+
+// ResourceStatus carries the requirement set a substrate shaped for the
+// resource kind must satisfy.
+type ResourceStatus struct {
+	v1alpha1.MoldingStatus `json:",inline" yaml:",inline"`
+
+	// Addresses the resource admits at the substrate's edge.
+	Addresses ResourceStatusAddresses `json:"addresses" yaml:"addresses,omitempty" description:"Addresses the resource admits at the substrate's edge"`
+
+	_ struct{} `additionalProperties:"false"`
+}
+
+type ResourceStatusAddresses struct {
+	// OTLP addresses.
+	OTLP []string `json:"otlp" yaml:"otlp,omitempty" description:"OTLP addresses"`
+
+	// API server addresses.
+	APIServer []string `json:"apiserver" yaml:"apiserver,omitempty" description:"API server addresses"`
 
 	_ struct{} `additionalProperties:"false"`
 }

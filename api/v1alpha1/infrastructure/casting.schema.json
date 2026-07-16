@@ -24,6 +24,10 @@
         "spec": {
           "$ref": "#/definitions/InfrastructureResourceSpec",
           "description": "Specification for the resource"
+        },
+        "status": {
+          "$ref": "#/definitions/InfrastructureResourceStatus",
+          "description": "Status of the resource"
         }
       },
       "type": "object"
@@ -58,6 +62,60 @@
           "maxLength": 63,
           "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
           "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "InfrastructureResourceStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "addresses": {
+          "$ref": "#/definitions/InfrastructureResourceStatusAddresses",
+          "description": "Addresses the resource admits at the substrate's edge"
+        },
+        "config": {
+          "$ref": "#/definitions/V1Alpha1TypeConfig",
+          "description": "Configuration for the molding"
+        },
+        "env": {
+          "description": "Environment variables for the molding",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "extras": {
+          "description": "Extra information about the molding",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "InfrastructureResourceStatusAddresses": {
+      "additionalProperties": false,
+      "properties": {
+        "apiserver": {
+          "description": "API server addresses",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "otlp": {
+          "description": "OTLP addresses",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
         }
       },
       "type": "object"
@@ -219,6 +277,19 @@
         "checksum": {
           "description": "Checksum of the casting file",
           "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "V1Alpha1TypeConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "description": "Configuration data as key-value pairs.",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
         }
       },
       "type": "object"
