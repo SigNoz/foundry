@@ -21,6 +21,9 @@ resources:
 {{- if $.Spec.Signoz.Spec.Enabled }}
 - signoz
 {{- end }}
+{{- if derefBool $.Spec.MCP.Spec.Enabled }}
+- mcp
+{{- end }}
 {{- if $.Spec.Ingester.Spec.Enabled }}
 - ingester
 {{- end }}
