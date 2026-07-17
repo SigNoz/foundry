@@ -26,19 +26,18 @@ func (m *collector) Kind() v1alpha1.MoldingKind {
 	return v1alpha1.MoldingKindCollector
 }
 
-// listMergeStrategy controls how each pipeline list merges with the enricher's
-// contribution (k8s listType, per path): receivers/exporters/extensions union
-// (order-insensitive); processors keep base order with contributed ones before
-// the terminal batch.
-var listMergeStrategy = map[string]domain.ListMerge{
-	"service.pipelines.*.receivers":  domain.ListMergeSet,
-	"service.pipelines.*.processors": domain.ListMergeOrdered,
-	"service.pipelines.*.exporters":  domain.ListMergeSet,
-	"service.extensions":             domain.ListMergeSet,
+// listTypes declares how each pipeline list merges with the enricher's
+// contribution: receivers/exporters/extensions union (order-insensitive);
+// processors keep base order with contributed ones before the terminal batch.
+var listTypes = domain.ListTypes{
+	"service.pipelines.*.receivers":  domain.ListTypeSet,
+	"service.pipelines.*.processors": domain.ListTypeOrdered,
+	"service.pipelines.*.exporters":  domain.ListTypeSet,
+	"service.extensions":             domain.ListTypeSet,
 }
 
 // MoldV1Alpha1 renders the collector's base config for the kind, merges the
-// enricher's contribution onto it (see listMergeStrategy), and stores the result
+// enricher's contribution onto it (see listTypes), and stores the result
 // at the kind's config key.
 func (m *collector) MoldV1Alpha1(ctx context.Context, config *collectionagent.Casting) error {
 	kind := config.Spec.Collector.Kind
@@ -63,7 +62,7 @@ func (m *collector) MoldV1Alpha1(ctx context.Context, config *collectionagent.Ca
 	}
 
 	key := kind.ConfigKey()
-	final, err := domain.MergeYAMLWithStrategy(base.String(), status.Config.Data[key], listMergeStrategy)
+	final, err := domain.StrategicMergeYAML(base.String(), status.Config.Data[key], listTypes)
 	if err != nil {
 		return err
 	}

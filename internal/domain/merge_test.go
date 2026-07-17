@@ -4,82 +4,110 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestMerge_NilStrategyDeepMergesReplaceLists(t *testing.T) {
-	base := map[string]any{
-		"a": map[string]any{"x": 1, "y": 2},
-		"l": []any{"keep"},
-		"s": "base",
-	}
-	src := map[string]any{
-		"a": map[string]any{"y": 3, "z": 4}, // nested map merges
-		"l": []any{"override"},              // list replaced (no strategy)
-		"n": "new",                          // new key added
-	}
-
-	Merge(base, src, nil)
-
-	assert.Equal(t, map[string]any{"x": 1, "y": 3, "z": 4}, base["a"])
-	assert.Equal(t, []any{"override"}, base["l"])
-	assert.Equal(t, "base", base["s"])
-	assert.Equal(t, "new", base["n"])
-}
-
-func TestMerge_ListStrategies(t *testing.T) {
+func TestStrategicMergeYAML(t *testing.T) {
 	tests := []struct {
-		name     string
-		strategy ListMerge
-		base     []any
-		override []any
-		expected []any
+		name      string
+		base      string
+		override  string
+		listTypes ListTypes
+		pass      bool
+		expected  string
 	}{
-		{"Replace_Default", ListMergeReplace, []any{"otlp"}, []any{"docker_stats"}, []any{"docker_stats"}},
-		{"Set_UnionsBaseFirstDeduped", ListMergeSet, []any{"otlp"}, []any{"docker_stats", "otlp"}, []any{"otlp", "docker_stats"}},
-		{"Set_RestoresDroppedBaseMember", ListMergeSet, []any{"otlp"}, []any{"docker_stats"}, []any{"otlp", "docker_stats"}},
-		{"Ordered_InsertsBeforeTerminal", ListMergeOrdered,
-			[]any{"memory_limiter", "resourcedetection", "batch"}, []any{"k8sattributes"},
-			[]any{"memory_limiter", "resourcedetection", "k8sattributes", "batch"}},
-		{"Ordered_EmptyOverrideKeepsBase", ListMergeOrdered,
-			[]any{"memory_limiter", "resourcedetection", "batch"}, nil,
-			[]any{"memory_limiter", "resourcedetection", "batch"}},
-		{"Set_ListOfMaps_DegradesToReplace", ListMergeSet,
-			[]any{map[string]any{"name": "a"}}, []any{map[string]any{"name": "b"}},
-			[]any{map[string]any{"name": "b"}}},
+		{
+			name:     "PartialOverride_DeepMerges",
+			base:     "display_name: cluster\nlogger:\n  level: information\n  size: 1000M\n",
+			override: "logger:\n  level: debug\n",
+			pass:     true,
+			expected: "display_name: cluster\nlogger:\n  level: debug\n  size: 1000M\n",
+		},
+		{
+			name:     "NullOverride_DeletesKey",
+			base:     "logger:\n  level: information\n  size: 1000M\n",
+			override: "logger:\n  size: null\n",
+			pass:     true,
+			expected: "logger:\n  level: information\n",
+		},
+		{
+			name:     "UndeclaredList_Replaced",
+			base:     "receivers:\n- otlp\n",
+			override: "receivers:\n- docker_stats\n",
+			pass:     true,
+			expected: "receivers:\n- docker_stats\n",
+		},
+		{
+			name:      "Set_UnionsBaseFirstDeduped",
+			base:      "receivers:\n- otlp\n",
+			override:  "receivers:\n- docker_stats\n- otlp\n",
+			listTypes: ListTypes{"receivers": ListTypeSet},
+			pass:      true,
+			expected:  "receivers:\n- otlp\n- docker_stats\n",
+		},
+		{
+			name:      "Set_RestoresDroppedBaseMember",
+			base:      "receivers:\n- otlp\n",
+			override:  "receivers:\n- docker_stats\n",
+			listTypes: ListTypes{"receivers": ListTypeSet},
+			pass:      true,
+			expected:  "receivers:\n- otlp\n- docker_stats\n",
+		},
+		{
+			name:      "Ordered_InsertsBeforeTerminal",
+			base:      "processors:\n- memory_limiter\n- batch\n",
+			override:  "processors:\n- resourcedetection\n",
+			listTypes: ListTypes{"processors": ListTypeOrdered},
+			pass:      true,
+			expected:  "processors:\n- memory_limiter\n- resourcedetection\n- batch\n",
+		},
+		{
+			name:      "WildcardPath_MatchesDeclaredBranchOnly",
+			base:      "service:\n  pipelines:\n    metrics:\n      receivers:\n      - otlp\n    traces:\n      receivers:\n      - otlp\n",
+			override:  "service:\n  pipelines:\n    metrics:\n      receivers:\n      - docker_stats\n",
+			listTypes: ListTypes{"service.pipelines.*.receivers": ListTypeSet},
+			pass:      true,
+			expected:  "service:\n  pipelines:\n    metrics:\n      receivers:\n      - otlp\n      - docker_stats\n    traces:\n      receivers:\n      - otlp\n",
+		},
+		{
+			name:      "MapListUnderSet_DegradesToAtomic",
+			base:      "server:\n- hostname: a\n",
+			override:  "server:\n- hostname: b\n",
+			listTypes: ListTypes{"server": ListTypeSet},
+			pass:      true,
+			expected:  "server:\n- hostname: b\n",
+		},
+		{
+			name:     "EmptyOverride_KeepsBase",
+			base:     "logger:\n  level: information\n",
+			override: "",
+			pass:     true,
+			expected: "logger:\n  level: information\n",
+		},
+		{
+			name:     "MalformedOverride_Invalid",
+			base:     "a: b\n",
+			override: "a: [b\n",
+			pass:     false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			base := map[string]any{"list": tt.base}
-			override := map[string]any{"list": tt.override}
-			Merge(base, override, map[string]ListMerge{"list": tt.strategy})
-			assert.Equal(t, tt.expected, base["list"])
+			merged, err := StrategicMergeYAML(tt.base, tt.override, tt.listTypes)
+			if !tt.pass {
+				assert.Error(t, err)
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, merged)
 		})
 	}
 }
 
-func TestMerge_WildcardPathAndUntouchedBranches(t *testing.T) {
-	base := map[string]any{
-		"service": map[string]any{
-			"pipelines": map[string]any{
-				"metrics": map[string]any{"receivers": []any{"otlp"}},
-				"traces":  map[string]any{"receivers": []any{"otlp"}},
-			},
-		},
-	}
-	override := map[string]any{
-		"service": map[string]any{
-			"pipelines": map[string]any{
-				"metrics": map[string]any{"receivers": []any{"docker_stats"}},
-			},
-		},
-	}
-
-	Merge(base, override, map[string]ListMerge{"service.pipelines.*.receivers": ListMergeSet})
-
-	pipelines := base["service"].(map[string]any)["pipelines"].(map[string]any)
-	// wildcard matched metrics → union restores otlp
-	assert.Equal(t, []any{"otlp", "docker_stats"}, pipelines["metrics"].(map[string]any)["receivers"])
-	// traces untouched by the override → base kept
-	assert.Equal(t, []any{"otlp"}, pipelines["traces"].(map[string]any)["receivers"])
+func TestMergeYAML(t *testing.T) {
+	merged, err := MergeYAML("logger:\n  level: information\n  size: 1000M\n", "logger:\n  level: debug\n")
+	require.NoError(t, err)
+	assert.Equal(t, "logger:\n  level: debug\n  size: 1000M\n", merged)
 }
