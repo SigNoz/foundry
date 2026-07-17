@@ -207,6 +207,32 @@ services:
         max-size: 50m
         max-file: "3"
   {{- end }}
+  {{- if derefBool $.Spec.MCP.Spec.Enabled }}
+  {{ $.Metadata.Name }}-mcp:
+    container_name: {{ $.Metadata.Name }}-mcp
+    image: {{ $.Spec.MCP.Spec.Image }}
+    {{- if $.Spec.MCP.Spec.Env }}
+    environment:
+      {{- range $key, $value := $.Spec.MCP.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    {{- end }}
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --spider
+        - -q
+        - http://localhost:8000/livez
+      interval: 10s
+      timeout: 1s
+      retries: 5
+      start_period: 10s
+    logging:
+      options:
+        max-size: 50m
+        max-file: "3"
+  {{- end }}
   {{- $ingesterReplicas := int $.Spec.Ingester.Spec.Cluster.Replicas }}
   ingester:
     image: {{ $.Spec.Ingester.Spec.Image }}
