@@ -2,38 +2,27 @@ package domain
 
 import "strings"
 
-// ListMerge describes how a list is merged when both the base and the override
-// define one at the same path. It mirrors Kubernetes' listType
-// (structured-merge-diff's ElementRelationship).
-//
-//   - ListMergeReplace ("atomic"): the override's list wins wholesale.
-//   - ListMergeSet     ("set"):    scalar elements are unioned, base first, deduped.
-//   - ListMergeOrdered:            the base order is kept and the override's extra
-//     elements are inserted before the base's terminal element. It
-//     exists for lists like an OTel pipeline's processors, where order matters
-//     but the base members must survive.
-//
-// ListMergeSet and ListMergeOrdered preserve the base members. Both assume
-// scalar (comparable) elements.
-//
-// Strategy is supplied per path (see Merge) rather than read from a type's
-// listType.
+// ListMerge is how a list merges when base and override both define one at the
+// same path, mirroring Kubernetes' listType. The variant carries its own merge
+// func, so adding one is a single var entry. Set and Ordered assume scalar
+// elements and degrade to Replace on a list of maps.
 type ListMerge struct {
-	relationship string
+	name  string
+	merge func(base, override []any) []any
 }
 
+func (l ListMerge) String() string { return l.name }
+
 var (
-	ListMergeReplace = ListMerge{relationship: "atomic"}
-	ListMergeSet     = ListMerge{relationship: "set"}
-	ListMergeOrdered = ListMerge{relationship: "ordered"}
+	ListMergeReplace = ListMerge{name: "atomic", merge: func(_, override []any) []any { return override }}
+	ListMergeSet     = ListMerge{name: "set", merge: mergeSet}
+	ListMergeOrdered = ListMerge{name: "ordered", merge: mergeOrdered}
 )
 
-// Merge deep-merges override into base, applying the per-path list strategy.
-// Nested maps merge recursively; scalars and unmatched lists are taken from
-// override; a list whose path matches a strategy is merged by it. Paths are
-// dotted gjson-style keys with "*" matching any single segment, e.g.
-// "service.pipelines.*.receivers". A nil strategy merges every list by
-// ListMergeReplace — a plain deep-merge. base is mutated.
+// Merge deep-merges override into base, mutating base. Maps merge recursively;
+// a list is merged by the strategy whose dotted-gjson path matches (e.g.
+// "service.pipelines.*.receivers"), defaulting to ListMergeReplace. A nil
+// strategy is a plain deep-merge.
 func Merge(base, override map[string]any, strategy map[string]ListMerge) {
 	mergeMap(base, override, nil, strategy)
 }
@@ -58,23 +47,12 @@ func mergeMap(base, override map[string]any, path []string, strategy map[string]
 
 		if baseList, ok := baseVal.([]any); ok {
 			if overrideList, ok := overrideVal.([]any); ok {
-				base[key] = strategyAt(keyPath, strategy).mergeList(baseList, overrideList)
+				base[key] = strategyAt(keyPath, strategy).merge(baseList, overrideList)
 				continue
 			}
 		}
 
 		base[key] = overrideVal
-	}
-}
-
-func (l ListMerge) mergeList(base, override []any) []any {
-	switch l.relationship {
-	case "set":
-		return unionScalars(base, override)
-	case "ordered":
-		return orderedScalars(base, override)
-	default: // atomic / zero value
-		return override
 	}
 }
 
@@ -101,8 +79,34 @@ func matchPath(pattern, path []string) bool {
 	return true
 }
 
-// unionScalars returns base followed by override's elements not already present,
-// de-duplicated and order-preserving.
+// mergeSet unions scalar elements, base first, deduped.
+func mergeSet(base, override []any) []any {
+	if !scalarList(base) || !scalarList(override) {
+		return override
+	}
+	return unionScalars(base, override)
+}
+
+// mergeOrdered keeps base's order, inserting override's new elements before the last.
+func mergeOrdered(base, override []any) []any {
+	if !scalarList(base) || !scalarList(override) {
+		return override
+	}
+	return orderedScalars(base, override)
+}
+
+// scalarList reports whether every element is a comparable scalar.
+func scalarList(list []any) bool {
+	for _, v := range list {
+		switch v.(type) {
+		case map[string]any, []any:
+			return false
+		}
+	}
+	return true
+}
+
+// unionScalars returns base then override's new elements, order-preserving and deduped.
 func unionScalars(base, override []any) []any {
 	out := make([]any, 0, len(base)+len(override))
 	seen := make(map[any]struct{}, len(base)+len(override))

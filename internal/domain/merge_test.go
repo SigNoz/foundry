@@ -27,30 +27,33 @@ func TestMerge_NilStrategyDeepMergesReplaceLists(t *testing.T) {
 }
 
 func TestMerge_ListStrategies(t *testing.T) {
-	testCases := []struct {
+	tests := []struct {
 		name     string
 		strategy ListMerge
 		base     []any
 		override []any
-		want     []any
+		expected []any
 	}{
-		{"replace is the default", ListMergeReplace, []any{"otlp"}, []any{"docker_stats"}, []any{"docker_stats"}},
-		{"set unions base first, deduped", ListMergeSet, []any{"otlp"}, []any{"docker_stats", "otlp"}, []any{"otlp", "docker_stats"}},
-		{"set restores a dropped base member", ListMergeSet, []any{"otlp"}, []any{"docker_stats"}, []any{"otlp", "docker_stats"}},
-		{"ordered inserts before the terminal", ListMergeOrdered,
+		{"Replace_Default", ListMergeReplace, []any{"otlp"}, []any{"docker_stats"}, []any{"docker_stats"}},
+		{"Set_UnionsBaseFirstDeduped", ListMergeSet, []any{"otlp"}, []any{"docker_stats", "otlp"}, []any{"otlp", "docker_stats"}},
+		{"Set_RestoresDroppedBaseMember", ListMergeSet, []any{"otlp"}, []any{"docker_stats"}, []any{"otlp", "docker_stats"}},
+		{"Ordered_InsertsBeforeTerminal", ListMergeOrdered,
 			[]any{"memory_limiter", "resourcedetection", "batch"}, []any{"k8sattributes"},
 			[]any{"memory_limiter", "resourcedetection", "k8sattributes", "batch"}},
-		{"ordered keeps base when override is empty", ListMergeOrdered,
+		{"Ordered_EmptyOverrideKeepsBase", ListMergeOrdered,
 			[]any{"memory_limiter", "resourcedetection", "batch"}, nil,
 			[]any{"memory_limiter", "resourcedetection", "batch"}},
+		{"Set_ListOfMaps_DegradesToReplace", ListMergeSet,
+			[]any{map[string]any{"name": "a"}}, []any{map[string]any{"name": "b"}},
+			[]any{map[string]any{"name": "b"}}},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			base := map[string]any{"list": tc.base}
-			override := map[string]any{"list": tc.override}
-			Merge(base, override, map[string]ListMerge{"list": tc.strategy})
-			assert.Equal(t, tc.want, base["list"])
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			base := map[string]any{"list": tt.base}
+			override := map[string]any{"list": tt.override}
+			Merge(base, override, map[string]ListMerge{"list": tt.strategy})
+			assert.Equal(t, tt.expected, base["list"])
 		})
 	}
 }
