@@ -12,7 +12,6 @@ import (
 // Installation Kind materials (compose files, service units, configs) are written.
 const DeploymentDir = "deployment"
 
-
 type Casting interface {
 	// Returns the enricher for the casting.
 	Enricher(ctx context.Context, config *installation.Casting) (molding.MoldingEnricher, error)
