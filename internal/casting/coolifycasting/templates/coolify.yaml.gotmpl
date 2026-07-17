@@ -8,6 +8,32 @@ services:
   {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}:
     image: {{ $.Spec.TelemetryKeeper.Spec.Image }}
+    {{- if eq $.Spec.TelemetryKeeper.Kind.String "zookeeper" }}
+    environment:
+      - ZOO_SERVER_ID={{ add $replicaIdx 1 }}
+      {{- if gt (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) 1 }}
+      - ZOO_SERVERS={{ range $serverIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}{{ if $serverIdx }},{{ end }}{{ if eq $serverIdx $replicaIdx }}0.0.0.0{{ else }}{{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $serverIdx }}{{ end }}:2888:3888{{ end }}
+      {{- end }}
+      {{- range $key, $value := $.Spec.TelemetryKeeper.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl -s -m 2 http://localhost:8080/commands/ruok | grep error | grep null
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - type: volume
+        source: {{ $.Metadata.Name }}-telemetrykeeper-{{ $replicaIdx }}-data
+        target: /bitnami/zookeeper
+    logging:
+      options:
+        max-size: 50m
+        max-file: "3"
+    {{- else }}
     healthcheck:
       test:
         - CMD
@@ -38,6 +64,7 @@ services:
       options:
         max-size: 50m
         max-file: "3"
+    {{- end }}
   {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts:
     image: {{ $.Spec.TelemetryStore.Spec.Image }}
@@ -76,7 +103,7 @@ services:
       {{- end }}
     environment:
       - CLICKHOUSE_SKIP_USER_SETUP=1
-      - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.yaml
+      - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml
     healthcheck:
       test:
         - CMD
@@ -97,7 +124,7 @@ services:
         read_only: true
       - type: bind
         source: ./configs/telemetrystore/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml
-        target: /etc/clickhouse-server/config.yaml
+        target: /etc/clickhouse-server/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml
         content: |
 {{ index $.Spec.TelemetryStore.Spec.Config.Data (printf "config-%d-%d.yaml" $shardIdx $replicaIdx) | indent 10 }}
       - type: bind

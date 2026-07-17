@@ -76,6 +76,64 @@
       },
       "type": "object"
     },
+    "InstallationMCP": {
+      "additionalProperties": false,
+      "properties": {
+        "spec": {
+          "$ref": "#/definitions/V1Alpha1MoldingSpec",
+          "description": "Specification for the MCP server"
+        },
+        "status": {
+          "$ref": "#/definitions/InstallationMCPStatus",
+          "description": "Status of the MCP server"
+        }
+      },
+      "type": "object"
+    },
+    "InstallationMCPStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "addresses": {
+          "$ref": "#/definitions/InstallationMCPStatusAddresses",
+          "description": "Addresses of the MCP server"
+        },
+        "config": {
+          "$ref": "#/definitions/V1Alpha1TypeConfig",
+          "description": "Configuration for the molding"
+        },
+        "env": {
+          "description": "Environment variables for the molding",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "extras": {
+          "description": "Extra information about the molding",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "InstallationMCPStatusAddresses": {
+      "additionalProperties": false,
+      "properties": {
+        "http": {
+          "description": "HTTP addresses",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
     "InstallationMetaStore": {
       "additionalProperties": false,
       "properties": {
@@ -230,6 +288,10 @@
           "$ref": "#/definitions/InstallationIngester",
           "description": "The configuration for the ingester molding"
         },
+        "mcp": {
+          "$ref": "#/definitions/InstallationMCP",
+          "description": "The configuration for the MCP server molding"
+        },
         "metastore": {
           "$ref": "#/definitions/InstallationMetaStore",
           "description": "The configuration for the meta store molding"
@@ -263,7 +325,8 @@
           "$ref": "#/definitions/InstallationTelemetryKeeperKind",
           "description": "Kind of the telemetry keeper to use",
           "examples": [
-            "clickhousekeeper"
+            "clickhousekeeper",
+            "zookeeper"
           ]
         },
         "spec": {
@@ -279,7 +342,8 @@
     },
     "InstallationTelemetryKeeperKind": {
       "enum": [
-        "clickhousekeeper"
+        "clickhousekeeper",
+        "zookeeper"
       ],
       "type": "string"
     },

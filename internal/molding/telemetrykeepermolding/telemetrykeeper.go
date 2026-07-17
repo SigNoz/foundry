@@ -30,6 +30,17 @@ func (molding *telemetrykeeper) Kind() v1alpha1.MoldingKind {
 }
 
 func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *installation.Casting) error {
+	switch config.Spec.TelemetryKeeper.Kind {
+	case installation.TelemetryKeeperKindClickhouseKeeper:
+		return molding.moldClickhouseKeeper(ctx, config)
+	case installation.TelemetryKeeperKindZookeeper:
+		return molding.moldZookeeper(ctx, config)
+	default:
+		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported telemetrykeeper kind %q", config.Spec.TelemetryKeeper.Kind)
+	}
+}
+
+func (molding *telemetrykeeper) moldClickhouseKeeper(ctx context.Context, config *installation.Casting) error {
 	data, err := newData(config)
 	if err != nil {
 		molding.logger.ErrorContext(ctx, "failed to get data", foundryerrors.LogAttr(err))
@@ -44,7 +55,7 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *instal
 	for i := 0; i < data.ServerCount; i++ {
 		configBuf := bytes.NewBuffer(nil)
 		data.ServerID = i // 0-indexed, used for array indexing in template
-		if err := KeeperClickhousev2556YAML.Execute(configBuf, data); err != nil {
+		if err := KeeperClickhousev25125YAML.Execute(configBuf, data); err != nil {
 			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute keeper template for server %d", data.ServerID)
 		}
 
@@ -52,7 +63,7 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *instal
 		base := configBuf.String()
 
 		if overrides != "" {
-			merged, err := domain.MergeYAML(base, overrides, nil)
+			merged, err := domain.MergeYAML(base, overrides)
 			if err != nil {
 				return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to merge config overrides for %s", key)
 			}
@@ -63,5 +74,18 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *instal
 	}
 
 	config.Spec.TelemetryKeeper.Status.Config.Data = configs
+	return nil
+}
+
+func (molding *telemetrykeeper) moldZookeeper(_ context.Context, config *installation.Casting) error {
+	if config.Spec.TelemetryKeeper.Status.Env == nil {
+		config.Spec.TelemetryKeeper.Status.Env = make(map[string]string)
+	}
+
+	config.Spec.TelemetryKeeper.Status.Env["ALLOW_ANONYMOUS_LOGIN"] = "yes"
+	config.Spec.TelemetryKeeper.Status.Env["ZOO_AUTOPURGE_INTERVAL"] = "1"
+	config.Spec.TelemetryKeeper.Status.Env["ZOO_ENABLE_PROMETHEUS_METRICS"] = "yes"
+	config.Spec.TelemetryKeeper.Status.Env["ZOO_PROMETHEUS_METRICS_PORT_NUMBER"] = "9141"
+
 	return nil
 }

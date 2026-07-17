@@ -3,12 +3,14 @@ package yamlconfig
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"os"
 	"path/filepath"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
+	installationcompat "github.com/signoz/foundry/internal/compat/installation"
 	"github.com/signoz/foundry/internal/config"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/errors"
@@ -16,17 +18,18 @@ import (
 
 type yamlConfig struct {
 	loaders map[v1alpha1.Kind]loaderFn
+	logger  *slog.Logger
 }
 
 type loaderFn func(bytes []byte, path string) (v1alpha1.Machinery, error)
 
-func New() config.Config {
-	return &yamlConfig{
-		loaders: map[v1alpha1.Kind]loaderFn{
-			v1alpha1.KindInstallation:    loadInstallation,
-			v1alpha1.KindCollectionAgent: loadCollectionAgent,
-		},
+func New(logger *slog.Logger) config.Config {
+	c := &yamlConfig{logger: logger}
+	c.loaders = map[v1alpha1.Kind]loaderFn{
+		v1alpha1.KindInstallation:    c.loadInstallation,
+		v1alpha1.KindCollectionAgent: c.loadCollectionAgent,
 	}
+	return c
 }
 
 // GetV1Alpha1 reads, peeks at kind, dispatches to the per-Kind loader, merges
@@ -65,14 +68,14 @@ func peekKind(bytes []byte) (v1alpha1.Kind, error) {
 	return probe.Kind, nil
 }
 
-func loadInstallation(bytes []byte, path string) (v1alpha1.Machinery, error) {
-	var loaded installation.Casting
-	if err := domain.UnmarshalYAML(bytes, &loaded); err != nil {
+func (c *yamlConfig) loadInstallation(bytes []byte, path string) (v1alpha1.Machinery, error) {
+	var declared installation.Casting
+	if err := domain.UnmarshalYAML(bytes, &declared); err != nil {
 		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "failed to unmarshal installation casting")
 	}
 
-	base := installation.Default()
-	if err := v1alpha1.Merge(base, &loaded); err != nil {
+	base := installation.Default(&declared)
+	if err := v1alpha1.Merge(base, &declared); err != nil {
 		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to merge default installation casting")
 	}
 
@@ -89,10 +92,14 @@ func loadInstallation(bytes []byte, path string) (v1alpha1.Machinery, error) {
 		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "invalid casting file %s", path)
 	}
 
+	if err := installationcompat.Compatibility(base, c.logger); err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "invalid casting file %s", path)
+	}
+
 	return base, nil
 }
 
-func loadCollectionAgent(bytes []byte, path string) (v1alpha1.Machinery, error) {
+func (*yamlConfig) loadCollectionAgent(bytes []byte, path string) (v1alpha1.Machinery, error) {
 	var loaded collectionagent.Casting
 	if err := domain.UnmarshalYAML(bytes, &loaded); err != nil {
 		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "failed to unmarshal collectionagent casting")

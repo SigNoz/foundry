@@ -5,6 +5,29 @@ services:
     image: {{ $.Spec.TelemetryKeeper.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
+    {{- if eq $.Spec.TelemetryKeeper.Kind.String "zookeeper" }}
+    environment:
+      - ZOO_SERVER_ID={{ add $replicaIdx 1 }}
+      {{- if gt (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) 1 }}
+      - ZOO_SERVERS={{ range $serverIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}{{ if $serverIdx }},{{ end }}{{ if eq $serverIdx $replicaIdx }}0.0.0.0{{ else }}{{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $serverIdx }}{{ end }}:2888:3888{{ end }}
+      {{- end }}
+      {{- range $key, $value := $.Spec.TelemetryKeeper.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    volumes:
+      - {{ $.Metadata.Name }}-telemetrykeeper-{{ $replicaIdx }}-data:/bitnami/zookeeper
+    deploy:
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test:
+      - "CMD-SHELL"
+      - "curl -s -m 2 http://localhost:8080/commands/ruok | grep error | grep null"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    {{- else }}
     {{- if $.Spec.TelemetryKeeper.Spec.Env }}
     environment:
       {{- range $key, $value := $.Spec.TelemetryKeeper.Spec.Env }}
@@ -36,6 +59,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    {{- end }}
   {{- end }}
   {{- range $shardIdx := until (int .Spec.TelemetryStore.Spec.Cluster.Shards) }}
   {{- range $replicaIdx := until (int (add1 (int $.Spec.TelemetryStore.Spec.Cluster.Replicas))) }}
@@ -46,7 +70,7 @@ services:
       - {{ $.Metadata.Name }}-network
     environment:
       - CLICKHOUSE_SKIP_USER_SETUP=1
-      - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.yaml
+      - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml
     {{- if $.Spec.TelemetryStore.Spec.Env }}
       {{- range $key, $value := $.Spec.TelemetryStore.Spec.Env }}
       - {{ $key }}={{ $value }}
@@ -57,7 +81,7 @@ services:
       - {{ $.Metadata.Name }}-telemetrystore-user-scripts:/var/lib/clickhouse/user_scripts:ro
     configs:
       - source: telemetrystore-config-{{ $shardIdx }}-{{ $replicaIdx }}
-        target: /etc/clickhouse-server/config.yaml
+        target: /etc/clickhouse-server/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml
       - source: telemetrystore-functions
         target: /etc/clickhouse-server/functions.yaml
     deploy:
@@ -243,9 +267,11 @@ volumes:
   {{- end }}
   {{- end }}
 configs:
+  {{- if ne $.Spec.TelemetryKeeper.Kind.String "zookeeper" }}
   {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
   telemetrykeeper-{{ $replicaIdx }}:
     file: telemetrykeeper/{{ $.Spec.TelemetryKeeper.Kind }}/keeper-{{ $replicaIdx }}.yaml
+  {{- end }}
   {{- end }}
   {{- range $shardIdx := until (int $.Spec.TelemetryStore.Spec.Cluster.Shards) }}
   {{- range $replicaIdx := until (int (add1 (int $.Spec.TelemetryStore.Spec.Cluster.Replicas))) }}

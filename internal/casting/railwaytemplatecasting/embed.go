@@ -10,11 +10,12 @@ import (
 var templates embed.FS
 
 var (
-	telemetryKeeperDockerfileTemplate        *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.clickhousekeeper.telemetrykeeper.v2556.gotmpl", domain.FormatText)
-	telemetryStoreDockerfileTemplate         *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.clickhouse.telemetrystore.v2556.gotmpl", domain.FormatText)
-	ingesterDockerfileTemplate               *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.ingester.gotmpl", domain.FormatText)
-	signozDockerfileTemplate                 *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.signoz.gotmpl", domain.FormatText)
-	telemetryStoreMigratorDockerfileTemplate *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.telemetrystore-migrator.gotmpl", domain.FormatText)
+	telemetryKeeperClickhouseKeeperDockerfileTemplate *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.clickhousekeeper.telemetrykeeper.v25125.gotmpl", domain.FormatText)
+	telemetryKeeperZookeeperDockerfileTemplate        *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.zookeeper.telemetrykeeper.v371.gotmpl", domain.FormatText)
+	telemetryStoreDockerfileTemplate                  *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.clickhouse.telemetrystore.v25125.gotmpl", domain.FormatText)
+	ingesterDockerfileTemplate                        *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.ingester.gotmpl", domain.FormatText)
+	signozDockerfileTemplate                          *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.signoz.gotmpl", domain.FormatText)
+	telemetryStoreMigratorDockerfileTemplate          *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/Dockerfile.telemetrystore-migrator.gotmpl", domain.FormatText)
 
 	railwayTelemetryKeeperTemplate        *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/railway.telemetrykeeper.json.gotmpl", domain.FormatText)
 	railwayTelemetryStoreTemplate         *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/railway.telemetrystore.json.gotmpl", domain.FormatText)

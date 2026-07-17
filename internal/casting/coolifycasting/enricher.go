@@ -66,10 +66,15 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 			return errors.Wrapf(err, errors.TypeInternal, "failed to get telemetrykeeper container names")
 		}
 
+		clientPort, raftPort := 9181, 9234
+		if config.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindZookeeper {
+			clientPort, raftPort = 2181, 2888
+		}
+
 		var telemetrykeeperContainerNames []string
 		for _, containerName := range containerNames {
 			if strings.Contains(containerName, "telemetrykeeper") {
-				telemetrykeeperContainerNames = append(telemetrykeeperContainerNames, domain.MustNewAddress("tcp", containerName, 9181).String())
+				telemetrykeeperContainerNames = append(telemetrykeeperContainerNames, domain.MustNewAddress("tcp", containerName, clientPort).String())
 			}
 		}
 		config.Spec.TelemetryKeeper.Status.Addresses.Client = telemetrykeeperContainerNames
@@ -77,7 +82,7 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 		var telemetryRaftaddress []string
 		for _, containerName := range containerNames {
 			if strings.Contains(containerName, "telemetrykeeper") {
-				telemetryRaftaddress = append(telemetryRaftaddress, domain.MustNewAddress("tcp", containerName, 9234).String())
+				telemetryRaftaddress = append(telemetryRaftaddress, domain.MustNewAddress("tcp", containerName, raftPort).String())
 			}
 		}
 		config.Spec.TelemetryKeeper.Status.Addresses.Raft = telemetryRaftaddress

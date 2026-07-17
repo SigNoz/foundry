@@ -63,7 +63,7 @@ func (m *collector) MoldV1Alpha1(ctx context.Context, config *collectionagent.Ca
 	}
 
 	key := kind.ConfigKey()
-	final, err := domain.MergeYAML(base.String(), status.Config.Data[key], listMergeStrategy)
+	final, err := domain.MergeYAMLWithStrategy(base.String(), status.Config.Data[key], listMergeStrategy)
 	if err != nil {
 		return err
 	}

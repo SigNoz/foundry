@@ -243,7 +243,7 @@ services:
       - -q
       - ls
       timeout: 10s
-    image: clickhouse/clickhouse-keeper:25.5.6
+    image: clickhouse/clickhouse-keeper:25.12.5
     logging:
       options:
         max-file: "3"
@@ -266,14 +266,14 @@ services:
             force_sync: false
             snapshot_distance: 100000
             snapshots_to_keep: 3
-          log_storage_path: /var/lib/clickhouse/coordination/log
+          log_storage_path: /var/lib/clickhouse-keeper/coordination/log
           raft_configuration:
             server:
             - hostname: signoz-telemetrykeeper-clickhousekeeper-0
               port: 9234
               id: 0
           server_id: 0
-          snapshot_storage_path: /var/lib/clickhouse/coordination/snapshots
+          snapshot_storage_path: /var/lib/clickhouse-keeper/coordination/snapshots
           tcp_port: 9181
       source: ./configs/telemetrykeeper/keeper-0.yaml
       target: /etc/clickhouse-keeper/keeper.yaml
@@ -286,7 +286,7 @@ services:
         condition: service_completed_successfully
     environment:
     - CLICKHOUSE_SKIP_USER_SETUP=1
-    - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.yaml
+    - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config-0-0.yaml
     healthcheck:
       interval: 30s
       retries: 3
@@ -297,7 +297,7 @@ services:
       - -q
       - 0.0.0.0:8123/ping
       timeout: 5s
-    image: clickhouse/clickhouse-server:25.5.6
+    image: clickhouse/clickhouse-server:25.12.5
     logging:
       options:
         max-file: "3"
@@ -348,7 +348,7 @@ services:
                     result_rows: 0
         user_directories:
           users_xml:
-            path: users.xml
+            path: config-0-0.yaml
         remote_servers:
           cluster:
             shard:
@@ -408,7 +408,7 @@ services:
                 show_named_collection: 1
                 show_named_collection_secrets: 1
       source: ./configs/telemetrystore/config-0-0.yaml
-      target: /etc/clickhouse-server/config.yaml
+      target: /etc/clickhouse-server/config-0-0.yaml
       type: bind
     - content: |
         functions:
@@ -441,7 +441,7 @@ services:
       tar -xvzf histogram-quantile.tar.gz
       mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile
     exclude_from_hc: true
-    image: clickhouse/clickhouse-server:25.5.6
+    image: clickhouse/clickhouse-server:25.12.5
     logging:
       options:
         max-file: "3"

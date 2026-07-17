@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: signoz-clickhouse
     app.kubernetes.io/part-of: signoz
-    app.kubernetes.io/version: 25.5.6
+    app.kubernetes.io/version: 25.12.5
   name: signoz-clickhouse
 spec:
   configuration:
@@ -147,7 +147,7 @@ spec:
           app.kubernetes.io/component: telemetrystore
           app.kubernetes.io/instance: signoz
           app.kubernetes.io/name: signoz-clickhouse
-          app.kubernetes.io/version: 25.5.6
+          app.kubernetes.io/version: 25.12.5
       name: default
       spec:
         containers:
@@ -155,7 +155,7 @@ spec:
           - /bin/bash
           - -c
           - /usr/bin/clickhouse-server --config-file=/etc/clickhouse-server/config.xml
-          image: clickhouse/clickhouse-server:25.5.6
+          image: clickhouse/clickhouse-server:25.12.5
           imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 10

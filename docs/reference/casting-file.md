@@ -73,7 +73,25 @@ Each molding (`signoz`, `ingester`, `telemetrystore`, `telemetrykeeper`) accepts
 | `cluster.replicas` | int | `1` | Number of replicas |
 | `cluster.shards` | int | `1` | Number of shards (TelemetryStore only) |
 | `env` | map | `{}` | Environment variables as key-value pairs |
-| `config.data` | map | `{}` | Config file overrides: filename to file contents |
+| `config.data` | map | `{}` | Config file overrides merged with the generated config: filename to contents |
+
+## TelemetryKeeper
+
+The telemetry keeper has an additional `kind` field to select the backend. The image and version default to the selected kind.
+
+```yaml
+spec:
+  telemetrykeeper:
+    kind: <string>
+    spec: <molding-spec>
+```
+
+| Kind | Backend | Notes |
+| --- | --- | --- |
+| `clickhousekeeper` | ClickHouse Keeper | Default. Lightweight, no JVM required. |
+| `zookeeper` | ZooKeeper | Apache ZooKeeper, the widely operated JVM based coordination service. |
+
+The `zookeeper` kind is not supported with `mode: systemd` yet.
 
 ## MetaStore
 
@@ -110,7 +128,7 @@ spec:
 | Field | Required | Description |
 | --- | --- | --- |
 | `type` | No | Patch driver. Default: `jsonpatch`. |
-| `target` | Yes | Output file to patch. Exact path, basename, or glob. |
+| `target` | Yes | Output file to patch, relative to `pours/` (e.g. `deployment/compose.yaml`). Exact path or glob. |
 | `operations` | Yes | List of JSON Patch (RFC 6902) operations. |
 
 See [Patches](../concepts/patches.md) for operation details and examples.

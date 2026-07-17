@@ -74,7 +74,7 @@ trace_log:
 user_defined_executable_functions_config: '*function.yaml'
 user_directories:
   users_xml:
-    path: users.xml
+    path: config-0-0.yaml
 user_files_path: /var/lib/clickhouse/user_files/
 user_scripts_path: /var/lib/clickhouse/user_scripts/
 users:

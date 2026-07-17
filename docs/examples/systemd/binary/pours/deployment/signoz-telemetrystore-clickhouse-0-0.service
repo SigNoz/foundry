@@ -3,7 +3,7 @@ WantedBy=multi-user.target
 
 [Service]
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_IPC_LOCK CAP_SYS_NICE CAP_NET_BIND_SERVICE
-ExecStart=/usr/bin/clickhouse-server --config=/etc/clickhouse-server/config-0-0.yaml --pid-file=/run/clickhouse/clickhouse.pid
+ExecStart=/usr/bin/clickhouse server --config=/etc/clickhouse-server/config-0-0.yaml --pid-file=/run/clickhouse/clickhouse.pid
 Group=clickhouse
 LimitCORE=infinity
 LimitNOFILE=500000
@@ -15,6 +15,6 @@ User=clickhouse
 
 [Unit]
 After=time-sync.target network-online.target
-Description=ClickHouse Server (v25.5.6)
+Description=ClickHouse Server (v25.12.5)
 Requires=network-online.target
 Wants=time-sync.target

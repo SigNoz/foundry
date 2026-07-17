@@ -40,7 +40,7 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *install
 	overrides := config.Spec.TelemetryStore.Status.Extras["_overrides"]
 
 	functionBuf := bytes.NewBuffer(nil)
-	if err := FunctionsClickhousev2556YAML.Execute(functionBuf, data); err != nil {
+	if err := FunctionsClickhousev25125YAML.Execute(functionBuf, data); err != nil {
 		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute functions template")
 	}
 
@@ -52,7 +52,7 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *install
 			data.ReplicaID = r
 
 			configBuf := bytes.NewBuffer(nil)
-			if err := ConfigClickhousev2556YAML.Execute(configBuf, data); err != nil {
+			if err := ConfigClickhousev25125YAML.Execute(configBuf, data); err != nil {
 				return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute config template for shard %d replica %d", s, r)
 			}
 
@@ -60,7 +60,7 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *install
 			base := configBuf.String()
 
 			if overrides != "" {
-				merged, err := domain.MergeYAML(base, overrides, nil)
+				merged, err := domain.MergeYAML(base, overrides)
 				if err != nil {
 					return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to merge config overrides for %s", key)
 				}

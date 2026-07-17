@@ -76,13 +76,18 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 			return errors.Wrapf(err, errors.TypeInternal, "failed to get telemetrykeeper service names")
 		}
 
+		clientPort, raftPort := 9181, 9234
+		if config.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindZookeeper {
+			clientPort, raftPort = 2181, 2888
+		}
+
 		var addrsClient []string
 		var addrsRaft []string
 		var keeperServiceNames []string
 		for _, serviceName := range serviceNames {
 			if strings.Contains(serviceName, "telemetrykeeper") {
-				addrsClient = append(addrsClient, domain.MustNewAddress("tcp", serviceName, 9181).String())
-				addrsRaft = append(addrsRaft, domain.MustNewAddress("tcp", serviceName, 9234).String())
+				addrsClient = append(addrsClient, domain.MustNewAddress("tcp", serviceName, clientPort).String())
+				addrsRaft = append(addrsRaft, domain.MustNewAddress("tcp", serviceName, raftPort).String())
 				keeperServiceNames = append(keeperServiceNames, serviceName)
 			}
 		}
