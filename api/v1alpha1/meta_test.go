@@ -6,9 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestTypeConfigSetAllocatesAndOverwrites(t *testing.T) {
-	t.Parallel()
-
+func TestTypeConfigSet_AllocatesAndOverwrites(t *testing.T) {
 	var config TypeConfig // nil Data
 	config.Set("collector/agent/agent.yaml", []byte("a: 1"))
 	assert.Equal(t, "a: 1", config.Data["collector/agent/agent.yaml"])
