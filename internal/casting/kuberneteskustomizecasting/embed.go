@@ -34,6 +34,11 @@ var (
 	signozStatefulset    = domain.MustNewTemplateFromFS(templates, "templates/signoz/statefulset.yaml.gotmpl", domain.FormatYAML)
 	signozKustomization  = domain.MustNewTemplateFromFS(templates, "templates/signoz/kustomization.yaml.gotmpl", domain.FormatYAML)
 
+	// mcp.
+	mcpDeployment    = domain.MustNewTemplateFromFS(templates, "templates/mcp/deployment.yaml.gotmpl", domain.FormatYAML)
+	mcpService       = domain.MustNewTemplateFromFS(templates, "templates/mcp/service.yaml.gotmpl", domain.FormatYAML)
+	mcpKustomization = domain.MustNewTemplateFromFS(templates, "templates/mcp/kustomization.yaml.gotmpl", domain.FormatYAML)
+
 	// ingester.
 	ingesterConfigmap      = domain.MustNewTemplateFromFS(templates, "templates/ingester/configmap.yaml.gotmpl", domain.FormatYAML)
 	ingesterDeployment     = domain.MustNewTemplateFromFS(templates, "templates/ingester/deployment.yaml.gotmpl", domain.FormatYAML)
