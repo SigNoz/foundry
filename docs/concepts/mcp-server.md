@@ -4,9 +4,6 @@ The [SigNoz MCP server](https://github.com/SigNoz/signoz-mcp-server) lets AI cli
 
 Foundry deploys it as a molding alongside the rest of the stack. It is optional and disabled by default; opt in from the casting.
 
-> [!NOTE]
-> MCP is currently wired into the `docker`/`compose` casting. Other deployment modes accept the `mcp` config but do not yet render a service.
-
 ## Enable it
 
 Add an `mcp` block under `spec` and turn it on:
@@ -48,7 +45,15 @@ For a single self-hosted SigNoz, the per-request header is simplest: nothing sec
 
 ## Connect a client
 
-The MCP endpoint is the server URL plus `/mcp`. For the compose deployment that is `http://localhost:8000/mcp` (the `signoz-mcp` service publishes port `8000`).
+The MCP endpoint is the server URL plus `/mcp`. Where the server is reachable depends on the deployment mode:
+
+| Mode | Endpoint |
+|---|---|
+| `docker`/`compose`, `docker`/`swarm` | `http://localhost:8000/mcp` (port `8000` is published) |
+| `systemd`/`binary` | `http://<host>:8000/mcp` |
+| `kubernetes`/`kustomize` | the `signoz-mcp` ClusterIP service on port `8000`; expose it outside the cluster per your setup |
+| `render`/`blueprint` | the `signoz-mcp` web service URL from the Render dashboard, plus `/mcp` |
+| `coolify`/`stack`, `railway`/`template` | expose port `8000` on the platform, then use that URL plus `/mcp` |
 
 ### Claude Code
 

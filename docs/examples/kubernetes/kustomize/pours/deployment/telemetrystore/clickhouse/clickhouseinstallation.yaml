@@ -51,9 +51,6 @@ spec:
           flush_interval_milliseconds: 30000
           ttl: event_date + INTERVAL 1 DAY DELETE
         user_defined_executable_functions_config: /etc/clickhouse-server/functions/custom-functions.xml
-        user_directories:
-          users_xml:
-            path: users.xml
         user_files_path: /var/lib/clickhouse/user_files/
         user_scripts_path: /var/lib/clickhouse/user_scripts/
         zookeeper_log:
