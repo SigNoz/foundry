@@ -519,7 +519,7 @@ spec:
             zookeeper_log:
                 ttl: "event_date + INTERVAL 1 DAY DELETE"
             tcp_port: 9000
-            user_defined_executable_functions_config: '*function.yaml'
+            user_defined_executable_functions_config: '*functions.yaml'
             user_scripts_path: /var/lib/clickhouse/user_scripts/
             users:
                 default:
@@ -540,7 +540,7 @@ spec:
                   - name: counts
                     type: Array(Float64)
                   - name: quantile
-                    type: Array(Float64)
+                    type: Float64
               command: ./histogramQuantile
               format: CSV
               name: histogramQuantile
@@ -639,7 +639,7 @@ spec:
             zookeeper_log:
                 ttl: "event_date + INTERVAL 1 DAY DELETE"
             tcp_port: 9000
-            user_defined_executable_functions_config: '*function.yaml'
+            user_defined_executable_functions_config: '*functions.yaml'
             user_scripts_path: /var/lib/clickhouse/user_scripts/
             users:
                 default:
@@ -660,7 +660,7 @@ spec:
                   - name: counts
                     type: Array(Float64)
                   - name: quantile
-                    type: Array(Float64)
+                    type: Float64
               command: ./histogramQuantile
               format: CSV
               name: histogramQuantile
