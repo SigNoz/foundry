@@ -81,6 +81,9 @@ func (c *systemdCasting) Cast(ctx context.Context, config installation.Casting, 
 	if err := c.initializeMetaStore(ctx, &config); err != nil {
 		return err
 	}
+	if err := c.initializeTelemetryKeeper(ctx, &config); err != nil {
+		return err
+	}
 	if err := c.startUnits(ctx, units); err != nil {
 		return err
 	}
@@ -92,6 +95,10 @@ func (c *systemdCasting) Cast(ctx context.Context, config installation.Casting, 
 func (c *systemdCasting) forgeTelemetryKeeper(cfg *installation.Casting) ([]domain.Material, error) {
 	if !cfg.Spec.TelemetryKeeper.Spec.IsEnabled() {
 		return nil, nil
+	}
+
+	if cfg.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindZookeeper {
+		return c.forgeZookeeper(cfg)
 	}
 
 	spec := &cfg.Spec.TelemetryKeeper
@@ -121,6 +128,25 @@ func (c *systemdCasting) forgeTelemetryKeeper(cfg *installation.Casting) ([]doma
 	}
 
 	return append(materials, cfgMats...), nil
+}
+
+// forgeZookeeper renders the zookeeper unit and its zoo.cfg. The config file is
+// part of the unit's materialization (the unit's ExecStart points at it), not
+// molding config, so it is tuned via patches rather than spec.config.
+func (c *systemdCasting) forgeZookeeper(cfg *installation.Casting) ([]domain.Material, error) {
+	kind := cfg.Spec.TelemetryKeeper.Kind.String()
+
+	svcMat, err := c.renderTemplate(zookeeperServiceTemplate, cfg, fmt.Sprintf("%s-telemetrykeeper-%s-0%s", cfg.Metadata.Name, kind, svcSuffix))
+	if err != nil {
+		return nil, err
+	}
+
+	cfgMat, err := c.renderTemplate(zookeeperConfigTemplate, cfg, filepath.Join("telemetrykeeper", kind, "zoo.cfg"))
+	if err != nil {
+		return nil, err
+	}
+
+	return []domain.Material{svcMat, cfgMat}, nil
 }
 
 func (c *systemdCasting) forgeTelemetryStore(cfg *installation.Casting) ([]domain.Material, error) {
@@ -296,8 +322,12 @@ func (c *systemdCasting) provision(ctx context.Context, config *installation.Cas
 	}
 	if config.Spec.TelemetryKeeper.Spec.IsEnabled() {
 		src := filepath.Join(poursPath, rootcasting.DeploymentDir, "telemetrykeeper", config.Spec.TelemetryKeeper.Kind.String())
-		if err := c.copyDir(src, "/etc/clickhouse-keeper/"); err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to copy clickhouse-keeper configs")
+		dst := "/etc/clickhouse-keeper/"
+		if config.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindZookeeper {
+			dst = "/etc/zookeeper/"
+		}
+		if err := c.copyDir(src, dst); err != nil {
+			return errors.Wrapf(err, errors.TypeInternal, "failed to copy telemetrykeeper configs")
 		}
 	}
 
@@ -353,6 +383,9 @@ func (c *systemdCasting) validateBinaries(ctx context.Context, config *installat
 	if config.Spec.TelemetryKeeper.Spec.IsEnabled() && config.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindClickhouseKeeper {
 		binaries = append(binaries, binarytooler.New("clickhouse-keeper", installation.TelemetryKeeperClickHouseKeeperBinaryPath.Resolve(annotations)))
 	}
+	if config.Spec.TelemetryKeeper.Spec.IsEnabled() && config.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindZookeeper {
+		binaries = append(binaries, binarytooler.New("zookeeper", installation.TelemetryKeeperZookeeperBinaryPath.Resolve(annotations)))
+	}
 	if config.Spec.TelemetryStore.Spec.IsEnabled() {
 		binaries = append(binaries, binarytooler.New("clickhouse", installation.TelemetryStoreClickHouseBinaryPath.Resolve(annotations)))
 	}
@@ -396,6 +429,22 @@ func (c *systemdCasting) initializeMetaStore(ctx context.Context, config *instal
 			return errors.Wrapf(err, errors.TypeInternal, "failed to create sqlite data directory")
 		}
 		_ = c.execCommand(ctx, "chown", "-R", "signoz:signoz", "/var/lib/signoz") // best effort
+	}
+	return nil
+}
+
+// initializeTelemetryKeeper creates the zookeeper service user; the data and
+// log directories are created by systemd via StateDirectory/LogsDirectory.
+func (c *systemdCasting) initializeTelemetryKeeper(ctx context.Context, config *installation.Casting) error {
+	if !config.Spec.TelemetryKeeper.Spec.IsEnabled() || config.Spec.TelemetryKeeper.Kind != installation.TelemetryKeeperKindZookeeper {
+		return nil
+	}
+
+	if _, err := user.Lookup("zookeeper"); err != nil {
+		c.logger.InfoContext(ctx, "creating zookeeper user")
+		if err := c.execCommand(ctx, "useradd", "-r", "-s", "/sbin/nologin", "zookeeper"); err != nil {
+			return errors.Wrapf(err, errors.TypeInternal, "failed to create zookeeper user")
+		}
 	}
 	return nil
 }

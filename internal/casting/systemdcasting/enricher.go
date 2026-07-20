@@ -14,10 +14,12 @@ import (
 var _ molding.MoldingEnricher = (*systemdMoldingEnricher)(nil)
 
 const (
-	baseTelemetryKeeperClientPort = 9181
-	baseTelemetryKeeperRaftPort   = 9234
-	baseTelemetryStoreClusterPort = 9000
-	baseMetaStorePostgresPort     = 5432
+	baseTelemetryKeeperClientPort          = 9181
+	baseTelemetryKeeperRaftPort            = 9234
+	baseTelemetryKeeperZookeeperClientPort = 2181
+	baseTelemetryKeeperZookeeperRaftPort   = 2888
+	baseTelemetryStoreClusterPort          = 9000
+	baseMetaStorePostgresPort              = 5432
 )
 
 type systemdMoldingEnricher struct {
@@ -54,10 +56,6 @@ func (e *systemdMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1
 }
 
 func (e *systemdMoldingEnricher) enrichTelemetryKeeper(config *installation.Casting) error {
-	if config.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindZookeeper {
-		return errors.Newf(errors.TypeUnsupported, "telemetrykeeper kind %q is not supported by the systemd casting yet", config.Spec.TelemetryKeeper.Kind)
-	}
-
 	spec := &config.Spec.TelemetryKeeper
 	cluster := spec.Spec.Cluster
 
@@ -70,10 +68,15 @@ func (e *systemdMoldingEnricher) enrichTelemetryKeeper(config *installation.Cast
 		return errors.Newf(errors.TypeUnsupported, "deployment mode '%s' does not support Distributed Clickhouse Setup, raise an issue at https://github.com/signoz/foundry/issues", config.Spec.Deployment.Mode)
 	}
 
+	clientPort, raftPort := baseTelemetryKeeperClientPort, baseTelemetryKeeperRaftPort
+	if spec.Kind == installation.TelemetryKeeperKindZookeeper {
+		clientPort, raftPort = baseTelemetryKeeperZookeeperClientPort, baseTelemetryKeeperZookeeperRaftPort
+	}
+
 	var clientAddresses, raftAddresses []string
 	for r := 0; r < replicas; r++ {
-		clientAddresses = append(clientAddresses, domain.MustNewAddress("tcp", "localhost", baseTelemetryKeeperClientPort+r).String())
-		raftAddresses = append(raftAddresses, domain.MustNewAddress("tcp", "localhost", baseTelemetryKeeperRaftPort+r).String())
+		clientAddresses = append(clientAddresses, domain.MustNewAddress("tcp", "localhost", clientPort+r).String())
+		raftAddresses = append(raftAddresses, domain.MustNewAddress("tcp", "localhost", raftPort+r).String())
 	}
 
 	config.Spec.TelemetryKeeper.Status.Addresses.Client = clientAddresses

@@ -1,0 +1,31 @@
+{{- /* Translates the molding's env into zoo.cfg form: mapped keys are written
+when present, absent keys are omitted so ZooKeeper's own defaults apply.
+dataDir and the admin port are the casting's platform decisions. */ -}}
+dataDir=/var/lib/zookeeper
+admin.serverPort=3181
+{{- with $.Spec.TelemetryKeeper.Status.Addresses.Client }}
+clientPort={{ last (splitList ":" (first .)) }}
+{{- end }}
+{{- with $env := $.Spec.TelemetryKeeper.Spec.Env }}
+{{- range $envKey, $cfgKey := dict
+	"ZOO_TICK_TIME" "tickTime"
+	"ZOO_INIT_LIMIT" "initLimit"
+	"ZOO_SYNC_LIMIT" "syncLimit"
+	"ZOO_PRE_ALLOC_SIZE" "preAllocSize"
+	"ZOO_SNAPCOUNT" "snapCount"
+	"ZOO_MAX_CLIENT_CNXNS" "maxClientCnxns"
+	"ZOO_MAX_SESSION_TIMEOUT" "maxSessionTimeout"
+	"ZOO_AUTOPURGE_RETAIN_COUNT" "autopurge.snapRetainCount"
+	"ZOO_AUTOPURGE_INTERVAL" "autopurge.purgeInterval"
+	"ZOO_4LW_COMMANDS_WHITELIST" "4lw.commands.whitelist" }}
+{{- with index $env $envKey }}
+{{ $cfgKey }}={{ . }}
+{{- end }}
+{{- end }}
+{{- if eq (index $env "ZOO_ENABLE_PROMETHEUS_METRICS") "yes" }}
+metricsProvider.className=org.apache.zookeeper.metrics.prometheus.PrometheusMetricsProvider
+{{- with index $env "ZOO_PROMETHEUS_METRICS_PORT_NUMBER" }}
+metricsProvider.httpPort={{ . }}
+{{- end }}
+{{- end }}
+{{- end }}
