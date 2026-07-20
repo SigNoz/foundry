@@ -1,0 +1,30 @@
+[Unit]
+Description=Apache ZooKeeper (v3.7.1)
+Requires=network-online.target
+After=time-sync.target network-online.target
+Wants=time-sync.target
+
+[Service]
+Type=simple
+User=zookeeper
+Group=zookeeper
+Restart=always
+RestartSec=30
+StateDirectory=zookeeper
+LogsDirectory=zookeeper
+Environment=ZOO_LOG_DIR=/var/log/zookeeper
+{{- with $.Spec.TelemetryKeeper.Spec.Env }}
+{{- with index . "ZOO_HEAP_SIZE" }}
+Environment=ZK_SERVER_HEAP={{ . }}
+{{- end }}
+{{- with index . "ZOO_LOG_LEVEL" }}
+Environment=ZOO_LOG4J_PROP={{ . }},CONSOLE
+{{- end }}
+{{- end }}
+{{- if $.Metadata.Annotations }}
+ExecStart={{ index $.Metadata.Annotations "foundry.signoz.io/telemetrykeeper-zookeeper-binary-path" }} start-foreground /etc/zookeeper/zoo.cfg
+{{- end }}
+LimitNOFILE=500000
+
+[Install]
+WantedBy=multi-user.target

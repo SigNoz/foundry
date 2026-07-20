@@ -81,6 +81,12 @@ func (c *systemdCasting) Cast(ctx context.Context, config installation.Casting, 
 	if err := c.initializeMetaStore(ctx, &config); err != nil {
 		return err
 	}
+	if err := c.initializeTelemetryKeeper(ctx, &config); err != nil {
+		return err
+	}
+	if err := c.initializeTelemetryStore(ctx, &config); err != nil {
+		return err
+	}
 	if err := c.startUnits(ctx, units); err != nil {
 		return err
 	}
@@ -92,6 +98,10 @@ func (c *systemdCasting) Cast(ctx context.Context, config installation.Casting, 
 func (c *systemdCasting) forgeTelemetryKeeper(cfg *installation.Casting) ([]domain.Material, error) {
 	if !cfg.Spec.TelemetryKeeper.Spec.IsEnabled() {
 		return nil, nil
+	}
+
+	if cfg.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindZookeeper {
+		return c.forgeZookeeper(cfg)
 	}
 
 	spec := &cfg.Spec.TelemetryKeeper
@@ -121,6 +131,25 @@ func (c *systemdCasting) forgeTelemetryKeeper(cfg *installation.Casting) ([]doma
 	}
 
 	return append(materials, cfgMats...), nil
+}
+
+// forgeZookeeper renders the zookeeper unit and its zoo.cfg. The config file is
+// part of the unit's materialization (the unit's ExecStart points at it), not
+// molding config, so it is tuned via patches rather than spec.config.
+func (c *systemdCasting) forgeZookeeper(cfg *installation.Casting) ([]domain.Material, error) {
+	kind := cfg.Spec.TelemetryKeeper.Kind.String()
+
+	svcMat, err := c.renderTemplate(zookeeperServiceTemplate, cfg, fmt.Sprintf("%s-telemetrykeeper-%s-0%s", cfg.Metadata.Name, kind, svcSuffix))
+	if err != nil {
+		return nil, err
+	}
+
+	cfgMat, err := c.renderTemplate(zookeeperConfigTemplate, cfg, filepath.Join("telemetrykeeper", kind, "zoo.cfg"))
+	if err != nil {
+		return nil, err
+	}
+
+	return []domain.Material{svcMat, cfgMat}, nil
 }
 
 func (c *systemdCasting) forgeTelemetryStore(cfg *installation.Casting) ([]domain.Material, error) {
@@ -296,8 +325,12 @@ func (c *systemdCasting) provision(ctx context.Context, config *installation.Cas
 	}
 	if config.Spec.TelemetryKeeper.Spec.IsEnabled() {
 		src := filepath.Join(poursPath, rootcasting.DeploymentDir, "telemetrykeeper", config.Spec.TelemetryKeeper.Kind.String())
-		if err := c.copyDir(src, "/etc/clickhouse-keeper/"); err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to copy clickhouse-keeper configs")
+		dst := "/etc/clickhouse-keeper/"
+		if config.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindZookeeper {
+			dst = "/etc/zookeeper/"
+		}
+		if err := c.copyDir(src, dst); err != nil {
+			return errors.Wrapf(err, errors.TypeInternal, "failed to copy telemetrykeeper configs")
 		}
 	}
 
@@ -353,6 +386,9 @@ func (c *systemdCasting) validateBinaries(ctx context.Context, config *installat
 	if config.Spec.TelemetryKeeper.Spec.IsEnabled() && config.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindClickhouseKeeper {
 		binaries = append(binaries, binarytooler.New("clickhouse-keeper", installation.TelemetryKeeperClickHouseKeeperBinaryPath.Resolve(annotations)))
 	}
+	if config.Spec.TelemetryKeeper.Spec.IsEnabled() && config.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindZookeeper {
+		binaries = append(binaries, binarytooler.New("zookeeper", installation.TelemetryKeeperZookeeperBinaryPath.Resolve(annotations)))
+	}
 	if config.Spec.TelemetryStore.Spec.IsEnabled() {
 		binaries = append(binaries, binarytooler.New("clickhouse", installation.TelemetryStoreClickHouseBinaryPath.Resolve(annotations)))
 	}
@@ -400,6 +436,44 @@ func (c *systemdCasting) initializeMetaStore(ctx context.Context, config *instal
 	return nil
 }
 
+// initializeTelemetryKeeper creates the keeper's service user; the data and
+// log directories are created by systemd via StateDirectory/LogsDirectory.
+func (c *systemdCasting) initializeTelemetryKeeper(ctx context.Context, config *installation.Casting) error {
+	if !config.Spec.TelemetryKeeper.Spec.IsEnabled() || config.Spec.TelemetryKeeper.Kind != installation.TelemetryKeeperKindZookeeper {
+		return nil
+	}
+
+	switch config.Spec.TelemetryKeeper.Kind {
+	case installation.TelemetryKeeperKindZookeeper:
+		return c.ensureSystemUser(ctx, "zookeeper")
+	case installation.TelemetryKeeperKindClickhouseKeeper:
+		return c.ensureSystemUser(ctx, "clickhouse")
+	}
+	return nil
+}
+
+// initializeTelemetryStore creates the clickhouse service user: binary-only
+// ClickHouse installs (tgz) do not create it. The data directory is created by
+// systemd via StateDirectory.
+func (c *systemdCasting) initializeTelemetryStore(ctx context.Context, config *installation.Casting) error {
+	if !config.Spec.TelemetryStore.Spec.IsEnabled() {
+		return nil
+	}
+	return c.ensureSystemUser(ctx, "clickhouse")
+}
+
+// ensureSystemUser creates a system user if it does not exist.
+func (c *systemdCasting) ensureSystemUser(ctx context.Context, name string) error {
+	if _, err := user.Lookup(name); err == nil {
+		return nil
+	}
+	c.logger.InfoContext(ctx, "creating user", slog.String("user", name))
+	if err := c.execCommand(ctx, "useradd", "-r", "-s", "/sbin/nologin", name); err != nil {
+		return errors.Wrapf(err, errors.TypeInternal, "failed to create %s user", name)
+	}
+	return nil
+}
+
 // initializePostgres sets up the PostgreSQL data directory.
 func (c *systemdCasting) initializePostgres(ctx context.Context, config *installation.Casting) error {
 	pgDataDir := "/usr/local/pgsql/data"
@@ -423,11 +497,8 @@ func (c *systemdCasting) initializePostgres(ctx context.Context, config *install
 
 	// A binary/tarball postgres install does not create the `postgres` system
 	// user, so the chown and `su - postgres` steps below would fail. Create it.
-	if _, err := user.Lookup("postgres"); err != nil {
-		c.logger.InfoContext(ctx, "creating postgres user")
-		if err := c.execCommand(ctx, "useradd", "-r", "-s", "/sbin/nologin", "postgres"); err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to create postgres user")
-		}
+	if err := c.ensureSystemUser(ctx, "postgres"); err != nil {
+		return err
 	}
 
 	if err := c.execCommand(ctx, "chown", "-R", "postgres:postgres", filepath.Dir(pgDataDir)); err != nil {
