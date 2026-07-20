@@ -8,7 +8,7 @@ data:
           - name: counts
             type: Array(Float64)
           - name: quantile
-            type: Array(Float64)
+            type: Float64
       command: ./histogramQuantile
       format: CSV
       name: histogramQuantile
