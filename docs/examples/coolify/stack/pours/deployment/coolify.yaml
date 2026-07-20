@@ -286,7 +286,7 @@ services:
         condition: service_completed_successfully
     environment:
     - CLICKHOUSE_SKIP_USER_SETUP=1
-    - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.yaml
+    - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config-0-0.yaml
     healthcheck:
       interval: 30s
       retries: 3
@@ -348,7 +348,7 @@ services:
                     result_rows: 0
         user_directories:
           users_xml:
-            path: users.xml
+            path: config-0-0.yaml
         remote_servers:
           cluster:
             shard:
@@ -408,7 +408,7 @@ services:
                 show_named_collection: 1
                 show_named_collection_secrets: 1
       source: ./configs/telemetrystore/config-0-0.yaml
-      target: /etc/clickhouse-server/config.yaml
+      target: /etc/clickhouse-server/config-0-0.yaml
       type: bind
     - content: |
         functions:

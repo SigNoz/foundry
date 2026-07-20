@@ -49,7 +49,7 @@ Each row is a valid combination. Mixing values across rows is not supported.
 
 ## Molding spec
 
-Each molding (`signoz`, `ingester`, `telemetrystore`, `telemetrykeeper`) accepts a `spec` block:
+Each molding (`signoz`, `ingester`, `telemetrystore`, `telemetrykeeper`, `mcp`) accepts a `spec` block:
 
 ```yaml
 <molding>:
@@ -108,6 +108,18 @@ spec:
 | --- | --- | --- |
 | `postgres` | PostgreSQL | Default. Recommended for production. |
 | `sqlite` | SQLite | Embedded, single-node only. |
+
+## MCP
+
+The SigNoz [MCP server](../concepts/mcp-server.md) is optional and disabled by default.
+
+```yaml
+spec:
+  mcp:
+    spec: <molding-spec>
+```
+
+Set `spec.mcp.spec.enabled: true` to deploy it. The server listens on port `8000` and is pointed at the deployed SigNoz API server automatically.
 
 ## Patches
 

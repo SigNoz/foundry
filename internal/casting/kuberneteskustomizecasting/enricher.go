@@ -16,6 +16,7 @@ const (
 	telemetryKeeperClientPort = 9181
 	telemetryKeeperRaftPort   = 9234
 	signozOpampPort           = 4320
+	signozAPIServerPort       = 8080
 )
 
 var _ molding.MoldingEnricher = (*kustomizeMoldingEnricher)(nil)
@@ -108,6 +109,7 @@ func (e *kustomizeMoldingEnricher) enrichMetaStore(config *installation.Casting)
 
 func (e *kustomizeMoldingEnricher) enrichSignoz(config *installation.Casting) error {
 	name := config.Metadata.Name + "-signoz"
+	config.Spec.Signoz.Status.Addresses.APIServer = []string{domain.MustNewAddress("tcp", name, signozAPIServerPort).String()}
 	config.Spec.Signoz.Status.Addresses.Opamp = []string{domain.MustNewAddress("ws", name, signozOpampPort).String()}
 	return nil
 }

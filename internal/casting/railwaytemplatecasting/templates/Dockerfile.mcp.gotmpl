@@ -1,0 +1,6 @@
+FROM {{ $.Spec.MCP.Spec.Image }}
+
+
+{{- range $key, $value := $.Spec.MCP.Spec.Env }}
+ENV {{ $key }}={{ $value }}
+{{- end }}
