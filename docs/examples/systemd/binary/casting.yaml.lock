@@ -7,7 +7,6 @@ metadata:
     foundry.signoz.io/metastore-postgres-binary-path: /usr/bin/postgres
     foundry.signoz.io/signoz-binary-path: /opt/signoz/bin/signoz
     foundry.signoz.io/telemetrykeeper-clickhousekeeper-binary-path: /usr/bin/clickhouse
-    foundry.signoz.io/telemetrykeeper-zookeeper-binary-path: /opt/zookeeper/bin/zkServer.sh
     foundry.signoz.io/telemetrystore-clickhouse-binary-path: /usr/bin/clickhouse
   name: signoz
 spec:
