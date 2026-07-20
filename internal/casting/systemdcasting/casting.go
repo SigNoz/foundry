@@ -84,6 +84,9 @@ func (c *systemdCasting) Cast(ctx context.Context, config installation.Casting, 
 	if err := c.initializeTelemetryKeeper(ctx, &config); err != nil {
 		return err
 	}
+	if err := c.initializeTelemetryStore(ctx, &config); err != nil {
+		return err
+	}
 	if err := c.startUnits(ctx, units); err != nil {
 		return err
 	}
@@ -433,18 +436,40 @@ func (c *systemdCasting) initializeMetaStore(ctx context.Context, config *instal
 	return nil
 }
 
-// initializeTelemetryKeeper creates the zookeeper service user; the data and
+// initializeTelemetryKeeper creates the keeper's service user; the data and
 // log directories are created by systemd via StateDirectory/LogsDirectory.
 func (c *systemdCasting) initializeTelemetryKeeper(ctx context.Context, config *installation.Casting) error {
 	if !config.Spec.TelemetryKeeper.Spec.IsEnabled() || config.Spec.TelemetryKeeper.Kind != installation.TelemetryKeeperKindZookeeper {
 		return nil
 	}
 
-	if _, err := user.Lookup("zookeeper"); err != nil {
-		c.logger.InfoContext(ctx, "creating zookeeper user")
-		if err := c.execCommand(ctx, "useradd", "-r", "-s", "/sbin/nologin", "zookeeper"); err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to create zookeeper user")
-		}
+	switch config.Spec.TelemetryKeeper.Kind {
+	case installation.TelemetryKeeperKindZookeeper:
+		return c.ensureSystemUser(ctx, "zookeeper")
+	case installation.TelemetryKeeperKindClickhouseKeeper:
+		return c.ensureSystemUser(ctx, "clickhouse")
+	}
+	return nil
+}
+
+// initializeTelemetryStore creates the clickhouse service user: binary-only
+// ClickHouse installs (tgz) do not create it. The data directory is created by
+// systemd via StateDirectory.
+func (c *systemdCasting) initializeTelemetryStore(ctx context.Context, config *installation.Casting) error {
+	if !config.Spec.TelemetryStore.Spec.IsEnabled() {
+		return nil
+	}
+	return c.ensureSystemUser(ctx, "clickhouse")
+}
+
+// ensureSystemUser creates a system user if it does not exist.
+func (c *systemdCasting) ensureSystemUser(ctx context.Context, name string) error {
+	if _, err := user.Lookup(name); err == nil {
+		return nil
+	}
+	c.logger.InfoContext(ctx, "creating user", slog.String("user", name))
+	if err := c.execCommand(ctx, "useradd", "-r", "-s", "/sbin/nologin", name); err != nil {
+		return errors.Wrapf(err, errors.TypeInternal, "failed to create %s user", name)
 	}
 	return nil
 }
@@ -472,11 +497,8 @@ func (c *systemdCasting) initializePostgres(ctx context.Context, config *install
 
 	// A binary/tarball postgres install does not create the `postgres` system
 	// user, so the chown and `su - postgres` steps below would fail. Create it.
-	if _, err := user.Lookup("postgres"); err != nil {
-		c.logger.InfoContext(ctx, "creating postgres user")
-		if err := c.execCommand(ctx, "useradd", "-r", "-s", "/sbin/nologin", "postgres"); err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to create postgres user")
-		}
+	if err := c.ensureSystemUser(ctx, "postgres"); err != nil {
+		return err
 	}
 
 	if err := c.execCommand(ctx, "chown", "-R", "postgres:postgres", filepath.Dir(pgDataDir)); err != nil {

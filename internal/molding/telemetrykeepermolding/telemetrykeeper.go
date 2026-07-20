@@ -82,10 +82,6 @@ func (molding *telemetrykeeper) moldZookeeper(_ context.Context, config *install
 		config.Spec.TelemetryKeeper.Status.Env = make(map[string]string)
 	}
 
-	// The production zookeeper settings, matching the signoz helm chart and the
-	// deprecated deploy/ compose (which set the first five and left the rest at
-	// the same bitnami defaults). Castings translate these to their platform's
-	// form; bitnami images consume them directly.
 	env := config.Spec.TelemetryKeeper.Status.Env
 	env["ALLOW_ANONYMOUS_LOGIN"] = "yes"
 	env["ZOO_AUTOPURGE_INTERVAL"] = "1"
