@@ -53,9 +53,10 @@ The compose file gains a `signoz-mcp` service on port `8000`, with its env fille
     - SIGNOZ_URL=http://signoz-signoz-0:8080   # the in-network SigNoz apiserver
     ports:
     - "8000:8000"
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8000/livez"]
 ```
+
+The service inherits the MCP image's own Docker healthcheck. Foundry does not
+override it with a command that may be absent from a minimal runtime image.
 
 Verify it is up:
 

@@ -1,19 +1,10 @@
-package dockercomposecasting
+package dockerswarmcasting
 
 import (
-	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
-
-func TestNotEmptyAndValid(t *testing.T) {
-	assert.NotEmpty(t, composeYAMLTemplate)
-	buf := bytes.NewBuffer(nil)
-	err := composeYAMLTemplate.Execute(buf, nil)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, buf.String())
-}
 
 func TestMCPServiceInheritsItsImageHealthcheck(t *testing.T) {
 	source, err := templates.ReadFile("templates/compose.yaml.gotmpl")
