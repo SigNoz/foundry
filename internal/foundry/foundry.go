@@ -14,8 +14,6 @@ import (
 	"github.com/signoz/foundry/internal/config"
 	"github.com/signoz/foundry/internal/config/yamlconfig"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
-	"github.com/signoz/foundry/internal/infrastructure"
-	terraformgenerator "github.com/signoz/foundry/internal/infrastructure/terraform"
 	"github.com/signoz/foundry/internal/patch"
 	"github.com/signoz/foundry/internal/patch/jsonpatch"
 	"github.com/signoz/foundry/internal/planner"
@@ -35,9 +33,6 @@ type Foundry struct {
 
 	// Planners for the different casting kinds.
 	Planners map[v1alpha1.Kind]plannerCtor
-
-	// InfrastructureGenerator for generating infrastructure-as-code manifests.
-	InfrastructureGenerator infrastructure.Generator
 }
 
 func New(logger *slog.Logger) (*Foundry, error) {
@@ -58,7 +53,6 @@ func New(logger *slog.Logger) (*Foundry, error) {
 				return infrastructurecasting.NewPlanner(ctx, m.(*infrastructurev1alpha1.Casting), logger)
 			},
 		},
-		InfrastructureGenerator: terraformgenerator.New(logger),
 	}, nil
 }
 
