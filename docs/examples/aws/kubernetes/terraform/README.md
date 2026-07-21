@@ -36,11 +36,9 @@ spec:
     flavor: terraform
   resource:
     kind: Installation
-    spec:
-      name: signoz
 ```
 
-`spec.resource` declares the kind of resource the substrate serves and the name of the casting embodying it. It is a declaration, not a reference: nothing is read from the installation's casting.
+`spec.resource` declares the kind of resource the substrate serves. It is a declaration, not a reference: the installation owns the binding and nothing is read from its casting.
 
 ## Deploy
 

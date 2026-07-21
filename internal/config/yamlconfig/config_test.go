@@ -393,8 +393,6 @@ spec:
     flavor: terraform
   resource:
     kind: Installation
-    spec:
-      name: signoz
 `,
 			expectedResource: infrastructure.ResourceKindInstallation,
 			pass:             true,
@@ -428,8 +426,6 @@ spec:
     flavor: terraform
   resource:
     kind: Infrastructure
-    spec:
-      name: signoz
 `,
 			pass: false,
 		},
@@ -445,9 +441,7 @@ spec:
     platform: ecs
     mode: ec2
     flavor: terraform
-  resource:
-    spec:
-      name: signoz
+  resource: {}
 `,
 			pass: false,
 		},
@@ -473,7 +467,6 @@ spec:
 			}
 			assert.Equal(t, v1alpha1.KindInfrastructure, casting.Kind())
 			assert.Equal(t, tt.expectedResource, casting.Spec.Resource.Kind)
-			assert.Equal(t, "signoz", casting.Spec.Resource.Spec.Name)
 		})
 	}
 }

@@ -9,9 +9,6 @@ spec:
     platform: aws
   resource:
     kind: Installation
-    spec:
-      apiVersion: v1alpha1
-      name: signoz
     status:
       addresses:
         apiserver:

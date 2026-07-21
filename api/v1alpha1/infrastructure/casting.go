@@ -30,15 +30,7 @@ func Default() *Casting {
 			Kind:        v1alpha1.KindInfrastructure,
 			Metadata:    v1alpha1.TypeMetadata{Name: "signoz"},
 		},
-		Spec: Spec{
-			Resource: Resource{
-				Spec: ResourceSpec{
-					TypeCastingRefSpec: v1alpha1.TypeCastingRefSpec{
-						TypeVersion: v1alpha1.TypeVersion{APIVersion: "v1alpha1"},
-					},
-				},
-			},
-		},
+		Spec: Spec{},
 	}
 }
 

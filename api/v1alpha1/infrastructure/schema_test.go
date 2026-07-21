@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -22,7 +21,6 @@ func TestSchemaValidate(t *testing.T) {
 			name: "InstallationResource_Valid",
 			mutate: func(casting *Casting) {
 				casting.Spec.Resource.Kind = ResourceKindInstallation
-				casting.Spec.Resource.Spec.Name = "signoz"
 			},
 			pass: true,
 		},
@@ -30,40 +28,13 @@ func TestSchemaValidate(t *testing.T) {
 			name: "CollectionAgentResource_Valid",
 			mutate: func(casting *Casting) {
 				casting.Spec.Resource.Kind = ResourceKindCollectionAgent
-				casting.Spec.Resource.Spec.Name = "signoz-gateway"
 			},
 			pass: true,
 		},
 		{
-			name:   "ResourceMissing_Invalid",
+			name:   "ResourceKindMissing_Invalid",
 			mutate: func(casting *Casting) {},
 			pass:   false,
-		},
-		{
-			name: "ResourceKindMissing_Invalid",
-			mutate: func(casting *Casting) {
-				casting.Spec.Resource.Spec.Name = "signoz"
-			},
-			pass: false,
-		},
-		{
-			name: "ResourceNameMissing_Invalid",
-			mutate: func(casting *Casting) {
-				casting.Spec.Resource.Kind = ResourceKindInstallation
-			},
-			pass: false,
-		},
-		{
-			name: "ResourceAPIVersionMissing_Invalid",
-			mutate: func(casting *Casting) {
-				casting.Spec.Resource = Resource{
-					Kind: ResourceKindInstallation,
-					Spec: ResourceSpec{
-						TypeCastingRefSpec: v1alpha1.TypeCastingRefSpec{Name: "signoz"},
-					},
-				}
-			},
-			pass: false,
 		},
 	}
 

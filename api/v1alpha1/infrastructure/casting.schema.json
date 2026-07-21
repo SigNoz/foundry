@@ -9,8 +9,7 @@
   "definitions": {
     "InfrastructureResource": {
       "required": [
-        "kind",
-        "spec"
+        "kind"
       ],
       "additionalProperties": false,
       "properties": {
@@ -20,10 +19,6 @@
           "examples": [
             "Installation"
           ]
-        },
-        "spec": {
-          "$ref": "#/definitions/InfrastructureResourceSpec",
-          "description": "Specification for the resource"
         },
         "status": {
           "$ref": "#/definitions/InfrastructureResourceStatus",
@@ -38,33 +33,6 @@
         "CollectionAgent"
       ],
       "type": "string"
-    },
-    "InfrastructureResourceSpec": {
-      "required": [
-        "apiVersion",
-        "name"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "apiVersion": {
-          "description": "API Version of the configuration schema.",
-          "default": "v1alpha1",
-          "examples": [
-            "v1alpha1"
-          ],
-          "enum": [
-            "v1alpha1"
-          ],
-          "type": "string"
-        },
-        "name": {
-          "description": "Name of the referenced casting.",
-          "maxLength": 63,
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-          "type": "string"
-        }
-      },
-      "type": "object"
     },
     "InfrastructureResourceStatus": {
       "additionalProperties": false,

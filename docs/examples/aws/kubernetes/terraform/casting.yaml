@@ -9,5 +9,3 @@ spec:
     flavor: terraform
   resource:
     kind: Installation
-    spec:
-      name: signoz
