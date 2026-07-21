@@ -19,24 +19,19 @@ processors:
   batch: {}
 
 exporters:
-  otlphttp:
-    endpoint: ${env:SIGNOZ_INGESTION_ENDPOINT}
-{{- if .IngestionKey }}
-    headers:
-      signoz-ingestion-key: ${env:SIGNOZ_INGESTION_KEY}
-{{- end }}
+  otlphttp/signoz: {}
 
 service:
   pipelines:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, resourcedetection, batch]
-      exporters: [otlphttp]
+      exporters: [otlphttp/signoz]
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, resourcedetection, batch]
-      exporters: [otlphttp]
+      exporters: [otlphttp/signoz]
     logs:
       receivers: [otlp]
       processors: [memory_limiter, resourcedetection, batch]
-      exporters: [otlphttp]
+      exporters: [otlphttp/signoz]

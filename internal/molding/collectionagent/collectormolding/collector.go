@@ -41,7 +41,6 @@ var listTypes = domain.ListTypes{
 // at the kind's config key.
 func (m *collector) MoldV1Alpha1(ctx context.Context, config *collectionagent.Casting) error {
 	kind := config.Spec.Collector.Kind
-	spec := &config.Spec.Collector.Spec
 	status := &config.Spec.Collector.Status
 
 	var tmpl *domain.Template
@@ -52,12 +51,8 @@ func (m *collector) MoldV1Alpha1(ctx context.Context, config *collectionagent.Ca
 		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported collector kind %q", kind)
 	}
 
-	if spec.Env["SIGNOZ_INGESTION_ENDPOINT"] == "" {
-		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "collector molding requires SIGNOZ_INGESTION_ENDPOINT in spec.collector.spec.env")
-	}
-
 	base := bytes.NewBuffer(nil)
-	if err := tmpl.Execute(base, struct{ IngestionKey bool }{IngestionKey: spec.Env["SIGNOZ_INGESTION_KEY"] != ""}); err != nil {
+	if err := tmpl.Execute(base, nil); err != nil {
 		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to render base collector config")
 	}
 
