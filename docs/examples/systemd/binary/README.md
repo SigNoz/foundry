@@ -38,10 +38,11 @@ curl -fsSL "https://github.com/SigNoz/signoz-mcp-server/releases/latest/download
 > [!IMPORTANT]
 > Extract the **full** SigNoz tarball; do not move the `signoz` binary on its own. It loads the web UI and email/alert templates relative to itself, so `bin/`, `web/`, `templates/`, and `conf/` must stay together.
 
-ClickHouse and PostgreSQL are installed from their own packages:
+ClickHouse, PostgreSQL, and ZooKeeper are installed from their own packages:
 
 - [ClickHouse](https://clickhouse.com/docs/install): one `clickhouse` binary serves both the telemetry store and the keeper
 - [PostgreSQL](https://www.postgresql.org/download/): only when `metastore.kind` is `postgres`
+- [Apache ZooKeeper](https://zookeeper.apache.org/releases.html): only when `telemetrykeeper.kind` is `zookeeper`; extract the release to `/opt/zookeeper` and install a Java runtime
 
 ## Configuration
 
@@ -135,6 +136,7 @@ Set an annotation only when a binary is installed outside its default location.
 | `foundry.signoz.io/metastore-postgres-binary-path` | `/usr/bin/postgres` | PostgreSQL (its directory must also hold `initdb`) |
 | `foundry.signoz.io/telemetrystore-clickhouse-binary-path` | `/usr/bin/clickhouse` | ClickHouse, run as `clickhouse server` |
 | `foundry.signoz.io/telemetrykeeper-clickhousekeeper-binary-path` | `/usr/bin/clickhouse` | ClickHouse, run as `clickhouse keeper` |
+| `foundry.signoz.io/telemetrykeeper-zookeeper-binary-path` | `/opt/zookeeper/bin/zkServer.sh` | Apache ZooKeeper, run as `zkServer.sh start-foreground` (needs Java) |
 | `foundry.signoz.io/mcp-binary-path` | `/opt/mcp/bin/signoz-mcp-server` | SigNoz MCP server |
 
 ```yaml

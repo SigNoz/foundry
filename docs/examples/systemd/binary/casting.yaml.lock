@@ -7,6 +7,7 @@ metadata:
     foundry.signoz.io/metastore-postgres-binary-path: /usr/bin/postgres
     foundry.signoz.io/signoz-binary-path: /opt/signoz/bin/signoz
     foundry.signoz.io/telemetrykeeper-clickhousekeeper-binary-path: /usr/bin/clickhouse
+    foundry.signoz.io/telemetrykeeper-zookeeper-binary-path: /opt/zookeeper/bin/zkServer.sh
     foundry.signoz.io/telemetrystore-clickhouse-binary-path: /usr/bin/clickhouse
   name: signoz
 spec:
@@ -523,7 +524,7 @@ spec:
             zookeeper_log:
                 ttl: "event_date + INTERVAL 1 DAY DELETE"
             tcp_port: 9000
-            user_defined_executable_functions_config: '*function.yaml'
+            user_defined_executable_functions_config: '*functions.yaml'
             user_scripts_path: /var/lib/clickhouse/user_scripts/
             users:
                 default:
@@ -544,7 +545,7 @@ spec:
                   - name: counts
                     type: Array(Float64)
                   - name: quantile
-                    type: Array(Float64)
+                    type: Float64
               command: ./histogramQuantile
               format: CSV
               name: histogramQuantile
@@ -643,7 +644,7 @@ spec:
             zookeeper_log:
                 ttl: "event_date + INTERVAL 1 DAY DELETE"
             tcp_port: 9000
-            user_defined_executable_functions_config: '*function.yaml'
+            user_defined_executable_functions_config: '*functions.yaml'
             user_scripts_path: /var/lib/clickhouse/user_scripts/
             users:
                 default:
@@ -664,7 +665,7 @@ spec:
                   - name: counts
                     type: Array(Float64)
                   - name: quantile
-                    type: Array(Float64)
+                    type: Float64
               command: ./histogramQuantile
               format: CSV
               name: histogramQuantile

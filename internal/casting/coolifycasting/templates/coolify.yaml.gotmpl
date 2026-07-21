@@ -142,10 +142,12 @@ services:
   {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}:
     image: {{ $.Spec.MetaStore.Spec.Image }}
+    {{- if $.Spec.MetaStore.Spec.Env }}
     environment:
-      - POSTGRES_USER=signoz
-      - POSTGRES_PASSWORD=signoz
-      - POSTGRES_DB=signoz
+      {{- range $key, $value := $.Spec.MetaStore.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    {{- end }}
     healthcheck:
       test:
         - CMD-SHELL

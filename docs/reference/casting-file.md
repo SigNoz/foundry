@@ -195,4 +195,4 @@ Required when using `platform: ecs`, `mode: ec2`, `flavor: terraform`.
 
 ## Schema
 
-The full JSON Schema for `casting.yaml` is available at [`docs/schemas/v1alpha1.yaml`](../schemas/v1alpha1.yaml).
+The full JSON Schema for `casting.yaml` is available at [`docs/schemas/v1alpha1.yaml`](../../api/v1alpha1/casting.schema.json)

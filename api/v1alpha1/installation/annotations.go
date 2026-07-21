@@ -37,6 +37,12 @@ var (
 		Mode:        v1alpha1.ModeSystemd,
 		Description: "Absolute path to the ClickHouse binary, run as `clickhouse keeper`.",
 	}
+	TelemetryKeeperZookeeperBinaryPath = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/telemetrykeeper-zookeeper-binary-path",
+		Default:     "/opt/zookeeper/bin/zkServer.sh",
+		Mode:        v1alpha1.ModeSystemd,
+		Description: "Absolute path to the Apache ZooKeeper zkServer.sh script; requires a Java runtime on the host.",
+	}
 	MCPBinaryPath = v1alpha1.Annotation{
 		Key:         "foundry.signoz.io/mcp-binary-path",
 		Default:     "/opt/mcp/bin/signoz-mcp-server",
@@ -53,6 +59,7 @@ func Annotations() []v1alpha1.Annotation {
 		MetaStorePostgresBinaryPath,
 		TelemetryStoreClickHouseBinaryPath,
 		TelemetryKeeperClickHouseKeeperBinaryPath,
+		TelemetryKeeperZookeeperBinaryPath,
 		MCPBinaryPath,
 	}
 }
