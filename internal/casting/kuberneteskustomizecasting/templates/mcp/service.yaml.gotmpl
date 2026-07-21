@@ -1,0 +1,21 @@
+{{- $name := print $.Metadata.Name "-mcp" -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $.Metadata.Name }}
+    app.kubernetes.io/component: mcp
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8000
+      protocol: TCP
+      targetPort: http
+  selector:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $.Metadata.Name }}
+    app.kubernetes.io/component: mcp

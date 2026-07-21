@@ -129,6 +129,20 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config installation.
 		materials = append(materials, domain.NewBlobMaterial(railwayBuf.Bytes(), filepath.Join(casting.DeploymentDir, "signoz/railway.json")))
 	}
 
+	// MCP: Dockerfile + railway.json
+	if config.Spec.MCP.Spec.IsEnabled() {
+		dockerfileBuf := bytes.NewBuffer(nil)
+		if err := mcpDockerfileTemplate.Execute(dockerfileBuf, config); err != nil {
+			return nil, errors.Wrapf(err, errors.TypeInternal, "mcp dockerfile")
+		}
+		materials = append(materials, domain.NewBlobMaterial(dockerfileBuf.Bytes(), filepath.Join(casting.DeploymentDir, "mcp/Dockerfile")))
+		railwayBuf := bytes.NewBuffer(nil)
+		if err := railwayMCPTemplate.Execute(railwayBuf, config); err != nil {
+			return nil, errors.Wrapf(err, errors.TypeInternal, "mcp railway.json")
+		}
+		materials = append(materials, domain.NewBlobMaterial(railwayBuf.Bytes(), filepath.Join(casting.DeploymentDir, "mcp/railway.json")))
+	}
+
 	// TelemetryStore migrator: Dockerfile + railway.json
 	if config.Spec.TelemetryStore.Spec.IsEnabled() {
 		dockerfileBuf := bytes.NewBuffer(nil)

@@ -343,7 +343,8 @@ spec:
       version: latest
     status:
       addresses:
-        apiserver: null
+        apiserver:
+        - tcp://signoz-signoz:8080
         opamp:
         - ws://signoz-signoz:4320
       config: {}
