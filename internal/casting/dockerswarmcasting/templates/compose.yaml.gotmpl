@@ -231,17 +231,6 @@ services:
       replicas: {{ int $.Spec.MCP.Spec.Cluster.Replicas }}
       restart_policy:
         condition: on-failure
-    healthcheck:
-      test:
-      - "CMD"
-      - "wget"
-      - "--spider"
-      - "-q"
-      - "http://localhost:8000/livez"
-      interval: 10s
-      timeout: 1s
-      retries: 5
-      start_period: 10s
   {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-migrator:
     image: {{ $.Spec.Ingester.Spec.Image }}
