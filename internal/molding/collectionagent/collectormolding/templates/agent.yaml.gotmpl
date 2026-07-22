@@ -1,8 +1,16 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+    path: /healthz
+
 receivers:
-  otlp:
+  otlp/grpc:
     protocols:
       grpc:
         endpoint: 0.0.0.0:4317
+        max_recv_msg_size_mib: 16
+  otlp/http:
+    protocols:
       http:
         endpoint: 0.0.0.0:4318
 
@@ -23,16 +31,25 @@ exporters:
     endpoint: ${env:SIGNOZ_INGESTION_ENDPOINT}
 
 service:
+  extensions: [health_check]
+  telemetry:
+    metrics:
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
   pipelines:
     traces:
-      receivers: [otlp]
+      receivers: [otlp/http, otlp/grpc]
       processors: [memory_limiter, resourcedetection, batch]
       exporters: [otlphttp/signoz]
     metrics:
-      receivers: [otlp]
+      receivers: [otlp/http, otlp/grpc]
       processors: [memory_limiter, resourcedetection, batch]
       exporters: [otlphttp/signoz]
     logs:
-      receivers: [otlp]
+      receivers: [otlp/http, otlp/grpc]
       processors: [memory_limiter, resourcedetection, batch]
       exporters: [otlphttp/signoz]

@@ -53,7 +53,7 @@ func agentPipelines(t *testing.T, c *collectionagent.Casting) map[string]pipelin
 // in per listTypes.
 func TestMoldAgent(t *testing.T) {
 	base := pipeline{
-		Receivers:  []string{"otlp"},
+		Receivers:  []string{"otlp/http", "otlp/grpc"},
 		Processors: []string{"memory_limiter", "resourcedetection", "batch"},
 		Exporters:  []string{"otlphttp/signoz"},
 	}
@@ -71,7 +71,7 @@ func TestMoldAgent(t *testing.T) {
 			name:         "ReceiverDelta_RestoresBaseAndUnions",
 			contribution: "service:\n  pipelines:\n    metrics:\n      receivers: [docker_stats]\n",
 			expected: map[string]pipeline{
-				"metrics": {Receivers: []string{"otlp", "docker_stats"}, Processors: base.Processors, Exporters: base.Exporters},
+				"metrics": {Receivers: []string{"otlp/http", "otlp/grpc", "docker_stats"}, Processors: base.Processors, Exporters: base.Exporters},
 				"traces":  base,
 			},
 		},
