@@ -43,17 +43,17 @@ func TestEnrichStatusAgentContribution(t *testing.T) {
 		{
 			name:              "Metrics_UnionsDockerAndHost",
 			pipeline:          "metrics",
-			expectedReceivers: []any{"otlp", "docker_stats", "hostmetrics"},
+			expectedReceivers: []any{"otlp/http", "otlp/grpc", "docker_stats", "hostmetrics"},
 		},
 		{
 			name:              "Logs_UnionsFilelog",
 			pipeline:          "logs",
-			expectedReceivers: []any{"otlp", "filelog"},
+			expectedReceivers: []any{"otlp/http", "otlp/grpc", "filelog"},
 		},
 		{
 			name:              "Traces_BaseOnly",
 			pipeline:          "traces",
-			expectedReceivers: []any{"otlp"},
+			expectedReceivers: []any{"otlp/http", "otlp/grpc"},
 		},
 	}
 
