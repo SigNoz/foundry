@@ -3,7 +3,8 @@ services:
   collector-{{ .Spec.Collector.Kind }}:
     image: {{ .Spec.Collector.Spec.Image }}
     command: ["--config=/etc/{{ .Spec.Collector.Kind.ConfigKey }}"]
-    user: "0"
+    user: "0:0"
+    network_mode: host
     volumes:
       - ./{{ .Spec.Collector.Kind.ConfigKey }}:/etc/{{ .Spec.Collector.Kind.ConfigKey }}:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -15,9 +16,6 @@ services:
       {{ $key }}: {{ $value | quote }}
       {{- end }}
     {{- end }}
-    ports:
-      - "4317:4317"
-      - "4318:4318"
     deploy:
       replicas: {{ derefIntDefault .Spec.Collector.Spec.Cluster.Replicas 1 }}
     restart: unless-stopped

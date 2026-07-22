@@ -1,7 +1,27 @@
 receivers:
   docker_stats:
     endpoint: unix:///var/run/docker.sock
+    metrics:
+      container.cpu.utilization:
+        enabled: true
+      container.memory.percent:
+        enabled: true
+      container.memory.usage.limit:
+        enabled: true
+      container.memory.usage.total:
+        enabled: true
+      container.network.io.usage.rx_bytes:
+        enabled: true
+      container.network.io.usage.tx_bytes:
+        enabled: true
+      container.network.io.usage.rx_dropped:
+        enabled: true
+      container.network.io.usage.tx_dropped:
+        enabled: true
+      container.blockio.io_service_bytes_recursive:
+        enabled: true
   hostmetrics:
+    collection_interval: 60s
     root_path: /hostfs
     scrapers:
       cpu: {}
@@ -10,9 +30,13 @@ receivers:
       filesystem: {}
       network: {}
       load: {}
+      paging: {}
+      process: {}
+      processes: {}
   filelog:
     include:
       - /var/lib/docker/containers/*/*-json.log
+    start_at: end
     operators:
       - type: container
         format: docker
@@ -23,6 +47,7 @@ processors:
       - env
       - system
       - docker
+    timeout: 2s
 
 service:
   pipelines:

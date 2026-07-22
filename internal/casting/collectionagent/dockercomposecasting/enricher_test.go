@@ -72,15 +72,21 @@ func TestEnrichStatusAgentContributionBodies(t *testing.T) {
 	// The docker detector rides a full detectors list: bodies replace.
 	resourcedetection := config["processors"].(map[string]any)["resourcedetection"].(map[string]any)
 	assert.Equal(t, []any{"env", "system", "docker"}, resourcedetection["detectors"])
-	assert.Equal(t, "5s", resourcedetection["timeout"], "base body keys survive the merge")
+	assert.Equal(t, "2s", resourcedetection["timeout"])
 
 	// Scraper keys must survive the merge: null-valued keys would be stripped
 	// by the merge patch, so the contribution writes them as empty maps.
 	hostmetrics := config["receivers"].(map[string]any)["hostmetrics"].(map[string]any)
 	scrapers := hostmetrics["scrapers"].(map[string]any)
-	for _, scraper := range []string{"cpu", "memory", "disk", "filesystem", "network", "load"} {
+	for _, scraper := range []string{"cpu", "memory", "disk", "filesystem", "network", "load", "paging", "process", "processes"} {
 		assert.Contains(t, scrapers, scraper)
 	}
+
+	// The agent stays stateless: filelog starts at the end instead of
+	// checkpointing offsets into a state volume.
+	filelog := config["receivers"].(map[string]any)["filelog"].(map[string]any)
+	assert.Equal(t, "end", filelog["start_at"])
+	assert.NotContains(t, filelog, "storage")
 }
 
 func TestEnrichStatusNonAgentNoContribution(t *testing.T) {
