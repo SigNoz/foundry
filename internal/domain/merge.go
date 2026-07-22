@@ -10,8 +10,7 @@ import (
 )
 
 // ListType mirrors Kubernetes' listType marker: how a list merges when base
-// and override both define one at the same path. The variant carries its own
-// merge func, so adding one is a single var entry. Set and Ordered assume
+// and override both define one at the same path. Set and Ordered assume
 // scalar elements and degrade to Atomic on a list of maps.
 type ListType struct {
 	name  string
@@ -29,9 +28,7 @@ var (
 	ListTypeSet = ListType{name: "set", merge: mergeSet}
 
 	// ListTypeOrdered keeps base order and inserts override's new elements
-	// before the terminal one. A foundry extension: Kubernetes orders merged
-	// lists with patch directives, foundry overrides are bare deltas, so
-	// order-significant scalar lists declare it in the schema instead.
+	// before the terminal one; a foundry extension beyond Kubernetes' listType.
 	ListTypeOrdered = ListType{name: "ordered", merge: mergeOrdered}
 )
 
@@ -41,12 +38,11 @@ var (
 type ListTypes map[string]ListType
 
 // StrategicMergeYAML deep-merges the override YAML onto the base YAML the way
-// Kubernetes' strategic merge patch works. The override is an RFC 7386 merge
-// patch; the engine first computes the effective patch — lists at declared
-// paths are merged with the base's per their list type and written back into
-// the patch — then applies it with plain RFC 7386 semantics (override wins at
-// each leaf, base-only keys survive, a null in override deletes the key,
-// undeclared lists are replaced). A nil listTypes applies the override as-is.
+// Kubernetes' strategic merge patch works: the effective patch is computed
+// first (lists at declared paths merge with the base's per their list type),
+// then applied with plain RFC 7386 semantics (override wins at each leaf,
+// base-only keys survive, a null in override deletes the key, undeclared
+// lists are replaced). A nil listTypes applies the override as-is.
 func StrategicMergeYAML(base, override string, listTypes ListTypes) (string, error) {
 	var baseMap map[string]any
 	if err := kyaml.Unmarshal([]byte(base), &baseMap); err != nil {
@@ -91,8 +87,7 @@ func StrategicMergeYAML(base, override string, listTypes ListTypes) (string, err
 // resolvePatch computes the effective merge patch in place: where the base and
 // the patch both hold a list at a declared path, the patch gets the list
 // merged per its declared type, so the RFC 7386 replace that follows lands the
-// resolved list. Construction is driven by the declared paths, descending only
-// along their segments, never walking the documents.
+// resolved list.
 func resolvePatch(base, patch map[string]any, listTypes ListTypes) {
 	for pattern, listType := range listTypes {
 		segments := strings.Split(pattern, ".")

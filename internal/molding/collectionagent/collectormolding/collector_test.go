@@ -18,8 +18,7 @@ type pipeline struct {
 	Exporters  []string `json:"exporters"`
 }
 
-// newCasting builds a CollectionAgent casting for the given collector kind,
-// with an optional enricher contribution already stamped at the config key.
+// newCasting stamps the optional enricher contribution at the kind's config key.
 func newCasting(t *testing.T, kind collectionagent.CollectorKind, contribution string) *collectionagent.Casting {
 	t.Helper()
 	c := collectionagent.Default()
@@ -30,7 +29,6 @@ func newCasting(t *testing.T, kind collectionagent.CollectorKind, contribution s
 	return c
 }
 
-// moldOutput molds c and returns the rendered agent config.
 func moldOutput(t *testing.T, c *collectionagent.Casting) string {
 	t.Helper()
 	require.NoError(t, New(slog.Default()).MoldV1Alpha1(context.Background(), c))
@@ -39,7 +37,6 @@ func moldOutput(t *testing.T, c *collectionagent.Casting) string {
 	return out
 }
 
-// agentPipelines molds c and returns the rendered config's service pipelines.
 // sigs.k8s.io/yaml routes through JSON, so json tags.
 func agentPipelines(t *testing.T, c *collectionagent.Casting) map[string]pipeline {
 	t.Helper()
@@ -52,9 +49,8 @@ func agentPipelines(t *testing.T, c *collectionagent.Casting) map[string]pipelin
 	return cfg.Service.Pipelines
 }
 
-// TestMoldAgent composes the enricher's contribution onto the base config: base
-// pipeline members are restored and the contribution's additions merged in per
-// listMergeStrategy.
+// Base pipeline members are restored and the contribution's additions merge
+// in per listTypes.
 func TestMoldAgent(t *testing.T) {
 	base := pipeline{
 		Receivers:  []string{"otlp"},
@@ -100,7 +96,6 @@ func TestMoldAgent(t *testing.T) {
 	}
 }
 
-// TestMoldAgentErrors covers the molding's input validation.
 func TestMoldAgentErrors(t *testing.T) {
 	tests := []struct {
 		name         string

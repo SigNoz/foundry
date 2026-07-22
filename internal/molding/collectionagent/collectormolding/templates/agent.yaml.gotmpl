@@ -19,7 +19,8 @@ processors:
   batch: {}
 
 exporters:
-  otlphttp/signoz: {}
+  otlphttp/signoz:
+    endpoint: ${env:SIGNOZ_INGESTION_ENDPOINT}
 
 service:
   pipelines:

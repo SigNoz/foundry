@@ -27,7 +27,7 @@ type TypeConfig struct {
 	_    struct{}          `additionalProperties:"false"`
 }
 
-// Set writes content at a path into the config data, allocating Data if needed.
+// Set allocates Data on first write.
 func (config *TypeConfig) Set(path string, content []byte) {
 	if config.Data == nil {
 		config.Data = map[string]string{}
