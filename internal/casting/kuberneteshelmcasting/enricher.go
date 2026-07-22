@@ -53,10 +53,16 @@ func (e *helmMoldingEnricher) enrichTelemetryKeeper(config *installation.Casting
 	}
 	// Hardcoded to "zookeeper" because the chart deploys zookeeper, not clickhousekeeper.
 	base := fmt.Sprintf("%s-telemetrykeeper-zookeeper", config.Metadata.Name)
+
+	clientPort, raftPort := 9181, 9234
+	if spec.Kind == installation.TelemetryKeeperKindZookeeper {
+		clientPort, raftPort = 2181, 2888
+	}
+
 	var client, raft []string
 	for i := 0; i < replicas; i++ {
-		client = append(client, domain.MustNewAddress("tcp", fmt.Sprintf("%s-%d", base, i), 9181).String())
-		raft = append(raft, domain.MustNewAddress("tcp", fmt.Sprintf("%s-%d", base, i), 9234).String())
+		client = append(client, domain.MustNewAddress("tcp", fmt.Sprintf("%s-%d", base, i), clientPort).String())
+		raft = append(raft, domain.MustNewAddress("tcp", fmt.Sprintf("%s-%d", base, i), raftPort).String())
 	}
 	config.Spec.TelemetryKeeper.Status.Addresses.Client = client
 	config.Spec.TelemetryKeeper.Status.Addresses.Raft = raft

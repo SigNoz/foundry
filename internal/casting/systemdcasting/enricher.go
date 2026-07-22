@@ -2,6 +2,7 @@ package systemdcasting
 
 import (
 	"context"
+	"path"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
@@ -10,29 +11,40 @@ import (
 	"github.com/signoz/foundry/internal/molding"
 )
 
-var _ molding.MoldingEnricher = (*linuxMoldingEnricher)(nil)
+var _ molding.MoldingEnricher = (*systemdMoldingEnricher)(nil)
 
 const (
-	baseTelemetryKeeperClientPort = 9181
-	baseTelemetryKeeperRaftPort   = 9234
-	baseTelemetryStoreClusterPort = 9000
-	baseMetaStorePostgresPort     = 5432
+	baseTelemetryKeeperClientPort          = 9181
+	baseTelemetryKeeperRaftPort            = 9234
+	baseTelemetryKeeperZookeeperClientPort = 2181
+	baseTelemetryKeeperZookeeperRaftPort   = 2888
+	baseTelemetryStoreClusterPort          = 9000
+	baseMetaStorePostgresPort              = 5432
 )
 
-type linuxMoldingEnricher struct {
+type systemdMoldingEnricher struct {
 	materials []domain.Material
 }
 
-func newLinuxMoldingEnricher(_ *installation.Casting) *linuxMoldingEnricher {
-	return &linuxMoldingEnricher{materials: []domain.Material{}}
+func newSystemdMoldingEnricher(config *installation.Casting) *systemdMoldingEnricher {
+	// Record each annotation's resolved value so the lock captures the full
+	// resolved config: user-set values win, absent ones fall back to the default.
+	if config.Metadata.Annotations == nil {
+		config.Metadata.Annotations = map[string]string{}
+	}
+	for _, a := range installation.Annotations() {
+		config.Metadata.Annotations[a.Key] = a.Resolve(config.Metadata.Annotations)
+	}
+
+	return &systemdMoldingEnricher{materials: []domain.Material{}}
 }
 
-func (e *linuxMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *installation.Casting) error {
+func (e *systemdMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *installation.Casting) error {
 	switch kind {
-	case v1alpha1.MoldingKindTelemetryStore:
-		return e.enrichTelemetryStore(config)
 	case v1alpha1.MoldingKindTelemetryKeeper:
 		return e.enrichTelemetryKeeper(config)
+	case v1alpha1.MoldingKindTelemetryStore:
+		return e.enrichTelemetryStore(config)
 	case v1alpha1.MoldingKindMetaStore:
 		return e.enrichMetaStore(config)
 	case v1alpha1.MoldingKindSignoz:
@@ -43,7 +55,36 @@ func (e *linuxMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.M
 	return nil
 }
 
-func (e *linuxMoldingEnricher) enrichTelemetryStore(config *installation.Casting) error {
+func (e *systemdMoldingEnricher) enrichTelemetryKeeper(config *installation.Casting) error {
+	spec := &config.Spec.TelemetryKeeper
+	cluster := spec.Spec.Cluster
+
+	replicas := 1
+	if cluster.Replicas != nil {
+		replicas = max(*cluster.Replicas, 1)
+	}
+
+	if replicas > 1 {
+		return errors.Newf(errors.TypeUnsupported, "deployment mode '%s' does not support Distributed Clickhouse Setup, raise an issue at https://github.com/signoz/foundry/issues", config.Spec.Deployment.Mode)
+	}
+
+	clientPort, raftPort := baseTelemetryKeeperClientPort, baseTelemetryKeeperRaftPort
+	if spec.Kind == installation.TelemetryKeeperKindZookeeper {
+		clientPort, raftPort = baseTelemetryKeeperZookeeperClientPort, baseTelemetryKeeperZookeeperRaftPort
+	}
+
+	var clientAddresses, raftAddresses []string
+	for r := 0; r < replicas; r++ {
+		clientAddresses = append(clientAddresses, domain.MustNewAddress("tcp", "localhost", clientPort+r).String())
+		raftAddresses = append(raftAddresses, domain.MustNewAddress("tcp", "localhost", raftPort+r).String())
+	}
+
+	config.Spec.TelemetryKeeper.Status.Addresses.Client = clientAddresses
+	config.Spec.TelemetryKeeper.Status.Addresses.Raft = raftAddresses
+	return nil
+}
+
+func (e *systemdMoldingEnricher) enrichTelemetryStore(config *installation.Casting) error {
 	spec := &config.Spec.TelemetryStore
 	cluster := spec.Spec.Cluster
 
@@ -73,55 +114,18 @@ func (e *linuxMoldingEnricher) enrichTelemetryStore(config *installation.Casting
 	return nil
 }
 
-func (e *linuxMoldingEnricher) enrichTelemetryKeeper(config *installation.Casting) error {
-	spec := &config.Spec.TelemetryKeeper
-	cluster := spec.Spec.Cluster
-
-	replicas := 1
-	if cluster.Replicas != nil {
-		replicas = max(*cluster.Replicas, 1)
-	}
-
-	if replicas > 1 {
-		return errors.Newf(errors.TypeUnsupported, "deployment mode '%s' does not support Distributed Clickhouse Setup, raise an issue at https://github.com/signoz/foundry/issues", config.Spec.Deployment.Mode)
-	}
-
-	var clientAddresses, raftAddresses []string
-	for r := 0; r < replicas; r++ {
-		clientAddresses = append(clientAddresses, domain.MustNewAddress("tcp", "localhost", baseTelemetryKeeperClientPort+r).String())
-		raftAddresses = append(raftAddresses, domain.MustNewAddress("tcp", "localhost", baseTelemetryKeeperRaftPort+r).String())
-	}
-
-	config.Spec.TelemetryKeeper.Status.Addresses.Client = clientAddresses
-	config.Spec.TelemetryKeeper.Status.Addresses.Raft = raftAddresses
-	return nil
-}
-
-func (e *linuxMoldingEnricher) enrichMetaStore(config *installation.Casting) error {
+func (e *systemdMoldingEnricher) enrichMetaStore(config *installation.Casting) error {
 	switch config.Spec.MetaStore.Kind {
 	case installation.MetaStoreKindSQLite:
 		// SQLite — no addresses or binaries to enrich.
 	case installation.MetaStoreKindPostgres:
 		dsn := domain.MustNewAddress("postgres", "localhost", baseMetaStorePostgresPort).String()
 		config.Spec.MetaStore.Status.Addresses.DSN = []string{dsn}
-
-		// Get the annotation value
-		metastoreBin := config.Metadata.Annotations["foundry.signoz.io/metastore-postgres-binary-path"]
-
-		// If it's missing, apply the default and write it back
-		if metastoreBin == "" {
-			metastoreBin = "/usr/bin/postgres"
-
-			if config.Metadata.Annotations == nil {
-				config.Metadata.Annotations = make(map[string]string)
-			}
-			config.Metadata.Annotations["foundry.signoz.io/metastore-postgres-binary-path"] = metastoreBin
-		}
 	}
 	return nil
 }
 
-func (e *linuxMoldingEnricher) enrichSignoz(config *installation.Casting) error {
+func (e *systemdMoldingEnricher) enrichSignoz(config *installation.Casting) error {
 	config.Spec.Signoz.Status.Addresses.Opamp = []string{
 		domain.MustNewAddress("ws", "localhost", 4320).String(),
 	}
@@ -129,38 +133,27 @@ func (e *linuxMoldingEnricher) enrichSignoz(config *installation.Casting) error 
 		domain.MustNewAddress("tcp", "localhost", 8080).String(),
 	}
 
-	// Get the annotation value
-	signozBin := config.Metadata.Annotations["foundry.signoz.io/signoz-binary-path"]
+	// Resolve the signoz binary path from the catalog; its parent tree holds the
+	// web and template assets the binary needs.
+	signozBin := installation.SignozBinaryPath.Resolve(config.Metadata.Annotations)
 
-	// If it's missing, apply the default and write it back
-	if signozBin == "" {
-		signozBin = "/opt/signoz/bin/signoz"
-
-		if config.Metadata.Annotations == nil {
-			config.Metadata.Annotations = make(map[string]string)
-		}
-		config.Metadata.Annotations["foundry.signoz.io/signoz-binary-path"] = signozBin
+	// The binary defaults these to its in-container paths, so point them at the
+	// extracted tarball tree (binary lives at <root>/bin/signoz).
+	root := path.Dir(path.Dir(signozBin))
+	if config.Spec.Signoz.Status.Env == nil {
+		config.Spec.Signoz.Status.Env = make(map[string]string)
 	}
+	env := config.Spec.Signoz.Status.Env
+	env["SIGNOZ_WEB_DIRECTORY"] = path.Join(root, "web")
+	env["SIGNOZ_EMAILING_TEMPLATES_DIRECTORY"] = path.Join(root, "templates", "email")
+	env["SIGNOZ_ALERTMANAGER_SIGNOZ_TEMPLATES"] = path.Join(root, "templates", "alertmanager", "*.gotmpl")
 
 	return nil
 }
 
-func (e *linuxMoldingEnricher) enrichIngester(config *installation.Casting) error {
+func (e *systemdMoldingEnricher) enrichIngester(config *installation.Casting) error {
 	config.Spec.Ingester.Status.Addresses.OTLP = []string{
 		domain.MustNewAddress("tcp", "localhost", 4317).String(),
-	}
-
-	// Get the annotation value
-	ingesterBin := config.Metadata.Annotations["foundry.signoz.io/ingester-binary-path"]
-
-	// If it's missing, apply the default and write it back
-	if ingesterBin == "" {
-		ingesterBin = "/opt/ingester/bin/signoz-otel-collector"
-
-		if config.Metadata.Annotations == nil {
-			config.Metadata.Annotations = make(map[string]string)
-		}
-		config.Metadata.Annotations["foundry.signoz.io/ingester-binary-path"] = ingesterBin
 	}
 
 	if config.Spec.Ingester.Status.Env == nil {

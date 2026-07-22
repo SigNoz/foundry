@@ -146,7 +146,7 @@ spec:
                   exporters:
                     - signozclickhousemeter
           opamp.yaml: |
-            server_endpoint: ws://signoz-signoz:4320/v1/opamp
+            server_endpoint: ws://signoz-signoz-0:4320/v1/opamp
       enabled: true
       env:
         SIGNOZ_OTEL_COLLECTOR_TIMEOUT: 10m
@@ -155,7 +155,8 @@ spec:
     status:
       addresses:
         otlp:
-        - tcp://signoz-ingester:9000
+        - tcp://signoz-ingester:4318
+        - tcp://signoz-ingester:4317
       config:
         data:
           ingester.yaml: |
@@ -292,9 +293,21 @@ spec:
                   exporters:
                     - signozclickhousemeter
           opamp.yaml: |
-            server_endpoint: ws://signoz-signoz:4320/v1/opamp
+            server_endpoint: ws://signoz-signoz-0:4320/v1/opamp
       env:
         SIGNOZ_OTEL_COLLECTOR_TIMEOUT: 10m
+  mcp:
+    spec:
+      cluster:
+        replicas: 1
+      config: {}
+      enabled: false
+      image: signoz/signoz-mcp-server:latest
+      version: latest
+    status:
+      addresses:
+        http: null
+      config: {}
   metastore:
     kind: postgres
     spec:
@@ -333,9 +346,9 @@ spec:
     status:
       addresses:
         apiserver:
-        - tcp://signoz-signoz:8080
+        - tcp://signoz-signoz-0:8080
         opamp:
-        - ws://signoz-signoz:4320
+        - ws://signoz-signoz-0:4320
       config: {}
       env:
         SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@signoz-metastore-postgres-0:5432/signoz?sslmode=disable
@@ -363,18 +376,18 @@ spec:
                 force_sync: false
                 snapshot_distance: 100000
                 snapshots_to_keep: 3
-              log_storage_path: /var/lib/clickhouse/coordination/log
+              log_storage_path: /var/lib/clickhouse-keeper/coordination/log
               raft_configuration:
                 server:
                 - hostname: signoz-telemetrykeeper-clickhousekeeper-0
                   port: 9234
                   id: 0
               server_id: 0
-              snapshot_storage_path: /var/lib/clickhouse/coordination/snapshots
+              snapshot_storage_path: /var/lib/clickhouse-keeper/coordination/snapshots
               tcp_port: 9181
       enabled: true
-      image: clickhouse/clickhouse-keeper:25.5.6
-      version: 25.5.6
+      image: clickhouse/clickhouse-keeper:25.12.5
+      version: 25.12.5
     status:
       addresses:
         client:
@@ -397,14 +410,14 @@ spec:
                 force_sync: false
                 snapshot_distance: 100000
                 snapshots_to_keep: 3
-              log_storage_path: /var/lib/clickhouse/coordination/log
+              log_storage_path: /var/lib/clickhouse-keeper/coordination/log
               raft_configuration:
                 server:
                 - hostname: signoz-telemetrykeeper-clickhousekeeper-0
                   port: 9234
                   id: 0
               server_id: 0
-              snapshot_storage_path: /var/lib/clickhouse/coordination/snapshots
+              snapshot_storage_path: /var/lib/clickhouse-keeper/coordination/snapshots
               tcp_port: 9181
   telemetrystore:
     kind: clickhouse
@@ -414,7 +427,7 @@ spec:
         shards: 1
       config:
         data:
-          config.yaml: |
+          config-0-0.yaml: |
             path: /var/lib/clickhouse/
             tmp_path: /var/lib/clickhouse/tmp/
             user_files_path: /var/lib/clickhouse/user_files/
@@ -434,8 +447,8 @@ spec:
                 level: information
                 size: 1000M
             macros:
-                replica: "01"
-                shard: "01"
+                replica: "00"
+                shard: "00"
             profiles:
                 default:
                     allow_simdjson: 0
@@ -452,7 +465,7 @@ spec:
                         result_rows: 0
             user_directories:
               users_xml:
-                path: users.xml
+                path: config-0-0.yaml
             remote_servers:
               cluster:
                 shard:
@@ -498,7 +511,7 @@ spec:
             zookeeper_log:
                 ttl: "event_date + INTERVAL 1 DAY DELETE"
             tcp_port: 9000
-            user_defined_executable_functions_config: '*function.yaml'
+            user_defined_executable_functions_config: '*functions.yaml'
             user_scripts_path: /var/lib/clickhouse/user_scripts/
             users:
                 default:
@@ -519,22 +532,22 @@ spec:
                   - name: counts
                     type: Array(Float64)
                   - name: quantile
-                    type: Array(Float64)
+                    type: Float64
               command: ./histogramQuantile
               format: CSV
               name: histogramQuantile
               return_type: Float64
               type: executable
       enabled: true
-      image: clickhouse/clickhouse-server:25.5.6
-      version: 25.5.6
+      image: clickhouse/clickhouse-server:25.12.5
+      version: 25.12.5
     status:
       addresses:
         tcp:
         - tcp://signoz-telemetrystore-clickhouse-0-0:9000
       config:
         data:
-          config.yaml: |
+          config-0-0.yaml: |
             path: /var/lib/clickhouse/
             tmp_path: /var/lib/clickhouse/tmp/
             user_files_path: /var/lib/clickhouse/user_files/
@@ -554,8 +567,8 @@ spec:
                 level: information
                 size: 1000M
             macros:
-                replica: "01"
-                shard: "01"
+                replica: "00"
+                shard: "00"
             profiles:
                 default:
                     allow_simdjson: 0
@@ -572,7 +585,7 @@ spec:
                         result_rows: 0
             user_directories:
               users_xml:
-                path: users.xml
+                path: config-0-0.yaml
             remote_servers:
               cluster:
                 shard:
@@ -618,7 +631,7 @@ spec:
             zookeeper_log:
                 ttl: "event_date + INTERVAL 1 DAY DELETE"
             tcp_port: 9000
-            user_defined_executable_functions_config: '*function.yaml'
+            user_defined_executable_functions_config: '*functions.yaml'
             user_scripts_path: /var/lib/clickhouse/user_scripts/
             users:
                 default:
@@ -639,7 +652,7 @@ spec:
                   - name: counts
                     type: Array(Float64)
                   - name: quantile
-                    type: Array(Float64)
+                    type: Float64
               command: ./histogramQuantile
               format: CSV
               name: histogramQuantile

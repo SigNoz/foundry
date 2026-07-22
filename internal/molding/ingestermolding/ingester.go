@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
-	"strings"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
@@ -70,38 +69,14 @@ func (molding *ingester) getData(config *installation.Casting) (Data, error) {
 		return Data{}, foundryerrors.Newf(foundryerrors.TypeInternal, "telemetry store address is not set")
 	}
 
-	telemetryStoreAddresses := config.Spec.TelemetryStore.Status.Addresses.TCP
-	var telemetryStoreTracesAddresses []string
-	for _, address := range telemetryStoreAddresses {
-		telemetryStoreTracesAddresses = append(telemetryStoreTracesAddresses, address+"/signoz_traces")
-	}
-
-	var telemetryStoreMetricsAddresses []string
-	for _, address := range telemetryStoreAddresses {
-		telemetryStoreMetricsAddresses = append(telemetryStoreMetricsAddresses, address+"/signoz_metrics")
-	}
-
-	var telemetryStoreLogsAddresses []string
-	for _, address := range telemetryStoreAddresses {
-		telemetryStoreLogsAddresses = append(telemetryStoreLogsAddresses, address+"/signoz_logs")
-	}
-
-	var telemetryStoreMeterAddresses []string
-	for _, address := range telemetryStoreAddresses {
-		telemetryStoreMeterAddresses = append(telemetryStoreMeterAddresses, address+"/signoz_meter")
-	}
-
-	var telemetryStoreMetadataAddresses []string
-	for _, address := range telemetryStoreAddresses {
-		telemetryStoreMetadataAddresses = append(telemetryStoreMetadataAddresses, address+"/signoz_metadata")
-	}
+	telemetryStoreAddress := config.Spec.TelemetryStore.Status.Addresses.TCP[0]
 
 	return Data{
 		SignozOpampAddress:            signozAddress,
-		TelemetryStoreTracesAddress:   strings.Join(telemetryStoreTracesAddresses, ","),
-		TelemetryStoreMetricsAddress:  strings.Join(telemetryStoreMetricsAddresses, ","),
-		TelemetryStoreLogsAddress:     strings.Join(telemetryStoreLogsAddresses, ","),
-		TelemetryStoreMeterAddress:    strings.Join(telemetryStoreMeterAddresses, ","),
-		TelemetryStoreMetadataAddress: strings.Join(telemetryStoreMetadataAddresses, ","),
+		TelemetryStoreTracesAddress:   telemetryStoreAddress + "/signoz_traces",
+		TelemetryStoreMetricsAddress:  telemetryStoreAddress + "/signoz_metrics",
+		TelemetryStoreLogsAddress:     telemetryStoreAddress + "/signoz_logs",
+		TelemetryStoreMeterAddress:    telemetryStoreAddress + "/signoz_meter",
+		TelemetryStoreMetadataAddress: telemetryStoreAddress + "/signoz_metadata",
 	}, nil
 }

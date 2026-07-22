@@ -11,10 +11,9 @@ Restart=on-failure
 RestartSec=5
 WorkingDirectory=/opt/signoz
 {{- if and $.Metadata.Annotations (index $.Metadata.Annotations "foundry.signoz.io/signoz-binary-path") }}
-{{- $signozBinaryPath := index $.Metadata.Annotations "foundry.signoz.io/signoz-binary-path" }}
-ExecStart={{ $signozBinaryPath }} server
+{{- $signozBinary := index $.Metadata.Annotations "foundry.signoz.io/signoz-binary-path" }}
+ExecStart={{ $signozBinary }} server
 {{- end }}
-Environment=SIGNOZ_WEB_DIRECTORY=/opt/signoz/web
 {{- range $key, $value := $.Spec.Signoz.Spec.Env }}
 Environment={{ $key }}={{ $value }}
 {{- end }}

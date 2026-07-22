@@ -34,9 +34,11 @@
       },
       {
         "name": "signoz-telemetrystore-clickhouse-0-0",
-        "image": "clickhouse/clickhouse-server:25.5.6",
+        "image": "clickhouse/clickhouse-server:25.12.5",
         "essential": true,
         "environment": [{"name":"CLICKHOUSE_SKIP_USER_SETUP","value":"1"}],
+        "entryPoint": ["/bin/sh", "-c"],
+        "command": ["ln -sf /etc/clickhouse-server/config.d/config-0-0.yaml /etc/clickhouse-server/config-0-0.yaml && exec /entrypoint.sh"],
         "portMappings": [
           {"name": "native", "containerPort": 9000, "protocol": "tcp"},
           {"name": "http", "containerPort": 8123, "protocol": "tcp", "appProtocol": "http"},

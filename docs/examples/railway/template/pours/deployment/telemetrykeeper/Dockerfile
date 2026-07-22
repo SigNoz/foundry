@@ -1,4 +1,4 @@
-FROM clickhouse/clickhouse-keeper:25.5.6
+FROM clickhouse/clickhouse-keeper:25.12.5
 
 # Copy all keeper config files
 COPY keeper.d/ /etc/clickhouse-keeper/

@@ -12,6 +12,8 @@ func TestNotEmptyAndValid(t *testing.T) {
 	serviceTemplates := map[string]*domain.Template{
 		"telemetryStoreServiceTemplate":  telemetryStoreServiceTemplate,
 		"telemetryKeeperServiceTemplate": telemetryKeeperServiceTemplate,
+		"zookeeperServiceTemplate":       zookeeperServiceTemplate,
+		"zookeeperConfigTemplate":        zookeeperConfigTemplate,
 		"metaStoreServiceTemplate":       metaStoreServiceTemplate,
 		"signozServiceTemplate":          signozServiceTemplate,
 		"ingesterServiceTemplate":        ingesterServiceTemplate,

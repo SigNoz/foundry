@@ -27,6 +27,19 @@ spec:
     mode: docker
 ```
 
+### Telemetry keeper kinds
+
+The telemetry keeper defaults to ClickHouse Keeper. To use ZooKeeper instead, set the kind and Foundry resolves the right image and configuration for it:
+
+```yaml
+spec:
+  telemetrykeeper:
+    kind: zookeeper
+    spec:
+      cluster:
+        replicas: 1
+```
+
 ## Deploy
 
 ```bash
@@ -45,6 +58,15 @@ foundryctl forge -f casting.yaml
 # Start the stack
 cd pours/deployment && docker compose up -d
 ```
+
+> [!IMPORTANT]
+> **Upgrading an existing installation:** re-running `cast` regenerates the config files, but Docker Compose does not restart containers when only mounted file contents change. Recreate the stack so the new configs take effect:
+>
+> ```bash
+> docker compose -f pours/deployment/compose.yaml up -d --force-recreate
+> ```
+>
+> Recreate all services in one command rather than restarting them individually. Restarting only the keeper leaves ClickHouse unable to reconnect until it is restarted as well. Telemetry data is stored in volumes and is not affected.
 
 ## Generated output
 
@@ -79,6 +101,33 @@ cd pours/deployment && docker compose down
 
 > [!NOTE]
 > - `foundryctl cast` detects whether `docker compose` (v2 plugin) or `docker-compose` (legacy standalone) is available and uses whichever it finds, preferring the v2 plugin.
+
+## MCP server (optional)
+
+Foundry can deploy the [SigNoz MCP server](https://github.com/SigNoz/signoz-mcp-server) alongside the stack so AI clients can query your telemetry. It is disabled by default; enable it in the casting:
+
+```yaml
+spec:
+  deployment:
+    mode: docker
+    flavor: compose
+  mcp:
+    spec:
+      enabled: true
+```
+
+```bash
+foundryctl cast -f casting.yaml
+```
+
+This adds a `signoz-mcp` service on port `8000`:
+
+```bash
+docker ps | grep signoz-mcp
+curl -fsS localhost:8000/livez && echo " OK"   # -> 200
+```
+
+To connect an AI client (mint an API key, configure Claude Code or Claude Desktop), see [MCP server](../../../concepts/mcp-server.md).
 
 ## Customization
 

@@ -49,7 +49,7 @@ Each row is a valid combination. Mixing values across rows is not supported.
 
 ## Molding spec
 
-Each molding (`signoz`, `ingester`, `telemetrystore`, `telemetrykeeper`) accepts a `spec` block:
+Each molding (`signoz`, `ingester`, `telemetrystore`, `telemetrykeeper`, `mcp`) accepts a `spec` block:
 
 ```yaml
 <molding>:
@@ -73,7 +73,25 @@ Each molding (`signoz`, `ingester`, `telemetrystore`, `telemetrykeeper`) accepts
 | `cluster.replicas` | int | `1` | Number of replicas |
 | `cluster.shards` | int | `1` | Number of shards (TelemetryStore only) |
 | `env` | map | `{}` | Environment variables as key-value pairs |
-| `config.data` | map | `{}` | Config file overrides: filename to file contents |
+| `config.data` | map | `{}` | Config file overrides merged with the generated config: filename to contents |
+
+## TelemetryKeeper
+
+The telemetry keeper has an additional `kind` field to select the backend. The image and version default to the selected kind.
+
+```yaml
+spec:
+  telemetrykeeper:
+    kind: <string>
+    spec: <molding-spec>
+```
+
+| Kind | Backend | Notes |
+| --- | --- | --- |
+| `clickhousekeeper` | ClickHouse Keeper | Default. Lightweight, no JVM required. |
+| `zookeeper` | ZooKeeper | Apache ZooKeeper, the widely operated JVM based coordination service. |
+
+The `zookeeper` kind is not supported with `mode: systemd` yet.
 
 ## MetaStore
 
@@ -90,6 +108,18 @@ spec:
 | --- | --- | --- |
 | `postgres` | PostgreSQL | Default. Recommended for production. |
 | `sqlite` | SQLite | Embedded, single-node only. |
+
+## MCP
+
+The SigNoz [MCP server](../concepts/mcp-server.md) is optional and disabled by default.
+
+```yaml
+spec:
+  mcp:
+    spec: <molding-spec>
+```
+
+Set `spec.mcp.spec.enabled: true` to deploy it. The server listens on port `8000` and is pointed at the deployed SigNoz API server automatically.
 
 ## Patches
 
@@ -110,7 +140,7 @@ spec:
 | Field | Required | Description |
 | --- | --- | --- |
 | `type` | No | Patch driver. Default: `jsonpatch`. |
-| `target` | Yes | Output file to patch. Exact path, basename, or glob. |
+| `target` | Yes | Output file to patch, relative to `pours/` (e.g. `deployment/compose.yaml`). Exact path or glob. |
 | `operations` | Yes | List of JSON Patch (RFC 6902) operations. |
 
 See [Patches](../concepts/patches.md) for operation details and examples.
@@ -165,4 +195,4 @@ Required when using `platform: ecs`, `mode: ec2`, `flavor: terraform`.
 
 ## Schema
 
-The full JSON Schema for `casting.yaml` is available at [`docs/schemas/v1alpha1.yaml`](../schemas/v1alpha1.yaml).
+The full JSON Schema for `casting.yaml` is available at [`docs/schemas/v1alpha1.yaml`](../../api/v1alpha1/casting.schema.json)

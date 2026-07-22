@@ -24,7 +24,7 @@ func New(logger *slog.Logger) *railwayTemplateCasting {
 	return &railwayTemplateCasting{
 		logger: logger,
 		castings: []*domain.Template{
-			telemetryKeeperDockerfileTemplate,
+			telemetryKeeperClickhouseKeeperDockerfileTemplate,
 			telemetryStoreDockerfileTemplate,
 			ingesterDockerfileTemplate,
 			signozDockerfileTemplate,
@@ -49,8 +49,13 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config installation.
 
 	// TelemetryKeeper: Dockerfile + configs + railway.json
 	if config.Spec.TelemetryKeeper.Spec.IsEnabled() {
+		keeperDockerfileTemplate := telemetryKeeperClickhouseKeeperDockerfileTemplate
+		if config.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindZookeeper {
+			keeperDockerfileTemplate = telemetryKeeperZookeeperDockerfileTemplate
+		}
+
 		dockerfileBuf := bytes.NewBuffer(nil)
-		if err := telemetryKeeperDockerfileTemplate.Execute(dockerfileBuf, config); err != nil {
+		if err := keeperDockerfileTemplate.Execute(dockerfileBuf, config); err != nil {
 			return nil, errors.Wrapf(err, errors.TypeInternal, "telemetrykeeper dockerfile")
 		}
 		materials = append(materials, domain.NewBlobMaterial(dockerfileBuf.Bytes(), filepath.Join(casting.DeploymentDir, "telemetrykeeper/Dockerfile")))
@@ -122,6 +127,20 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config installation.
 			return nil, errors.Wrapf(err, errors.TypeInternal, "signoz railway.json")
 		}
 		materials = append(materials, domain.NewBlobMaterial(railwayBuf.Bytes(), filepath.Join(casting.DeploymentDir, "signoz/railway.json")))
+	}
+
+	// MCP: Dockerfile + railway.json
+	if config.Spec.MCP.Spec.IsEnabled() {
+		dockerfileBuf := bytes.NewBuffer(nil)
+		if err := mcpDockerfileTemplate.Execute(dockerfileBuf, config); err != nil {
+			return nil, errors.Wrapf(err, errors.TypeInternal, "mcp dockerfile")
+		}
+		materials = append(materials, domain.NewBlobMaterial(dockerfileBuf.Bytes(), filepath.Join(casting.DeploymentDir, "mcp/Dockerfile")))
+		railwayBuf := bytes.NewBuffer(nil)
+		if err := railwayMCPTemplate.Execute(railwayBuf, config); err != nil {
+			return nil, errors.Wrapf(err, errors.TypeInternal, "mcp railway.json")
+		}
+		materials = append(materials, domain.NewBlobMaterial(railwayBuf.Bytes(), filepath.Join(casting.DeploymentDir, "mcp/railway.json")))
 	}
 
 	// TelemetryStore migrator: Dockerfile + railway.json

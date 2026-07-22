@@ -69,7 +69,7 @@ services:
   healthCheckPath: /api/v1/health
   image:
     url: signoz/signoz:latest
-  name: signoz-signoz
+  name: signoz-signoz-0
   plan: standard
   runtime: image
   type: web

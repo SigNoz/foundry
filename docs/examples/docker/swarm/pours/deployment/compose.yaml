@@ -5,8 +5,8 @@ configs:
     file: ingester/opamp.yaml
   telemetrykeeper-0:
     file: telemetrykeeper/clickhousekeeper/keeper-0.yaml
-  telemetrystore-config:
-    file: telemetrystore/clickhouse/config.yaml
+  telemetrystore-config-0-0:
+    file: telemetrystore/clickhouse/config-0-0.yaml
   telemetrystore-functions:
     file: telemetrystore/clickhouse/functions.yaml
 networks:
@@ -15,7 +15,7 @@ networks:
     driver: overlay
     name: signoz-network
 services:
-  signoz-ingester:
+  ingester:
     command:
     - -c
     - |
@@ -26,6 +26,8 @@ services:
       target: /etc/otel-collector-config.yaml
     - source: manager-config
       target: /etc/opamp-config.yaml
+    deploy:
+      replicas: 1
     entrypoint:
     - /bin/sh
     environment:
@@ -33,7 +35,9 @@ services:
     - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
     image: signoz/signoz-otel-collector:latest
     networks:
-    - signoz-network
+      signoz-network:
+        aliases:
+        - signoz-ingester
     ports:
     - 4317:4317
     - 4318:4318
@@ -58,9 +62,8 @@ services:
     - signoz-network
     volumes:
     - signoz-metastore-postgres-0-data:/var/lib/postgresql/data
-  signoz-signoz:
+  signoz-signoz-0:
     deploy:
-      replicas: 1
       restart_policy:
         condition: on-failure
     environment:
@@ -108,15 +111,15 @@ services:
       - -q
       - ls
       timeout: 10s
-    image: clickhouse/clickhouse-keeper:25.5.6
+    image: clickhouse/clickhouse-keeper:25.12.5
     networks:
     - signoz-network
     volumes:
     - signoz-telemetrykeeper-0-data:/var/lib/clickhouse-keeper
   signoz-telemetrystore-clickhouse-0-0:
     configs:
-    - source: telemetrystore-config
-      target: /etc/clickhouse-server/config.yaml
+    - source: telemetrystore-config-0-0
+      target: /etc/clickhouse-server/config-0-0.yaml
     - source: telemetrystore-functions
       target: /etc/clickhouse-server/functions.yaml
     deploy:
@@ -124,7 +127,7 @@ services:
         condition: on-failure
     environment:
     - CLICKHOUSE_SKIP_USER_SETUP=1
-    - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.yaml
+    - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config-0-0.yaml
     healthcheck:
       interval: 30s
       retries: 3
@@ -137,7 +140,7 @@ services:
       - http://localhost:8123/ping
       timeout: 10s
     hostname: signoz-telemetrystore-clickhouse-0-0
-    image: clickhouse/clickhouse-server:25.5.6
+    image: clickhouse/clickhouse-server:25.12.5
     networks:
     - signoz-network
     volumes:
@@ -160,7 +163,7 @@ services:
       mode: global
       restart_policy:
         condition: none
-    image: clickhouse/clickhouse-server:25.5.6
+    image: clickhouse/clickhouse-server:25.12.5
     networks:
     - signoz-network
     volumes:

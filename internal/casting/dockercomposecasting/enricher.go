@@ -71,10 +71,15 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 			return errors.Wrapf(err, errors.TypeInternal, "failed to get telemetrykeeper container names")
 		}
 
+		clientPort, raftPort := 9181, 9234
+		if config.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindZookeeper {
+			clientPort, raftPort = 2181, 2888
+		}
+
 		var telemetrykeeperContainerNames []string
 		for _, containerName := range containerNames {
 			if strings.Contains(containerName, "telemetrykeeper") {
-				telemetrykeeperContainerNames = append(telemetrykeeperContainerNames, domain.MustNewAddress("tcp", containerName, 9181).String())
+				telemetrykeeperContainerNames = append(telemetrykeeperContainerNames, domain.MustNewAddress("tcp", containerName, clientPort).String())
 			}
 		}
 
@@ -83,7 +88,7 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		var telemetryRaftaddress []string
 		for _, containerName := range containerNames {
 			if strings.Contains(containerName, "telemetrykeeper") {
-				telemetryRaftaddress = append(telemetryRaftaddress, domain.MustNewAddress("tcp", containerName, 9234).String())
+				telemetryRaftaddress = append(telemetryRaftaddress, domain.MustNewAddress("tcp", containerName, raftPort).String())
 			}
 		}
 
@@ -110,20 +115,13 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		config.Spec.MetaStore.Status.Addresses.DSN = metastoreContainerNames
 
 	case v1alpha1.MoldingKindIngester:
-		// Get ingester container names
-		containerNames, err := enricher.material.GetStringSlice("services|@keys")
-		if err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to get ingester container names")
+		// The ingester is scaled via `deploy.replicas` and reached through the
+		// `<metadata.name>-ingester` network alias, which compose load-balances
+		// across all replicas.
+		config.Spec.Ingester.Status.Addresses.OTLP = []string{
+			domain.MustNewAddress("tcp", config.Metadata.Name+"-ingester", 4318).String(),
+			domain.MustNewAddress("tcp", config.Metadata.Name+"-ingester", 4317).String(),
 		}
-
-		var ingesterContainerNames []string
-		for _, containerName := range containerNames {
-			if strings.Contains(containerName, "ingester") {
-				ingesterContainerNames = append(ingesterContainerNames, domain.MustNewAddress("tcp", containerName, 4317).String())
-			}
-		}
-
-		config.Spec.Ingester.Status.Addresses.OTLP = ingesterContainerNames
 	}
 
 	return nil

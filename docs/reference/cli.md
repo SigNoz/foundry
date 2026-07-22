@@ -15,6 +15,9 @@ foundryctl [command] [flags]
 | `-d`, `--debug` | Enable debug mode with verbose logging | `false` |
 | `-f`, `--file` | Path to the casting configuration file | `casting.yaml` |
 | `-p`, `--pours` | Directory for generated output | `./pours` |
+| `--format` | Output format for results and errors (`json`, `text`) | `json` |
+| `--no-ledger` | Disable anonymous usage ledger | `false` |
+| `--no-updater` | Disable the update notifier | `false` |
 | `-h`, `--help` | Help for foundryctl | |
 
 > [!TIP]

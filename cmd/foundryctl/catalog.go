@@ -8,8 +8,8 @@ import (
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/signoz/foundry/api/v1alpha1"
+	installationcasting "github.com/signoz/foundry/internal/casting/installation"
 	"github.com/signoz/foundry/internal/domain"
-	"github.com/signoz/foundry/internal/foundry"
 	"github.com/spf13/cobra"
 )
 
@@ -61,13 +61,10 @@ func catalogGroup(e castingEntry) int {
 }
 
 func runCatalog(logger *slog.Logger) (domain.Properties, error) {
-	f, err := foundry.New(logger)
-	if err != nil {
-		return domain.NewProperties(), err
-	}
+	registry := installationcasting.NewRegistry(logger)
 
 	var entries []castingEntry
-	for d := range f.Registry.CastingItems() {
+	for d := range registry.CastingItems() {
 		entries = append(entries, castingEntry{
 			Platform: d.Platform.String(),
 			Mode:     d.Mode.String(),
@@ -93,8 +90,7 @@ func runCatalog(logger *slog.Logger) (domain.Properties, error) {
 			_ = table.Append(e.Mode, e.Flavor, e.Platform, e.Example)
 		}
 
-		err = table.Render()
-		return props, err
+		return props, table.Render()
 	}
 
 	data, err := json.MarshalIndent(map[string]any{"Castings": entries}, "", "  ")

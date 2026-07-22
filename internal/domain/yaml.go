@@ -1,6 +1,7 @@
 package domain
 
 import (
+	jsonpatchv5 "github.com/evanphx/json-patch/v5"
 	"github.com/signoz/foundry/internal/errors"
 	kyaml "sigs.k8s.io/yaml"
 )
@@ -31,48 +32,29 @@ func MustMarshalYAML(v any) []byte {
 	return yaml
 }
 
-// MergeYAML takes a base YAML string and an override YAML string,
-// and returns a new YAML string with deep merge — override keys win
-// at every level, base-only keys are preserved.
+// MergeYAML deep-merges the override YAML onto the base YAML via RFC 7386 JSON
+// Merge Patch: override wins at each leaf, base-only keys survive, lists are
+// replaced wholesale, and a null in override deletes that key.
 func MergeYAML(base, override string) (string, error) {
-	var baseMap map[string]any
-	if err := kyaml.Unmarshal([]byte(base), &baseMap); err != nil {
-		return "", errors.Wrapf(err, errors.TypeInternal, "failed to unmarshal base yaml")
-	}
-
-	var overrideMap map[string]any
-	if err := kyaml.Unmarshal([]byte(override), &overrideMap); err != nil {
-		return "", errors.Wrapf(err, errors.TypeInternal, "failed to unmarshal override yaml")
-	}
-
-	deepMerge(baseMap, overrideMap)
-
-	merged, err := kyaml.Marshal(baseMap)
+	baseJSON, err := kyaml.YAMLToJSON([]byte(base))
 	if err != nil {
-		return "", errors.Wrapf(err, errors.TypeInternal, "failed to marshal merged yaml")
+		return "", errors.Wrapf(err, errors.TypeInternal, "failed to convert base yaml to json")
+	}
+
+	overrideJSON, err := kyaml.YAMLToJSON([]byte(override))
+	if err != nil {
+		return "", errors.Wrapf(err, errors.TypeInvalidInput, "failed to convert override yaml to json")
+	}
+
+	mergedJSON, err := jsonpatchv5.MergePatch(baseJSON, overrideJSON)
+	if err != nil {
+		return "", errors.Wrapf(err, errors.TypeInternal, "failed to apply json merge patch")
+	}
+
+	merged, err := kyaml.JSONToYAML(mergedJSON)
+	if err != nil {
+		return "", errors.Wrapf(err, errors.TypeInternal, "failed to convert merged json to yaml")
 	}
 
 	return string(merged), nil
-}
-
-// deepMerge recursively merges override into base.
-// For matching keys: if both values are maps, merge recursively.
-// Otherwise, override wins.
-func deepMerge(base, override map[string]any) {
-	for k, overrideVal := range override {
-		baseVal, exists := base[k]
-		if !exists {
-			base[k] = overrideVal
-			continue
-		}
-
-		baseMap, baseIsMap := baseVal.(map[string]any)
-		overrideMap, overrideIsMap := overrideVal.(map[string]any)
-
-		if baseIsMap && overrideIsMap {
-			deepMerge(baseMap, overrideMap)
-		} else {
-			base[k] = overrideVal
-		}
-	}
 }

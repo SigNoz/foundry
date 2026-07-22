@@ -295,6 +295,18 @@ spec:
             server_endpoint: ws://signoz-signoz.railway.internal:4320/v1/opamp
       env:
         SIGNOZ_OTEL_COLLECTOR_TIMEOUT: 10m
+  mcp:
+    spec:
+      cluster:
+        replicas: 1
+      config: {}
+      enabled: false
+      image: signoz/signoz-mcp-server:latest
+      version: latest
+    status:
+      addresses:
+        http: null
+      config: {}
   metastore:
     kind: postgres
     spec:
@@ -359,22 +371,22 @@ spec:
               http_control:
                 endpoint: /ready
                 port: 9182
-              log_storage_path: /var/lib/clickhouse/coordination/log
+              log_storage_path: /var/lib/clickhouse-keeper/coordination/log
               raft_configuration:
                 server:
                 - hostname: localhost
                   id: 0
                   port: 9234
               server_id: 0
-              snapshot_storage_path: /var/lib/clickhouse/coordination/snapshots
+              snapshot_storage_path: /var/lib/clickhouse-keeper/coordination/snapshots
               tcp_port: 9181
             listen_host: '::'
             logger:
               console: true
               level: information
       enabled: true
-      image: clickhouse/clickhouse-keeper:25.5.6
-      version: 25.5.6
+      image: clickhouse/clickhouse-keeper:25.12.5
+      version: 25.12.5
     status:
       addresses:
         client:
@@ -396,14 +408,14 @@ spec:
               http_control:
                 endpoint: /ready
                 port: 9182
-              log_storage_path: /var/lib/clickhouse/coordination/log
+              log_storage_path: /var/lib/clickhouse-keeper/coordination/log
               raft_configuration:
                 server:
                 - hostname: localhost
                   id: 0
                   port: 9234
               server_id: 0
-              snapshot_storage_path: /var/lib/clickhouse/coordination/snapshots
+              snapshot_storage_path: /var/lib/clickhouse-keeper/coordination/snapshots
               tcp_port: 9181
             listen_host: '::'
             logger:
@@ -430,7 +442,7 @@ spec:
         shards: 1
       config:
         data:
-          config.yaml: |
+          config-0-0.yaml: |
             asynchronous_metric_log:
               ttl: event_date + INTERVAL 1 DAY DELETE
             dictionaries_config: '*_dictionary.xml'
@@ -453,8 +465,8 @@ spec:
               level: information
               size: 1000M
             macros:
-              replica: "01"
-              shard: "01"
+              replica: "00"
+              shard: "00"
             metric_log:
               flush_interval_milliseconds: 30000
               ttl: event_date + INTERVAL 1 DAY DELETE
@@ -504,10 +516,10 @@ spec:
             trace_log:
               flush_interval_milliseconds: 30000
               ttl: event_date + INTERVAL 1 DAY DELETE
-            user_defined_executable_functions_config: '*function.yaml'
+            user_defined_executable_functions_config: '*functions.yaml'
             user_directories:
               users_xml:
-                path: users.xml
+                path: config-0-0.yaml
             user_files_path: /var/lib/clickhouse/user_files/
             user_scripts_path: /etc/clickhouse-server/user_scripts/
             users:
@@ -535,22 +547,22 @@ spec:
                   - name: counts
                     type: Array(Float64)
                   - name: quantile
-                    type: Array(Float64)
+                    type: Float64
               command: ./histogramQuantile
               format: CSV
               name: histogramQuantile
               return_type: Float64
               type: executable
       enabled: true
-      image: clickhouse/clickhouse-server:25.5.6
-      version: 25.5.6
+      image: clickhouse/clickhouse-server:25.12.5
+      version: 25.12.5
     status:
       addresses:
         tcp:
         - tcp://signoz-telemetrystore-clickhouse.railway.internal:9000
       config:
         data:
-          config.yaml: |
+          config-0-0.yaml: |
             asynchronous_metric_log:
               ttl: event_date + INTERVAL 1 DAY DELETE
             dictionaries_config: '*_dictionary.xml'
@@ -573,8 +585,8 @@ spec:
               level: information
               size: 1000M
             macros:
-              replica: "01"
-              shard: "01"
+              replica: "00"
+              shard: "00"
             metric_log:
               flush_interval_milliseconds: 30000
               ttl: event_date + INTERVAL 1 DAY DELETE
@@ -624,10 +636,10 @@ spec:
             trace_log:
               flush_interval_milliseconds: 30000
               ttl: event_date + INTERVAL 1 DAY DELETE
-            user_defined_executable_functions_config: '*function.yaml'
+            user_defined_executable_functions_config: '*functions.yaml'
             user_directories:
               users_xml:
-                path: users.xml
+                path: config-0-0.yaml
             user_files_path: /var/lib/clickhouse/user_files/
             user_scripts_path: /etc/clickhouse-server/user_scripts/
             users:
@@ -655,7 +667,7 @@ spec:
                   - name: counts
                     type: Array(Float64)
                   - name: quantile
-                    type: Array(Float64)
+                    type: Float64
               command: ./histogramQuantile
               format: CSV
               name: histogramQuantile

@@ -109,6 +109,32 @@ kubectl port-forward svc/signoz -n signoz 8080:8080
 
 Open `http://localhost:8080` to access the SigNoz UI.
 
+## MCP server (optional)
+
+Foundry can deploy the [SigNoz MCP server](https://github.com/SigNoz/signoz-mcp-server) alongside the stack so AI clients can query your telemetry. It is disabled by default; enable it in the casting:
+
+```yaml
+apiVersion: v1alpha1
+kind: Installation
+metadata:
+  name: signoz
+spec:
+  deployment:
+    flavor: kustomize
+    mode: kubernetes
+  mcp:
+    spec:
+      enabled: true
+```
+
+This adds a `signoz-mcp` deployment and a ClusterIP service on port `8000`; the in-cluster endpoint is `http://signoz-mcp.signoz:8000/mcp`. Expose it outside the cluster per your setup.
+
+```bash
+kubectl -n signoz get pods -l app.kubernetes.io/component=mcp
+```
+
+To connect an AI client (mint an API key, configure Claude Code or Claude Desktop), see [MCP server](../../../concepts/mcp-server.md).
+
 ## Customization
 
 To set resource limits, storage classes, or scheduling constraints on the generated manifests, use [patches](../../../concepts/patches.md). See the [kustomize-patches](../kustomize-patches/) example for a complete working configuration.

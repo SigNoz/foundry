@@ -1,0 +1,104 @@
+path: /var/lib/clickhouse/
+tmp_path: /var/lib/clickhouse/tmp/
+user_files_path: /var/lib/clickhouse/user_files/
+format_schema_path: /var/lib/clickhouse/format_schemas/
+dictionaries_config: '*_dictionary.xml'
+display_name: cluster
+distributed_ddl:
+    path: /clickhouse/task_queue/ddl
+http_port: 8123
+interserver_http_port: 9009
+listen_host: 0.0.0.0
+logger:
+    console: 1
+    count: 10
+    formatting:
+        type: console
+    level: information
+    size: 1000M
+macros:
+    replica: "{{ printf "%02d" .ReplicaID }}"
+    shard: "{{ printf "%02d" .ShardID }}"
+profiles:
+    default:
+        allow_simdjson: 0
+        load_balancing: random
+        log_queries: 1
+quotas:
+    default:
+        interval:
+            duration: 3600
+            errors: 0
+            execution_time: 0
+            queries: 0
+            read_rows: 0
+            result_rows: 0
+user_directories:
+  users_xml:
+    path: config-{{ .ShardID }}-{{ .ReplicaID }}.yaml
+remote_servers:
+  cluster:
+    shard:
+{{- range $s := until .ShardCount }}
+    - replica:
+    {{- range $r := until $.ReplicaCount }}
+    {{- $idx := add (mul $s $.ReplicaCount) $r }}
+    {{- $addr := index $.StoreAddresses $idx }}
+          - host: {{ $addr.Host }}
+            port: {{ $addr.Port }}
+{{- end }}
+{{- end }}
+zookeeper:
+  node:
+{{- range $i, $addr := .KeeperAddresses }}
+    - host: {{ $addr.Host }}
+      port: {{ $addr.Port }}
+{{- end }}
+query_log:
+    flush_interval_milliseconds: 30000
+    partition_by: toYYYYMM(event_date)
+    ttl: "event_date + INTERVAL 1 DAY DELETE"
+query_thread_log:
+    ttl: "event_date + INTERVAL 1 DAY DELETE"
+query_metric_log:
+    ttl: "event_date + INTERVAL 1 DAY DELETE"
+query_views_log:
+    ttl: "event_date + INTERVAL 1 DAY DELETE"
+part_log:
+    ttl: "event_date + INTERVAL 1 DAY DELETE"
+metric_log:
+    flush_interval_milliseconds: 30000
+    ttl: "event_date + INTERVAL 1 DAY DELETE"
+asynchronous_metric_log:
+    ttl: "event_date + INTERVAL 1 DAY DELETE"
+trace_log:
+    flush_interval_milliseconds: 30000
+    ttl: "event_date + INTERVAL 1 DAY DELETE"
+error_log:
+    ttl: "event_date + INTERVAL 1 DAY DELETE"
+latency_log:
+    ttl: "event_date + INTERVAL 1 DAY DELETE"
+processors_profile_log:
+    flush_interval_milliseconds: 30000
+    ttl: "event_date + INTERVAL 1 DAY DELETE"
+session_log:
+    ttl: "event_date + INTERVAL 1 DAY DELETE"
+text_log:
+    flush_interval_milliseconds: 30000
+    ttl: "event_date + INTERVAL 1 DAY DELETE"
+zookeeper_log:
+    ttl: "event_date + INTERVAL 1 DAY DELETE"
+tcp_port: 9000
+user_defined_executable_functions_config: '*functions.yaml'
+user_scripts_path: /var/lib/clickhouse/user_scripts/
+users:
+    default:
+        access_management: 1
+        named_collection_control: 1
+        networks:
+            ip: ::/0
+        password: ""
+        profile: default
+        quota: default
+        show_named_collection: 1
+        show_named_collection_secrets: 1

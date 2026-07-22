@@ -1,0 +1,21 @@
+[Unit]
+Description=SigNoz MCP Server
+Documentation=https://signoz.io/docs
+
+[Service]
+User=signoz
+Group=signoz
+Type=simple
+KillMode=mixed
+Restart=on-failure
+RestartSec=5
+{{- if and $.Metadata.Annotations (index $.Metadata.Annotations "foundry.signoz.io/mcp-binary-path") }}
+{{- $mcpBinary := index $.Metadata.Annotations "foundry.signoz.io/mcp-binary-path" }}
+ExecStart={{ $mcpBinary }}
+{{- end }}
+{{- range $key, $value := $.Spec.MCP.Spec.Env }}
+Environment={{ $key }}={{ $value }}
+{{- end }}
+
+[Install]
+WantedBy=multi-user.target

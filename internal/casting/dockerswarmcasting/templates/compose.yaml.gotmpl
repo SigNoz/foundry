@@ -5,6 +5,29 @@ services:
     image: {{ $.Spec.TelemetryKeeper.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
+    {{- if eq $.Spec.TelemetryKeeper.Kind.String "zookeeper" }}
+    environment:
+      - ZOO_SERVER_ID={{ add $replicaIdx 1 }}
+      {{- if gt (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) 1 }}
+      - ZOO_SERVERS={{ range $serverIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}{{ if $serverIdx }},{{ end }}{{ if eq $serverIdx $replicaIdx }}0.0.0.0{{ else }}{{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $serverIdx }}{{ end }}:2888:3888{{ end }}
+      {{- end }}
+      {{- range $key, $value := $.Spec.TelemetryKeeper.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    volumes:
+      - {{ $.Metadata.Name }}-telemetrykeeper-{{ $replicaIdx }}-data:/bitnami/zookeeper
+    deploy:
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test:
+      - "CMD-SHELL"
+      - "curl -s -m 2 http://localhost:8080/commands/ruok | grep error | grep null"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    {{- else }}
     {{- if $.Spec.TelemetryKeeper.Spec.Env }}
     environment:
       {{- range $key, $value := $.Spec.TelemetryKeeper.Spec.Env }}
@@ -36,6 +59,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    {{- end }}
   {{- end }}
   {{- range $shardIdx := until (int .Spec.TelemetryStore.Spec.Cluster.Shards) }}
   {{- range $replicaIdx := until (int (add1 (int $.Spec.TelemetryStore.Spec.Cluster.Replicas))) }}
@@ -46,7 +70,7 @@ services:
       - {{ $.Metadata.Name }}-network
     environment:
       - CLICKHOUSE_SKIP_USER_SETUP=1
-      - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.yaml
+      - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml
     {{- if $.Spec.TelemetryStore.Spec.Env }}
       {{- range $key, $value := $.Spec.TelemetryStore.Spec.Env }}
       - {{ $key }}={{ $value }}
@@ -56,8 +80,8 @@ services:
       - {{ $.Metadata.Name }}-telemetrystore-{{ $shardIdx }}-{{ $replicaIdx }}-data:/var/lib/clickhouse
       - {{ $.Metadata.Name }}-telemetrystore-user-scripts:/var/lib/clickhouse/user_scripts:ro
     configs:
-      - source: telemetrystore-config
-        target: /etc/clickhouse-server/config.yaml
+      - source: telemetrystore-config-{{ $shardIdx }}-{{ $replicaIdx }}
+        target: /etc/clickhouse-server/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml
       - source: telemetrystore-functions
         target: /etc/clickhouse-server/functions.yaml
     deploy:
@@ -125,10 +149,13 @@ services:
       start_period: 30s
   {{- end }}
   {{- end }}
-  {{ $.Metadata.Name }}-ingester:
+  {{- $ingesterReplicas := int $.Spec.Ingester.Spec.Cluster.Replicas }}
+  ingester:
     image: {{ $.Spec.Ingester.Spec.Image }}
     networks:
-      - {{ $.Metadata.Name }}-network
+      {{ $.Metadata.Name }}-network:
+        aliases:
+          - {{ $.Metadata.Name }}-ingester
     entrypoint:
       - /bin/sh
     command:
@@ -153,7 +180,10 @@ services:
       - {{ $key }}={{ $value }}
       {{- end }}
     {{- end }}
-  {{ $.Metadata.Name }}-signoz:
+    deploy:
+      replicas: {{ $ingesterReplicas }}
+  {{- range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}:
     image: {{ $.Spec.Signoz.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
@@ -164,13 +194,12 @@ services:
       {{- end }}
     {{- end }}
     ports:
-      - "8080:8080"
+      - "{{ add 8080 (mul $replicaIdx 1000) }}:8080"
     {{- if eq $.Spec.MetaStore.Kind.String "sqlite" }}
     volumes:
-      - {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-data:{{ dir (index $.Spec.Signoz.Spec.Env "SIGNOZ_SQLSTORE_SQLITE_PATH") }}
+      - {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}-data:{{ dir (index $.Spec.Signoz.Spec.Env "SIGNOZ_SQLSTORE_SQLITE_PATH") }}
     {{- end }}
     deploy:
-      replicas: {{ int $.Spec.Signoz.Spec.Cluster.Replicas }}
       restart_policy:
         condition: on-failure
     healthcheck:
@@ -184,6 +213,25 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+  {{- end }}
+  {{- if derefBool $.Spec.MCP.Spec.Enabled }}
+  {{ $.Metadata.Name }}-mcp:
+    image: {{ $.Spec.MCP.Spec.Image }}
+    networks:
+      - {{ $.Metadata.Name }}-network
+    {{- if $.Spec.MCP.Spec.Env }}
+    environment:
+      {{- range $key, $value := $.Spec.MCP.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    {{- end }}
+    ports:
+      - "8000:8000"
+    deploy:
+      replicas: {{ int $.Spec.MCP.Spec.Cluster.Replicas }}
+      restart_policy:
+        condition: on-failure
+  {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-migrator:
     image: {{ $.Spec.Ingester.Spec.Image }}
     networks:
@@ -232,15 +280,23 @@ volumes:
   {{- end }}
   {{- end }}
   {{- if eq $.Spec.MetaStore.Kind.String "sqlite" }}
-  {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-data:
+  {{- range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}-data:
+  {{- end }}
   {{- end }}
 configs:
+  {{- if ne $.Spec.TelemetryKeeper.Kind.String "zookeeper" }}
   {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
   telemetrykeeper-{{ $replicaIdx }}:
     file: telemetrykeeper/{{ $.Spec.TelemetryKeeper.Kind }}/keeper-{{ $replicaIdx }}.yaml
   {{- end }}
-  telemetrystore-config:
-    file: telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/config.yaml
+  {{- end }}
+  {{- range $shardIdx := until (int $.Spec.TelemetryStore.Spec.Cluster.Shards) }}
+  {{- range $replicaIdx := until (int (add1 (int $.Spec.TelemetryStore.Spec.Cluster.Replicas))) }}
+  telemetrystore-config-{{ $shardIdx }}-{{ $replicaIdx }}:
+    file: telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml
+  {{- end }}
+  {{- end }}
   telemetrystore-functions:
     file: telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/functions.yaml
   ingester-config:

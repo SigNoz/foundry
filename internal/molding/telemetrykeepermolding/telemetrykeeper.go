@@ -30,6 +30,17 @@ func (molding *telemetrykeeper) Kind() v1alpha1.MoldingKind {
 }
 
 func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *installation.Casting) error {
+	switch config.Spec.TelemetryKeeper.Kind {
+	case installation.TelemetryKeeperKindClickhouseKeeper:
+		return molding.moldClickhouseKeeper(ctx, config)
+	case installation.TelemetryKeeperKindZookeeper:
+		return molding.moldZookeeper(ctx, config)
+	default:
+		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported telemetrykeeper kind %q", config.Spec.TelemetryKeeper.Kind)
+	}
+}
+
+func (molding *telemetrykeeper) moldClickhouseKeeper(ctx context.Context, config *installation.Casting) error {
 	data, err := newData(config)
 	if err != nil {
 		molding.logger.ErrorContext(ctx, "failed to get data", foundryerrors.LogAttr(err))
@@ -44,7 +55,7 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *instal
 	for i := 0; i < data.ServerCount; i++ {
 		configBuf := bytes.NewBuffer(nil)
 		data.ServerID = i // 0-indexed, used for array indexing in template
-		if err := KeeperClickhousev2556YAML.Execute(configBuf, data); err != nil {
+		if err := KeeperClickhousev25125YAML.Execute(configBuf, data); err != nil {
 			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute keeper template for server %d", data.ServerID)
 		}
 
@@ -63,5 +74,30 @@ func (molding *telemetrykeeper) MoldV1Alpha1(ctx context.Context, config *instal
 	}
 
 	config.Spec.TelemetryKeeper.Status.Config.Data = configs
+	return nil
+}
+
+func (molding *telemetrykeeper) moldZookeeper(_ context.Context, config *installation.Casting) error {
+	if config.Spec.TelemetryKeeper.Status.Env == nil {
+		config.Spec.TelemetryKeeper.Status.Env = make(map[string]string)
+	}
+
+	env := config.Spec.TelemetryKeeper.Status.Env
+	env["ALLOW_ANONYMOUS_LOGIN"] = "yes"
+	env["ZOO_AUTOPURGE_INTERVAL"] = "1"
+	env["ZOO_AUTOPURGE_RETAIN_COUNT"] = "3"
+	env["ZOO_ENABLE_PROMETHEUS_METRICS"] = "yes"
+	env["ZOO_PROMETHEUS_METRICS_PORT_NUMBER"] = "9141"
+	env["ZOO_TICK_TIME"] = "2000"
+	env["ZOO_INIT_LIMIT"] = "10"
+	env["ZOO_SYNC_LIMIT"] = "5"
+	env["ZOO_PRE_ALLOC_SIZE"] = "65536"
+	env["ZOO_SNAPCOUNT"] = "100000"
+	env["ZOO_MAX_CLIENT_CNXNS"] = "60"
+	env["ZOO_MAX_SESSION_TIMEOUT"] = "40000"
+	env["ZOO_4LW_COMMANDS_WHITELIST"] = "srvr, mntr, ruok"
+	env["ZOO_HEAP_SIZE"] = "1024"
+	env["ZOO_LOG_LEVEL"] = "INFO"
+
 	return nil
 }

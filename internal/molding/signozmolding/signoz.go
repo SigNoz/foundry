@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"strings"
 
 	"github.com/signoz/foundry/api/v1alpha1"
@@ -45,7 +46,10 @@ func (molding *signoz) MoldV1Alpha1(ctx context.Context, config *installation.Ca
 		molding.logger.WarnContext(ctx, "SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN is going to be overridden", slog.String("value", val))
 	}
 
-	config.Spec.Signoz.Status.Env["SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN"] = strings.Join(config.Spec.TelemetryStore.Status.Addresses.TCP, ",")
+	if len(config.Spec.TelemetryStore.Status.Addresses.TCP) == 0 {
+		return errors.Newf(errors.TypeInternal, "telemetry store address is not set")
+	}
+	config.Spec.Signoz.Status.Env["SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN"] = config.Spec.TelemetryStore.Status.Addresses.TCP[0]
 
 	// Add metastore addresses
 	config.Spec.Signoz.Status.Env["SIGNOZ_SQLSTORE_PROVIDER"] = config.Spec.MetaStore.Kind.String()
@@ -68,8 +72,15 @@ func (molding *signoz) MoldV1Alpha1(ctx context.Context, config *installation.Ca
 			password := config.Spec.MetaStore.Status.Env["POSTGRES_PASSWORD"]
 			db := config.Spec.MetaStore.Status.Env["POSTGRES_DB"]
 			for _, addr := range addrs {
-				dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable", user, password, addr.Host(), addr.Port(), db)
-				dsns = append(dsns, dsn)
+				// url.URL percent-encodes userinfo, so credentials with reserved characters yield a valid DSN
+				dsn := url.URL{
+					Scheme:   "postgres",
+					User:     url.UserPassword(user, password),
+					Host:     fmt.Sprintf("%s:%d", addr.Host(), addr.Port()),
+					Path:     "/" + db,
+					RawQuery: "sslmode=disable",
+				}
+				dsns = append(dsns, dsn.String())
 			}
 			config.Spec.Signoz.Status.Env["SIGNOZ_SQLSTORE_POSTGRES_DSN"] = strings.Join(dsns, ",")
 		}
