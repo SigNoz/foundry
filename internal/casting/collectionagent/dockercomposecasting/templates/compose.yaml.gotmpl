@@ -1,0 +1,19 @@
+name: {{ .Metadata.Name }}
+services:
+  collector-{{ .Spec.Collector.Kind }}:
+    image: {{ .Spec.Collector.Spec.Image }}
+    command: ["--config=/etc/{{ .Spec.Collector.Kind.ConfigKey }}"]
+    volumes:
+      - ./{{ .Spec.Collector.Kind.ConfigKey }}:/etc/{{ .Spec.Collector.Kind.ConfigKey }}:ro
+    {{- if .Spec.Collector.Spec.Env }}
+    environment:
+      {{- range $key, $value := .Spec.Collector.Spec.Env }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
+    {{- end }}
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    deploy:
+      replicas: {{ derefIntDefault .Spec.Collector.Spec.Cluster.Replicas 1 }}
+    restart: unless-stopped
