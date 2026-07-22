@@ -65,16 +65,16 @@ func TestMoldAgent(t *testing.T) {
 	tests := []struct {
 		name         string
 		contribution string
-		want         map[string]pipeline
+		expected     map[string]pipeline
 	}{
 		{
-			name: "BaseOnly_NoContribution",
-			want: map[string]pipeline{"traces": base, "metrics": base, "logs": base},
+			name:     "BaseOnly_NoContribution",
+			expected: map[string]pipeline{"traces": base, "metrics": base, "logs": base},
 		},
 		{
 			name:         "ReceiverDelta_RestoresBaseAndUnions",
 			contribution: "service:\n  pipelines:\n    metrics:\n      receivers: [docker_stats]\n",
-			want: map[string]pipeline{
+			expected: map[string]pipeline{
 				"metrics": {Receivers: []string{"otlp", "docker_stats"}, Processors: base.Processors, Exporters: base.Exporters},
 				"traces":  base,
 			},
@@ -82,7 +82,7 @@ func TestMoldAgent(t *testing.T) {
 		{
 			name:         "ProcessorDelta_OrderedBeforeBatch",
 			contribution: "service:\n  pipelines:\n    metrics:\n      processors: [attributes/env]\n",
-			want: map[string]pipeline{
+			expected: map[string]pipeline{
 				"metrics": {Receivers: base.Receivers, Processors: []string{"memory_limiter", "resourcedetection", "attributes/env", "batch"}, Exporters: base.Exporters},
 			},
 		},
@@ -92,8 +92,8 @@ func TestMoldAgent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c := newCasting(t, collectionagent.CollectorKindAgent, tt.contribution)
 			got := agentPipelines(t, c)
-			for name, want := range tt.want {
-				assert.Equal(t, want, got[name], name)
+			for name, expected := range tt.expected {
+				assert.Equal(t, expected, got[name], name)
 			}
 			assert.Equal(t, collectionagent.CollectorKindAgent.String(), c.Spec.Collector.Status.Env["OTEL_COLLECTOR_ROLE"])
 		})
@@ -106,18 +106,18 @@ func TestMoldAgentErrors(t *testing.T) {
 		name         string
 		kind         collectionagent.CollectorKind
 		contribution string
-		wantCode     int
+		expectedCode int
 	}{
 		{
-			name:     "UnknownKind",
-			kind:     collectionagent.CollectorKind{},
-			wantCode: foundryerrors.TypeUnsupported.ExitCode(),
+			name:         "UnknownKind",
+			kind:         collectionagent.CollectorKind{},
+			expectedCode: foundryerrors.TypeUnsupported.ExitCode(),
 		},
 		{
 			name:         "InvalidContributionYAML",
 			kind:         collectionagent.CollectorKindAgent,
 			contribution: "- not\n- a\n- map\n",
-			wantCode:     foundryerrors.TypeInvalidInput.ExitCode(),
+			expectedCode: foundryerrors.TypeInvalidInput.ExitCode(),
 		},
 	}
 
@@ -126,7 +126,7 @@ func TestMoldAgentErrors(t *testing.T) {
 			c := newCasting(t, tt.kind, tt.contribution)
 			err := New(slog.Default()).MoldV1Alpha1(context.Background(), c)
 			require.Error(t, err)
-			assert.Equal(t, tt.wantCode, foundryerrors.ExitCode(err))
+			assert.Equal(t, tt.expectedCode, foundryerrors.ExitCode(err))
 		})
 	}
 }

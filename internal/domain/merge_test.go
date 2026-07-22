@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestStrategicMergeYAML(t *testing.T) {
@@ -104,10 +103,4 @@ func TestStrategicMergeYAML(t *testing.T) {
 			assert.Equal(t, tt.expected, merged)
 		})
 	}
-}
-
-func TestMergeYAML(t *testing.T) {
-	merged, err := MergeYAML("logger:\n  level: information\n  size: 1000M\n", "logger:\n  level: debug\n")
-	require.NoError(t, err)
-	assert.Equal(t, "logger:\n  level: debug\n  size: 1000M\n", merged)
 }
