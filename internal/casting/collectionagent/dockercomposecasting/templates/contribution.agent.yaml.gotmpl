@@ -1,0 +1,32 @@
+receivers:
+  docker_stats:
+    endpoint: unix:///var/run/docker.sock
+  hostmetrics:
+    root_path: /hostfs
+    scrapers:
+      cpu: {}
+      memory: {}
+      disk: {}
+      filesystem: {}
+      network: {}
+      load: {}
+  filelog:
+    include:
+      - /var/lib/docker/containers/*/*-json.log
+    operators:
+      - type: container
+        format: docker
+
+processors:
+  resourcedetection:
+    detectors:
+      - env
+      - system
+      - docker
+
+service:
+  pipelines:
+    metrics:
+      receivers: [docker_stats, hostmetrics]
+    logs:
+      receivers: [filelog]

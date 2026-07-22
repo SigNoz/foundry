@@ -9,4 +9,7 @@ import (
 //go:embed templates/*.gotmpl
 var templates embed.FS
 
-var composeYAMLTemplate *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/compose.yaml.gotmpl", domain.FormatYAML)
+var (
+	composeYAMLTemplate       *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/compose.yaml.gotmpl", domain.FormatYAML)
+	agentContributionTemplate *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/contribution.agent.yaml.gotmpl", domain.FormatYAML)
+)

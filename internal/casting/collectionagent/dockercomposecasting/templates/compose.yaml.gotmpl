@@ -3,8 +3,12 @@ services:
   collector-{{ .Spec.Collector.Kind }}:
     image: {{ .Spec.Collector.Spec.Image }}
     command: ["--config=/etc/{{ .Spec.Collector.Kind.ConfigKey }}"]
+    user: "0"
     volumes:
       - ./{{ .Spec.Collector.Kind.ConfigKey }}:/etc/{{ .Spec.Collector.Kind.ConfigKey }}:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /:/hostfs:ro
     {{- if .Spec.Collector.Spec.Env }}
     environment:
       {{- range $key, $value := .Spec.Collector.Spec.Env }}
