@@ -6,12 +6,35 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestTypeConfigSet_AllocatesAndOverwrites(t *testing.T) {
-	var config TypeConfig // nil Data
-	config.Set("collector/agent/agent.yaml", []byte("a: 1"))
-	assert.Equal(t, "a: 1", config.Data["collector/agent/agent.yaml"])
+func TestTypeConfigSet(t *testing.T) {
+	tests := []struct {
+		name     string
+		seed     map[string]string
+		path     string
+		content  string
+		expected string
+	}{
+		{
+			name:     "NilData_Allocates",
+			path:     "collector/agent/agent.yaml",
+			content:  "a: 1",
+			expected: "a: 1",
+		},
+		{
+			name:     "SamePath_Overwrites",
+			seed:     map[string]string{"collector/agent/agent.yaml": "a: 1"},
+			path:     "collector/agent/agent.yaml",
+			content:  "a: 2",
+			expected: "a: 2",
+		},
+	}
 
-	// Set on the same path overwrites in place.
-	config.Set("collector/agent/agent.yaml", []byte("a: 2"))
-	assert.Equal(t, "a: 2", config.Data["collector/agent/agent.yaml"])
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := TypeConfig{Data: tt.seed}
+			config.Set(tt.path, []byte(tt.content))
+
+			assert.Equal(t, tt.expected, config.Data[tt.path])
+		})
+	}
 }
