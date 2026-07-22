@@ -82,10 +82,22 @@ func (molding *telemetrykeeper) moldZookeeper(_ context.Context, config *install
 		config.Spec.TelemetryKeeper.Status.Env = make(map[string]string)
 	}
 
-	config.Spec.TelemetryKeeper.Status.Env["ALLOW_ANONYMOUS_LOGIN"] = "yes"
-	config.Spec.TelemetryKeeper.Status.Env["ZOO_AUTOPURGE_INTERVAL"] = "1"
-	config.Spec.TelemetryKeeper.Status.Env["ZOO_ENABLE_PROMETHEUS_METRICS"] = "yes"
-	config.Spec.TelemetryKeeper.Status.Env["ZOO_PROMETHEUS_METRICS_PORT_NUMBER"] = "9141"
+	env := config.Spec.TelemetryKeeper.Status.Env
+	env["ALLOW_ANONYMOUS_LOGIN"] = "yes"
+	env["ZOO_AUTOPURGE_INTERVAL"] = "1"
+	env["ZOO_AUTOPURGE_RETAIN_COUNT"] = "3"
+	env["ZOO_ENABLE_PROMETHEUS_METRICS"] = "yes"
+	env["ZOO_PROMETHEUS_METRICS_PORT_NUMBER"] = "9141"
+	env["ZOO_TICK_TIME"] = "2000"
+	env["ZOO_INIT_LIMIT"] = "10"
+	env["ZOO_SYNC_LIMIT"] = "5"
+	env["ZOO_PRE_ALLOC_SIZE"] = "65536"
+	env["ZOO_SNAPCOUNT"] = "100000"
+	env["ZOO_MAX_CLIENT_CNXNS"] = "60"
+	env["ZOO_MAX_SESSION_TIMEOUT"] = "40000"
+	env["ZOO_4LW_COMMANDS_WHITELIST"] = "srvr, mntr, ruok"
+	env["ZOO_HEAP_SIZE"] = "1024"
+	env["ZOO_LOG_LEVEL"] = "INFO"
 
 	return nil
 }

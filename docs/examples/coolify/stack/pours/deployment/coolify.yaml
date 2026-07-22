@@ -173,9 +173,9 @@ services:
       type: bind
   signoz-metastore-postgres-0:
     environment:
-    - POSTGRES_USER=signoz
-    - POSTGRES_PASSWORD=signoz
     - POSTGRES_DB=signoz
+    - POSTGRES_PASSWORD=signoz
+    - POSTGRES_USER=signoz
     healthcheck:
       interval: 30s
       retries: 3
@@ -394,7 +394,7 @@ services:
         zookeeper_log:
             ttl: "event_date + INTERVAL 1 DAY DELETE"
         tcp_port: 9000
-        user_defined_executable_functions_config: '*function.yaml'
+        user_defined_executable_functions_config: '*functions.yaml'
         user_scripts_path: /var/lib/clickhouse/user_scripts/
         users:
             default:
@@ -418,7 +418,7 @@ services:
               - name: counts
                 type: Array(Float64)
               - name: quantile
-                type: Array(Float64)
+                type: Float64
           command: ./histogramQuantile
           format: CSV
           name: histogramQuantile

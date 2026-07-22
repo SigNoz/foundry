@@ -32,17 +32,6 @@ services:
     - MCP_SERVER_PORT=8000
     - SIGNOZ_URL=http://signoz-signoz-0:8080
     - TRANSPORT_MODE=http
-    healthcheck:
-      interval: 10s
-      retries: 5
-      start_period: 10s
-      test:
-      - CMD
-      - wget
-      - --spider
-      - -q
-      - http://localhost:8000/livez
-      timeout: 1s
     image: signoz/signoz-mcp-server:latest
     networks:
     - signoz-network

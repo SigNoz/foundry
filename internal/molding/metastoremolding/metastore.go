@@ -39,23 +39,13 @@ func (molding *metastore) MoldV1Alpha1(ctx context.Context, config *installation
 			return errors.Newf(errors.TypeInvalidInput, "metastore.spec.cluster.replicas must be 1 when metastore.kind is sqlite; sqlite is embedded and per-instance storage is driven by signoz.spec.cluster.replicas (got %d)", *replicas)
 		}
 	case installation.MetaStoreKindPostgres:
-		if val, ok := config.Spec.MetaStore.Spec.Env["POSTGRES_DB"]; ok {
-			molding.logger.WarnContext(ctx, "POSTGRES_DB is going to be overridden", slog.String("value", val))
+		for _, key := range []string{"POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD"} {
+			if val, ok := config.Spec.MetaStore.Spec.Env[key]; ok && val != "" {
+				config.Spec.MetaStore.Status.Env[key] = val
+			} else {
+				config.Spec.MetaStore.Status.Env[key] = "signoz"
+			}
 		}
-
-		config.Spec.MetaStore.Status.Env["POSTGRES_DB"] = "signoz"
-
-		if val, ok := config.Spec.MetaStore.Spec.Env["POSTGRES_USER"]; ok {
-			molding.logger.WarnContext(ctx, "POSTGRES_USER is going to be overridden", slog.String("value", val))
-		}
-
-		config.Spec.MetaStore.Status.Env["POSTGRES_USER"] = "signoz"
-
-		if val, ok := config.Spec.MetaStore.Spec.Env["POSTGRES_PASSWORD"]; ok {
-			molding.logger.WarnContext(ctx, "POSTGRES_PASSSWORD is going to be overridden", slog.String("value", val))
-		}
-
-		config.Spec.MetaStore.Status.Env["POSTGRES_PASSWORD"] = "signoz"
 	}
 
 	return nil
