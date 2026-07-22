@@ -15,6 +15,10 @@ type Collector struct {
 	_ struct{} `additionalProperties:"false"`
 }
 
+// CollectorStatus carries the molding's collector config in Config.Data, a
+// config map of path -> content. The casting enricher writes its OTel additions
+// at the kind's ConfigKey; the molding merges them over its base config and
+// writes the result back to the same key.
 type CollectorStatus struct {
 	v1alpha1.MoldingStatus `json:",inline" yaml:",inline"`
 

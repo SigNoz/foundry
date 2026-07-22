@@ -9,7 +9,7 @@ import (
 )
 
 // DeploymentDir is the subdirectory within the pours directory where
-// deployment-specific materials (compose files, service units, configs) are written.
+// Installation Kind materials (compose files, service units, configs) are written.
 const DeploymentDir = "deployment"
 
 type Casting interface {
