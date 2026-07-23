@@ -2,7 +2,7 @@
 apiVersion: v1alpha1
 kind: CollectionAgent
 metadata:
-  name: host-agent
+  name: signoz
 spec:
   deployment:
     mode: docker

@@ -1,4 +1,4 @@
-name: host-agent
+name: signoz
 services:
   collector-agent:
     command:

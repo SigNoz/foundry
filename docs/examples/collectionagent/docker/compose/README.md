@@ -1,4 +1,4 @@
-# Docker Compose collection agent
+# Docker Compose Collection Agent
 
 | Field | Value |
 | --- | --- |
@@ -8,14 +8,14 @@
 
 ## Overview
 
-Deploys a SigNoz collection agent on a Docker host as a single Compose service. The agent collects the host's telemetry and forwards it, along with anything your applications send it, to any SigNoz: Self-Hosted Community, Self-Hosted Enterprise, or SigNoz Cloud.
+Deploys a SigNoz [Docker Collection Agent](https://signoz.io/docs/opentelemetry-collection-agents/docker/overview/) on a Docker host as a single Compose service. The agent runs the OpenTelemetry Collector, collects the host's telemetry, and exports it, along with anything your applications send it, to any SigNoz: Self-Hosted Community, Self-Hosted Enterprise, or SigNoz Cloud.
 
-- Container metrics from the Docker Engine API (`docker_stats`)
-- Host metrics from the mounted host filesystem (`hostmetrics`)
-- Container logs from the Docker log files (`filelog`)
+- Container metrics from the Docker Engine API through the `docker_stats` receiver
+- Host metrics from the mounted host filesystem through the `hostmetrics` receiver
+- Container logs from the Docker log files through the `filelog` receiver
 - OTLP intake for your applications on `localhost:4317` (gRPC) and `localhost:4318` (HTTP)
 
-The agent runs with host networking, so `host.name` on all telemetry is the real host's name and applications on the host reach it on localhost.
+The agent runs with host networking, so the `host.name` resource attribute on all telemetry is the real host's name and applications on the host reach the agent on localhost.
 
 ## Prerequisites
 
@@ -29,7 +29,7 @@ The agent runs with host networking, so `host.name` on all telemetry is the real
 apiVersion: v1alpha1
 kind: CollectionAgent
 metadata:
-  name: host-agent
+  name: signoz
 spec:
   deployment:
     mode: docker
@@ -42,18 +42,18 @@ spec:
         OTEL_RESOURCE_ATTRIBUTES: "deployment.environment=production"
 ```
 
-- `spec.collector.spec.env` becomes the container's environment. Point `SIGNOZ_INGESTION_ENDPOINT` at your SigNoz OTLP HTTP ingest; for a Self-Hosted Community installation that is port `4318` on the SigNoz host. Community has no ingestion key, so the endpoint is all the agent needs.
-- `OTEL_RESOURCE_ATTRIBUTES` sets `deployment.environment` on everything the agent collects. Adjust it per host.
+- `spec.collector.spec.env` becomes the container's environment. Point `SIGNOZ_INGESTION_ENDPOINT` at your SigNoz OTLP HTTP ingest; for a Self-Hosted Community installation that is port `4318` on the SigNoz host. Community has no ingestion key, so the endpoint is all the agent needs (see [Cloud to Self-Hosted](https://signoz.io/docs/ingestion/cloud-vs-self-hosted/#cloud-to-self-hosted)).
+- `OTEL_RESOURCE_ATTRIBUTES` sets the `deployment.environment` resource attribute on everything the agent collects. Adjust it per host.
 
 ### SigNoz Cloud or Self-Hosted Enterprise
 
-Both authenticate ingestion with an ingestion key. For SigNoz Cloud, set the endpoint for your region (`us`, `eu`, `in`); for Self-Hosted Enterprise, use your deployment's ingestion endpoint. Add the key as an exporter header through `spec.collector.spec.config.data`:
+Both authenticate ingestion with an [ingestion key](https://signoz.io/docs/ingestion/signoz-cloud/keys/). For SigNoz Cloud, set the [endpoint for your region](https://signoz.io/docs/ingestion/signoz-cloud/overview/#endpoint) (`us`, `eu`, `in`); for Self-Hosted Enterprise, use your deployment's ingestion endpoint. Add the key as an exporter header through `spec.collector.spec.config.data`:
 
 ```yaml
 apiVersion: v1alpha1
 kind: CollectionAgent
 metadata:
-  name: host-agent
+  name: signoz
 spec:
   deployment:
     mode: docker
@@ -123,7 +123,9 @@ docker compose -f pours/collectionagent/compose.yaml logs -f
 docker compose -f pours/collectionagent/compose.yaml down
 ```
 
-Point applications on the host at the agent with `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317` (gRPC) or `http://localhost:4318` (HTTP). Containers on the default bridge network reach it at the bridge gateway, typically `172.17.0.1`.
+Point [instrumented applications](https://signoz.io/docs/instrumentation/) on the host at the agent with `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317` (gRPC) or `http://localhost:4318` (HTTP). Containers on the default bridge network reach it at the bridge gateway, typically `172.17.0.1`.
+
+In SigNoz, the host appears under [Infrastructure Monitoring](https://signoz.io/docs/infrastructure-monitoring/hostmetrics/) and per-container metrics under [Docker container metrics](https://signoz.io/docs/metrics-management/docker-container-metrics/).
 
 > [!IMPORTANT]
 > **Upgrading:** re-running `cast` regenerates the config files, but Docker Compose does not restart containers when only mounted file contents change. Recreate the agent so the new config takes effect:

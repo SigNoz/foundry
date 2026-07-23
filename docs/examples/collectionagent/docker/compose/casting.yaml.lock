@@ -1,7 +1,7 @@
 apiVersion: v1alpha1
 kind: CollectionAgent
 metadata:
-  name: host-agent
+  name: signoz
 spec:
   collector:
     kind: agent
@@ -173,14 +173,6 @@ spec:
                   receivers:
                   - otlp/http
                   - otlp/grpc
-              telemetry:
-                metrics:
-                  readers:
-                  - pull:
-                      exporter:
-                        prometheus:
-                          host: 0.0.0.0
-                          port: 8888
       enabled: true
       env:
         OTEL_COLLECTOR_ROLE: agent
@@ -354,14 +346,6 @@ spec:
                   receivers:
                   - otlp/http
                   - otlp/grpc
-              telemetry:
-                metrics:
-                  readers:
-                  - pull:
-                      exporter:
-                        prometheus:
-                          host: 0.0.0.0
-                          port: 8888
       env:
         OTEL_COLLECTOR_ROLE: agent
         OTEL_RESOURCE_ATTRIBUTES: deployment.environment=production
