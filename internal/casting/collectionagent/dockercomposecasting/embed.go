@@ -10,6 +10,6 @@ import (
 var templates embed.FS
 
 var (
-	composeYAMLTemplate       *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/compose.yaml.gotmpl", domain.FormatYAML)
-	agentContributionTemplate *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/contribution.agent.yaml.gotmpl", domain.FormatYAML)
+	composeYAMLTemplate *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/compose.yaml.gotmpl", domain.FormatYAML)
+	agentYAMLTemplate   *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/agent.yaml.gotmpl", domain.FormatYAML)
 )

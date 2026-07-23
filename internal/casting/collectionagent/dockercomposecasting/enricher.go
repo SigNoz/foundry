@@ -21,7 +21,7 @@ func newDockerComposeMoldingEnricher() *dockerComposeMoldingEnricher {
 // EnrichStatus contributes the docker host's telemetry to the agent collector:
 // container metrics off the engine socket, host metrics off the mounted host
 // filesystem, container logs, and the docker resource detector. The gateway
-// kind gets no contribution: nothing on its host is its job to scrape.
+// kind gets no config: nothing on its host is its job to scrape.
 func (e *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *collectionagent.Casting) error {
 	if kind != v1alpha1.MoldingKindCollector {
 		return nil
@@ -32,8 +32,8 @@ func (e *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 	}
 
 	buf := bytes.NewBuffer(nil)
-	if err := agentContributionTemplate.Execute(buf, nil); err != nil {
-		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute agent contribution template")
+	if err := agentYAMLTemplate.Execute(buf, nil); err != nil {
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute agent template")
 	}
 
 	config.Spec.Collector.Status.Config.Set(config.Spec.Collector.Kind.ConfigKey(), buf.Bytes())

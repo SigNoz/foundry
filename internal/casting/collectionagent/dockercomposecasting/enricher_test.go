@@ -30,7 +30,7 @@ func moldedAgentConfig(t *testing.T) map[string]any {
 	return config
 }
 
-func TestEnrichStatusAgentContribution(t *testing.T) {
+func TestEnrichStatusAgent(t *testing.T) {
 	config := moldedAgentConfig(t)
 
 	pipelines := config["service"].(map[string]any)["pipelines"].(map[string]any)
@@ -66,7 +66,7 @@ func TestEnrichStatusAgentContribution(t *testing.T) {
 	}
 }
 
-func TestEnrichStatusAgentContributionBodies(t *testing.T) {
+func TestEnrichStatusAgentBodies(t *testing.T) {
 	config := moldedAgentConfig(t)
 
 	// The docker detector rides a full detectors list: bodies replace.
@@ -75,7 +75,7 @@ func TestEnrichStatusAgentContributionBodies(t *testing.T) {
 	assert.Equal(t, "2s", resourcedetection["timeout"])
 
 	// Scraper keys must survive the merge: null-valued keys would be stripped
-	// by the merge patch, so the contribution writes them as empty maps.
+	// by the merge patch, so the template writes them as empty maps.
 	hostmetrics := config["receivers"].(map[string]any)["hostmetrics"].(map[string]any)
 	scrapers := hostmetrics["scrapers"].(map[string]any)
 	for _, scraper := range []string{"cpu", "memory", "disk", "filesystem", "network", "load", "paging", "process", "processes"} {
@@ -94,7 +94,7 @@ func TestEnrichStatusAgentContributionBodies(t *testing.T) {
 	assert.NotContains(t, filelog, "storage")
 }
 
-func TestEnrichStatusNonAgentNoContribution(t *testing.T) {
+func TestEnrichStatusNonAgentNoConfig(t *testing.T) {
 	c := collectionagent.Default()
 	c.Spec.Collector.Kind = collectionagent.CollectorKind{}
 
