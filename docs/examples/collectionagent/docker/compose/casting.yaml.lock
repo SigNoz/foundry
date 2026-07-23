@@ -1,0 +1,371 @@
+apiVersion: v1alpha1
+kind: CollectionAgent
+metadata:
+  name: host-agent
+spec:
+  collector:
+    kind: agent
+    spec:
+      cluster:
+        replicas: 1
+      config:
+        data:
+          collector/agent/agent.yaml: |
+            exporters:
+              otlphttp/signoz:
+                endpoint: ${env:SIGNOZ_INGESTION_ENDPOINT}
+            extensions:
+              health_check:
+                endpoint: 0.0.0.0:13133
+                path: /healthz
+            processors:
+              batch:
+                send_batch_max_size: 2048
+                send_batch_size: 1000
+                timeout: 10s
+              memory_limiter:
+                check_interval: 5s
+                limit_mib: 4000
+                spike_limit_mib: 800
+              resourcedetection:
+                detectors:
+                - env
+                - system
+                - docker
+                system:
+                  hostname_sources:
+                  - os
+                timeout: 2s
+            receivers:
+              docker_stats:
+                api_version: "1.44"
+                collection_interval: 60s
+                container_labels_to_metric_labels:
+                  com.docker.compose.project: docker.compose.project
+                  com.docker.compose.service: docker.compose.service
+                endpoint: unix:///var/run/docker.sock
+                metrics:
+                  container.blockio.io_service_bytes_recursive:
+                    enabled: true
+                  container.cpu.utilization:
+                    enabled: true
+                  container.memory.percent:
+                    enabled: true
+                  container.memory.usage.limit:
+                    enabled: true
+                  container.memory.usage.total:
+                    enabled: true
+                  container.network.io.usage.rx_bytes:
+                    enabled: true
+                  container.network.io.usage.rx_dropped:
+                    enabled: true
+                  container.network.io.usage.tx_bytes:
+                    enabled: true
+                  container.network.io.usage.tx_dropped:
+                    enabled: true
+                timeout: 20s
+              filelog:
+                include:
+                - /var/lib/docker/containers/*/*-json.log
+                include_file_name: false
+                include_file_path: true
+                operators:
+                - add_metadata_from_filepath: false
+                  format: docker
+                  id: container-parser
+                  type: container
+                start_at: end
+              hostmetrics:
+                collection_interval: 60s
+                root_path: /hostfs
+                scrapers:
+                  cpu: {}
+                  disk: {}
+                  filesystem:
+                    exclude_fs_types:
+                      fs_types:
+                      - autofs
+                      - binfmt_misc
+                      - bpf
+                      - cgroup2
+                      - configfs
+                      - debugfs
+                      - devpts
+                      - devtmpfs
+                      - fusectl
+                      - hugetlbfs
+                      - iso9660
+                      - mqueue
+                      - nsfs
+                      - overlay
+                      - proc
+                      - procfs
+                      - pstore
+                      - rpc_pipefs
+                      - securityfs
+                      - selinuxfs
+                      - squashfs
+                      - sysfs
+                      - tracefs
+                      match_type: strict
+                    exclude_mount_points:
+                      match_type: regexp
+                      mount_points:
+                      - /dev/*
+                      - /proc/*
+                      - /sys/*
+                      - /var/lib/docker/*
+                  load: {}
+                  memory: {}
+                  network: {}
+                  nfs: {}
+                  paging: {}
+                  process:
+                    mute_process_exe_error: true
+                    mute_process_io_error: true
+                    mute_process_name_error: true
+                    mute_process_user_error: true
+                  processes: {}
+                  system: {}
+              otlp/grpc:
+                protocols:
+                  grpc:
+                    endpoint: 0.0.0.0:4317
+                    max_recv_msg_size_mib: 16
+              otlp/http:
+                protocols:
+                  http:
+                    endpoint: 0.0.0.0:4318
+            service:
+              extensions:
+              - health_check
+              pipelines:
+                logs:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+                  - filelog
+                metrics:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+                  - docker_stats
+                  - hostmetrics
+                traces:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+              telemetry:
+                metrics:
+                  readers:
+                  - pull:
+                      exporter:
+                        prometheus:
+                          host: 0.0.0.0
+                          port: 8888
+      enabled: true
+      env:
+        OTEL_COLLECTOR_ROLE: agent
+        OTEL_RESOURCE_ATTRIBUTES: deployment.environment=production
+        SIGNOZ_INGESTION_ENDPOINT: http://<signoz-host>:4318
+      image: otel/opentelemetry-collector-contrib:0.139.0
+      version: 0.139.0
+    status:
+      config:
+        data:
+          collector/agent/agent.yaml: |
+            exporters:
+              otlphttp/signoz:
+                endpoint: ${env:SIGNOZ_INGESTION_ENDPOINT}
+            extensions:
+              health_check:
+                endpoint: 0.0.0.0:13133
+                path: /healthz
+            processors:
+              batch:
+                send_batch_max_size: 2048
+                send_batch_size: 1000
+                timeout: 10s
+              memory_limiter:
+                check_interval: 5s
+                limit_mib: 4000
+                spike_limit_mib: 800
+              resourcedetection:
+                detectors:
+                - env
+                - system
+                - docker
+                system:
+                  hostname_sources:
+                  - os
+                timeout: 2s
+            receivers:
+              docker_stats:
+                api_version: "1.44"
+                collection_interval: 60s
+                container_labels_to_metric_labels:
+                  com.docker.compose.project: docker.compose.project
+                  com.docker.compose.service: docker.compose.service
+                endpoint: unix:///var/run/docker.sock
+                metrics:
+                  container.blockio.io_service_bytes_recursive:
+                    enabled: true
+                  container.cpu.utilization:
+                    enabled: true
+                  container.memory.percent:
+                    enabled: true
+                  container.memory.usage.limit:
+                    enabled: true
+                  container.memory.usage.total:
+                    enabled: true
+                  container.network.io.usage.rx_bytes:
+                    enabled: true
+                  container.network.io.usage.rx_dropped:
+                    enabled: true
+                  container.network.io.usage.tx_bytes:
+                    enabled: true
+                  container.network.io.usage.tx_dropped:
+                    enabled: true
+                timeout: 20s
+              filelog:
+                include:
+                - /var/lib/docker/containers/*/*-json.log
+                include_file_name: false
+                include_file_path: true
+                operators:
+                - add_metadata_from_filepath: false
+                  format: docker
+                  id: container-parser
+                  type: container
+                start_at: end
+              hostmetrics:
+                collection_interval: 60s
+                root_path: /hostfs
+                scrapers:
+                  cpu: {}
+                  disk: {}
+                  filesystem:
+                    exclude_fs_types:
+                      fs_types:
+                      - autofs
+                      - binfmt_misc
+                      - bpf
+                      - cgroup2
+                      - configfs
+                      - debugfs
+                      - devpts
+                      - devtmpfs
+                      - fusectl
+                      - hugetlbfs
+                      - iso9660
+                      - mqueue
+                      - nsfs
+                      - overlay
+                      - proc
+                      - procfs
+                      - pstore
+                      - rpc_pipefs
+                      - securityfs
+                      - selinuxfs
+                      - squashfs
+                      - sysfs
+                      - tracefs
+                      match_type: strict
+                    exclude_mount_points:
+                      match_type: regexp
+                      mount_points:
+                      - /dev/*
+                      - /proc/*
+                      - /sys/*
+                      - /var/lib/docker/*
+                  load: {}
+                  memory: {}
+                  network: {}
+                  nfs: {}
+                  paging: {}
+                  process:
+                    mute_process_exe_error: true
+                    mute_process_io_error: true
+                    mute_process_name_error: true
+                    mute_process_user_error: true
+                  processes: {}
+                  system: {}
+              otlp/grpc:
+                protocols:
+                  grpc:
+                    endpoint: 0.0.0.0:4317
+                    max_recv_msg_size_mib: 16
+              otlp/http:
+                protocols:
+                  http:
+                    endpoint: 0.0.0.0:4318
+            service:
+              extensions:
+              - health_check
+              pipelines:
+                logs:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+                  - filelog
+                metrics:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+                  - docker_stats
+                  - hostmetrics
+                traces:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+              telemetry:
+                metrics:
+                  readers:
+                  - pull:
+                      exporter:
+                        prometheus:
+                          host: 0.0.0.0
+                          port: 8888
+      env:
+        OTEL_COLLECTOR_ROLE: agent
+        OTEL_RESOURCE_ATTRIBUTES: deployment.environment=production
+        SIGNOZ_INGESTION_ENDPOINT: http://<signoz-host>:4318
+  deployment:
+    flavor: compose
+    mode: docker
