@@ -16,4 +16,12 @@ func TestNotEmptyAndValid(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, buf.String())
+
+	assert.NotEmpty(t, agentYAMLTemplate)
+
+	buf.Reset()
+	err = agentYAMLTemplate.Execute(buf, nil)
+
+	assert.NoError(t, err)
+	assert.NotEmpty(t, buf.String())
 }

@@ -18,10 +18,6 @@ func newDockerComposeMoldingEnricher() *dockerComposeMoldingEnricher {
 	return &dockerComposeMoldingEnricher{}
 }
 
-// EnrichStatus contributes the docker host's telemetry to the agent collector:
-// container metrics off the engine socket, host metrics off the mounted host
-// filesystem, container logs, and the docker resource detector. The gateway
-// kind gets no config: nothing on its host is its job to scrape.
 func (e *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *collectionagent.Casting) error {
 	if kind != v1alpha1.MoldingKindCollector {
 		return nil
