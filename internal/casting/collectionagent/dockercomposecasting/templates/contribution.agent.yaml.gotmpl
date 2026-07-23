@@ -2,6 +2,11 @@ receivers:
   docker_stats:
     endpoint: unix:///var/run/docker.sock
     api_version: "1.44"
+    collection_interval: 60s
+    timeout: 20s
+    container_labels_to_metric_labels:
+      com.docker.compose.service: docker.compose.service
+      com.docker.compose.project: docker.compose.project
     metrics:
       container.cpu.utilization:
         enabled: true
@@ -65,15 +70,25 @@ receivers:
       network: {}
       load: {}
       paging: {}
-      process: {}
+      process:
+        mute_process_name_error: true
+        mute_process_exe_error: true
+        mute_process_io_error: true
+        mute_process_user_error: true
       processes: {}
+      system: {}
+      nfs: {}
   filelog:
     include:
       - /var/lib/docker/containers/*/*-json.log
     start_at: end
+    include_file_name: false
+    include_file_path: true
     operators:
-      - type: container
+      - id: container-parser
+        type: container
         format: docker
+        add_metadata_from_filepath: false
 
 processors:
   resourcedetection:
@@ -82,6 +97,9 @@ processors:
       - system
       - docker
     timeout: 2s
+    system:
+      hostname_sources:
+        - os
 
 service:
   pipelines:
