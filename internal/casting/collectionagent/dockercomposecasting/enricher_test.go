@@ -82,6 +82,11 @@ func TestEnrichStatusAgentContributionBodies(t *testing.T) {
 		assert.Contains(t, scrapers, scraper)
 	}
 
+	// Modern docker engines reject the receiver's 1.25 default API version;
+	// the value must be a quoted string or it parses as a float.
+	dockerStats := config["receivers"].(map[string]any)["docker_stats"].(map[string]any)
+	assert.Equal(t, "1.44", dockerStats["api_version"])
+
 	// The agent stays stateless: filelog starts at the end instead of
 	// checkpointing offsets into a state volume.
 	filelog := config["receivers"].(map[string]any)["filelog"].(map[string]any)

@@ -1,6 +1,7 @@
 receivers:
   docker_stats:
     endpoint: unix:///var/run/docker.sock
+    api_version: "1.44"
     metrics:
       container.cpu.utilization:
         enabled: true
