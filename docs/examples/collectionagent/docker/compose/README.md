@@ -113,9 +113,6 @@ pours/collectionagent/
 # Check the agent is healthy
 curl -fsS localhost:13133/healthz && echo " OK"
 
-# Watch the agent's own throughput counters
-curl -s localhost:8888/metrics | grep otelcol_exporter_sent
-
 # View agent logs
 docker compose -f pours/collectionagent/compose.yaml logs -f
 
