@@ -176,8 +176,6 @@ spec:
       enabled: true
       env:
         OTEL_COLLECTOR_ROLE: agent
-        OTEL_RESOURCE_ATTRIBUTES: deployment.environment=production
-        SIGNOZ_INGESTION_ENDPOINT: http://<signoz-host>:4318
       image: otel/opentelemetry-collector-contrib:0.139.0
       version: 0.139.0
     status:
@@ -348,8 +346,6 @@ spec:
                   - otlp/grpc
       env:
         OTEL_COLLECTOR_ROLE: agent
-        OTEL_RESOURCE_ATTRIBUTES: deployment.environment=production
-        SIGNOZ_INGESTION_ENDPOINT: http://<signoz-host>:4318
   deployment:
     flavor: compose
     mode: docker
