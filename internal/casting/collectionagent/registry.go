@@ -5,9 +5,11 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockercomposecasting"
+	"github.com/signoz/foundry/internal/casting/collectionagent/dockerswarmcasting"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/tooler"
 	"github.com/signoz/foundry/internal/tooler/dockercomposetooler"
+	"github.com/signoz/foundry/internal/tooler/dockerswarmtooler"
 	"github.com/signoz/foundry/internal/tooler/dockertooler"
 )
 
@@ -29,6 +31,13 @@ func NewRegistry(logger *slog.Logger) *Registry {
 			}: {
 				Casting: dockercomposecasting.New(logger),
 				Toolers: []tooler.Tooler{dockertooler.New(), dockercomposetooler.New()},
+			},
+			{
+				Mode:   v1alpha1.ModeDocker,
+				Flavor: v1alpha1.FlavorSwarm,
+			}: {
+				Casting: dockerswarmcasting.New(logger),
+				Toolers: []tooler.Tooler{dockertooler.New(), dockerswarmtooler.New()},
 			},
 		},
 	}
