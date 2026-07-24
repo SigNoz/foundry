@@ -1,15 +1,8 @@
-# yaml-language-server: $schema=../../../../../api/v1alpha1/collectionagent/casting.schema.json
 apiVersion: v1alpha1
 kind: CollectionAgent
 metadata:
   name: signoz
 spec:
   deployment:
-    mode: docker
     flavor: compose
-  collector:
-    kind: agent
-    spec:
-      env:
-        SIGNOZ_INGESTION_ENDPOINT: "http://<signoz-host>:4318"
-        OTEL_RESOURCE_ATTRIBUTES: "deployment.environment=production"
+    mode: docker
