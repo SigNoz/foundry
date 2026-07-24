@@ -1,0 +1,42 @@
+configs:
+  collector-agent:
+    file: ./collector/agent/agent.yaml
+services:
+  collector-agent:
+    command:
+    - --config=/etc/collector/agent/agent.yaml
+    configs:
+    - mode: 292
+      source: collector-agent
+      target: /etc/collector/agent/agent.yaml
+    deploy:
+      mode: global
+      restart_policy:
+        condition: any
+    environment:
+      OTEL_COLLECTOR_ROLE: agent
+    hostname: '{{.Node.Hostname}}'
+    image: otel/opentelemetry-collector-contrib:0.139.0
+    ports:
+    - mode: host
+      protocol: tcp
+      published: 4317
+      target: 4317
+    - mode: host
+      protocol: tcp
+      published: 4318
+      target: 4318
+    user: "0:0"
+    volumes:
+    - read_only: true
+      source: /var/run/docker.sock
+      target: /var/run/docker.sock
+      type: bind
+    - read_only: true
+      source: /var/lib/docker/containers
+      target: /var/lib/docker/containers
+      type: bind
+    - read_only: true
+      source: /
+      target: /hostfs
+      type: bind

@@ -1,0 +1,8 @@
+apiVersion: v1alpha1
+kind: CollectionAgent
+metadata:
+  name: signoz
+spec:
+  deployment:
+    flavor: swarm
+    mode: docker
