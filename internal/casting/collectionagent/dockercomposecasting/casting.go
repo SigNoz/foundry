@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
@@ -50,19 +49,16 @@ func (c *dockerComposeCasting) Cast(ctx context.Context, config collectionagent.
 		return foundryerrors.Newf(foundryerrors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
 	}
 
-	runctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-	defer cancel()
-
-	composeCmd, err := getComposeCommand(runctx)
+	composeCmd, err := getComposeCommand(ctx)
 	if err != nil {
 		return foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "docker compose not available")
 	}
 
 	args := append(composeCmd[1:], "-f", composeFile, "up", "-d")
 
-	c.logger.DebugContext(runctx, "running command", slog.String("command", strings.Join(append([]string{composeCmd[0]}, args...), " ")))
+	c.logger.DebugContext(ctx, "running command", slog.String("command", strings.Join(append([]string{composeCmd[0]}, args...), " ")))
 
-	cmd := exec.CommandContext(runctx, composeCmd[0], args...)
+	cmd := exec.CommandContext(ctx, composeCmd[0], args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
