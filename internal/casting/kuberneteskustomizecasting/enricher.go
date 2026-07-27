@@ -17,6 +17,7 @@ const (
 	telemetryKeeperRaftPort   = 9234
 	signozOpampPort           = 4320
 	signozAPIServerPort       = 8080
+	mcpHTTPPort               = 8000
 )
 
 var _ molding.MoldingEnricher = (*kustomizeMoldingEnricher)(nil)
@@ -55,6 +56,8 @@ func (e *kustomizeMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alph
 		return e.enrichSignoz(config)
 	case v1alpha1.MoldingKindIngester:
 		return e.enrichIngester(config)
+	case v1alpha1.MoldingKindMCP:
+		return e.enrichMCP(config)
 	}
 	return nil
 }
@@ -111,6 +114,15 @@ func (e *kustomizeMoldingEnricher) enrichSignoz(config *installation.Casting) er
 	name := config.Metadata.Name + "-signoz"
 	config.Spec.Signoz.Status.Addresses.APIServer = []string{domain.MustNewAddress("tcp", name, signozAPIServerPort).String()}
 	config.Spec.Signoz.Status.Addresses.Opamp = []string{domain.MustNewAddress("ws", name, signozOpampPort).String()}
+	return nil
+}
+
+func (e *kustomizeMoldingEnricher) enrichMCP(config *installation.Casting) error {
+	if !config.Spec.MCP.Spec.IsEnabled() {
+		return nil
+	}
+	name := config.Metadata.Name + "-mcp"
+	config.Spec.MCP.Status.Addresses.HTTP = []string{domain.MustNewAddress("http", name, mcpHTTPPort).String()}
 	return nil
 }
 

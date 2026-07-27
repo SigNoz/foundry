@@ -111,6 +111,19 @@ func (enricher *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, ki
 			domain.MustNewAddress("tcp", config.Metadata.Name+"-ingester", 4318).String(),
 			domain.MustNewAddress("tcp", config.Metadata.Name+"-ingester", 4317).String(),
 		}
+	case v1alpha1.MoldingKindMCP:
+		serviceNames, err := enricher.material.GetStringSlice("services|@keys")
+		if err != nil {
+			return errors.Wrapf(err, errors.TypeInternal, "failed to get mcp service names")
+		}
+
+		var httpAddr []string
+		for _, name := range serviceNames {
+			if strings.Contains(name, "-mcp") {
+				httpAddr = append(httpAddr, domain.MustNewAddress("http", name, 8000).String())
+			}
+		}
+		config.Spec.MCP.Status.Addresses.HTTP = httpAddr
 	}
 
 	return nil
