@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
@@ -109,32 +108,28 @@ func (casting *dockerComposeCasting) Cast(ctx context.Context, config installati
 		return foundryerrors.Newf(foundryerrors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
 	}
 
-	// Create a context with 5-minute timeout
-	runctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-	defer cancel()
-
 	// Get the available docker compose command
-	composeCmd, err := getComposeCommand(runctx)
+	composeCmd, err := getComposeCommand(ctx)
 	if err != nil {
-		casting.logger.ErrorContext(runctx, "Docker compose not available", slog.String("error", err.Error()))
+		casting.logger.ErrorContext(ctx, "Docker compose not available", slog.String("error", err.Error()))
 		return foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "docker compose not available")
 	}
 
 	args := append(composeCmd[1:], "-f", composeFile, "up", "-d")
 
-	casting.logger.DebugContext(runctx, "Running command", slog.String("command", strings.Join(append([]string{composeCmd[0]}, args...), " ")))
+	casting.logger.DebugContext(ctx, "Running command", slog.String("command", strings.Join(append([]string{composeCmd[0]}, args...), " ")))
 
-	cmd := exec.CommandContext(runctx, composeCmd[0], args...)
+	cmd := exec.CommandContext(ctx, composeCmd[0], args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	err = cmd.Run()
 	if err != nil {
-		casting.logger.ErrorContext(runctx, "Command execution failed", slog.String("error", err.Error()))
+		casting.logger.ErrorContext(ctx, "Command execution failed", slog.String("error", err.Error()))
 		return err
 	}
 
-	casting.logger.InfoContext(runctx, "Command executed successfully")
+	casting.logger.InfoContext(ctx, "Command executed successfully")
 
 	return nil
 }
