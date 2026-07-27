@@ -133,7 +133,7 @@ This adds a `signoz-mcp` deployment and a ClusterIP service on port `8000`; the 
 kubectl -n signoz get pods -l app.kubernetes.io/component=mcp
 ```
 
-To connect an AI client (mint an API key, configure Claude Code or Claude Desktop), see [MCP server](../../../concepts/mcp-server.md). For a complete working configuration, see the [kustomize-mcp](../kustomize-mcp/) example.
+To connect an AI client (mint an API key, configure Claude Code or Claude Desktop), see [MCP server](../../../concepts/mcp-server.md).
 
 ## Customization
 
