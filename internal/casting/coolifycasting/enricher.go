@@ -115,6 +115,9 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 
 		}
 	case v1alpha1.MoldingKindMCP:
+		if !config.Spec.MCP.Spec.IsEnabled() {
+			return nil
+		}
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
 			return errors.Wrapf(err, errors.TypeInternal, "failed to get mcp container names")

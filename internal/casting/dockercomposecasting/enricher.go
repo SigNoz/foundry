@@ -123,6 +123,9 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 			domain.MustNewAddress("tcp", config.Metadata.Name+"-ingester", 4317).String(),
 		}
 	case v1alpha1.MoldingKindMCP:
+		if !config.Spec.MCP.Spec.IsEnabled() {
+			return nil
+		}
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
 			return errors.Wrapf(err, errors.TypeInternal, "failed to get mcp container names")
