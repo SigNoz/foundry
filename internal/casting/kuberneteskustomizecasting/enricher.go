@@ -121,8 +121,11 @@ func (e *kustomizeMoldingEnricher) enrichMCP(config *installation.Casting) error
 	if !config.Spec.MCP.Spec.IsEnabled() {
 		return nil
 	}
-	name := config.Metadata.Name + "-mcp"
-	config.Spec.MCP.Status.Addresses.HTTP = []string{domain.MustNewAddress("http", name, mcpHTTPPort).String()}
+
+	// Namespace-qualified so the recorded address resolves from any namespace;
+	// the full cluster FQDN would assume a cluster domain foundry cannot know.
+	host := config.Metadata.Name + "-mcp." + config.Metadata.Name
+	config.Spec.MCP.Status.Addresses.HTTP = []string{domain.MustNewAddress("http", host, mcpHTTPPort).String()}
 	return nil
 }
 
