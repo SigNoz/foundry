@@ -85,5 +85,6 @@ Claude Desktop has no native remote transport, so bridge it with [`mcp-remote`](
 ## Next steps
 
 - [Docker Compose with MCP example](../examples/docker/compose-mcp/README.md) - deploy SigNoz with MCP enabled, end to end
+- [Kustomize with MCP example](../examples/kubernetes/kustomize-mcp/README.md) - the same on Kubernetes
 - [Moldings](moldings.md) - the components that make up a deployment
 - [Casting](casting.md) - the full casting file structure
