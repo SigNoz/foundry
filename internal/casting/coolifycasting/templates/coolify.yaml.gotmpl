@@ -210,9 +210,13 @@ services:
         max-file: "3"
   {{- end }}
   {{- if derefBool $.Spec.MCP.Spec.Enabled }}
-  {{ $.Metadata.Name }}-mcp:
-    container_name: {{ $.Metadata.Name }}-mcp
+  {{- $mcpReplicas := int $.Spec.MCP.Spec.Cluster.Replicas }}
+  mcp:
     image: {{ $.Spec.MCP.Spec.Image }}
+    networks:
+      default:
+        aliases:
+          - {{ $.Metadata.Name }}-mcp
     {{- if $.Spec.MCP.Spec.Env }}
     environment:
       {{- range $key, $value := $.Spec.MCP.Spec.Env }}
@@ -223,6 +227,8 @@ services:
       options:
         max-size: 50m
         max-file: "3"
+    deploy:
+      replicas: {{ $mcpReplicas }}
   {{- end }}
   {{- $ingesterReplicas := int $.Spec.Ingester.Spec.Cluster.Replicas }}
   ingester:

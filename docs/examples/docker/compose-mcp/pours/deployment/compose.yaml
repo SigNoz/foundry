@@ -26,15 +26,18 @@ services:
     volumes:
     - ./ingester/ingester.yaml:/etc/otel-collector-config.yaml:ro
     - ./ingester/opamp.yaml:/etc/opamp-config.yaml:ro
-  signoz-mcp:
-    container_name: signoz-mcp
+  mcp:
+    deploy:
+      replicas: 1
     environment:
     - MCP_SERVER_PORT=8000
     - SIGNOZ_URL=http://signoz-signoz-0:8080
     - TRANSPORT_MODE=http
     image: signoz/signoz-mcp-server:latest
     networks:
-    - signoz-network
+      signoz-network:
+        aliases:
+        - signoz-mcp
     ports:
     - 8000:8000
     restart: unless-stopped

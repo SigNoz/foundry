@@ -214,20 +214,29 @@ services:
       start_period: 60s
   {{- end }}
   {{- if derefBool $.Spec.MCP.Spec.Enabled }}
-  {{ $.Metadata.Name }}-mcp:
-    container_name: {{ $.Metadata.Name }}-mcp
+  {{- $mcpReplicas := int $.Spec.MCP.Spec.Cluster.Replicas }}
+  mcp:
     image: {{ $.Spec.MCP.Spec.Image }}
     restart: unless-stopped
     networks:
-      - {{ $.Metadata.Name }}-network
+      {{ $.Metadata.Name }}-network:
+        aliases:
+          - {{ $.Metadata.Name }}-mcp
     {{- if $.Spec.MCP.Spec.Env }}
     environment:
       {{- range $key, $value := $.Spec.MCP.Spec.Env }}
       - {{ $key }}={{ $value }}
       {{- end }}
     {{- end }}
+    {{- if eq $mcpReplicas 1 }}
     ports:
       - "8000:8000"
+    {{- else }}
+    expose:
+      - "8000"
+    {{- end }}
+    deploy:
+      replicas: {{ $mcpReplicas }}
   {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-migrator:
     container_name: {{ $.Metadata.Name }}-telemetrystore-migrator

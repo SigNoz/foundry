@@ -126,18 +126,13 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		if !config.Spec.MCP.Spec.IsEnabled() {
 			return nil
 		}
-		containerNames, err := enricher.material.GetStringSlice("services|@keys")
-		if err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to get mcp container names")
-		}
 
-		var httpAddr []string
-		for _, name := range containerNames {
-			if strings.Contains(name, "-mcp") {
-				httpAddr = append(httpAddr, domain.MustNewAddress("http", name, 8000).String())
-			}
+		// The mcp server is scaled via `deploy.replicas` and reached through the
+		// `<metadata.name>-mcp` network alias, which compose load-balances
+		// across all replicas.
+		config.Spec.MCP.Status.Addresses.HTTP = []string{
+			domain.MustNewAddress("http", config.Metadata.Name+"-mcp", 8000).String(),
 		}
-		config.Spec.MCP.Status.Addresses.HTTP = httpAddr
 	}
 
 	return nil

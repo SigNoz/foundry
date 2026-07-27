@@ -133,7 +133,8 @@ services:
   {{ end }}
 
   {{ if derefBool $.Spec.MCP.Spec.Enabled }}
-  - name: {{ $.Metadata.Name }}-mcp
+  {{ range $replicaIdx := until (int $.Spec.MCP.Spec.Cluster.Replicas) }}
+  - name: {{ $.Metadata.Name }}-mcp-{{ $replicaIdx }}
     type: web
     plan: standard
     runtime: image
@@ -147,6 +148,7 @@ services:
         value: {{ $value }}
       {{ end }}
     {{ end }}
+  {{ end }}
   {{ end }}
 
   {{ if $.Spec.TelemetryStore.Spec.Enabled }}
