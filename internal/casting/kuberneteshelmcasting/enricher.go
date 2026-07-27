@@ -7,6 +7,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
+	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 )
 
@@ -32,6 +33,10 @@ func (e *helmMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.Mo
 		return e.enrichSignoz(config)
 	case v1alpha1.MoldingKindIngester:
 		return e.enrichIngester(config)
+	case v1alpha1.MoldingKindMCP:
+		if config.Spec.MCP.Spec.IsEnabled() {
+			return errors.Newf(errors.TypeUnsupported, "deployment '%s/%s' does not support mcp yet, raise an issue at https://github.com/signoz/foundry/issues", config.Spec.Deployment.Mode, config.Spec.Deployment.Flavor)
+		}
 	}
 	return nil
 }
