@@ -178,10 +178,8 @@ services:
       - {{ $key }}={{ $value }}
       {{- end }}
     {{- end }}
-    {{- if gt $ingesterReplicas 1 }}
     deploy:
       replicas: {{ $ingesterReplicas }}
-    {{- end }}
   {{- range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}:
     container_name: {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}
