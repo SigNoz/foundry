@@ -34,7 +34,7 @@ func New(logger *slog.Logger) *dockerComposeCasting {
 }
 
 func (casting *dockerComposeCasting) Enricher(ctx context.Context, config *installation.Casting) (molding.MoldingEnricher, error) {
-	return newDockerComposeMoldingEnricher(config)
+	return newDockerComposeMoldingEnricher(casting.logger, config)
 }
 
 func (casting *dockerComposeCasting) Forge(ctx context.Context, config installation.Casting, poursPath string) ([]domain.Material, error) {

@@ -2,6 +2,7 @@ package dockercomposecasting
 
 import (
 	"context"
+	"log/slog"
 	"path/filepath"
 	"strings"
 
@@ -16,16 +17,17 @@ import (
 var _ molding.MoldingEnricher = (*dockerComposeMoldingEnricher)(nil)
 
 type dockerComposeMoldingEnricher struct {
+	logger   *slog.Logger
 	material domain.StructuredMaterial
 }
 
-func newDockerComposeMoldingEnricher(config *installation.Casting) (*dockerComposeMoldingEnricher, error) {
+func newDockerComposeMoldingEnricher(logger *slog.Logger, config *installation.Casting) (*dockerComposeMoldingEnricher, error) {
 	material, err := getComposeMaterial(config, filepath.Join(rootcasting.DeploymentDir, "compose.yaml"))
 	if err != nil {
 		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to get compose yaml material")
 	}
 
-	return &dockerComposeMoldingEnricher{material: material}, nil
+	return &dockerComposeMoldingEnricher{logger: logger, material: material}, nil
 }
 
 func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *installation.Casting) error {
@@ -115,9 +117,12 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 		config.Spec.MetaStore.Status.Addresses.DSN = metastoreContainerNames
 
 	case v1alpha1.MoldingKindIngester:
-		// The ingester is scaled via `deploy.replicas` and reached through the
-		// `<metadata.name>-ingester` network alias, which compose load-balances
-		// across all replicas.
+		// Compose cannot publish a host port for a scaled service, so beyond one
+		// replica the endpoints are reachable only on the compose network.
+		if r := config.Spec.Ingester.Spec.Cluster.Replicas; r != nil && *r > 1 {
+			enricher.logger.WarnContext(ctx, "ingester host ports (4317/4318) are not published beyond one replica, the OTLP endpoints are reachable only on the compose network, run a proxy to expose them on the host")
+		}
+
 		config.Spec.Ingester.Status.Addresses.OTLP = []string{
 			domain.MustNewAddress("tcp", config.Metadata.Name+"-ingester", 4318).String(),
 			domain.MustNewAddress("tcp", config.Metadata.Name+"-ingester", 4317).String(),
@@ -127,9 +132,12 @@ func (enricher *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, 
 			return nil
 		}
 
-		// The mcp server is scaled via `deploy.replicas` and reached through the
-		// `<metadata.name>-mcp` network alias, which compose load-balances
-		// across all replicas.
+		// Compose cannot publish a host port for a scaled service, so beyond one
+		// replica the endpoint is reachable only on the compose network.
+		if r := config.Spec.MCP.Spec.Cluster.Replicas; r != nil && *r > 1 {
+			enricher.logger.WarnContext(ctx, "mcp host port (8000) is not published beyond one replica, the mcp endpoint is reachable only on the compose network, run a proxy to expose it on the host")
+		}
+
 		config.Spec.MCP.Status.Addresses.HTTP = []string{
 			domain.MustNewAddress("http", config.Metadata.Name+"-mcp", 8000).String(),
 		}
