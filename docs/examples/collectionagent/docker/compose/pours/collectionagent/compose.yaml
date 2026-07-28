@@ -8,6 +8,10 @@ services:
     environment:
       OTEL_COLLECTOR_ROLE: agent
     image: otel/opentelemetry-collector-contrib:0.139.0
+    labels:
+      foundry.signoz.io/kind: CollectionAgent
+      foundry.signoz.io/managed-by: foundry
+      foundry.signoz.io/name: signoz
     network_mode: host
     restart: unless-stopped
     user: "0:0"
