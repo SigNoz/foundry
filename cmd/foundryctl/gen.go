@@ -12,7 +12,6 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
-	collectionagentcasting "github.com/signoz/foundry/internal/casting/collectionagent"
 	installationcasting "github.com/signoz/foundry/internal/casting/installation"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
@@ -82,39 +81,18 @@ func runGenExamples(ctx context.Context, logger *slog.Logger) error {
 		config.Spec.Deployment = deployment
 
 		rootPath := filepath.Join("docs", "examples/", deployment.Platform.String(), deployment.Mode.String(), deployment.Flavor.String())
-		if err := writeExample(ctx, logger, rootPath, deployment, domain.MustMarshalYAML(config)); err != nil {
+		if err := os.MkdirAll(rootPath, 0755); err != nil {
 			return err
 		}
-	}
 
-	collectionAgentRegistry := collectionagentcasting.NewRegistry(logger)
-
-	for deployment := range collectionAgentRegistry.CastingItems() {
-		logger.InfoContext(ctx, "generating example files for deployment", slog.Any("deployment", deployment))
-
-		config := collectionagent.Example()
-		config.Spec.Deployment = deployment
-
-		rootPath := filepath.Join("docs", "examples", "collectionagent", deployment.Platform.String(), deployment.Mode.String(), deployment.Flavor.String())
-		if err := writeExample(ctx, logger, rootPath, deployment, domain.MustMarshalYAML(config)); err != nil {
+		if err := os.WriteFile(filepath.Join(rootPath, "casting.yaml"), domain.MustMarshalYAML(config), 0644); err != nil {
 			return err
 		}
-	}
 
-	return nil
-}
-
-func writeExample(ctx context.Context, logger *slog.Logger, rootPath string, deployment v1alpha1.TypeDeployment, casting []byte) error {
-	if err := os.MkdirAll(rootPath, 0755); err != nil {
-		return err
-	}
-
-	if err := os.WriteFile(filepath.Join(rootPath, "casting.yaml"), casting, 0644); err != nil {
-		return err
-	}
-
-	if _, err := runForge(ctx, logger, filepath.Join(rootPath, "casting.yaml"), filepath.Join(rootPath, "pours")); err != nil {
-		logger.ErrorContext(ctx, "failed to forge casting", slog.Any("deployment", deployment), foundryerrors.LogAttr(err))
+		if _, err := runForge(ctx, logger, filepath.Join(rootPath, "casting.yaml"), filepath.Join(rootPath, "pours")); err != nil {
+			logger.ErrorContext(ctx, "failed to forge casting", slog.Any("deployment", deployment), foundryerrors.LogAttr(err))
+			continue
+		}
 	}
 
 	return nil

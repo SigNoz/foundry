@@ -16,6 +16,10 @@ services:
       {{ $key }}: {{ $value | quote }}
       {{- end }}
     {{- end }}
+    labels:
+      {{- range $key, $value := .Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     deploy:
       replicas: {{ derefIntDefault .Spec.Collector.Spec.Cluster.Replicas 1 }}
     restart: unless-stopped

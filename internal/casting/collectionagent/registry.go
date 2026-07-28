@@ -43,10 +43,6 @@ func NewRegistry(logger *slog.Logger) *Registry {
 	}
 }
 
-func (registry *Registry) CastingItems() map[v1alpha1.TypeDeployment]CastingItem {
-	return registry.castings
-}
-
 func (registry *Registry) lookup(deployment v1alpha1.TypeDeployment) (CastingItem, bool) {
 	if item, ok := registry.castings[deployment]; ok {
 		return item, true
