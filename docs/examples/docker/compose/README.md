@@ -132,3 +132,6 @@ To connect an AI client (mint an API key, configure Claude Code or Claude Deskto
 ## Customization
 
 Override component images, replicas, or environment variables in the casting spec. For platform-level changes to the generated `compose.yaml` (memory limits, networks, volumes), use [patches](../../../concepts/patches.md).
+
+> [!WARNING]
+> Compose cannot publish a host port for a scaled service. With more than one ingester or MCP replica, the OTLP (`4317`/`4318`) and MCP (`8000`) endpoints are reachable only on the compose network, not from the host; run your own proxy in front if you need host access. Use the swarm or kubernetes casting for load-balanced replicas.

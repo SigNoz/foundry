@@ -310,7 +310,8 @@ spec:
       version: latest
     status:
       addresses:
-        http: null
+        http:
+        - http://signoz-mcp:8000
       config: {}
       env:
         MCP_SERVER_PORT: "8000"
