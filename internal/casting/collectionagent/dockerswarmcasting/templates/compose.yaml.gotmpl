@@ -10,6 +10,10 @@ services:
       {{ $key }}: {{ $value | quote }}
       {{- end }}
     {{- end }}
+    labels:
+      {{- range $key, $value := .Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     configs:
       - source: collector-{{ .Spec.Collector.Kind }}
         target: /etc/{{ .Spec.Collector.Kind.ConfigKey }}
