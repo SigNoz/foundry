@@ -20,10 +20,15 @@ spec:
         data:
           resource.yaml: |
             nodeGroups:
-            - count: 2
+            - count: 3
               disk: 50
               memory: 8
-              name: default
-              vcpus: 2
-            storage:
+              name: persistent
               persistent: true
+              vcpus: 2
+            - count: 1
+              disk: 20
+              memory: 4
+              name: ephemeral
+              persistent: false
+              vcpus: 2

@@ -2,19 +2,20 @@ package awskubernetesterraformcasting
 
 import (
 	"context"
-	"log/slog"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/infrastructure"
 	infrastructuremolding "github.com/signoz/foundry/internal/molding/infrastructure"
 )
 
-var _ infrastructuremolding.MoldingEnricher = (*enricher)(nil)
+var _ infrastructuremolding.MoldingEnricher = (*awsKubernetesTerraformMoldingEnricher)(nil)
 
-type enricher struct {
-	logger *slog.Logger
+type awsKubernetesTerraformMoldingEnricher struct{}
+
+func newAwsKubernetesTerraformMoldingEnricher() *awsKubernetesTerraformMoldingEnricher {
+	return &awsKubernetesTerraformMoldingEnricher{}
 }
 
-func (e *enricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *infrastructure.Casting) error {
+func (e *awsKubernetesTerraformMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *infrastructure.Casting) error {
 	return nil
 }

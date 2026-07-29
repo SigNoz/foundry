@@ -25,20 +25,35 @@
       "type": "string",
       "default": "1.33"
     },
-    "node_default_instance_type": {
-      "description": "EC2 instance type for the default node group; empty resolves the declared criteria against the platform's instance catalog",
+    "node_persistent_instance_type": {
+      "description": "EC2 instance type for the persistent node group; empty resolves the declared criteria against the platform's instance catalog",
       "type": "string",
       "default": ""
     },
-    "node_default_count": {
-      "description": "Number of nodes in the default node group; elastic bounds belong with a cluster autoscaler",
+    "node_persistent_count": {
+      "description": "Number of nodes in the persistent node group; elastic bounds belong with a cluster autoscaler",
       "type": "number",
-      "default": 2
+      "default": 3
     },
-    "node_default_disk_size": {
-      "description": "Root volume size (GB) for the default nodes",
+    "node_persistent_disk_size": {
+      "description": "Root volume size (GB) for the persistent nodes",
       "type": "number",
       "default": 50
+    },
+    "node_ephemeral_instance_type": {
+      "description": "EC2 instance type for the ephemeral node group; empty resolves the declared criteria against the platform's instance catalog",
+      "type": "string",
+      "default": ""
+    },
+    "node_ephemeral_count": {
+      "description": "Number of nodes in the ephemeral node group; elastic bounds belong with a cluster autoscaler",
+      "type": "number",
+      "default": 1
+    },
+    "node_ephemeral_disk_size": {
+      "description": "Root volume size (GB) for the ephemeral nodes",
+      "type": "number",
+      "default": 20
     }
   }
 }

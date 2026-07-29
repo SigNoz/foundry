@@ -1,6 +1,7 @@
 package awskubernetesterraformcasting
 
 import (
+	"bytes"
 	"context"
 	"log/slog"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	infrastructuremolding "github.com/signoz/foundry/internal/molding/infrastructure"
 	"github.com/signoz/foundry/internal/molding/infrastructure/resourcemolding"
+	"github.com/signoz/foundry/internal/pourer"
 )
 
 // Data carries the resolved values the templates render.
@@ -41,13 +43,13 @@ func New(logger *slog.Logger) *awsKubernetesTerraformCasting {
 }
 
 func (c *awsKubernetesTerraformCasting) Enricher(ctx context.Context, config *infrastructure.Casting) (infrastructuremolding.MoldingEnricher, error) {
-	return &enricher{logger: c.logger}, nil
+	return newAwsKubernetesTerraformMoldingEnricher(), nil
 }
 
-func (c *awsKubernetesTerraformCasting) Forge(ctx context.Context, config infrastructure.Casting, poursPath string) ([]domain.Material, error) {
+func (c *awsKubernetesTerraformCasting) Forge(ctx context.Context, config infrastructure.Casting, p *pourer.Pourer) error {
 	data, err := newData(config)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	items := []struct {
@@ -60,20 +62,20 @@ func (c *awsKubernetesTerraformCasting) Forge(ctx context.Context, config infras
 		{outputsTFTemplate, "outputs.tf.json"},
 	}
 
-	materials := make([]domain.Material, 0, len(items))
 	for _, item := range items {
-		material, err := item.template.Render(data, filepath.Join(infrastructurecasting.InfrastructureDir, item.path))
-		if err != nil {
-			return nil, err
+		buf := bytes.NewBuffer(nil)
+		if err := item.template.Execute(buf, data); err != nil {
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute %s template", item.path)
 		}
-		materials = append(materials, material)
+
+		p.AddJSON(buf.Bytes(), item.path)
 	}
 
-	return materials, nil
+	return nil
 }
 
-func (c *awsKubernetesTerraformCasting) Cast(ctx context.Context, config infrastructure.Casting, poursPath string) error {
-	c.logger.WarnContext(ctx, "casting the infrastructure is not implemented yet, run terraform init and apply from the pours directory", slog.String("path", filepath.Join(poursPath, infrastructurecasting.InfrastructureDir)))
+func (c *awsKubernetesTerraformCasting) Cast(ctx context.Context, config infrastructure.Casting, outputPath string, p *pourer.Pourer) error {
+	c.logger.WarnContext(ctx, "casting the infrastructure is not implemented yet, run terraform init and apply from the pours directory", slog.String("path", filepath.Join(outputPath, p.Dir())))
 	return nil
 }
 

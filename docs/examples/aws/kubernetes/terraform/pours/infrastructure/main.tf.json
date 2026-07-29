@@ -1,7 +1,8 @@
 {
   "locals": {
     "name": "signoz",
-    "node_default_instance_type": "${var.node_default_instance_type != \"\" ? var.node_default_instance_type : sort(data.aws_ec2_instance_types.default.instance_types)[0]}"
+    "node_persistent_instance_type": "${var.node_persistent_instance_type != \"\" ? var.node_persistent_instance_type : sort(data.aws_ec2_instance_types.persistent.instance_types)[0]}",
+    "node_ephemeral_instance_type": "${var.node_ephemeral_instance_type != \"\" ? var.node_ephemeral_instance_type : sort(data.aws_ec2_instance_types.ephemeral.instance_types)[0]}"
   },
   "data": {
     "aws_availability_zones": {
@@ -10,7 +11,7 @@
       }
     },
     "aws_ec2_instance_types": {
-      "default": {
+      "persistent": {
         "filter": [
           {"name": "instance-type", "values": ["m*", "c*"]},
           {"name": "processor-info.supported-architecture", "values": ["x86_64"]},
@@ -18,6 +19,16 @@
           {"name": "burstable-performance-supported", "values": ["false"]},
           {"name": "vcpu-info.default-vcpus", "values": ["2"]},
           {"name": "memory-info.size-in-mib", "values": ["8192"]}
+        ]
+      },
+      "ephemeral": {
+        "filter": [
+          {"name": "instance-type", "values": ["m*", "c*"]},
+          {"name": "processor-info.supported-architecture", "values": ["x86_64"]},
+          {"name": "current-generation", "values": ["true"]},
+          {"name": "burstable-performance-supported", "values": ["false"]},
+          {"name": "vcpu-info.default-vcpus", "values": ["2"]},
+          {"name": "memory-info.size-in-mib", "values": ["4096"]}
         ]
       }
     }
@@ -212,23 +223,47 @@
       }
     },
     "aws_eks_node_group": {
-      "default": {
+      "persistent": {
         "cluster_name": "${aws_eks_cluster.main.name}",
-        "node_group_name": "${local.name}-default",
+        "node_group_name": "${local.name}-persistent",
         "node_role_arn": "${aws_iam_role.eks_node_group.arn}",
         "subnet_ids": "${aws_subnet.private[*].id}",
-        "instance_types": ["${local.node_default_instance_type}"],
+        "instance_types": ["${local.node_persistent_instance_type}"],
         "scaling_config": [{
-          "desired_size": "${var.node_default_count}",
-          "min_size": "${var.node_default_count}",
-          "max_size": "${var.node_default_count}"
+          "desired_size": "${var.node_persistent_count}",
+          "min_size": "${var.node_persistent_count}",
+          "max_size": "${var.node_persistent_count}"
         }],
-        "disk_size": "${var.node_default_disk_size}",
+        "disk_size": "${var.node_persistent_disk_size}",
         "tags": {
           "app.kubernetes.io/managed-by": "foundry",
           "foundry.signoz.io/name": "signoz",
           "foundry.signoz.io/resource-kind": "Installation",
-          "Name": "${local.name}-default"
+          "Name": "${local.name}-persistent"
+        },
+        "depends_on": [
+          "aws_iam_role_policy_attachment.eks_worker_node_policy",
+          "aws_iam_role_policy_attachment.eks_cni_policy",
+          "aws_iam_role_policy_attachment.eks_container_registry"
+        ]
+      },
+      "ephemeral": {
+        "cluster_name": "${aws_eks_cluster.main.name}",
+        "node_group_name": "${local.name}-ephemeral",
+        "node_role_arn": "${aws_iam_role.eks_node_group.arn}",
+        "subnet_ids": "${aws_subnet.private[*].id}",
+        "instance_types": ["${local.node_ephemeral_instance_type}"],
+        "scaling_config": [{
+          "desired_size": "${var.node_ephemeral_count}",
+          "min_size": "${var.node_ephemeral_count}",
+          "max_size": "${var.node_ephemeral_count}"
+        }],
+        "disk_size": "${var.node_ephemeral_disk_size}",
+        "tags": {
+          "app.kubernetes.io/managed-by": "foundry",
+          "foundry.signoz.io/name": "signoz",
+          "foundry.signoz.io/resource-kind": "Installation",
+          "Name": "${local.name}-ephemeral"
         },
         "depends_on": [
           "aws_iam_role_policy_attachment.eks_worker_node_policy",
@@ -241,7 +276,7 @@
       "ebs_csi_driver": {
         "cluster_name": "${aws_eks_cluster.main.name}",
         "addon_name": "aws-ebs-csi-driver",
-        "depends_on": ["aws_eks_node_group.default"]
+        "depends_on": ["aws_eks_node_group.persistent", "aws_eks_node_group.ephemeral"]
       }
     }
   }

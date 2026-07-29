@@ -29,13 +29,21 @@
       "description": "IDs of the public subnets",
       "value": "${aws_subnet.public[*].id}"
     },
-    "node_group_default_arn": {
-      "description": "ARN of the default node group",
-      "value": "${aws_eks_node_group.default.arn}"
+    "node_group_persistent_arn": {
+      "description": "ARN of the persistent node group",
+      "value": "${aws_eks_node_group.persistent.arn}"
     },
-    "node_group_default_status": {
-      "description": "Status of the default node group",
-      "value": "${aws_eks_node_group.default.status}"
+    "node_group_persistent_status": {
+      "description": "Status of the persistent node group",
+      "value": "${aws_eks_node_group.persistent.status}"
+    },
+    "node_group_ephemeral_arn": {
+      "description": "ARN of the ephemeral node group",
+      "value": "${aws_eks_node_group.ephemeral.arn}"
+    },
+    "node_group_ephemeral_status": {
+      "description": "Status of the ephemeral node group",
+      "value": "${aws_eks_node_group.ephemeral.status}"
     }
   }
 }
