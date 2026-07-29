@@ -42,19 +42,20 @@ foundryctl cast -f casting.yaml
 The compose file gains a `signoz-mcp` service on port `8000`, with its env filled in automatically (no API key in the casting):
 
 ```yaml
-  signoz-mcp:
-    container_name: signoz-mcp
+  mcp:
     image: signoz/signoz-mcp-server:latest
     networks:
-      - signoz-network
+      signoz-network:
+        aliases:
+        - signoz-mcp   # the in-network DNS name, stable across replicas
     environment:
     - TRANSPORT_MODE=http
     - MCP_SERVER_PORT=8000
     - SIGNOZ_URL=http://signoz-signoz-0:8080   # the in-network SigNoz apiserver
     ports:
     - "8000:8000"
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8000/livez"]
+    deploy:
+      replicas: 1
 ```
 
 Verify it is up:

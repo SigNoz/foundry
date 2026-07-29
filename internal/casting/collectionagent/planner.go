@@ -3,6 +3,7 @@ package collectionagent
 import (
 	"context"
 	"log/slog"
+	"strings"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
@@ -11,6 +12,7 @@ import (
 	collectionagentmolding "github.com/signoz/foundry/internal/molding/collectionagent"
 	"github.com/signoz/foundry/internal/molding/collectionagent/collectormolding"
 	"github.com/signoz/foundry/internal/planner"
+	"github.com/signoz/foundry/internal/pourer"
 	"github.com/signoz/foundry/internal/tooler"
 )
 
@@ -89,11 +91,15 @@ func (p *Planner) MergeStatusIntoSpec() error {
 }
 
 func (p *Planner) Forge(ctx context.Context, target string) ([]domain.Material, error) {
-	return p.casting.Forge(ctx, *p.config, target)
+	pr := pourer.New(strings.ToLower(p.config.Kind().String()))
+	if err := p.casting.Forge(ctx, *p.config, pr); err != nil {
+		return nil, err
+	}
+	return pr.Pour()
 }
 
 func (p *Planner) Cast(ctx context.Context, poursPath string) error {
-	return p.casting.Cast(ctx, *p.config, poursPath)
+	return p.casting.Cast(ctx, *p.config, poursPath, pourer.New(strings.ToLower(p.config.Kind().String())))
 }
 
 func (p *Planner) Toolers() []tooler.Tooler { return p.toolers }

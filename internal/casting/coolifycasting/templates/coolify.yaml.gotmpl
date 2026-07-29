@@ -142,10 +142,12 @@ services:
   {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}:
     image: {{ $.Spec.MetaStore.Spec.Image }}
+    {{- if $.Spec.MetaStore.Spec.Env }}
     environment:
-      - POSTGRES_USER=signoz
-      - POSTGRES_PASSWORD=signoz
-      - POSTGRES_DB=signoz
+      {{- range $key, $value := $.Spec.MetaStore.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    {{- end }}
     healthcheck:
       test:
         - CMD-SHELL
@@ -208,30 +210,25 @@ services:
         max-file: "3"
   {{- end }}
   {{- if derefBool $.Spec.MCP.Spec.Enabled }}
-  {{ $.Metadata.Name }}-mcp:
-    container_name: {{ $.Metadata.Name }}-mcp
+  {{- $mcpReplicas := int $.Spec.MCP.Spec.Cluster.Replicas }}
+  mcp:
     image: {{ $.Spec.MCP.Spec.Image }}
+    networks:
+      default:
+        aliases:
+          - {{ $.Metadata.Name }}-mcp
     {{- if $.Spec.MCP.Spec.Env }}
     environment:
       {{- range $key, $value := $.Spec.MCP.Spec.Env }}
       - {{ $key }}={{ $value }}
       {{- end }}
     {{- end }}
-    healthcheck:
-      test:
-        - CMD
-        - wget
-        - --spider
-        - -q
-        - http://localhost:8000/livez
-      interval: 10s
-      timeout: 1s
-      retries: 5
-      start_period: 10s
     logging:
       options:
         max-size: 50m
         max-file: "3"
+    deploy:
+      replicas: {{ $mcpReplicas }}
   {{- end }}
   {{- $ingesterReplicas := int $.Spec.Ingester.Spec.Cluster.Replicas }}
   ingester:
