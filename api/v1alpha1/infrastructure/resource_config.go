@@ -5,19 +5,8 @@ package infrastructure
 // resource kind must provide. It speaks criteria only; platform vocabulary
 // never enters it (machines are resolved by the platform).
 type ResourceConfig struct {
-	// Storage the resource requires from the substrate.
-	Storage ResourceConfigStorage `json:"storage" description:"Storage the resource requires from the substrate"`
-
 	// Node groups the resource requires from the substrate.
 	NodeGroups []ResourceConfigNodeGroup `json:"nodeGroups" patchStrategy:"merge" patchMergeKey:"name" description:"Node groups the resource requires from the substrate"`
-
-	_ struct{} `additionalProperties:"false"`
-}
-
-// ResourceConfigStorage describes the storage requirement.
-type ResourceConfigStorage struct {
-	// Whether the resource persists data.
-	Persistent *bool `json:"persistent,omitempty" description:"Whether the resource persists data"`
 
 	_ struct{} `additionalProperties:"false"`
 }
@@ -27,6 +16,9 @@ type ResourceConfigStorage struct {
 type ResourceConfigNodeGroup struct {
 	// Name of the node group.
 	Name string `json:"name" description:"Name of the node group"`
+
+	// Whether this group's nodes persist data.
+	Persistent *bool `json:"persistent,omitempty" description:"Whether this group's nodes persist data"`
 
 	// Count of nodes.
 	Count *int `json:"count,omitempty" description:"Count of nodes"`

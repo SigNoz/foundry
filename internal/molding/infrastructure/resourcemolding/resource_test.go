@@ -19,24 +19,23 @@ func TestMoldV1Alpha1(t *testing.T) {
 		expected infrastructure.ResourceConfig
 	}{
 		{
-			name: "InstallationResource_PersistentStorageAndDefaultNodeGroup",
+			name: "InstallationResource_PersistentAndEphemeralNodeGroups",
 			kind: infrastructure.ResourceKindInstallation,
 			pass: true,
 			expected: infrastructure.ResourceConfig{
-				Storage: infrastructure.ResourceConfigStorage{Persistent: v1alpha1.BoolPtr(true)},
 				NodeGroups: []infrastructure.ResourceConfigNodeGroup{
-					{Name: "default", Count: v1alpha1.IntPtr(2), VCPUs: v1alpha1.IntPtr(2), Memory: v1alpha1.IntPtr(8), Disk: v1alpha1.IntPtr(50)},
+					{Name: "persistent", Persistent: v1alpha1.BoolPtr(true), Count: v1alpha1.IntPtr(3), VCPUs: v1alpha1.IntPtr(2), Memory: v1alpha1.IntPtr(8), Disk: v1alpha1.IntPtr(50)},
+					{Name: "ephemeral", Persistent: v1alpha1.BoolPtr(false), Count: v1alpha1.IntPtr(1), VCPUs: v1alpha1.IntPtr(2), Memory: v1alpha1.IntPtr(4), Disk: v1alpha1.IntPtr(20)},
 				},
 			},
 		},
 		{
-			name: "CollectionAgentResource_EphemeralStorageAndDefaultNodeGroup",
+			name: "CollectionAgentResource_EphemeralNodeGroup",
 			kind: infrastructure.ResourceKindCollectionAgent,
 			pass: true,
 			expected: infrastructure.ResourceConfig{
-				Storage: infrastructure.ResourceConfigStorage{Persistent: v1alpha1.BoolPtr(false)},
 				NodeGroups: []infrastructure.ResourceConfigNodeGroup{
-					{Name: "default", Count: v1alpha1.IntPtr(1), VCPUs: v1alpha1.IntPtr(2), Memory: v1alpha1.IntPtr(4), Disk: v1alpha1.IntPtr(20)},
+					{Name: "ephemeral", Persistent: v1alpha1.BoolPtr(false), Count: v1alpha1.IntPtr(1), VCPUs: v1alpha1.IntPtr(2), Memory: v1alpha1.IntPtr(4), Disk: v1alpha1.IntPtr(20)},
 				},
 			},
 		},
@@ -81,30 +80,59 @@ func TestMoldV1Alpha1_PreservesEnricherContributions(t *testing.T) {
 	config.Spec.Resource.Kind = infrastructure.ResourceKindInstallation
 	config.Spec.Resource.Status.Addresses.OTLP = []string{"tcp://0.0.0.0:9411"}
 	config.Spec.Resource.Status.Config.Data = map[string]string{
-		ResourceConfigName: "nodeGroups:\n- name: default\n  count: 4\n- name: keeper\n  count: 3\n  vcpus: 2\n  memory: 8\n  disk: 100\n",
+		ResourceConfigName: `nodeGroups:
+- name: persistent
+  persistent: true
+  count: 4
+  vcpus: 2
+  memory: 8
+  disk: 50
+  nodes: [{ordinal: 0}, {ordinal: 1}, {ordinal: 2}, {ordinal: 3}]
+- name: ephemeral
+  persistent: false
+  count: 2
+  vcpus: 2
+  memory: 4
+  disk: 20
+`,
 	}
 
 	err := New(slog.New(slog.DiscardHandler)).MoldV1Alpha1(context.Background(), config)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"tcp://0.0.0.0:4317", "tcp://0.0.0.0:4318", "tcp://0.0.0.0:9411"}, config.Spec.Resource.Status.Addresses.OTLP)
 
-	got := infrastructure.ResourceConfig{}
-	assert.NoError(t, domain.UnmarshalYAML([]byte(config.Spec.Resource.Status.Config.Data[ResourceConfigName]), &got))
+	doc := config.Spec.Resource.Status.Config.Data[ResourceConfigName]
 
-	assert.Equal(t, v1alpha1.BoolPtr(true), got.Storage.Persistent)
+	// Casting-specific keys survive the merge untouched.
+	assert.Contains(t, doc, "ordinal")
+
+	got := infrastructure.ResourceConfig{}
+	assert.NoError(t, domain.UnmarshalYAML([]byte(doc), &got))
+
+	// The contribution owns the node groups it states: the list replaces the
+	// baseline wholesale.
 	assert.Len(t, got.NodeGroups, 2)
 	for _, group := range got.NodeGroups {
 		switch group.Name {
-		case "default":
+		case "persistent":
+			assert.Equal(t, v1alpha1.BoolPtr(true), group.Persistent)
 			assert.Equal(t, v1alpha1.IntPtr(4), group.Count)
-			assert.Equal(t, v1alpha1.IntPtr(2), group.VCPUs)
-			assert.Equal(t, v1alpha1.IntPtr(8), group.Memory)
-			assert.Equal(t, v1alpha1.IntPtr(50), group.Disk)
-		case "keeper":
-			assert.Equal(t, v1alpha1.IntPtr(3), group.Count)
-			assert.Equal(t, v1alpha1.IntPtr(100), group.Disk)
+		case "ephemeral":
+			assert.Equal(t, v1alpha1.BoolPtr(false), group.Persistent)
+			assert.Equal(t, v1alpha1.IntPtr(2), group.Count)
 		default:
 			t.Fatalf("unexpected node group %q", group.Name)
 		}
 	}
+}
+
+func TestMoldV1Alpha1_IncompleteContributionFails(t *testing.T) {
+	config := infrastructure.Default()
+	config.Spec.Resource.Kind = infrastructure.ResourceKindInstallation
+	config.Spec.Resource.Status.Config.Data = map[string]string{
+		ResourceConfigName: "nodeGroups:\n- name: keeper\n  persistent: true\n  count: 3\n",
+	}
+
+	err := New(slog.New(slog.DiscardHandler)).MoldV1Alpha1(context.Background(), config)
+	assert.Error(t, err)
 }

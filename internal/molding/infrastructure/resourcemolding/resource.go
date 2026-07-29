@@ -48,42 +48,66 @@ func (molding *resourceMolding) MoldV1Alpha1(ctx context.Context, config *infras
 		status.Addresses.OTLP = append([]string{otlpGRPCAddress, otlpHTTPAddress}, status.Addresses.OTLP...)
 		status.Addresses.APIServer = append([]string{apiServerAddress}, status.Addresses.APIServer...)
 		baseline = &infrastructure.ResourceConfig{
-			Storage: infrastructure.ResourceConfigStorage{Persistent: v1alpha1.BoolPtr(true)},
 			NodeGroups: []infrastructure.ResourceConfigNodeGroup{
-				{Name: "default", Count: v1alpha1.IntPtr(2), VCPUs: v1alpha1.IntPtr(2), Memory: v1alpha1.IntPtr(8), Disk: v1alpha1.IntPtr(50)},
+				// Three persistent nodes cover the default installation's
+				// stateful set: one keeper, the metadata node, one store node.
+				{Name: "persistent", Persistent: v1alpha1.BoolPtr(true), Count: v1alpha1.IntPtr(3), VCPUs: v1alpha1.IntPtr(2), Memory: v1alpha1.IntPtr(8), Disk: v1alpha1.IntPtr(50)},
+				{Name: "ephemeral", Persistent: v1alpha1.BoolPtr(false), Count: v1alpha1.IntPtr(1), VCPUs: v1alpha1.IntPtr(2), Memory: v1alpha1.IntPtr(4), Disk: v1alpha1.IntPtr(20)},
 			},
 		}
 	case infrastructure.ResourceKindCollectionAgent:
 		status.Addresses.OTLP = append([]string{otlpGRPCAddress, otlpHTTPAddress}, status.Addresses.OTLP...)
 		baseline = &infrastructure.ResourceConfig{
-			Storage: infrastructure.ResourceConfigStorage{Persistent: v1alpha1.BoolPtr(false)},
 			NodeGroups: []infrastructure.ResourceConfigNodeGroup{
-				{Name: "default", Count: v1alpha1.IntPtr(1), VCPUs: v1alpha1.IntPtr(2), Memory: v1alpha1.IntPtr(4), Disk: v1alpha1.IntPtr(20)},
+				{Name: "ephemeral", Persistent: v1alpha1.BoolPtr(false), Count: v1alpha1.IntPtr(1), VCPUs: v1alpha1.IntPtr(2), Memory: v1alpha1.IntPtr(4), Disk: v1alpha1.IntPtr(20)},
 			},
 		}
 	default:
 		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported resource kind %q", config.Spec.Resource.Kind)
 	}
 
-	if overrides := status.Config.Data[ResourceConfigName]; overrides != "" {
-		overrideConfig := &infrastructure.ResourceConfig{}
-		if err := domain.UnmarshalYAML([]byte(overrides), overrideConfig); err != nil {
-			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to unmarshal resource config overrides")
-		}
-		if err := v1alpha1.Merge(baseline, overrideConfig); err != nil {
-			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to merge resource config overrides")
+	baselineDoc, err := domain.MarshalYAML(baseline)
+	if err != nil {
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to marshal resource config")
+	}
+
+	doc := string(baselineDoc)
+
+	// Contributions (enricher deltas, operator overrides) merge at the
+	// document level so casting-specific keys survive; a contribution owns
+	// the node groups it states.
+	if contribution := status.Config.Data[ResourceConfigName]; contribution != "" {
+		doc, err = domain.StrategicMergeYAML(doc, contribution, nil)
+		if err != nil {
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInvalidInput, "failed to merge resource config contribution")
 		}
 	}
 
-	doc, err := domain.MarshalYAML(baseline)
-	if err != nil {
-		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to marshal resource config")
+	if err := validate(doc); err != nil {
+		return err
 	}
 
 	if status.Config.Data == nil {
 		status.Config.Data = make(map[string]string)
 	}
-	status.Config.Data[ResourceConfigName] = string(doc)
+	status.Config.Data[ResourceConfigName] = doc
+
+	return nil
+}
+
+// validate checks the shared shape of the resolved document; casting-specific
+// keys pass through unchecked.
+func validate(doc string) error {
+	config := &infrastructure.ResourceConfig{}
+	if err := domain.UnmarshalYAML([]byte(doc), config); err != nil {
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInvalidInput, "failed to unmarshal resolved resource config")
+	}
+
+	for _, group := range config.NodeGroups {
+		if group.Count == nil || group.VCPUs == nil || group.Memory == nil || group.Disk == nil {
+			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "node group %q in resource config is incomplete", group.Name)
+		}
+	}
 
 	return nil
 }

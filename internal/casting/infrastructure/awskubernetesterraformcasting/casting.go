@@ -93,12 +93,15 @@ func newData(config infrastructure.Casting) (*Data, error) {
 	data := &Data{
 		Name:         config.Metadata.Name,
 		ResourceKind: config.Spec.Resource.Kind.String(),
-		Persistent:   resourceConfig.Storage.Persistent != nil && *resourceConfig.Storage.Persistent,
 	}
 
 	for _, group := range resourceConfig.NodeGroups {
 		if group.Count == nil || group.VCPUs == nil || group.Memory == nil || group.Disk == nil {
 			return nil, foundryerrors.Newf(foundryerrors.TypeInternal, "node group %q in resource config is incomplete", group.Name)
+		}
+
+		if group.Persistent != nil && *group.Persistent {
+			data.Persistent = true
 		}
 
 		data.NodeGroups = append(data.NodeGroups, DataNodeGroup{
