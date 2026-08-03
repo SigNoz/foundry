@@ -27,7 +27,7 @@ func (m *collector) Kind() v1alpha1.MoldingKind {
 }
 
 // listTypes declares how each pipeline list merges with the enricher's
-// contribution: receivers/exporters/extensions union (order-insensitive);
+// config: receivers/exporters/extensions union (order-insensitive);
 // processors keep base order with contributed ones before the terminal batch.
 var listTypes = domain.ListTypes{
 	"service.pipelines.*.receivers":  domain.ListTypeSet,
@@ -37,7 +37,7 @@ var listTypes = domain.ListTypes{
 }
 
 // MoldV1Alpha1 renders the collector's base config for the kind, merges the
-// enricher's contribution onto it (see listTypes), and stores the result
+// enricher's config onto it (see listTypes), and stores the result
 // at the kind's config key.
 func (m *collector) MoldV1Alpha1(ctx context.Context, config *collectionagent.Casting) error {
 	kind := config.Spec.Collector.Kind

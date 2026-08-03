@@ -33,8 +33,8 @@ func DefaultCollector() Collector {
 			Cluster: v1alpha1.TypeCluster{
 				Replicas: v1alpha1.IntPtr(1),
 			},
-			Version: "v0.139.0",
-			Image:   "otel/opentelemetry-collector-contrib:v0.139.0",
+			Version: "0.139.0",
+			Image:   "otel/opentelemetry-collector-contrib:0.139.0",
 			Env:     map[string]string{},
 			Config: v1alpha1.TypeConfig{
 				Data: map[string]string{},

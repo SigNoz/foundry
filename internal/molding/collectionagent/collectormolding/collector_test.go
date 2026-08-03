@@ -18,13 +18,13 @@ type pipeline struct {
 	Exporters  []string `json:"exporters"`
 }
 
-// newCasting stamps the optional enricher contribution at the kind's config key.
-func newCasting(t *testing.T, kind collectionagent.CollectorKind, contribution string) *collectionagent.Casting {
+// newCasting stamps the optional enricher config at the kind's config key.
+func newCasting(t *testing.T, kind collectionagent.CollectorKind, enricherConfig string) *collectionagent.Casting {
 	t.Helper()
 	c := collectionagent.Default()
 	c.Spec.Collector.Kind = kind
-	if contribution != "" {
-		c.Spec.Collector.Status.Config.Set(kind.ConfigKey(), []byte(contribution))
+	if enricherConfig != "" {
+		c.Spec.Collector.Status.Config.Set(kind.ConfigKey(), []byte(enricherConfig))
 	}
 	return c
 }
@@ -49,35 +49,35 @@ func agentPipelines(t *testing.T, c *collectionagent.Casting) map[string]pipelin
 	return cfg.Service.Pipelines
 }
 
-// Base pipeline members are restored and the contribution's additions merge
+// Base pipeline members are restored and the enricher config's additions merge
 // in per listTypes.
 func TestMoldAgent(t *testing.T) {
 	base := pipeline{
-		Receivers:  []string{"otlp"},
+		Receivers:  []string{"otlp/http", "otlp/grpc"},
 		Processors: []string{"memory_limiter", "resourcedetection", "batch"},
 		Exporters:  []string{"otlphttp/signoz"},
 	}
 
 	tests := []struct {
-		name         string
-		contribution string
-		expected     map[string]pipeline
+		name           string
+		enricherConfig string
+		expected       map[string]pipeline
 	}{
 		{
-			name:     "BaseOnly_NoContribution",
+			name:     "BaseOnly_NoEnricherConfig",
 			expected: map[string]pipeline{"traces": base, "metrics": base, "logs": base},
 		},
 		{
-			name:         "ReceiverDelta_RestoresBaseAndUnions",
-			contribution: "service:\n  pipelines:\n    metrics:\n      receivers: [docker_stats]\n",
+			name:           "ReceiverDelta_RestoresBaseAndUnions",
+			enricherConfig: "service:\n  pipelines:\n    metrics:\n      receivers: [docker_stats]\n",
 			expected: map[string]pipeline{
-				"metrics": {Receivers: []string{"otlp", "docker_stats"}, Processors: base.Processors, Exporters: base.Exporters},
+				"metrics": {Receivers: []string{"otlp/http", "otlp/grpc", "docker_stats"}, Processors: base.Processors, Exporters: base.Exporters},
 				"traces":  base,
 			},
 		},
 		{
-			name:         "ProcessorDelta_OrderedBeforeBatch",
-			contribution: "service:\n  pipelines:\n    metrics:\n      processors: [attributes/env]\n",
+			name:           "ProcessorDelta_OrderedBeforeBatch",
+			enricherConfig: "service:\n  pipelines:\n    metrics:\n      processors: [attributes/env]\n",
 			expected: map[string]pipeline{
 				"metrics": {Receivers: base.Receivers, Processors: []string{"memory_limiter", "resourcedetection", "attributes/env", "batch"}, Exporters: base.Exporters},
 			},
@@ -86,7 +86,7 @@ func TestMoldAgent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := newCasting(t, collectionagent.CollectorKindAgent, tt.contribution)
+			c := newCasting(t, collectionagent.CollectorKindAgent, tt.enricherConfig)
 			got := agentPipelines(t, c)
 			for name, expected := range tt.expected {
 				assert.Equal(t, expected, got[name], name)
@@ -98,10 +98,10 @@ func TestMoldAgent(t *testing.T) {
 
 func TestMoldAgentErrors(t *testing.T) {
 	tests := []struct {
-		name         string
-		kind         collectionagent.CollectorKind
-		contribution string
-		expectedCode int
+		name           string
+		kind           collectionagent.CollectorKind
+		enricherConfig string
+		expectedCode   int
 	}{
 		{
 			name:         "UnknownKind",
@@ -109,16 +109,16 @@ func TestMoldAgentErrors(t *testing.T) {
 			expectedCode: foundryerrors.TypeUnsupported.ExitCode(),
 		},
 		{
-			name:         "InvalidContributionYAML",
-			kind:         collectionagent.CollectorKindAgent,
-			contribution: "- not\n- a\n- map\n",
-			expectedCode: foundryerrors.TypeInvalidInput.ExitCode(),
+			name:           "InvalidEnricherConfigYAML",
+			kind:           collectionagent.CollectorKindAgent,
+			enricherConfig: "- not\n- a\n- map\n",
+			expectedCode:   foundryerrors.TypeInvalidInput.ExitCode(),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := newCasting(t, tt.kind, tt.contribution)
+			c := newCasting(t, tt.kind, tt.enricherConfig)
 			err := New(slog.Default()).MoldV1Alpha1(context.Background(), c)
 			require.Error(t, err)
 			assert.Equal(t, tt.expectedCode, foundryerrors.ExitCode(err))
