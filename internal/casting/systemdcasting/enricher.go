@@ -51,6 +51,8 @@ func (e *systemdMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1
 		return e.enrichSignoz(config)
 	case v1alpha1.MoldingKindIngester:
 		return e.enrichIngester(config)
+	case v1alpha1.MoldingKindMCP:
+		return e.enrichMCP(config)
 	}
 	return nil
 }
@@ -161,5 +163,15 @@ func (e *systemdMoldingEnricher) enrichIngester(config *installation.Casting) er
 	}
 	config.Spec.Ingester.Status.Env["SIGNOZ_OTEL_COLLECTOR_TIMEOUT"] = "10m"
 
+	return nil
+}
+
+func (e *systemdMoldingEnricher) enrichMCP(config *installation.Casting) error {
+	if !config.Spec.MCP.Spec.IsEnabled() {
+		return nil
+	}
+	config.Spec.MCP.Status.Addresses.HTTP = []string{
+		domain.MustNewAddress("http", "localhost", 8000).String(),
+	}
 	return nil
 }

@@ -114,6 +114,22 @@ func (enricher *renderMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 			}
 		}
 		config.Spec.Ingester.Status.Addresses.OTLP = addrs
+	case v1alpha1.MoldingKindMCP:
+		if !config.Spec.MCP.Spec.IsEnabled() {
+			return nil
+		}
+		serviceNames, err := enricher.material.GetStringSlice("services.#.name")
+		if err != nil {
+			return errors.Wrapf(err, errors.TypeInternal, "failed to get mcp service names")
+		}
+
+		var httpAddr []string
+		for _, serviceName := range serviceNames {
+			if strings.Contains(serviceName, "-mcp") {
+				httpAddr = append(httpAddr, domain.MustNewAddress("http", serviceName, 8000).String())
+			}
+		}
+		config.Spec.MCP.Status.Addresses.HTTP = httpAddr
 	}
 
 	return nil
