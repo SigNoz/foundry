@@ -1,0 +1,50 @@
+services:
+  collector-{{ .Spec.Collector.Kind }}:
+    image: {{ .Spec.Collector.Spec.Image }}
+    command: ["--config=/etc/{{ .Spec.Collector.Kind.ConfigKey }}"]
+    user: "0:0"
+    hostname: "{{`{{.Node.Hostname}}`}}"
+    {{- if .Spec.Collector.Spec.Env }}
+    environment:
+      {{- range $key, $value := .Spec.Collector.Spec.Env }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
+    {{- end }}
+    labels:
+      {{- range $key, $value := .Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
+    configs:
+      - source: collector-{{ .Spec.Collector.Kind }}
+        target: /etc/{{ .Spec.Collector.Kind.ConfigKey }}
+        mode: 0444
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        read_only: true
+      - type: bind
+        source: /var/lib/docker/containers
+        target: /var/lib/docker/containers
+        read_only: true
+      - type: bind
+        source: /
+        target: /hostfs
+        read_only: true
+    ports:
+      - target: 4317
+        published: 4317
+        protocol: tcp
+        mode: host
+      - target: 4318
+        published: 4318
+        protocol: tcp
+        mode: host
+    deploy:
+      mode: global
+      restart_policy:
+        condition: any
+
+configs:
+  collector-{{ .Spec.Collector.Kind }}:
+    file: ./{{ .Spec.Collector.Kind.ConfigKey }}
