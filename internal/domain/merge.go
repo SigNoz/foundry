@@ -32,6 +32,18 @@ var (
 	ListTypeOrdered = ListType{name: "ordered", merge: mergeOrdered}
 )
 
+// ListTypeMap merges a list of maps by a key field, mirroring Kubernetes'
+// listType: map with a listMapKey: elements are matched on the key, a matched
+// pair merges as a document so the override states only what it changes, and
+// override-only elements append. Degrades to Atomic if either list holds an
+// element that is not a map or is missing the key.
+func ListTypeMap(key string) ListType {
+	return ListType{
+		name:  "map:" + key,
+		merge: func(base, override []any) []any { return mergeByKey(key, base, override) },
+	}
+}
+
 // ListTypes declares the list types of a document's paths: dotted keys with
 // "*" matching any single segment, e.g. "service.pipelines.*.receivers".
 // Undeclared paths are ListTypeAtomic.
@@ -190,6 +202,93 @@ func mergeOrdered(base, override []any) []any {
 	out = append(out, extra...)
 	out = append(out, base[len(base)-1])
 	return unionScalars(out, nil)
+}
+
+// mergeByKey matches elements on key, merges each matched pair as a document,
+// and appends the override's new elements.
+func mergeByKey(key string, base, override []any) []any {
+	overrides := make(map[any]map[string]any, len(override))
+	order := make([]any, 0, len(override))
+	for _, elem := range override {
+		keyed, ok := keyedMap(elem, key)
+		if !ok {
+			return override
+		}
+
+		overrides[keyed[key]] = keyed
+		order = append(order, keyed[key])
+	}
+
+	out := make([]any, 0, len(base)+len(override))
+	merged := make(map[any]struct{}, len(override))
+	for _, elem := range base {
+		keyed, ok := keyedMap(elem, key)
+		if !ok {
+			return override
+		}
+
+		patch, matched := overrides[keyed[key]]
+		if !matched {
+			out = append(out, elem)
+			continue
+		}
+
+		document, err := mergeDocument(keyed, patch)
+		if err != nil {
+			return override
+		}
+
+		merged[keyed[key]] = struct{}{}
+		out = append(out, document)
+	}
+
+	for _, id := range order {
+		if _, done := merged[id]; !done {
+			out = append(out, overrides[id])
+		}
+	}
+
+	return out
+}
+
+// keyedMap returns the element as a map carrying the key.
+func keyedMap(elem any, key string) (map[string]any, bool) {
+	document, ok := elem.(map[string]any)
+	if !ok {
+		return nil, false
+	}
+
+	if _, ok := document[key]; !ok {
+		return nil, false
+	}
+
+	return document, true
+}
+
+// mergeDocument applies override onto base with RFC 7386 semantics, the same
+// rule StrategicMergeYAML lands at the document level.
+func mergeDocument(base, override map[string]any) (map[string]any, error) {
+	baseJSON, err := json.Marshal(base)
+	if err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to marshal list element")
+	}
+
+	overrideJSON, err := json.Marshal(override)
+	if err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to marshal list element override")
+	}
+
+	mergedJSON, err := jsonpatchv5.MergePatch(baseJSON, overrideJSON)
+	if err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to merge list element")
+	}
+
+	out := map[string]any{}
+	if err := json.Unmarshal(mergedJSON, &out); err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to unmarshal merged list element")
+	}
+
+	return out, nil
 }
 
 // scalarList reports whether every element is a comparable scalar.
