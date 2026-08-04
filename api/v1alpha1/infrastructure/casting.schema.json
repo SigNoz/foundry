@@ -20,6 +20,9 @@
             "Installation"
           ]
         },
+        "spec": {
+          "$ref": "#/definitions/V1Alpha1MoldingSpec"
+        },
         "status": {
           "$ref": "#/definitions/InfrastructureResourceStatus",
           "description": "Status of the resource"
@@ -142,6 +145,50 @@
       ],
       "type": "string"
     },
+    "V1Alpha1MoldingSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "cluster": {
+          "$ref": "#/definitions/V1Alpha1TypeCluster",
+          "description": "Cluster configuration for the molding"
+        },
+        "config": {
+          "$ref": "#/definitions/V1Alpha1TypeConfig",
+          "description": "Configuration for the molding"
+        },
+        "enabled": {
+          "description": "Whether the molding is enabled",
+          "default": true,
+          "type": [
+            "null",
+            "boolean"
+          ]
+        },
+        "env": {
+          "description": "Environment variables for the molding",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "image": {
+          "description": "Container image of the molding",
+          "examples": [
+            "signoz/signoz:latest"
+          ],
+          "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*(/[a-z0-9]+([._-][a-z0-9]+)*)*(:[a-zA-Z0-9._-]+)?(@sha256:[a-f0-9]{64})?$",
+          "type": "string"
+        },
+        "version": {
+          "description": "The version of the molding to use",
+          "examples": [
+            "latest"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "V1Alpha1PatchEntry": {
       "required": [
         "target",
@@ -245,6 +292,34 @@
         "checksum": {
           "description": "Checksum of the casting file",
           "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "V1Alpha1TypeCluster": {
+      "additionalProperties": false,
+      "properties": {
+        "replicas": {
+          "description": "Number of replicas for the molding.",
+          "examples": [
+            1
+          ],
+          "minimum": 0,
+          "type": [
+            "null",
+            "integer"
+          ]
+        },
+        "shards": {
+          "description": "Number of shards for the molding",
+          "examples": [
+            1
+          ],
+          "minimum": 1,
+          "type": [
+            "null",
+            "integer"
+          ]
         }
       },
       "type": "object"

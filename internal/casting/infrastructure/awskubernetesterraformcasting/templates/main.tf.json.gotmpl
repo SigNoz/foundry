@@ -19,7 +19,7 @@
           {"name": "processor-info.supported-architecture", "values": ["x86_64"]},
           {"name": "current-generation", "values": ["true"]},
           {"name": "burstable-performance-supported", "values": ["false"]},
-          {"name": "vcpu-info.default-vcpus", "values": ["{{ $group.VCPUs }}"]},
+          {"name": "vcpu-info.default-vcpus", "values": ["{{ $group.CPU }}"]},
           {"name": "memory-info.size-in-mib", "values": ["{{ mul $group.Memory 1024 }}"]}
         ]
       }
@@ -224,9 +224,9 @@
         "subnet_ids": "${aws_subnet.private[*].id}",
         "instance_types": ["${local.node_{{ $group.Name }}_instance_type}"],
         "scaling_config": [{
-          "desired_size": "${var.node_{{ $group.Name }}_count}",
-          "min_size": "${var.node_{{ $group.Name }}_count}",
-          "max_size": "${var.node_{{ $group.Name }}_count}"
+          "desired_size": "${var.node_{{ $group.Name }}_min_size}",
+          "min_size": "${var.node_{{ $group.Name }}_min_size}",
+          "max_size": "${var.node_{{ $group.Name }}_max_size}"
         }],
         "disk_size": "${var.node_{{ $group.Name }}_disk_size}",
         "tags": {

@@ -25,11 +25,15 @@ type Data struct {
 
 // DataNodeGroup carries one node group's criteria for the templates.
 type DataNodeGroup struct {
-	Name   string
-	Count  int
-	VCPUs  int
-	Memory int
-	Disk   int
+	Name           string
+	Storage        string
+	MinSize        int
+	MaxSize        int
+	MachineType    string
+	CPU            int
+	Memory         int
+	RootVolumeSize int
+	DataVolumeSize int
 }
 
 var _ infrastructurecasting.Casting = (*awsKubernetesTerraformCasting)(nil)
@@ -97,22 +101,35 @@ func newData(config infrastructure.Casting) (*Data, error) {
 		ResourceKind: config.Spec.Resource.Kind.String(),
 	}
 
+	// The resource molding validates the resolved document, and moldings run
+	// before any casting forges, so every field dereferenced here is present.
+	// A missing one is a foundry bug, not bad input: recoverRunE turns the
+	// panic into TypeFatal with the stack, which points at the line rather
+	// than reporting a group as vaguely "incomplete".
 	for _, group := range resourceConfig.NodeGroups {
-		if group.Count == nil || group.VCPUs == nil || group.Memory == nil || group.Disk == nil {
-			return nil, foundryerrors.Newf(foundryerrors.TypeInternal, "node group %q in resource config is incomplete", group.Name)
+		node := DataNodeGroup{
+			Name:           group.Name,
+			Storage:        group.Storage.String(),
+			MinSize:        *group.MinSize,
+			MaxSize:        *group.MaxSize,
+			MachineType:    group.MachineType,
+			RootVolumeSize: *group.RootVolume.Size,
 		}
 
-		if group.Persistent != nil && *group.Persistent {
+		if group.CPU != nil {
+			node.CPU = *group.CPU
+		}
+
+		if group.Memory != nil {
+			node.Memory = *group.Memory
+		}
+
+		if group.Storage.RequiresDataVolume() {
 			data.Persistent = true
+			node.DataVolumeSize = *group.DataVolume.Size
 		}
 
-		data.NodeGroups = append(data.NodeGroups, DataNodeGroup{
-			Name:   group.Name,
-			Count:  *group.Count,
-			VCPUs:  *group.VCPUs,
-			Memory: *group.Memory,
-			Disk:   *group.Disk,
-		})
+		data.NodeGroups = append(data.NodeGroups, node)
 	}
 
 	return data, nil

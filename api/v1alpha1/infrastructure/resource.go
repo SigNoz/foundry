@@ -9,6 +9,9 @@ type Resource struct {
 	// Kind of the resource this infrastructure serves.
 	Kind ResourceKind `json:"kind,omitzero" yaml:"kind,omitempty" required:"true" description:"Kind of the resource this infrastructure serves" examples:"[\"Installation\"]"`
 
+	// Specification for the resource.
+	Spec v1alpha1.MoldingSpec `json:"spec" yaml:"spec" jsonschema:"description=Specification for the resource"`
+
 	// Status of the resource.
 	Status ResourceStatus `json:"status" yaml:"status,omitempty" description:"Status of the resource"`
 

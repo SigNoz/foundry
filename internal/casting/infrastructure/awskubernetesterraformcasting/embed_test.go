@@ -13,7 +13,7 @@ func TestTemplates_RenderValidJSON(t *testing.T) {
 		ResourceKind: "Installation",
 		Persistent:   true,
 		NodeGroups: []DataNodeGroup{
-			{Name: "default", Count: 2, VCPUs: 2, Memory: 8, Disk: 50},
+			{Name: "default", Storage: "persistent", MinSize: 2, MaxSize: 2, CPU: 2, Memory: 8, RootVolumeSize: 30, DataVolumeSize: 50},
 		},
 	}
 

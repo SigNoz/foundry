@@ -29,17 +29,22 @@
     "node_{{ $group.Name }}_instance_type": {
       "description": "EC2 instance type for the {{ $group.Name }} node group; empty resolves the declared criteria against the platform's instance catalog",
       "type": "string",
-      "default": ""
+      "default": "{{ $group.MachineType }}"
     },
-    "node_{{ $group.Name }}_count": {
-      "description": "Number of nodes in the {{ $group.Name }} node group; elastic bounds belong with a cluster autoscaler",
+    "node_{{ $group.Name }}_min_size": {
+      "description": "Smallest the {{ $group.Name }} node group may be",
       "type": "number",
-      "default": {{ $group.Count }}
+      "default": {{ $group.MinSize }}
+    },
+    "node_{{ $group.Name }}_max_size": {
+      "description": "Largest the {{ $group.Name }} node group may grow to",
+      "type": "number",
+      "default": {{ $group.MaxSize }}
     },
     "node_{{ $group.Name }}_disk_size": {
       "description": "Root volume size (GB) for the {{ $group.Name }} nodes",
       "type": "number",
-      "default": {{ $group.Disk }}
+      "default": {{ $group.RootVolumeSize }}
     }
     {{- end }}
   }

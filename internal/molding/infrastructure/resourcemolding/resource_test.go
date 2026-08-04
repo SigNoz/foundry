@@ -24,8 +24,25 @@ func TestMoldV1Alpha1(t *testing.T) {
 			pass: true,
 			expected: infrastructure.ResourceConfig{
 				NodeGroups: []infrastructure.ResourceConfigNodeGroup{
-					{Name: "persistent", Persistent: v1alpha1.BoolPtr(true), Count: v1alpha1.IntPtr(3), VCPUs: v1alpha1.IntPtr(2), Memory: v1alpha1.IntPtr(8), Disk: v1alpha1.IntPtr(50)},
-					{Name: "ephemeral", Persistent: v1alpha1.BoolPtr(false), Count: v1alpha1.IntPtr(1), VCPUs: v1alpha1.IntPtr(2), Memory: v1alpha1.IntPtr(4), Disk: v1alpha1.IntPtr(20)},
+					{
+						Name:       "persistent",
+						Storage:    infrastructure.StorageClassPersistent,
+						MinSize:    v1alpha1.IntPtr(3),
+						MaxSize:    v1alpha1.IntPtr(3),
+						CPU:        v1alpha1.IntPtr(2),
+						Memory:     v1alpha1.IntPtr(8),
+						RootVolume: infrastructure.ResourceConfigVolume{Size: v1alpha1.IntPtr(30)},
+						DataVolume: &infrastructure.ResourceConfigVolume{Size: v1alpha1.IntPtr(50)},
+					},
+					{
+						Name:       "ephemeral",
+						Storage:    infrastructure.StorageClassEphemeral,
+						MinSize:    v1alpha1.IntPtr(1),
+						MaxSize:    v1alpha1.IntPtr(1),
+						CPU:        v1alpha1.IntPtr(2),
+						Memory:     v1alpha1.IntPtr(4),
+						RootVolume: infrastructure.ResourceConfigVolume{Size: v1alpha1.IntPtr(30)},
+					},
 				},
 			},
 		},
@@ -35,7 +52,15 @@ func TestMoldV1Alpha1(t *testing.T) {
 			pass: true,
 			expected: infrastructure.ResourceConfig{
 				NodeGroups: []infrastructure.ResourceConfigNodeGroup{
-					{Name: "ephemeral", Persistent: v1alpha1.BoolPtr(false), Count: v1alpha1.IntPtr(1), VCPUs: v1alpha1.IntPtr(2), Memory: v1alpha1.IntPtr(4), Disk: v1alpha1.IntPtr(20)},
+					{
+						Name:       "ephemeral",
+						Storage:    infrastructure.StorageClassEphemeral,
+						MinSize:    v1alpha1.IntPtr(1),
+						MaxSize:    v1alpha1.IntPtr(1),
+						CPU:        v1alpha1.IntPtr(2),
+						Memory:     v1alpha1.IntPtr(4),
+						RootVolume: infrastructure.ResourceConfigVolume{Size: v1alpha1.IntPtr(30)},
+					},
 				},
 			},
 		},
@@ -82,18 +107,12 @@ func TestMoldV1Alpha1_PreservesEnricherContributions(t *testing.T) {
 	config.Spec.Resource.Status.Config.Data = map[string]string{
 		ResourceConfigName: `nodeGroups:
 - name: persistent
-  persistent: true
-  count: 4
-  vcpus: 2
-  memory: 8
-  disk: 50
+  minSize: 4
+  maxSize: 4
   nodes: [{ordinal: 0}, {ordinal: 1}, {ordinal: 2}, {ordinal: 3}]
 - name: ephemeral
-  persistent: false
-  count: 2
-  vcpus: 2
-  memory: 4
-  disk: 20
+  minSize: 2
+  maxSize: 2
 `,
 	}
 
@@ -109,17 +128,20 @@ func TestMoldV1Alpha1_PreservesEnricherContributions(t *testing.T) {
 	got := infrastructure.ResourceConfig{}
 	assert.NoError(t, domain.UnmarshalYAML([]byte(doc), &got))
 
-	// The contribution owns the node groups it states: the list replaces the
-	// baseline wholesale.
+	// Node groups merge by name: the contribution states only the sizes it
+	// changes and the baseline's other fields survive.
 	assert.Len(t, got.NodeGroups, 2)
 	for _, group := range got.NodeGroups {
 		switch group.Name {
 		case "persistent":
-			assert.Equal(t, v1alpha1.BoolPtr(true), group.Persistent)
-			assert.Equal(t, v1alpha1.IntPtr(4), group.Count)
+			assert.Equal(t, v1alpha1.IntPtr(4), group.MinSize)
+			assert.Equal(t, infrastructure.StorageClassPersistent, group.Storage)
+			assert.Equal(t, v1alpha1.IntPtr(8), group.Memory)
+			assert.Equal(t, v1alpha1.IntPtr(50), group.DataVolume.Size)
 		case "ephemeral":
-			assert.Equal(t, v1alpha1.BoolPtr(false), group.Persistent)
-			assert.Equal(t, v1alpha1.IntPtr(2), group.Count)
+			assert.Equal(t, v1alpha1.IntPtr(2), group.MinSize)
+			assert.Equal(t, infrastructure.StorageClassEphemeral, group.Storage)
+			assert.Equal(t, v1alpha1.IntPtr(4), group.Memory)
 		default:
 			t.Fatalf("unexpected node group %q", group.Name)
 		}
