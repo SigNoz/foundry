@@ -4,11 +4,9 @@ import (
 	"log/slog"
 
 	"github.com/signoz/foundry/api/v1alpha1"
-	"github.com/signoz/foundry/internal/casting/infrastructure/awskubernetesterraformcasting"
 	infrastructurecasting "github.com/signoz/foundry/internal/casting/infrastructure/casting"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/tooler"
-	"github.com/signoz/foundry/internal/tooler/terraformtooler"
 )
 
 type CastingItem struct {
@@ -22,16 +20,7 @@ type Registry struct {
 
 func NewRegistry(logger *slog.Logger) *Registry {
 	return &Registry{
-		castings: map[v1alpha1.TypeDeployment]CastingItem{
-			{
-				Platform: v1alpha1.PlatformAWS,
-				Mode:     v1alpha1.ModeKubernetes,
-				Flavor:   v1alpha1.FlavorTerraform,
-			}: {
-				Casting: awskubernetesterraformcasting.New(logger),
-				Toolers: []tooler.Tooler{terraformtooler.New()},
-			},
-		},
+		castings: map[v1alpha1.TypeDeployment]CastingItem{},
 	}
 }
 
