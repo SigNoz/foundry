@@ -49,13 +49,12 @@ func (molding *resourceMolding) MoldV1Alpha1(ctx context.Context, config *infras
 		status.Addresses.APIServer = append([]string{apiServerAddress}, status.Addresses.APIServer...)
 		baseline = &infrastructure.ResourceConfig{
 			NodeGroups: map[infrastructure.StorageClass]infrastructure.ResourceConfigNodeGroup{
-				// Three persistent nodes cover the default topology's stateful
-				// set: one keeper, the metadata node, one store node. A scaled
-				// installation needs more and must state them, because
-				// Infrastructure provisions for a Kind and never reads the
-				// Installation casting. A pinned group's bounds are equal --
-				// there is nothing to autoscale when every node owns a claimed
-				// volume.
+				// Three persistent nodes cover the default topology: one
+				// keeper, the metadata node, one store node. A scaled
+				// installation must state its own, because Infrastructure
+				// provisions for a Kind and never reads the Installation
+				// casting. A pinned group's bounds are equal -- there is
+				// nothing to autoscale when every node owns a claimed volume.
 				infrastructure.StorageClassPersistent: {
 					MinSize:    v1alpha1.IntPtr(3),
 					MaxSize:    v1alpha1.IntPtr(3),

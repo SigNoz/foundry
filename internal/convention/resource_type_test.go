@@ -7,8 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Two resource types sharing a short form would derive the same name shape, and
-// a consumer reading a console could not tell them apart.
+// Two types sharing a short form would derive the same name shape.
 func TestResourceTypeShortFormsAreDistinct(t *testing.T) {
 	resourceTypes := []resourceType{
 		typeCluster, typeVPC, typeInternetGateway, typeSubnet, typeRouteTable,
@@ -22,9 +21,8 @@ func TestResourceTypeShortFormsAreDistinct(t *testing.T) {
 	}
 }
 
-// A qualifier that renders empty drops out, which is what lets one route table
-// declaration serve both the zonal private tables and the zone-shared public
-// one. Without it they would be two variants for one AWS resource type.
+// An empty qualifier drops its segment, so one route table declaration serves
+// both the zonal and the zone-shared form.
 func TestUnsetQualifierDropsFromTheName(t *testing.T) {
 	substrate := MustNewSubstrate("foundry")
 	zone := MustParseZone("us-east-1a")
@@ -33,8 +31,8 @@ func TestUnsetQualifierDropsFromTheName(t *testing.T) {
 	assert.Equal(t, "foundry-rt-prv-east1a", substrate.RouteTableInZone(VisibilityPrivate, zone).Name())
 }
 
-// Every declared qualifier has to contribute for the constructor that uses the
-// type, or a name silently loses a segment that was meant to distinguish it.
+// A declared qualifier that renders nothing would silently drop a segment meant
+// to distinguish the name.
 func TestEveryDeclaredQualifierContributes(t *testing.T) {
 	substrate := MustNewSubstrate("foundry")
 	zone := MustParseZone("us-east-1a")
@@ -67,9 +65,7 @@ func TestEveryDeclaredQualifierContributes(t *testing.T) {
 	}
 }
 
-// Ordinal zero is a real ordinal, not an absent one, so only the types that have
-// one declare the qualifier -- otherwise every other resource would render a
-// stray "0".
+// Ordinal zero is a real ordinal, so only types that have one declare it.
 func TestOrdinalZeroRenders(t *testing.T) {
 	substrate := MustNewSubstrate("foundry")
 	persistent := infrastructure.StorageClassPersistent

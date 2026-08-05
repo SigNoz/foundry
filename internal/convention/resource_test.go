@@ -40,10 +40,8 @@ func TestResourceName(t *testing.T) {
 	}
 }
 
-// Roles are the shortest derivation because they are the only names near a
-// provider cap. This package does not know that cap -- a casting measures the
-// derived name against its own provider's limit -- so what is fixed here is the
-// overhead a caller has to budget for.
+// A role name is the longest suffix a caller has to budget for against its
+// provider's cap, which this package does not know.
 func TestRoleNameOverheadIsBounded(t *testing.T) {
 	const maxRoleSuffix = len("-iam-exec")
 
@@ -182,10 +180,7 @@ func TestResourceFilter(t *testing.T) {
 	}
 }
 
-// The reason a Resource exists. A provider offers two places to state one fact --
-// a subnet named "private" and tagged "visibility: private" -- and stating it
-// twice is what lets the two drift. Here it is stated once, so the name's short
-// form and the tag's word are asserted to correspond for every enum value.
+// A fact stated once must render the same way in the name and in the tag.
 func TestNameAndTagsAgreeOnTheSameFact(t *testing.T) {
 	substrate := MustNewSubstrate("foundry")
 	zone := MustParseZone("us-east-1a")

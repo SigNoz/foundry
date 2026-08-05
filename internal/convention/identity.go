@@ -86,9 +86,8 @@ func (identity Identity) String() string {
 // Sorting keeps the value stable so an unchanged claim set produces no diff.
 //
 // Only a platform with no stateful identity primitive of its own needs a claim
-// record. Kubernetes binds a pod to its volume through the StatefulSet
-// controller, compose and swarm by name in the generated file, systemd by host
-// path. Empty is therefore the norm, and stamps no tag.
+// record; Kubernetes, compose, swarm and systemd each bind an identity to its
+// disk themselves. Empty is the norm and stamps no tag.
 type Identities []Identity
 
 func (identities Identities) String() string {

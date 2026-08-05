@@ -99,7 +99,7 @@ func (r Resource) WithClaims(identities Identities) Resource {
 // Name is <substrate>-<type>[-<qualifier>...], broad to narrow so a substrate's
 // resources share a prefix and sort together. It fills a provider's name argument
 // where one exists, and the display tag always -- an instance or a volume has no
-// name of its own. Which qualifiers apply is the resource type's declaration.
+// name of its own.
 func (r Resource) Name() string {
 	parts := make([]string, 0, len(r.resourceType.qualifiers)+2)
 	parts = append(parts, r.substrate.name, r.resourceType.String())
@@ -118,8 +118,7 @@ func (r Resource) Selection() Selection {
 	return Selection{substrate: r.substrate, storage: r.storage, identities: r.identities}
 }
 
-// stamp is the selection's tags plus the provenance nothing reads back. Each
-// check is on whether an axis applies, not on which resource this is.
+// stamp is the selection's tags plus the provenance nothing reads back.
 func (r Resource) stamp() Tags {
 	tags := r.Selection().match()
 

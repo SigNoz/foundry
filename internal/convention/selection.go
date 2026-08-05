@@ -5,9 +5,9 @@ import (
 )
 
 // Selection is what a consuming casting looks for: a substrate, narrowed by the
-// facts it knows. A consumer knows a class rather than an instance, and cannot
-// know the group names the producer chose, so no name or resource type appears
-// here -- neither reaches a tag.
+// facts it knows. Neither a name nor a resource type appears here because
+// neither reaches a tag -- a filter for instances and one for volumes are the
+// same tags, and the data source decides which it returns.
 type Selection struct {
 	substrate  Substrate
 	storage    infrastructure.StorageClass

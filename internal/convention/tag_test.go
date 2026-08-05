@@ -28,8 +28,7 @@ func TestTagKeys(t *testing.T) {
 	}
 }
 
-// Two keys sharing a string would collide on one resource, the second silently
-// overwriting the first.
+// Two keys sharing a string would collide on one resource.
 func TestTagKeysAreDistinct(t *testing.T) {
 	tagKeys := []TagKey{
 		TagKeyName, TagKeyStorage, TagKeyIdentities,

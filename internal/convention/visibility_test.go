@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Names are length-constrained and tag values are not, so visibility renders
-// compact in a name and spelled out in a tag.
+// A name is length-constrained where a tag value is not, so the two renderings
+// differ.
 func TestVisibility(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -27,8 +27,8 @@ func TestVisibility(t *testing.T) {
 	}
 }
 
-// The zero value renders nothing, which is how a resource with no network face
-// drops the qualifier and the tag rather than carrying them empty.
+// The zero value renders nothing, so a resource with no network face carries
+// neither the qualifier nor the tag.
 func TestVisibilityZeroValueRendersNothing(t *testing.T) {
 	assert.Empty(t, Visibility{}.String())
 	assert.Empty(t, Visibility{}.Short())

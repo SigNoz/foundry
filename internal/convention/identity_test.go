@@ -66,9 +66,8 @@ func TestParseIdentity(t *testing.T) {
 	}
 }
 
-// Parsing goes through NewIdentity, so a value a claim record could not have
-// held is rejected on the way back in rather than becoming an identity nothing
-// can match.
+// Parsing validates through NewIdentity, so a value the encoder could not have
+// produced is rejected.
 func TestParseIdentityDelegatesValidation(t *testing.T) {
 	_, direct := NewIdentity("telemetry,store", 0)
 	_, parsed := ParseIdentity("telemetry,store-0")
@@ -111,8 +110,8 @@ func TestIdentitiesString(t *testing.T) {
 	}
 }
 
-// Sorting is the whole reason the value is stable: the same claims stated in a
-// different order have to render identically, or every plan shows a tag diff.
+// The same claims in a different order must render identically, or every plan
+// shows a tag diff.
 func TestIdentitiesRenderIndependentOfOrder(t *testing.T) {
 	forward := Identities{MustNewIdentity("keeper", 0), MustNewIdentity("keeper", 1), MustNewIdentity("keeper", 2)}
 	reversed := Identities{forward[2], forward[1], forward[0]}
@@ -169,9 +168,8 @@ func TestParseIdentities(t *testing.T) {
 	}
 }
 
-// The tag value written here is read back by Terraform's split(), so the two
-// halves of the encoding have to agree. Round-tripping in Go is the only place
-// that can be asserted.
+// Terraform reads this value back with split(), so the encoding has to
+// round-trip.
 func TestIdentitiesRoundTrip(t *testing.T) {
 	identities := Identities{
 		MustNewIdentity("telemetrykeeper", 0),

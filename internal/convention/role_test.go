@@ -24,8 +24,7 @@ func TestRole(t *testing.T) {
 	}
 }
 
-// Two roles sharing a rendering would give an IAM role and a security group the
-// same derived name.
+// Two roles sharing a rendering would collide in a derived name.
 func TestRolesAreDistinct(t *testing.T) {
 	roles := []Role{RoleNode, RoleTask, RoleExec}
 

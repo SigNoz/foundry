@@ -58,9 +58,8 @@ func TestSelectionFilter(t *testing.T) {
 	}
 }
 
-// A consumer states a class and gets what the producer stamped on every node of
-// it, at any ordinal. The class is the whole identity, so there is nothing else
-// for the two sides to agree on.
+// A consumer states a class; the producer stamps it per node. The filter has to
+// match at any ordinal.
 func TestClassFilterMatchesWhatTheProducerStamped(t *testing.T) {
 	substrate := MustNewSubstrate("foundry")
 	consumer := substrate.Select().WithStorage(infrastructure.StorageClassPersistent).Filter()
@@ -74,10 +73,8 @@ func TestClassFilterMatchesWhatTheProducerStamped(t *testing.T) {
 	}
 }
 
-// Claims are optional: a casting whose platform tracks the identity-to-disk
-// binding itself never mentions them, and must then see no claim tag stamped and
-// no claim key in its filter. Every casting but ECS is in that position, so this
-// is the common path, not the edge.
+// A platform that tracks the identity-to-disk binding itself stamps no claim tag
+// and filters on none.
 func TestClaimsAreOptional(t *testing.T) {
 	substrate := MustNewSubstrate("foundry")
 	persistent := infrastructure.StorageClassPersistent
@@ -93,9 +90,8 @@ func TestClaimsAreOptional(t *testing.T) {
 	assert.Equal(t, volume.Tags(), substrate.Volume(persistent, 0).WithClaims(Identities{}).Tags())
 }
 
-// A resource's contract tags are not a parallel list that has to agree with the
-// consumer's filter -- they are that filter. Asserted so the composition cannot
-// be unwound back into two lists.
+// A resource's filter is a subset of its tags, not a parallel list that has to
+// agree with them.
 func TestResourceContractTagsAreItsSelection(t *testing.T) {
 	substrate := MustNewSubstrate("foundry")
 	zone := MustParseZone("us-east-1a")
@@ -120,10 +116,8 @@ func TestResourceContractTagsAreItsSelection(t *testing.T) {
 	}
 }
 
-// A filter's keys are the only ones a consumer depends on the exact spelling of.
-// Renaming one leaves live infrastructure unmatched, and that failure has no
-// checkpoint: the filter returns nothing, after foundry has exited. Provenance
-// keys carry no such constraint, which is why they are absent here.
+// A filter's keys are the only ones whose spelling live infrastructure depends
+// on: renaming one leaves it unmatched, with no checkpoint to catch it.
 func TestFilterKeysMatchDeployedSpelling(t *testing.T) {
 	filter := MustNewSubstrate("foundry").Select().
 		WithStorage(infrastructure.StorageClassPersistent).
