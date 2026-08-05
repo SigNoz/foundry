@@ -4,8 +4,10 @@ package infrastructure
 // canonical internal representation of what a substrate shaped for the
 // resource kind must provide.
 type ResourceConfig struct {
-	// Node groups the resource requires from the substrate.
-	NodeGroups []ResourceConfigNodeGroup `json:"nodeGroups" patchStrategy:"merge" patchMergeKey:"name" description:"Node groups the resource requires from the substrate"`
+	// NodeGroups is keyed by storage class, which is the only identity a group
+	// has: a consuming casting selects nodes by class and has no way to name a
+	// group, so a second group of the same class would be unreachable.
+	NodeGroups map[StorageClass]ResourceConfigNodeGroup `json:"nodeGroups" description:"Node groups the resource requires from the substrate, keyed by storage class"`
 
 	_ struct{} `additionalProperties:"false"`
 }
@@ -17,12 +19,6 @@ type ResourceConfig struct {
 // so the document stays portable across providers, with machineType as the
 // escape hatch when a concrete type is wanted.
 type ResourceConfigNodeGroup struct {
-	// Name of the node group.
-	Name string `json:"name" description:"Name of the node group"`
-
-	// Storage class of the group's nodes.
-	Storage StorageClass `json:"storage,omitzero" description:"Durability of the group's storage" examples:"[\"persistent\"]"`
-
 	// MinSize is the smallest the group may be. A pinned group states the
 	// same value for both bounds.
 	MinSize *int `json:"minSize,omitempty" minimum:"0" description:"Minimum number of nodes in the group"`

@@ -89,38 +89,6 @@ func TestStrategicMergeYAML(t *testing.T) {
 			override: "a: [b\n",
 			pass:     false,
 		},
-		{
-			name:      "MapList_MergesMatchedElementByKey",
-			base:      "groups:\n- name: a\n  size: 1\n  cpu: 2\n- name: b\n  size: 9\n",
-			override:  "groups:\n- name: a\n  size: 4\n",
-			listTypes: ListTypes{"groups": ListTypeMap("name")},
-			pass:      true,
-			expected:  "groups:\n- cpu: 2\n  name: a\n  size: 4\n- name: b\n  size: 9\n",
-		},
-		{
-			name:      "MapList_AppendsUnmatchedElement",
-			base:      "groups:\n- name: a\n  size: 1\n",
-			override:  "groups:\n- name: b\n  size: 2\n",
-			listTypes: ListTypes{"groups": ListTypeMap("name")},
-			pass:      true,
-			expected:  "groups:\n- name: a\n  size: 1\n- name: b\n  size: 2\n",
-		},
-		{
-			name:      "MapList_MergesNestedObjectWithinElement",
-			base:      "groups:\n- name: a\n  volume:\n    size: 20\n    type: gp3\n",
-			override:  "groups:\n- name: a\n  volume:\n    size: 50\n",
-			listTypes: ListTypes{"groups": ListTypeMap("name")},
-			pass:      true,
-			expected:  "groups:\n- name: a\n  volume:\n    size: 50\n    type: gp3\n",
-		},
-		{
-			name:      "MapList_MissingKeyDegradesToAtomic",
-			base:      "groups:\n- name: a\n  size: 1\n",
-			override:  "groups:\n- size: 2\n",
-			listTypes: ListTypes{"groups": ListTypeMap("name")},
-			pass:      true,
-			expected:  "groups:\n- size: 2\n",
-		},
 	}
 
 	for _, tt := range tests {

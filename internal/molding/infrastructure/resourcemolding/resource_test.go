@@ -23,10 +23,8 @@ func TestMoldV1Alpha1(t *testing.T) {
 			kind: infrastructure.ResourceKindInstallation,
 			pass: true,
 			expected: infrastructure.ResourceConfig{
-				NodeGroups: []infrastructure.ResourceConfigNodeGroup{
-					{
-						Name:       "persistent",
-						Storage:    infrastructure.StorageClassPersistent,
+				NodeGroups: map[infrastructure.StorageClass]infrastructure.ResourceConfigNodeGroup{
+					infrastructure.StorageClassPersistent: {
 						MinSize:    v1alpha1.IntPtr(3),
 						MaxSize:    v1alpha1.IntPtr(3),
 						CPU:        v1alpha1.IntPtr(2),
@@ -34,9 +32,7 @@ func TestMoldV1Alpha1(t *testing.T) {
 						RootVolume: infrastructure.ResourceConfigVolume{Size: v1alpha1.IntPtr(30)},
 						DataVolume: &infrastructure.ResourceConfigVolume{Size: v1alpha1.IntPtr(50)},
 					},
-					{
-						Name:       "ephemeral",
-						Storage:    infrastructure.StorageClassEphemeral,
+					infrastructure.StorageClassEphemeral: {
 						MinSize:    v1alpha1.IntPtr(1),
 						MaxSize:    v1alpha1.IntPtr(1),
 						CPU:        v1alpha1.IntPtr(2),
@@ -51,10 +47,8 @@ func TestMoldV1Alpha1(t *testing.T) {
 			kind: infrastructure.ResourceKindCollectionAgent,
 			pass: true,
 			expected: infrastructure.ResourceConfig{
-				NodeGroups: []infrastructure.ResourceConfigNodeGroup{
-					{
-						Name:       "ephemeral",
-						Storage:    infrastructure.StorageClassEphemeral,
+				NodeGroups: map[infrastructure.StorageClass]infrastructure.ResourceConfigNodeGroup{
+					infrastructure.StorageClassEphemeral: {
 						MinSize:    v1alpha1.IntPtr(1),
 						MaxSize:    v1alpha1.IntPtr(1),
 						CPU:        v1alpha1.IntPtr(2),
@@ -106,13 +100,13 @@ func TestMoldV1Alpha1_PreservesEnricherContributions(t *testing.T) {
 	config.Spec.Resource.Status.Addresses.OTLP = []string{"tcp://0.0.0.0:9411"}
 	config.Spec.Resource.Status.Config.Data = map[string]string{
 		ResourceConfigName: `nodeGroups:
-- name: persistent
-  minSize: 4
-  maxSize: 4
-  nodes: [{ordinal: 0}, {ordinal: 1}, {ordinal: 2}, {ordinal: 3}]
-- name: ephemeral
-  minSize: 2
-  maxSize: 2
+  persistent:
+    minSize: 4
+    maxSize: 4
+    nodes: [{ordinal: 0}, {ordinal: 1}, {ordinal: 2}, {ordinal: 3}]
+  ephemeral:
+    minSize: 2
+    maxSize: 2
 `,
 	}
 
@@ -128,33 +122,74 @@ func TestMoldV1Alpha1_PreservesEnricherContributions(t *testing.T) {
 	got := infrastructure.ResourceConfig{}
 	assert.NoError(t, domain.UnmarshalYAML([]byte(doc), &got))
 
-	// Node groups merge by name: the contribution states only the sizes it
-	// changes and the baseline's other fields survive.
+	// Groups are keyed by class, so the contribution states only the sizes it
+	// changes and the baseline's other fields survive -- under plain document
+	// merge, with no list strategy.
 	assert.Len(t, got.NodeGroups, 2)
-	for _, group := range got.NodeGroups {
-		switch group.Name {
-		case "persistent":
-			assert.Equal(t, v1alpha1.IntPtr(4), group.MinSize)
-			assert.Equal(t, infrastructure.StorageClassPersistent, group.Storage)
-			assert.Equal(t, v1alpha1.IntPtr(8), group.Memory)
-			assert.Equal(t, v1alpha1.IntPtr(50), group.DataVolume.Size)
-		case "ephemeral":
-			assert.Equal(t, v1alpha1.IntPtr(2), group.MinSize)
-			assert.Equal(t, infrastructure.StorageClassEphemeral, group.Storage)
-			assert.Equal(t, v1alpha1.IntPtr(4), group.Memory)
-		default:
-			t.Fatalf("unexpected node group %q", group.Name)
-		}
-	}
+
+	persistent := got.NodeGroups[infrastructure.StorageClassPersistent]
+	assert.Equal(t, v1alpha1.IntPtr(4), persistent.MinSize)
+	assert.Equal(t, v1alpha1.IntPtr(8), persistent.Memory)
+	assert.Equal(t, v1alpha1.IntPtr(50), persistent.DataVolume.Size)
+
+	ephemeral := got.NodeGroups[infrastructure.StorageClassEphemeral]
+	assert.Equal(t, v1alpha1.IntPtr(2), ephemeral.MinSize)
+	assert.Equal(t, v1alpha1.IntPtr(4), ephemeral.Memory)
 }
 
-func TestMoldV1Alpha1_IncompleteContributionFails(t *testing.T) {
-	config := infrastructure.Default()
-	config.Spec.Resource.Kind = infrastructure.ResourceKindInstallation
-	config.Spec.Resource.Status.Config.Data = map[string]string{
-		ResourceConfigName: "nodeGroups:\n- name: keeper\n  persistent: true\n  count: 3\n",
+func TestMoldV1Alpha1_ContributionValidity(t *testing.T) {
+	tests := []struct {
+		name         string
+		contribution string
+		pass         bool
+	}{
+		{
+			// A partial override is the point of keying by class: the baseline
+			// supplies everything it does not mention.
+			name:         "PartialOverride_Valid",
+			contribution: "nodeGroups:\n  persistent:\n    minSize: 3\n",
+			pass:         true,
+		},
+		{
+			// An unnameable group cannot be reached by any consumer, so an
+			// unknown key fails at unmarshal rather than provisioning nodes
+			// nothing will be placed on.
+			name:         "UnknownClass_Invalid",
+			contribution: "nodeGroups:\n  keeper:\n    minSize: 3\n",
+			pass:         false,
+		},
+		{
+			name:         "PinnedGroupWithUnequalBounds_Invalid",
+			contribution: "nodeGroups:\n  persistent:\n    minSize: 3\n    maxSize: 5\n",
+			pass:         false,
+		},
+		{
+			// A null deletes the key under RFC 7386, so this removes the
+			// baseline's data volume from a class that requires one.
+			name:         "PersistentWithoutDataVolume_Invalid",
+			contribution: "nodeGroups:\n  persistent:\n    dataVolume: null\n",
+			pass:         false,
+		},
+		{
+			name:         "EphemeralWithDataVolume_Invalid",
+			contribution: "nodeGroups:\n  ephemeral:\n    dataVolume:\n      size: 20\n",
+			pass:         false,
+		},
 	}
 
-	err := New(slog.New(slog.DiscardHandler)).MoldV1Alpha1(context.Background(), config)
-	assert.Error(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := infrastructure.Default()
+			config.Spec.Resource.Kind = infrastructure.ResourceKindInstallation
+			config.Spec.Resource.Status.Config.Data = map[string]string{ResourceConfigName: tt.contribution}
+
+			err := New(slog.New(slog.DiscardHandler)).MoldV1Alpha1(context.Background(), config)
+			if !tt.pass {
+				assert.Error(t, err)
+				return
+			}
+
+			assert.NoError(t, err)
+		})
+	}
 }

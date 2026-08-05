@@ -22,11 +22,6 @@ var (
 // substrate shaped for the resource kind must satisfy beyond its edge.
 const ResourceConfigName = "resource.yaml"
 
-// Node groups merge by name so a contribution or an operator override states
-// only the group and the fields it changes, instead of restating every group
-// to avoid deleting the ones it left out.
-var resourceConfigListTypes = domain.ListTypes{"nodeGroups": domain.ListTypeMap("name")}
-
 var _ infrastructuremolding.Molding = (*resourceMolding)(nil)
 
 type resourceMolding struct {
@@ -53,15 +48,15 @@ func (molding *resourceMolding) MoldV1Alpha1(ctx context.Context, config *infras
 		status.Addresses.OTLP = append([]string{otlpGRPCAddress, otlpHTTPAddress}, status.Addresses.OTLP...)
 		status.Addresses.APIServer = append([]string{apiServerAddress}, status.Addresses.APIServer...)
 		baseline = &infrastructure.ResourceConfig{
-			NodeGroups: []infrastructure.ResourceConfigNodeGroup{
-				// Three persistent nodes cover the default installation's
-				// stateful set: one keeper, the metadata node, one store node.
-				// A group holding stateful identities is pinned, so its bounds
-				// are equal -- there is nothing to autoscale when every node
-				// owns a claimed volume.
-				{
-					Name:       infrastructure.StorageClassPersistent.String(),
-					Storage:    infrastructure.StorageClassPersistent,
+			NodeGroups: map[infrastructure.StorageClass]infrastructure.ResourceConfigNodeGroup{
+				// Three persistent nodes cover the default topology's stateful
+				// set: one keeper, the metadata node, one store node. A scaled
+				// installation needs more and must state them, because
+				// Infrastructure provisions for a Kind and never reads the
+				// Installation casting. A pinned group's bounds are equal --
+				// there is nothing to autoscale when every node owns a claimed
+				// volume.
+				infrastructure.StorageClassPersistent: {
 					MinSize:    v1alpha1.IntPtr(3),
 					MaxSize:    v1alpha1.IntPtr(3),
 					CPU:        v1alpha1.IntPtr(2),
@@ -69,9 +64,7 @@ func (molding *resourceMolding) MoldV1Alpha1(ctx context.Context, config *infras
 					RootVolume: infrastructure.ResourceConfigVolume{Size: v1alpha1.IntPtr(30)},
 					DataVolume: &infrastructure.ResourceConfigVolume{Size: v1alpha1.IntPtr(50)},
 				},
-				{
-					Name:       infrastructure.StorageClassEphemeral.String(),
-					Storage:    infrastructure.StorageClassEphemeral,
+				infrastructure.StorageClassEphemeral: {
 					MinSize:    v1alpha1.IntPtr(1),
 					MaxSize:    v1alpha1.IntPtr(1),
 					CPU:        v1alpha1.IntPtr(2),
@@ -83,10 +76,8 @@ func (molding *resourceMolding) MoldV1Alpha1(ctx context.Context, config *infras
 	case infrastructure.ResourceKindCollectionAgent:
 		status.Addresses.OTLP = append([]string{otlpGRPCAddress, otlpHTTPAddress}, status.Addresses.OTLP...)
 		baseline = &infrastructure.ResourceConfig{
-			NodeGroups: []infrastructure.ResourceConfigNodeGroup{
-				{
-					Name:       infrastructure.StorageClassEphemeral.String(),
-					Storage:    infrastructure.StorageClassEphemeral,
+			NodeGroups: map[infrastructure.StorageClass]infrastructure.ResourceConfigNodeGroup{
+				infrastructure.StorageClassEphemeral: {
 					MinSize:    v1alpha1.IntPtr(1),
 					MaxSize:    v1alpha1.IntPtr(1),
 					CPU:        v1alpha1.IntPtr(2),
@@ -108,7 +99,8 @@ func (molding *resourceMolding) MoldV1Alpha1(ctx context.Context, config *infras
 
 	// Contributions (enricher deltas) merge first so casting-specific keys
 	// survive, then the operator's own spec, which wins: spec beats status
-	// wherever they disagree.
+	// wherever they disagree. Groups are keyed by class, so an override states
+	// only the class and the fields it changes.
 	for _, override := range []string{
 		status.Config.Data[ResourceConfigName],
 		config.Spec.Resource.Spec.Config.Data[ResourceConfigName],
@@ -117,7 +109,7 @@ func (molding *resourceMolding) MoldV1Alpha1(ctx context.Context, config *infras
 			continue
 		}
 
-		doc, err = domain.StrategicMergeYAML(doc, override, resourceConfigListTypes)
+		doc, err = domain.MergeYAML(doc, override)
 		if err != nil {
 			return foundryerrors.Wrapf(err, foundryerrors.TypeInvalidInput, "failed to merge resource config override")
 		}
@@ -143,37 +135,31 @@ func validate(doc string) error {
 		return foundryerrors.Wrapf(err, foundryerrors.TypeInvalidInput, "failed to unmarshal resolved resource config")
 	}
 
-	for _, group := range config.NodeGroups {
+	for storage, group := range config.NodeGroups {
 		if group.MinSize == nil || group.MaxSize == nil || group.RootVolume.Size == nil {
-			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "node group %q in resource config is incomplete", group.Name)
+			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "node group %q in resource config is incomplete", storage)
 		}
 
 		if *group.MaxSize < *group.MinSize {
-			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "node group %q has maxSize below minSize", group.Name)
+			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "node group %q has maxSize below minSize", storage)
 		}
 
 		// A machine is named outright or resolved from criteria; one of the
 		// two has to be stated or there is nothing to launch.
 		if group.MachineType == "" && (group.CPU == nil || group.Memory == nil) {
-			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "node group %q states neither machineType nor cpu and memory", group.Name)
+			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "node group %q states neither machineType nor cpu and memory", storage)
 		}
 
-		// An unknown class cannot reach here: it fails at unmarshal. What is
-		// left is a group that named none at all.
-		if group.Storage.String() == "" {
-			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "node group %q states no storage class", group.Name)
-		}
-
-		if group.Storage.RequiresDataVolume() {
+		if storage.RequiresDataVolume() {
 			if group.DataVolume == nil || group.DataVolume.Size == nil {
-				return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "node group %q is %s, so it must state a dataVolume size", group.Name, group.Storage)
+				return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "node group %q must state a dataVolume size", storage)
 			}
 		} else if group.DataVolume != nil {
-			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "node group %q is %s, so it cannot state a dataVolume", group.Name, group.Storage)
+			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "node group %q cannot state a dataVolume", storage)
 		}
 
-		if group.Storage.IsPinned() && *group.MinSize != *group.MaxSize {
-			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "node group %q is %s, so minSize and maxSize must be equal", group.Name, group.Storage)
+		if storage.IsPinned() && *group.MinSize != *group.MaxSize {
+			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "node group %q is pinned, so minSize and maxSize must be equal", storage)
 		}
 	}
 
