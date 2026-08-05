@@ -7,7 +7,6 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/infrastructure"
-	infrastructurecasting "github.com/signoz/foundry/internal/casting/infrastructure/casting"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	infrastructuremolding "github.com/signoz/foundry/internal/molding/infrastructure"
@@ -25,7 +24,7 @@ var _ planner.Planner = (*Planner)(nil)
 type Planner struct {
 	config   *infrastructure.Casting
 	logger   *slog.Logger
-	casting  infrastructurecasting.Casting
+	casting  Casting
 	toolers  []tooler.Tooler
 	enricher infrastructuremolding.MoldingEnricher
 	moldings []infrastructuremolding.Molding
