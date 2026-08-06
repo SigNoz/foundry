@@ -183,15 +183,24 @@ Required when using `platform: ecs`, `mode: ec2`, `flavor: terraform`.
 
 | Annotation | Maps to tfvar | Description |
 | --- | --- | --- |
-| `foundry.signoz.io/ecs/region` | `region` | AWS region |
-| `foundry.signoz.io/ecs/cluster-id` | `ecs_cluster_id` | ECS cluster ARN or ID |
-| `foundry.signoz.io/ecs/subnet-ids` | `subnet_ids` | Comma-separated subnet IDs |
-| `foundry.signoz.io/ecs/security-group-ids` | `security_group_ids` | Comma-separated security group IDs |
-| `foundry.signoz.io/ecs/vpc-id` | `vpc_id` | VPC ID for Cloud Map namespace |
-| `foundry.signoz.io/ecs/config-bucket` | `config_bucket` | S3 bucket for component configs |
-| `foundry.signoz.io/ecs/task-role-arn` | `task_role_arn` | IAM role ARN for ECS tasks |
-| `foundry.signoz.io/ecs/task-execution-role-arn` | `task_execution_role_arn` | IAM role ARN for task execution |
-| `foundry.signoz.io/ecs/capacity-provider` | `capacity_provider` | ECS capacity provider name |
+| `foundry.signoz.io/ecs-region` | `aws_region` | AWS region holding the cluster |
+
+The rest are optional. Each names an existing AWS object, for a cluster the
+casting places tasks onto but does not provision. Leave one out and the stack
+finds that object by its `foundry.signoz.io/*` tags instead. State it and the
+lookup variable is replaced by the value itself, with no data source emitted
+for it.
+
+| Annotation | Maps to tfvar | Replaces the lookup on |
+| --- | --- | --- |
+| `foundry.signoz.io/ecs-cluster-arn` | `cluster_arn` | `cluster_name` |
+| `foundry.signoz.io/ecs-subnet-ids` | `subnet_ids` | `subnet_tags` |
+| `foundry.signoz.io/ecs-security-group-ids` | `security_group_ids` | `security_group_name` |
+| `foundry.signoz.io/ecs-vpc-id` | `vpc_id` | `vpc_tags` |
+| `foundry.signoz.io/ecs-task-role-arn` | `task_role_arn` | `task_role_name` |
+| `foundry.signoz.io/ecs-task-execution-role-arn` | `execution_role_arn` | `execution_role_name` |
+
+The ID annotations take a comma-separated list.
 
 ## Schema
 
