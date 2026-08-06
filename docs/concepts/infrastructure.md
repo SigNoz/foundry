@@ -20,13 +20,15 @@ spec:
     flavor: terraform
 ```
 
+The deployment picks the casting that provisions. Everything below is the same whichever one you pick.
+
 Foundry knows what a default SigNoz installation needs and sizes a substrate for one. It cannot know where to put them, so a casting states its subnets. See [The document](#the-document).
 
 ## The document
 
 Forging settles one document, `resource.yaml`, written to `casting.yaml.lock` under `spec.resource.status`. It has two halves.
 
-The top half is a **declaration**, layered: foundry's baseline, then what the platform decides, then whatever you put in `spec.resource.spec.config.data`, which wins. The vocabulary follows [kOps](https://kops.sigs.k8s.io/).
+The top half is a **declaration**, layered: Foundry's baseline, then what the platform decides, then whatever you put in `spec.resource.spec.config.data`, which wins. The vocabulary follows [kOps](https://kops.sigs.k8s.io/).
 
 ```yaml
 networking:
@@ -62,6 +64,8 @@ instanceGroups:
       type: gp3
 ```
 
+Zones, machine types and volume types are the provider's own vocabulary, passed through verbatim. Foundry does not translate them.
+
 The bottom half, `resources`, is **derived** from the settled declaration, and holds every name and tag the substrate stamps. One entry looks like this, and the rest follow the same shape:
 
 ```yaml
@@ -89,12 +93,12 @@ Collections are keyed by a reference you choose. The key names the subnet's reso
 | `type` | `private` or `public`. Workloads go in private subnets |
 | `zone` | The provider's availability zone, verbatim |
 | `cidr` | The block carved out of `networkCIDR` |
-| `egress` | ID of a NAT gateway this private subnet already routes through. Empty creates one |
+| `egress` | ID of a gateway this private subnet already routes out through. Empty creates one |
 | `id` | ID of an existing subnet to adopt. Empty creates one |
 
 **`zone` has no default and no fallback.** Zone letters are not contiguous within a region, and the mapping from letter to physical zone differs per account. Only you can state one. A casting with no subnets fails to forge.
 
-A private subnet with no `egress` needs a public subnet in the same zone to hold its NAT gateway.
+A private subnet with no `egress` needs a public subnet in the same zone to hold its gateway.
 
 ### Instance groups
 
@@ -179,7 +183,7 @@ spec:
         v                                        v
   pours/infrastructure/                    pours/deployment/
         |                                        |
-        | terraform apply                        | terraform apply
+        | apply                                  | apply
         v                                        v
   +------------------------------------------------------------------+
   |                          the provider                            |
@@ -190,45 +194,34 @@ spec:
 
 Infrastructure first. The Installation's lookups return nothing until the substrate exists, and an early apply produces a plan that places nothing.
 
-The two runs keep separate Terraform state. Neither reads the other's, and Foundry passes nothing between them.
+The two runs keep separate state. Neither reads the other's, and Foundry passes nothing between them.
 
 ## The channel between castings
 
 Your Installation names the substrate it runs on:
 
 ```yaml
-apiVersion: v1alpha1
-kind: Installation
-metadata:
-  name: signoz
 spec:
-  deployment:
-    platform: ecs
-    mode: ec2
-    flavor: terraform
   infrastructure:
     name: signoz
 ```
 
 That is the whole binding, and it is required. Without it the Installation has no name to derive a filter from, and forging fails.
 
-Everything else the Installation needs, it looks up from that one name:
+Everything else follows from that one name. A resource Foundry names is found by its derived name; a resource selected out of a set is found by tag:
 
-| What it needs | How it finds it |
+| What the Installation needs | How it finds it |
 |---|---|
-| The cluster | the derived name, `signoz-cls` |
-| Subnets to place tasks in | the tags `foundry.signoz.io/name` and `foundry.signoz.io/subnet-type: private` |
-| The security group | the derived name, `signoz-sg-task` |
-| The VPC for its Cloud Map namespace | the tag `foundry.signoz.io/name` |
-| The task and execution roles | the derived names, `signoz-iam-task` and `signoz-iam-exec` |
-| Machines to pin stateful tasks to | the tags `foundry.signoz.io/name` and `foundry.signoz.io/storage` |
-| Which component owns a disk | the tag `foundry.signoz.io/identities` on the disk |
+| Something Foundry named | the same derivation, run again |
+| Which subnets to place a workload in | `foundry.signoz.io/name` and `foundry.signoz.io/subnet-type` |
+| Which machines a component runs on | `foundry.signoz.io/name` and `foundry.signoz.io/storage` |
+| Which component owns a disk | `foundry.signoz.io/identities` on the disk |
 
-Each arrives in Terraform as a variable defaulted to what was derived. A one-off change needs no edit to a generated file. Any of them can be stated on the Installation instead, one at a time, for a cluster Foundry did not provision; what is stated becomes the variable's own value and nothing is looked up.
+Each arrives in the generated stack as a variable defaulted to what was derived. A one-off change needs no edit to a generated file. Any of them can be stated on the Installation instead, one at a time, for a substrate Foundry did not provision; what is stated becomes the variable's own value and nothing is looked up.
 
-No outputs are wired between the two, and no state file is shared. Foundry generates files and exits. It never calls a cloud API and cannot ask the provider what it created a moment ago. Both sides work the names and tags out the same way, which is why they are derived.
+No outputs are wired between the two, and no state is shared. Foundry generates files and exits. It never calls a cloud API and cannot ask the provider what it created a moment ago. Both sides work the names and tags out the same way, which is why they are derived.
 
-A lookup that matches nothing fails the plan. That is deliberate: the alternative is a plan that succeeds and places tasks nowhere.
+A lookup that matches nothing fails the plan. That is deliberate: the alternative is a plan that succeeds and places workloads nowhere.
 
 ## Conventions
 
@@ -240,28 +233,21 @@ Foundry derives every name and every tag from the substrate's name and a closed 
 <substrate>-<type>[-<qualifier>...]
 ```
 
-Broad to narrow: everything belonging to one deployment shares a prefix and sorts together. A qualifier that does not apply is left out, letting a security group and its rules share one form.
+Broad to narrow: everything belonging to one deployment shares a prefix and sorts together. A qualifier that does not apply is left out, letting a resource and its children share one form.
 
-| Resource | Type | Qualifiers | Example |
-|---|---|---|---|
-| Cluster | `cls` | | `signoz-cls` |
-| VPC | `vpc` | | `signoz-vpc` |
-| Internet gateway | `igw` | | `signoz-igw` |
-| Subnet | `sub` | subnet key | `signoz-sub-private-a` |
-| Route table | `rt` | subnet key | `signoz-rt-private-a` |
-| NAT gateway | `nat` | subnet key | `signoz-nat-private-a` |
-| Elastic IP | `eip` | subnet key | `signoz-eip-private-a` |
-| Security group | `sg` | role | `signoz-sg-task` |
-| Security group rule | `sg` | role, purpose | `signoz-sg-task-intra-cluster` |
-| IAM role | `iam` | role | `signoz-iam-exec` |
-| IAM role policy | `iam` | role, purpose | `signoz-iam-task-appconfig-read` |
-| Instance profile | `prf` | role | `signoz-prf-node` |
-| Launch template | `lt` | group key | `signoz-lt-ephemeral` |
-| Autoscaling group | `asg` | group key | `signoz-asg-ephemeral` |
-| Node | `node` | group key, ordinal | `signoz-node-persistent-0` |
-| Volume | `vol` | group key, ordinal | `signoz-vol-persistent-0` |
+The type token and the set of resources are the provider casting's, since only it knows what it provisions. The qualifiers are not:
 
-A NAT gateway and its address are keyed by the **private** subnet they serve, not the public one they sit in. Route tables are per subnet: a private subnet's default route is its own zone's gateway.
+| Qualifier | Where it comes from |
+|---|---|
+| Subnet key | `networking.subnets` |
+| Group key | `instanceGroups` |
+| Ordinal | position in a group, zero-based |
+| Role | the platform's own set of identities |
+| Purpose | what a rule admits or a policy grants |
+
+A subnet keyed `private-a` becomes `signoz-sub-private-a`. The first node of a group keyed `persistent` becomes `signoz-node-persistent-0`.
+
+Length caps belong to the platform. The substrate name is capped at 63 characters, which leaves room under the shortest cap a provider imposes on a resource name.
 
 ### Values
 
@@ -271,13 +257,11 @@ A NAT gateway and its address are keyed by the **private** subnet they serve, no
 | Group key | yours | `instanceGroups` | not tagged |
 | Subnet type | private, public | a subnet's `type` | `private`, `public` |
 | Storage class | persistent, ephemeral | a group's `storage` | `persistent`, `ephemeral` |
-| Role | node, task, exec | the platform | not tagged |
-| Purpose | what a rule admits or a policy grants | the platform | not tagged |
+| Role | the platform's | the platform | not tagged |
+| Purpose | the platform's | the platform | not tagged |
 | Ordinal | position in a group | derived, zero-based | not tagged |
 
 A key you chose distinguishes one name from another and says nothing the Installation can predict. Everything it filters on is a closed enum, spelled out in full. The string has to be identical on both sides, so nothing reaching a tag is abbreviated.
-
-Length caps belong to the platform. IAM role names cap at 64 characters on AWS, keeping roles among the shortest derivations above. The substrate name is capped at 63.
 
 ### Tags
 
@@ -292,97 +276,56 @@ Every tag lives under `foundry.signoz.io/` and is one segment deep. A single fil
 | `foundry.signoz.io/owner` | `owned` or `shared` | People, to tell what Foundry may delete |
 | `foundry.signoz.io/managed-by` | `foundry` | People |
 | `foundry.signoz.io/kind` | The casting Kind that stamped it | People |
-| `Name` | The derived name | Cloud consoles, which show this tag by convention |
+| `Name` | The derived name | Cloud consoles, which show a display name by convention |
 
 The first four are how the Installation finds anything and are fixed. The rest describe a resource and are free to change.
 
+The tag key's spelling is the provider's. A label key that rejects a dot or a slash is rendered in whatever grammar that provider accepts, and both castings render it the same way.
+
 Your own tags go in `cloudLabels` and are applied to every resource the substrate provisions. They sit underneath the derived ones. A `cloudLabels` entry cannot rename a tag the Installation matches on.
 
-### Identities
-
-A component that keeps data has an identity, written `<component>-<shard>-<replica>` with zero-based ordinals: `telemetrystore-0-0`, `telemetrykeeper-1`, `metastore-0`. An identity claims a disk and stays with it. A component keeps its data when the machine under it is replaced.
-
-Claims are recorded on the disk in `foundry.signoz.io/identities`, comma-joined and sorted for a stable value between runs.
-
-## Dependencies
-
-### What the substrate contains
-
-```
-  vpc
-   |
-   +-- internet gateway            (only if a public subnet is declared)
-   |
-   +-- subnet                      (one per declared key)
-   |     |
-   |     +-- route table           (private: via its own nat)
-   |     |                         (public: via igw)
-   |     +-- nat gateway + address (private only, in a public subnet
-   |                                of the same zone)
-   +-- security group
-
-  iam role -> instance profile
-
-  per node of a pinned group:
-      instance   --> the group's next subnet, instance profile, security group
-      volume     --> that subnet's zone
-      attachment --> instance + volume
-
-  per scaling group:
-      launch template   --> the group's subnets, security group, instance profile
-      autoscaling group --> launch template
-```
-
-A node and its disk take their zone from the same subnet; a disk attaches only to a machine in its own zone. Ordinal 0 goes in the group's first subnet, 1 in the second, wrapping around.
-
-Nodes in a pinned group are individual machines, not an autoscaling group. An autoscaler replacing a machine would move a disk out from under whatever component owns it.
+## Claims
 
 ### How a component reaches its data
 
 ```
-  task  --pinned to-->  instance  --currently holds-->  volume  --claimed by-->  identity
+  workload  --pinned to-->  machine  --currently holds-->  disk  --claimed by-->  identity
 ```
 
-Read it right to left. An identity such as `telemetrystore-0-0` claims a disk. The disk is attached to some machine. The task is pinned to that machine and starts on top of its own data.
+Read it right to left. An identity such as `telemetrystore-0-0` claims a disk. The disk is attached to some machine. The workload is pinned to that machine and starts on top of its own data.
 
 The claim is recorded on the **disk**, not the machine. Machines get replaced routinely, by a resize, an image update, or a failure. A claim written on the machine would be lost every time one was replaced. Written on the disk it survives, and each plan works out which machine currently holds it.
+
+Nodes in a persistent group are individual machines, never members of a scaling group. An autoscaler replacing a machine would move a disk out from under whatever component owns it.
 
 ### Effects of a change
 
 | Change | What follows |
 |---|---|
-| Add a ClickHouse replica | A new identity appears and claims a free disk. Its task is pinned to whichever machine holds that disk. |
-| Resize a machine | The machine is replaced. Its disk detaches and reattaches, the claim is untouched, and the task re-pins to the new machine. |
+| Add a ClickHouse replica | A new identity appears and claims a free disk. Its workload is pinned to whichever machine holds that disk. |
+| Resize a machine | The machine is replaced. Its disk detaches and reattaches, the claim is untouched, and the workload re-pins to the new machine. |
 | Change a disk's size | The disk is grown in place. Nothing else moves. |
 | Remove a replica | The identity goes away. Its disk keeps the old claim tag until something claims it again. |
 | Destroy a disk | The data and the claim are both gone. The identity claims a different disk and starts empty. |
 
-## Adopting resources you already have
+## Adopting what you already run
 
 Set `networking.networkID` to a network you already run, and give every subnet its own `id`:
 
 ```yaml
 networking:
-  networkID: vpc-0a1b2c3d
+  networkID: <existing network>
   subnets:
     private-a:
       type: private
       zone: us-east-1a
-      id: subnet-0a1b2c3d
+      id: <existing subnet>
 ```
 
-Foundry then references the network instead of describing it. It creates no VPC, no internet gateway, no route tables and no NAT gateways, stamps no tags on anything it did not create, and provisions only the compute placed inside. Routing an adopted subnet would replace whatever you attached to it.
+Foundry then references the network instead of describing it. It creates none of the networking the casting would otherwise create, stamps no tags on anything it did not create, and provisions only the compute placed inside. Routing an adopted subnet would replace whatever you attached to it.
 
 A network is adopted whole. Half of one would leave Foundry routing subnets it did not create, or carving subnets out of address space it cannot see.
 
-A private subnet that already has a way out can keep it without adopting the whole network: set `egress` to the NAT gateway it routes through, and Foundry creates none.
+A private subnet that already has a way out can keep it without adopting the whole network: set `egress` to the gateway it routes through, and Foundry creates none.
 
 Persistent components are the exception. They need disks discovered by tag, which have to come from an Infrastructure casting.
-
-## Limits
-
-**The Installation cannot name an instance group.** You can declare two persistent groups, but the Installation selects by storage class and anything scheduled lands on either one. There is no way to put Keeper on cheaper machines than ClickHouse.
-
-**More stateful components than persistent nodes.** Two identities end up on one disk. Both components run, both write to the same volume, and it looks like replication without being replication. Count one persistent node per identity: one per Keeper replica, one per ClickHouse node, one for the metadata store.
-
-**A claimed disk attached to nothing.** The task stays pending rather than starting empty somewhere else, which is deliberate: starting empty would look like it worked.
