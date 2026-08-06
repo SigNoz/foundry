@@ -6,33 +6,36 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// A fact is unqualified: the provider that stamps it decides the spelling, so
+// nothing here may carry a prefix a provider's grammar could reject.
 func TestTagKeys(t *testing.T) {
 	tests := []struct {
 		name        string
 		tagKey      TagKey
 		expectedKey string
 	}{
-		{name: "Name_Prefixed", tagKey: TagKeyName, expectedKey: "foundry.signoz.io/name"},
-		{name: "Storage_Prefixed", tagKey: TagKeyStorage, expectedKey: "foundry.signoz.io/storage"},
-		{name: "Identities_Prefixed", tagKey: TagKeyIdentities, expectedKey: "foundry.signoz.io/identities"},
-		{name: "ResourceKind_Prefixed", tagKey: TagKeyResourceKind, expectedKey: "foundry.signoz.io/resource-kind"},
-		{name: "Owner_Prefixed", tagKey: TagKeyOwner, expectedKey: "foundry.signoz.io/owner"},
-		{name: "Visibility_Prefixed", tagKey: TagKeyVisibility, expectedKey: "foundry.signoz.io/visibility"},
-		{name: "DisplayName_ProviderNative", tagKey: TagKeyDisplayName, expectedKey: "Name"},
+		{name: "Name_Unqualified", tagKey: TagKeyName, expectedKey: "name"},
+		{name: "Storage_Unqualified", tagKey: TagKeyStorage, expectedKey: "storage"},
+		{name: "Identities_Unqualified", tagKey: TagKeyIdentities, expectedKey: "identities"},
+		{name: "Owner_Unqualified", tagKey: TagKeyOwner, expectedKey: "owner"},
+		{name: "SubnetType_Unqualified", tagKey: TagKeySubnetType, expectedKey: "subnet-type"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.expectedKey, tt.tagKey.String())
+			assert.NotContains(t, tt.tagKey.String(), "/")
+			assert.NotContains(t, tt.tagKey.String(), ".")
 		})
 	}
 }
 
-// Two keys sharing a string would collide on one resource.
+// Two facts sharing a name would collapse into one tag whichever way a
+// provider spells them.
 func TestTagKeysAreDistinct(t *testing.T) {
 	tagKeys := []TagKey{
 		TagKeyName, TagKeyStorage, TagKeyIdentities,
-		TagKeyResourceKind, TagKeyOwner, TagKeyVisibility, TagKeyDisplayName,
+		TagKeyOwner, TagKeySubnetType,
 	}
 
 	seen := make(map[string]struct{}, len(tagKeys))

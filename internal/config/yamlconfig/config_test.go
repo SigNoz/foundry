@@ -374,13 +374,12 @@ func TestGetV1Alpha1Merge(t *testing.T) {
 
 func TestGetV1Alpha1Infrastructure(t *testing.T) {
 	tests := []struct {
-		name             string
-		input            string
-		expectedResource infrastructure.ResourceKind
-		pass             bool
+		name  string
+		input string
+		pass  bool
 	}{
 		{
-			name: "InstallationResource_Valid",
+			name: "Deployment_Valid",
 			input: `
 apiVersion: v1alpha1
 kind: Infrastructure
@@ -391,19 +390,15 @@ spec:
     platform: ecs
     mode: ec2
     flavor: terraform
-  resource:
-    kind: Installation
 `,
-			expectedResource: infrastructure.ResourceKindInstallation,
-			pass:             true,
+			pass: true,
 		},
 		{
-			name: "ResourceMissing_Invalid",
+			name: "NameMissing_Invalid",
 			input: `
 apiVersion: v1alpha1
 kind: Infrastructure
-metadata:
-  name: signoz
+metadata: {}
 spec:
   deployment:
     platform: ecs
@@ -413,7 +408,7 @@ spec:
 			pass: false,
 		},
 		{
-			name: "SelfReference_Invalid",
+			name: "UnknownPlatform_Invalid",
 			input: `
 apiVersion: v1alpha1
 kind: Infrastructure
@@ -421,27 +416,9 @@ metadata:
   name: signoz
 spec:
   deployment:
-    platform: ecs
+    platform: nowhere
     mode: ec2
     flavor: terraform
-  resource:
-    kind: Infrastructure
-`,
-			pass: false,
-		},
-		{
-			name: "ResourceKindMissing_Invalid",
-			input: `
-apiVersion: v1alpha1
-kind: Infrastructure
-metadata:
-  name: signoz
-spec:
-  deployment:
-    platform: ecs
-    mode: ec2
-    flavor: terraform
-  resource: {}
 `,
 			pass: false,
 		},
@@ -466,7 +443,6 @@ spec:
 				return
 			}
 			assert.Equal(t, v1alpha1.KindInfrastructure, casting.Kind())
-			assert.Equal(t, tt.expectedResource, casting.Spec.Resource.Kind)
 		})
 	}
 }

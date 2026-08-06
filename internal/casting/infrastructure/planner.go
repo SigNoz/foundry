@@ -48,8 +48,13 @@ func NewPlanner(ctx context.Context, c *infrastructure.Casting, logger *slog.Log
 		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to get molding enricher")
 	}
 
+	deriver, err := registry.Deriver(c.Spec.Deployment)
+	if err != nil {
+		return nil, err
+	}
+
 	moldings := []infrastructuremolding.Molding{
-		resourcemolding.New(logger),
+		resourcemolding.New(logger, deriver),
 	}
 
 	return &Planner{

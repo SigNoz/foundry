@@ -8,18 +8,8 @@
   "additionalProperties": false,
   "definitions": {
     "InfrastructureResource": {
-      "required": [
-        "kind"
-      ],
       "additionalProperties": false,
       "properties": {
-        "kind": {
-          "$ref": "#/definitions/InfrastructureResourceKind",
-          "description": "Kind of the resource this infrastructure serves",
-          "examples": [
-            "Installation"
-          ]
-        },
         "spec": {
           "$ref": "#/definitions/V1Alpha1MoldingSpec"
         },
@@ -30,20 +20,9 @@
       },
       "type": "object"
     },
-    "InfrastructureResourceKind": {
-      "enum": [
-        "Installation",
-        "CollectionAgent"
-      ],
-      "type": "string"
-    },
     "InfrastructureResourceStatus": {
       "additionalProperties": false,
       "properties": {
-        "addresses": {
-          "$ref": "#/definitions/InfrastructureResourceStatusAddresses",
-          "description": "Addresses the resource admits at the substrate's edge"
-        },
         "config": {
           "$ref": "#/definitions/V1Alpha1TypeConfig",
           "description": "Configuration for the molding"
@@ -61,32 +40,6 @@
             "type": "string"
           },
           "type": "object"
-        }
-      },
-      "type": "object"
-    },
-    "InfrastructureResourceStatusAddresses": {
-      "additionalProperties": false,
-      "properties": {
-        "apiserver": {
-          "description": "API server addresses",
-          "items": {
-            "type": "string"
-          },
-          "type": [
-            "array",
-            "null"
-          ]
-        },
-        "otlp": {
-          "description": "OTLP addresses",
-          "items": {
-            "type": "string"
-          },
-          "type": [
-            "array",
-            "null"
-          ]
         }
       },
       "type": "object"

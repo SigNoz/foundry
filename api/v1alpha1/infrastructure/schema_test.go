@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/signoz/foundry/api/v1alpha1"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,23 +20,27 @@ func TestSchemaValidate(t *testing.T) {
 		pass   bool
 	}{
 		{
-			name: "InstallationResource_Valid",
+			name: "Deployment_Valid",
 			mutate: func(casting *Casting) {
-				casting.Spec.Resource.Kind = ResourceKindInstallation
+				casting.Spec.Deployment = v1alpha1.TypeDeployment{
+					Platform: v1alpha1.PlatformECS,
+					Mode:     v1alpha1.ModeEC2,
+					Flavor:   v1alpha1.FlavorTerraform,
+				}
 			},
 			pass: true,
 		},
 		{
-			name: "CollectionAgentResource_Valid",
+			name: "NameMissing_Invalid",
 			mutate: func(casting *Casting) {
-				casting.Spec.Resource.Kind = ResourceKindCollectionAgent
+				casting.Spec.Deployment = v1alpha1.TypeDeployment{
+					Platform: v1alpha1.PlatformECS,
+					Mode:     v1alpha1.ModeEC2,
+					Flavor:   v1alpha1.FlavorTerraform,
+				}
+				casting.Metadata.Name = ""
 			},
-			pass: true,
-		},
-		{
-			name:   "ResourceKindMissing_Invalid",
-			mutate: func(casting *Casting) {},
-			pass:   false,
+			pass: false,
 		},
 	}
 

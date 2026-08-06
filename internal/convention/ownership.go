@@ -12,7 +12,7 @@ var (
 	OwnershipShared = Ownership{s: "shared", shared: true}
 )
 
-// String resolves the zero value to owned, which is what saying nothing means.
+// String resolves the zero value to owned.
 func (ownership Ownership) String() string {
 	if ownership.s == "" {
 		return OwnershipOwned.s

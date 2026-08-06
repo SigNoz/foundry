@@ -1,13 +1,9 @@
 // Package convention derives the names and tags a provisioned substrate is
-// identified by.
+// identified by. Foundry never reads back from a platform, so a producing and a
+// consuming casting must work them out the same way. Both are derived here.
 //
-// Foundry generates rather than reconciles, so it can never ask a platform what
-// it created. A consuming casting finds a producing casting's resources only by
-// deriving the same names and filtering the same tags. Both sides are derived
-// here so neither can drift.
-//
-// Provider limits are absent: a length cap belongs to the platform enforcing it,
-// so a casting measures what it derives against its own provider's limits.
+// Provider limits are absent. A casting measures what it derives against its
+// own provider's caps.
 package convention
 
 import (
@@ -16,16 +12,15 @@ import (
 	"github.com/signoz/foundry/internal/errors"
 )
 
-// namePattern is what the strictest provider accepts as a name segment, and is
-// shared by every name a caller supplies.
+// namePattern is what the strictest provider accepts as a name segment.
 var namePattern = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
 
 // maxNameLength matches the metadata.name cap in the casting schema.
 const maxNameLength = 63
 
 // Substrate is the infrastructure an installation runs on, known by the
-// provisioning casting's metadata.name. Every resource is named and tagged from
-// it, and it is the only fact a consumer needs to find them.
+// provisioning casting's metadata.name. A consumer needs no other fact to find
+// every resource.
 type Substrate struct {
 	name string
 }

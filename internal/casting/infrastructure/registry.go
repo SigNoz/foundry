@@ -5,12 +5,16 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
+	infrastructuremolding "github.com/signoz/foundry/internal/molding/infrastructure"
 	"github.com/signoz/foundry/internal/tooler"
 )
 
 type CastingItem struct {
 	Casting Casting
 	Toolers []tooler.Tooler
+
+	// Deriver walks this platform's topology. Same choice as the casting.
+	Deriver infrastructuremolding.Deriver
 }
 
 type Registry struct {
@@ -44,4 +48,13 @@ func (registry *Registry) Toolers(deployment v1alpha1.TypeDeployment) ([]tooler.
 		return nil, foundryerrors.Newf(foundryerrors.TypeUnsupported, "infrastructure deployment '%+v' is not supported", deployment)
 	}
 	return item.Toolers, nil
+}
+
+func (registry *Registry) Deriver(deployment v1alpha1.TypeDeployment) (infrastructuremolding.Deriver, error) {
+	item, ok := registry.lookup(deployment)
+	if !ok {
+		return nil, foundryerrors.Newf(foundryerrors.TypeUnsupported, "infrastructure deployment '%+v' is not supported", deployment)
+	}
+
+	return item.Deriver, nil
 }

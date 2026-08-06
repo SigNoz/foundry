@@ -3,90 +3,68 @@ package resourcemolding
 import (
 	"context"
 	"log/slog"
+	"maps"
+	"net/netip"
+	"slices"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/infrastructure"
+	"github.com/signoz/foundry/internal/convention"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	infrastructuremolding "github.com/signoz/foundry/internal/molding/infrastructure"
 )
 
-// The edge conventions of the SigNoz resource kinds.
-var (
-	otlpGRPCAddress  = domain.MustNewAddress("tcp", "0.0.0.0", 4317).String()
-	otlpHTTPAddress  = domain.MustNewAddress("tcp", "0.0.0.0", 4318).String()
-	apiServerAddress = domain.MustNewAddress("tcp", "0.0.0.0", 8080).String()
-)
-
-// ResourceConfigName is the config document carrying the requirements a
-// substrate shaped for the resource kind must satisfy beyond its edge.
+// ResourceConfigName is the document a substrate is described by.
 const ResourceConfigName = "resource.yaml"
+
+// The groups the baseline declares. A casting keys its contribution to these.
+const (
+	GroupPersistent = "persistent"
+	GroupEphemeral  = "ephemeral"
+)
 
 var _ infrastructuremolding.Molding = (*resourceMolding)(nil)
 
 type resourceMolding struct {
 	logger *slog.Logger
+	derive infrastructuremolding.Deriver
 }
 
-func New(logger *slog.Logger) *resourceMolding {
-	return &resourceMolding{logger: logger}
+func New(logger *slog.Logger, derive infrastructuremolding.Deriver) *resourceMolding {
+	return &resourceMolding{logger: logger, derive: derive}
 }
 
 func (molding *resourceMolding) Kind() v1alpha1.MoldingKind {
 	return v1alpha1.MoldingKindResource
 }
 
-// MoldV1Alpha1 writes the kind-level requirement set into the resource
-// status: baseline first, preserving entries an enricher has already
-// contributed.
+// MoldV1Alpha1 settles the document from the baseline, the casting's
+// contribution and the operator's spec, then derives from what settled.
 func (molding *resourceMolding) MoldV1Alpha1(ctx context.Context, config *infrastructure.Casting) error {
 	status := &config.Spec.Resource.Status
 
-	var baseline *infrastructure.ResourceConfig
-	switch config.Spec.Resource.Kind {
-	case infrastructure.ResourceKindInstallation:
-		status.Addresses.OTLP = append([]string{otlpGRPCAddress, otlpHTTPAddress}, status.Addresses.OTLP...)
-		status.Addresses.APIServer = append([]string{apiServerAddress}, status.Addresses.APIServer...)
-		baseline = &infrastructure.ResourceConfig{
-			NodeGroups: map[infrastructure.StorageClass]infrastructure.ResourceConfigNodeGroup{
-				// Three persistent nodes cover the default topology: one
-				// keeper, the metadata node, one store node. A scaled
-				// installation must state its own, because Infrastructure
-				// provisions for a Kind and never reads the Installation
-				// casting. A pinned group's bounds are equal -- there is
-				// nothing to autoscale when every node owns a claimed volume.
-				infrastructure.StorageClassPersistent: {
-					MinSize:    v1alpha1.IntPtr(3),
-					MaxSize:    v1alpha1.IntPtr(3),
-					CPU:        v1alpha1.IntPtr(2),
-					Memory:     v1alpha1.IntPtr(8),
-					RootVolume: infrastructure.ResourceConfigVolume{Size: v1alpha1.IntPtr(30)},
-					DataVolume: &infrastructure.ResourceConfigVolume{Size: v1alpha1.IntPtr(50)},
-				},
-				infrastructure.StorageClassEphemeral: {
-					MinSize:    v1alpha1.IntPtr(1),
-					MaxSize:    v1alpha1.IntPtr(1),
-					CPU:        v1alpha1.IntPtr(2),
-					Memory:     v1alpha1.IntPtr(4),
-					RootVolume: infrastructure.ResourceConfigVolume{Size: v1alpha1.IntPtr(30)},
-				},
+	// One baseline for every substrate: three persistent nodes for the stateful
+	// seats and one interchangeable node for the rest. A substrate that keeps
+	// nothing drops the persistent group with `persistent: null`. Pinned bounds
+	// are equal; every node owns a claimed volume, leaving nothing to scale.
+	baseline := &infrastructure.ResourceConfig{
+		Networking: infrastructure.ResourceConfigNetworking{NetworkCIDR: "10.0.0.0/16"},
+		InstanceGroups: map[string]infrastructure.ResourceConfigInstanceGroup{
+			GroupPersistent: {
+				Storage:    v1alpha1.StorageClassPersistent,
+				MinSize:    v1alpha1.IntPtr(3),
+				MaxSize:    v1alpha1.IntPtr(3),
+				RootVolume: infrastructure.ResourceConfigVolume{Size: v1alpha1.IntPtr(30)},
+				DataVolume: &infrastructure.ResourceConfigVolume{Size: v1alpha1.IntPtr(50)},
 			},
-		}
-	case infrastructure.ResourceKindCollectionAgent:
-		status.Addresses.OTLP = append([]string{otlpGRPCAddress, otlpHTTPAddress}, status.Addresses.OTLP...)
-		baseline = &infrastructure.ResourceConfig{
-			NodeGroups: map[infrastructure.StorageClass]infrastructure.ResourceConfigNodeGroup{
-				infrastructure.StorageClassEphemeral: {
-					MinSize:    v1alpha1.IntPtr(1),
-					MaxSize:    v1alpha1.IntPtr(1),
-					CPU:        v1alpha1.IntPtr(2),
-					Memory:     v1alpha1.IntPtr(4),
-					RootVolume: infrastructure.ResourceConfigVolume{Size: v1alpha1.IntPtr(30)},
-				},
+			GroupEphemeral: {
+				Storage:    v1alpha1.StorageClassEphemeral,
+				MinSize:    v1alpha1.IntPtr(1),
+				MaxSize:    v1alpha1.IntPtr(1),
+				RootVolume: infrastructure.ResourceConfigVolume{Size: v1alpha1.IntPtr(30)},
 			},
-		}
-	default:
-		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported resource kind %q", config.Spec.Resource.Kind)
+		},
 	}
 
 	baselineDoc, err := domain.MarshalYAML(baseline)
@@ -96,10 +74,8 @@ func (molding *resourceMolding) MoldV1Alpha1(ctx context.Context, config *infras
 
 	doc := string(baselineDoc)
 
-	// Contributions (enricher deltas) merge first so casting-specific keys
-	// survive, then the operator's own spec, which wins: spec beats status
-	// wherever they disagree. Groups are keyed by class, so an override states
-	// only the class and the fields it changes.
+	// Enricher deltas first, keeping casting-specific keys, then the operator's
+	// spec, which wins.
 	for _, override := range []string{
 		status.Config.Data[ResourceConfigName],
 		config.Spec.Resource.Spec.Config.Data[ResourceConfigName],
@@ -114,8 +90,34 @@ func (molding *resourceMolding) MoldV1Alpha1(ctx context.Context, config *infras
 		}
 	}
 
-	if err := validate(doc); err != nil {
+	declaration := &infrastructure.ResourceConfig{}
+	if err := domain.UnmarshalYAML([]byte(doc), declaration); err != nil {
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInvalidInput, "failed to unmarshal resolved resource config")
+	}
+
+	substrate, err := convention.NewSubstrate(config.Metadata.Name)
+	if err != nil {
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInvalidInput, "failed to resolve the substrate being provisioned")
+	}
+
+	if err := validate(declaration); err != nil {
 		return err
+	}
+
+	resources, err := molding.derive(substrate, declaration, config.Labels())
+	if err != nil {
+		return err
+	}
+
+	// Merged, not marshalled: keys the shared shape does not know survive.
+	derivedDoc, err := domain.MarshalYAML(&infrastructure.ResourceConfig{Resources: resources})
+	if err != nil {
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to marshal derived resources")
+	}
+
+	doc, err = domain.MergeYAML(doc, string(derivedDoc))
+	if err != nil {
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to merge derived resources")
 	}
 
 	if status.Config.Data == nil {
@@ -126,39 +128,153 @@ func (molding *resourceMolding) MoldV1Alpha1(ctx context.Context, config *infras
 	return nil
 }
 
-// validate checks the shared shape of the resolved document; casting-specific
-// keys pass through unchecked.
-func validate(doc string) error {
-	config := &infrastructure.ResourceConfig{}
-	if err := domain.UnmarshalYAML([]byte(doc), config); err != nil {
-		return foundryerrors.Wrapf(err, foundryerrors.TypeInvalidInput, "failed to unmarshal resolved resource config")
+// validate checks the shared shape; casting-specific keys pass through.
+func validate(declaration *infrastructure.ResourceConfig) error {
+	// A stated name would disagree with the tag derived beside it.
+	if declaration.Resources != nil {
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config states resources, which foundry derives from the declaration")
 	}
 
-	for storage, group := range config.NodeGroups {
+	if err := validateNetworking(declaration.Networking); err != nil {
+		return err
+	}
+
+	return validateInstanceGroups(declaration)
+}
+
+func validateNetworking(networking infrastructure.ResourceConfigNetworking) error {
+	if networking.NetworkID == "" {
+		if _, err := netip.ParsePrefix(networking.NetworkCIDR); err != nil {
+			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config networkCIDR %q is not a CIDR block", networking.NetworkCIDR)
+		}
+	}
+
+	if len(networking.Subnets) == 0 {
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config states no subnets: a substrate cannot place a workload without one, and a zone has no safe default")
+	}
+
+	// A NAT gateway sits in a public subnet in its own zone.
+	publicZones := map[string]struct{}{}
+	private := 0
+
+	for _, key := range slices.Sorted(maps.Keys(networking.Subnets)) {
+		subnet := networking.Subnets[key]
+
+		if _, err := convention.NewKey(key); err != nil {
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInvalidInput, "resource config subnet %q is not a usable reference", key)
+		}
+
+		if subnet.Type == (v1alpha1.SubnetType{}) {
+			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config subnet %q states no type", key)
+		}
+
+		if subnet.Zone == "" {
+			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config subnet %q states no zone", key)
+		}
+
+		// A network is adopted whole. Half of one leaves foundry routing subnets
+		// it did not create.
+		if networking.NetworkID != "" && subnet.ID == "" {
+			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config adopts network %q, so subnet %q states its own id", networking.NetworkID, key)
+		}
+
+		if networking.NetworkID == "" && subnet.ID != "" {
+			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config subnet %q states an id, but the network it belongs to is created by foundry", key)
+		}
+
+		if subnet.ID == "" {
+			if _, err := netip.ParsePrefix(subnet.CIDR); err != nil {
+				return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config subnet %q has cidr %q, which is not a CIDR block", key, subnet.CIDR)
+			}
+		} else if subnet.Egress != "" {
+			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config subnet %q is adopted, so its egress is not foundry's to state", key)
+		}
+
+		if subnet.Type.IsPublic() {
+			if subnet.Egress != "" {
+				return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config subnet %q is public, so it states no egress", key)
+			}
+
+			if subnet.ID == "" {
+				publicZones[subnet.Zone] = struct{}{}
+			}
+
+			continue
+		}
+
+		private++
+	}
+
+	if private == 0 {
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config states no private subnet: workloads are never placed in a public one")
+	}
+
+	for _, key := range slices.Sorted(maps.Keys(networking.Subnets)) {
+		subnet := networking.Subnets[key]
+
+		// An adopted subnet carries its own routing.
+		if subnet.Type.IsPublic() || subnet.ID != "" || subnet.Egress != "" {
+			continue
+		}
+
+		if _, ok := publicZones[subnet.Zone]; !ok {
+			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config subnet %q needs egress but zone %q has no public subnet to place a gateway in", key, subnet.Zone)
+		}
+	}
+
+	return nil
+}
+
+func validateInstanceGroups(declaration *infrastructure.ResourceConfig) error {
+	if len(declaration.InstanceGroups) == 0 {
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config states no instance groups")
+	}
+
+	for _, key := range slices.Sorted(maps.Keys(declaration.InstanceGroups)) {
+		group := declaration.InstanceGroups[key]
+
+		if _, err := convention.NewKey(key); err != nil {
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInvalidInput, "resource config instance group %q is not a usable reference", key)
+		}
+
+		if group.Storage == (v1alpha1.StorageClass{}) {
+			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config instance group %q states no storage class", key)
+		}
+
+		if group.MachineType == "" {
+			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config instance group %q states no machineType", key)
+		}
+
 		if group.MinSize == nil || group.MaxSize == nil || group.RootVolume.Size == nil {
-			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "node group %q in resource config is incomplete", storage)
+			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config instance group %q is incomplete", key)
 		}
 
 		if *group.MaxSize < *group.MinSize {
-			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "node group %q has maxSize below minSize", storage)
+			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config instance group %q has maxSize below minSize", key)
 		}
 
-		// A machine is named outright or resolved from criteria; one of the
-		// two has to be stated or there is nothing to launch.
-		if group.MachineType == "" && (group.CPU == nil || group.Memory == nil) {
-			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "node group %q states neither machineType nor cpu and memory", storage)
+		if group.Storage.IsPinned() && *group.MinSize != *group.MaxSize {
+			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config instance group %q is pinned, so minSize and maxSize must be equal", key)
 		}
 
-		if storage.RequiresDataVolume() {
+		if group.Storage.RequiresDataVolume() {
 			if group.DataVolume == nil || group.DataVolume.Size == nil {
-				return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "node group %q must state a dataVolume size", storage)
+				return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config instance group %q must state a dataVolume size", key)
 			}
 		} else if group.DataVolume != nil {
-			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "node group %q cannot state a dataVolume", storage)
+			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config instance group %q cannot state a dataVolume", key)
 		}
 
-		if storage.IsPinned() && *group.MinSize != *group.MaxSize {
-			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "node group %q is pinned, so minSize and maxSize must be equal", storage)
+		for _, reference := range group.Subnets {
+			subnet, ok := declaration.Networking.Subnets[reference]
+
+			if !ok {
+				return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config instance group %q is placed in subnet %q, which is not declared", key, reference)
+			}
+
+			if subnet.Type.IsPublic() {
+				return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config instance group %q is placed in subnet %q, which is public", key, reference)
+			}
 		}
 	}
 

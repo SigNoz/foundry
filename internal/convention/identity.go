@@ -11,8 +11,8 @@ import (
 const identitySeparator = ","
 
 // Identity is a stateful seat that claims a volume and keeps its data across an
-// instance replacement: a component and its ordinals, "telemetrystore-0-0". It
-// carries no substrate prefix, because deployed claims are spelled this way.
+// instance replacement: a component and its ordinals, "telemetrystore-0-0".
+// Deployed claims carry no substrate prefix.
 type Identity struct {
 	s string
 }
@@ -22,8 +22,7 @@ func NewIdentity(component string, ordinals ...int) (Identity, error) {
 		return Identity{}, errors.Newf(errors.TypeInvalidInput, "failed to create identity: component is empty")
 	}
 
-	// The separator carries the encoding, so one inside a component would split
-	// into two identities on the way back.
+	// A separator inside a component would split into two on the way back.
 	if strings.Contains(component, identitySeparator) {
 		return Identity{}, errors.Newf(errors.TypeInvalidInput, "failed to create identity from %q: component contains %q", component, identitySeparator)
 	}
@@ -81,13 +80,13 @@ func (identity Identity) String() string {
 	return identity.s
 }
 
-// Identities is the claim record one volume carries, encoded as a single tag
-// value: sorted and separator-joined, matching Terraform's join and split.
-// Sorting keeps the value stable so an unchanged claim set produces no diff.
+// Identities is the claim record one volume carries, sorted and
+// separator-joined to match Terraform's join and split. Sorting keeps an
+// unchanged claim set from producing a diff.
 //
-// Only a platform with no stateful identity primitive of its own needs a claim
-// record; Kubernetes, compose, swarm and systemd each bind an identity to its
-// disk themselves. Empty is the norm and stamps no tag.
+// Only platforms without a stateful identity primitive need this. Kubernetes,
+// compose, swarm and systemd bind an identity to its disk themselves. The comma
+// encoding is legal on AWS and Azure, illegal on GCP.
 type Identities []Identity
 
 func (identities Identities) String() string {
@@ -99,8 +98,8 @@ func (identities Identities) String() string {
 	return strings.Join(parts, identitySeparator)
 }
 
-// ParseIdentities is the counterpart of String, validating through ParseIdentity
-// so there is one path into the type.
+// ParseIdentities is the counterpart of String. It validates through
+// ParseIdentity, keeping one path into the type.
 func ParseIdentities(value string) (Identities, error) {
 	if strings.TrimSpace(value) == "" {
 		return nil, nil
