@@ -42,22 +42,25 @@ func TestTemplates_RenderValidYAML(t *testing.T) {
 	}
 }
 
-func TestEnricherConfigTemplates_RenderEmpty(t *testing.T) {
+func TestEnricherConfigTemplates_RenderValidYAML(t *testing.T) {
 	tests := []struct {
 		name     string
 		template *domain.Template
+		kind     collectionagent.CollectorKind
 	}{
-		{name: "AgentTemplate_RendersEmpty", template: agentYAMLTemplate},
-		{name: "DeploymentTemplate_RendersEmpty", template: deploymentYAMLTemplate},
+		{name: "AgentTemplate_RendersValidYAML", template: agentYAMLTemplate, kind: collectionagent.CollectorKindAgent},
+		{name: "DeploymentTemplate_RendersValidYAML", template: deploymentYAMLTemplate, kind: collectionagent.CollectorKindDeployment},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			buf := bytes.NewBuffer(nil)
-			err := tt.template.Execute(buf, nil)
-
+			err := tt.template.Execute(buf, castingWithKind(t, tt.kind))
 			assert.NoError(t, err)
-			assert.NotEmpty(t, buf.String())
+
+			var parsed map[string]any
+			assert.NoError(t, domain.UnmarshalYAML(buf.Bytes(), &parsed))
+			assert.Contains(t, parsed, "service")
 		})
 	}
 }

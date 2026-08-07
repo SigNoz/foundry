@@ -10,6 +10,8 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 spec:
   replicas: {{ derefIntDefault $.Spec.Collector.Spec.Cluster.Replicas 1 }}
+  minReadySeconds: 5
+  progressDeadlineSeconds: 120
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $name }}
@@ -57,7 +59,14 @@ spec:
             - name: {{ $key }}
               value: {{ $val | quote }}
             {{- end }}
+            {{- if and (not (index $.Spec.Collector.Spec.Env "OTEL_RESOURCE_ATTRIBUTES")) (index $.Spec.Collector.Spec.Env "K8S_CLUSTER_NAME") }}
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "k8s.cluster.name=$(K8S_CLUSTER_NAME)"
+            {{- end }}
           ports:
+            - name: health-check
+              containerPort: 13133
+              protocol: TCP
             - name: otlp-grpc
               containerPort: 4317
               protocol: TCP
@@ -68,10 +77,24 @@ spec:
             httpGet:
               path: /healthz
               port: 13133
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 6
           readinessProbe:
             httpGet:
               path: /healthz
               port: 13133
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 100Mi
           volumeMounts:
             - name: config
               mountPath: /conf

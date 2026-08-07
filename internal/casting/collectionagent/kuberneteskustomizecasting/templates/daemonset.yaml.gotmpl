@@ -9,6 +9,7 @@ metadata:
     app.kubernetes.io/component: collector-{{ $.Spec.Collector.Kind }}
     app.kubernetes.io/managed-by: kustomize
 spec:
+  minReadySeconds: 5
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $name }}
@@ -22,6 +23,8 @@ spec:
         app.kubernetes.io/component: collector-{{ $.Spec.Collector.Kind }}
     spec:
       serviceAccountName: {{ $name }}
+      tolerations:
+        - operator: Exists
       containers:
         - name: collector-{{ $.Spec.Collector.Kind }}
           image: {{ $.Spec.Collector.Spec.Image }}
@@ -56,7 +59,21 @@ spec:
             - name: {{ $key }}
               value: {{ $val | quote }}
             {{- end }}
+            {{- if not (index $.Spec.Collector.Spec.Env "OTEL_RESOURCE_ATTRIBUTES") }}
+            # host.name on every signal is the real node's name; the env
+            # detector picks these up first.
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "{{ if index $.Spec.Collector.Spec.Env "K8S_CLUSTER_NAME" }}k8s.cluster.name=$(K8S_CLUSTER_NAME),{{ end }}k8s.node.name=$(K8S_NODE_NAME),host.name=$(K8S_NODE_NAME)"
+            {{- end }}
           ports:
+            - name: health-check
+              containerPort: 13133
+              hostPort: 13133
+              protocol: TCP
+            - name: metrics
+              containerPort: 8888
+              hostPort: 8888
+              protocol: TCP
             - name: otlp-grpc
               containerPort: 4317
               hostPort: 4317
@@ -69,14 +86,47 @@ spec:
             httpGet:
               path: /healthz
               port: 13133
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 6
           readinessProbe:
             httpGet:
               path: /healthz
               port: 13133
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 100Mi
           volumeMounts:
             - name: config
               mountPath: /conf
+            - name: varlog
+              mountPath: /var/log
+              readOnly: true
+            - name: varlibdockercontainers
+              mountPath: /var/lib/docker/containers
+              readOnly: true
+            - name: hostfs
+              mountPath: /hostfs
+              readOnly: true
+              mountPropagation: HostToContainer
       volumes:
         - name: config
           configMap:
             name: {{ $name }}
+        - name: varlog
+          hostPath:
+            path: /var/log
+        - name: varlibdockercontainers
+          hostPath:
+            path: /var/lib/docker/containers
+        - name: hostfs
+          hostPath:
+            path: /

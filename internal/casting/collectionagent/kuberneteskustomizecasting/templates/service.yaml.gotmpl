@@ -10,6 +10,11 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 spec:
   type: ClusterIP
+{{- if eq (print $.Spec.Collector.Kind) "agent" }}
+  # Traffic to the agent's ClusterIP stays on the caller's own node, so the
+  # service name is a stable node-local endpoint.
+  internalTrafficPolicy: Local
+{{- end }}
   selector:
     app.kubernetes.io/name: {{ $name }}
     app.kubernetes.io/instance: {{ $.Metadata.Name }}

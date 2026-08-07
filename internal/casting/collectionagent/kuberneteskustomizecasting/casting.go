@@ -37,15 +37,18 @@ func (c *kubernetesKustomizeCasting) Forge(ctx context.Context, config collectio
 		{kustomizationTemplate, "kustomization.yaml"},
 		{namespaceTemplate, "namespace.yaml"},
 		{serviceaccountTemplate, "serviceaccount.yaml"},
+		{clusterroleTemplate, "clusterrole.yaml"},
+		{clusterrolebindingTemplate, "clusterrolebinding.yaml"},
+		{serviceTemplate, "service.yaml"},
 	}
 
 	// The workload follows the collector kind's scope: the agent runs on
-	// every node, the other kinds run replicated behind a service.
+	// every node, the other kinds run replicated behind the service.
 	switch config.Spec.Collector.Kind {
 	case collectionagent.CollectorKindAgent:
 		items = append(items, item{daemonsetTemplate, "daemonset.yaml"})
 	default:
-		items = append(items, item{deploymentTemplate, "deployment.yaml"}, item{serviceTemplate, "service.yaml"})
+		items = append(items, item{deploymentTemplate, "deployment.yaml"})
 	}
 
 	for _, item := range items {

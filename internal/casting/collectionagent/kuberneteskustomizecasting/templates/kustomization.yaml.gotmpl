@@ -14,11 +14,13 @@ labels:
 resources:
   - namespace.yaml
   - serviceaccount.yaml
+  - clusterrole.yaml
+  - clusterrolebinding.yaml
+  - service.yaml
 {{- if eq (print $.Spec.Collector.Kind) "agent" }}
   - daemonset.yaml
 {{- else }}
   - deployment.yaml
-  - service.yaml
 {{- end }}
 
 configMapGenerator:
