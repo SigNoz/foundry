@@ -18,6 +18,8 @@ var _ rootcasting.Casting = (*coolifyCasting)(nil)
 type coolifyCasting struct {
 	logger   *slog.Logger
 	castings []*domain.Template
+	platform string
+	filename string
 }
 
 func New(logger *slog.Logger) *coolifyCasting {
@@ -26,6 +28,17 @@ func New(logger *slog.Logger) *coolifyCasting {
 		castings: []*domain.Template{
 			coolifyYAMLTemplate,
 		},
+		platform: "Coolify",
+		filename: "coolify.yaml",
+	}
+}
+
+func NewDokploy(logger *slog.Logger) *coolifyCasting {
+	return &coolifyCasting{
+		logger:   logger,
+		castings: []*domain.Template{coolifyYAMLTemplate},
+		platform: "Dokploy",
+		filename: "compose.yaml",
 	}
 }
 
@@ -40,7 +53,7 @@ func (c *coolifyCasting) Forge(ctx context.Context, config installation.Casting,
 		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to execute coolify yaml template")
 	}
 
-	coolifyMaterial, err := domain.NewYAMLMaterial(buf.Bytes(), filepath.Join(rootcasting.DeploymentDir, "coolify.yaml"))
+	coolifyMaterial, err := domain.NewYAMLMaterial(buf.Bytes(), filepath.Join(rootcasting.DeploymentDir, c.filename))
 	if err != nil {
 		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to create coolify yaml material")
 	}
@@ -49,10 +62,9 @@ func (c *coolifyCasting) Forge(ctx context.Context, config installation.Casting,
 }
 
 func (c *coolifyCasting) Cast(ctx context.Context, config installation.Casting, poursPath string) error {
-	c.logger.InfoContext(ctx, "Please run 'forge' first to generate the Coolify Casting",
+	c.logger.InfoContext(ctx, "Please run 'forge' first to generate the "+c.platform+" Casting",
 		slog.String("pours_path", poursPath))
-	c.logger.InfoContext(ctx, "After forging, deploy coolify.yaml to Coolify using the stack feature",
-		slog.String("docs", "https://coolify.io/docs/knowledge-base/docker/compose"))
+	c.logger.InfoContext(ctx, "After forging, deploy "+c.filename+" using the "+c.platform+" stack feature")
 	return nil
 }
 

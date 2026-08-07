@@ -167,8 +167,15 @@ services:
   {{- end }}
   {{- range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}:
+    {{- if ne $.Spec.Deployment.Platform.String "dokploy" }}
     container_name: {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}
+    {{- end }}
     image: {{ $.Spec.Signoz.Spec.Image }}
+    {{- if eq $.Spec.Deployment.Platform.String "dokploy" }}
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.{{ $.Metadata.Name }}.loadbalancer.server.port=8080
+    {{- end }}
     depends_on:
       {{- if ne $.Spec.MetaStore.Kind.String "sqlite" }}
       {{- range $metaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
@@ -270,12 +277,20 @@ services:
         source: ./configs/ingester/ingester.yaml
         target: /etc/otel-collector-config.yaml
         content: |
+{{- if eq .Spec.Deployment.Platform.String "dokploy" }}
+{{ index $.Spec.Ingester.Spec.Config.Data "ingester.yaml" | replace "$" "$$" | indent 10 }}
+{{- else }}
 {{ index $.Spec.Ingester.Spec.Config.Data "ingester.yaml" | indent 10 }}
+{{- end }}
       - type: bind
         source: ./configs/ingester/opamp.yaml
         target: /etc/opamp-config.yaml
         content: |
+{{- if eq .Spec.Deployment.Platform.String "dokploy" }}
+{{ index $.Spec.Ingester.Spec.Config.Data "opamp.yaml" | replace "$" "$$" | indent 10 }}
+{{- else }}
 {{ index $.Spec.Ingester.Spec.Config.Data "opamp.yaml" | indent 10 }}
+{{- end }}
     logging:
       options:
         max-size: 50m
@@ -334,3 +349,9 @@ volumes:
   {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}-data:
     name: {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}-data
   {{- end }}
+{{- if eq $.Spec.Deployment.Platform.String "dokploy" }}
+networks:
+  default:
+    external: true
+    name: dokploy-network
+{{- end }}

@@ -634,6 +634,7 @@
       "enum": [
         "render",
         "coolify",
+        "dokploy",
         "railway",
         "ecs",
         "aws",
