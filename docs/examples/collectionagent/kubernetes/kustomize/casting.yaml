@@ -1,0 +1,12 @@
+apiVersion: v1alpha1
+kind: CollectionAgent
+metadata:
+  name: signoz
+spec:
+  deployment:
+    mode: kubernetes
+    flavor: kustomize
+  collector:
+    spec:
+      env:
+        SIGNOZ_INGESTION_ENDPOINT: http://<signoz-host>:4318
