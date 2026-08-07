@@ -218,10 +218,15 @@ services:
       - {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}-data:{{ dir (index $.Spec.Signoz.Spec.Env "SIGNOZ_SQLSTORE_SQLITE_PATH") }}
     {{- end }}
     deploy:
-      {{- if eq $.Spec.Deployment.Platform.String "dokploy" }}
+      {{- if and (eq $.Spec.Deployment.Platform.String "dokploy") (eq $replicaIdx 0) }}
       labels:
         - traefik.enable=true
         - traefik.docker.network=dokploy-network
+        - traefik.http.routers.{{ $.Metadata.Name }}-signoz.rule=Host(`${SIGNOZ_DOMAIN:?SIGNOZ_DOMAIN_required}`)
+        - traefik.http.routers.{{ $.Metadata.Name }}-signoz.entrypoints=websecure
+        - traefik.http.routers.{{ $.Metadata.Name }}-signoz.tls.certresolver=letsencrypt
+        - traefik.http.routers.{{ $.Metadata.Name }}-signoz.service={{ $.Metadata.Name }}-signoz
+        - traefik.http.services.{{ $.Metadata.Name }}-signoz.loadbalancer.server.port=8080
       {{- end }}
       restart_policy:
         condition: on-failure

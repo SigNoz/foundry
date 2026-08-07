@@ -70,6 +70,11 @@ services:
       labels:
       - traefik.enable=true
       - traefik.docker.network=dokploy-network
+      - traefik.http.routers.signoz-signoz.rule=Host(`${SIGNOZ_DOMAIN:?SIGNOZ_DOMAIN_required}`)
+      - traefik.http.routers.signoz-signoz.entrypoints=websecure
+      - traefik.http.routers.signoz-signoz.tls.certresolver=letsencrypt
+      - traefik.http.routers.signoz-signoz.service=signoz-signoz
+      - traefik.http.services.signoz-signoz.loadbalancer.server.port=8080
       restart_policy:
         condition: on-failure
     environment:

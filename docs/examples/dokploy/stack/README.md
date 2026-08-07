@@ -36,9 +36,9 @@ spec:
 foundryctl forge -f casting.yaml
 ```
 
-Add a domain for the generated SigNoz service in Dokploy, using container port `8080`, then deploy `pours/deployment/compose.yaml` with the stack feature. The SigNoz UI is the only service attached to Dokploy's shared network; databases remain isolated on the stack's private overlay network.
+Set `SIGNOZ_DOMAIN` in Dokploy to the hostname that should serve the SigNoz UI, then deploy `pours/deployment/compose.yaml` with the stack feature. The generated Swarm labels configure HTTPS routing through Dokploy's Traefik service on container port `8080`. The SigNoz UI is the only service attached to Dokploy's shared network; databases remain isolated on the stack's private overlay network.
 
-To receive telemetry from outside the stack, configure Dokploy routing for the ingester service on port `4318` (OTLP/HTTP) or connect your collector to the stack's private network. Ports are exposed to container networks but are not published directly on the host.
+The ingester ports are exposed to container networks but are not published directly on the host. Connect collectors running in the Swarm to the stack's private overlay network. To receive telemetry from outside the Swarm, use a patch to attach the ingester to an appropriate ingress network and configure routing for port `4318` (OTLP/HTTP).
 
 ## Generated output
 
