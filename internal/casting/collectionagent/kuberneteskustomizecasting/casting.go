@@ -43,12 +43,14 @@ func (c *kubernetesKustomizeCasting) Forge(ctx context.Context, config collectio
 	}
 
 	// The workload follows the collector kind's scope: the agent runs on
-	// every node, the other kinds run replicated behind the service.
+	// every node, the deployment runs replicated behind the service.
 	switch config.Spec.Collector.Kind {
 	case collectionagent.CollectorKindAgent:
 		items = append(items, item{daemonsetTemplate, "daemonset.yaml"})
-	default:
+	case collectionagent.CollectorKindDeployment:
 		items = append(items, item{deploymentTemplate, "deployment.yaml"})
+	default:
+		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported collector kind %q", config.Spec.Collector.Kind)
 	}
 
 	for _, item := range items {
