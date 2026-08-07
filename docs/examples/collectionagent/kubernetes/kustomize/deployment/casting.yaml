@@ -7,6 +7,8 @@ spec:
     mode: kubernetes
     flavor: kustomize
   collector:
+    kind: deployment
     spec:
       env:
         SIGNOZ_INGESTION_ENDPOINT: http://<signoz-host>:4318
+        K8S_CLUSTER_NAME: <cluster-name>
