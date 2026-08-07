@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/signoz/foundry/api/v1alpha1"
@@ -41,6 +42,16 @@ func TestDokployForgeProducesValidStackMaterials(t *testing.T) {
 	require.Contains(t, string(compose), "name: dokploy-network")
 	require.Contains(t, string(compose), "external: true")
 	require.Contains(t, string(compose), "traefik.enable=true")
+	require.Contains(t, string(compose), "traefik.docker.network=dokploy-network")
+	require.NotContains(t, string(compose), "loadbalancer.server.port")
+	require.Equal(t, 1, strings.Count(string(compose), "- dokploy-network"))
 	require.Contains(t, paths, filepath.Join(rootcasting.DeploymentDir, "ingester", "ingester.yaml"))
 	require.Contains(t, paths, filepath.Join(rootcasting.DeploymentDir, "ingester", "opamp.yaml"))
+}
+
+func TestDokployCastIsNoOp(t *testing.T) {
+	config := installation.Default(&installation.Casting{})
+	config.Spec.Deployment.Platform = v1alpha1.PlatformDokploy
+
+	require.NoError(t, NewDokploy(slog.Default()).Cast(context.Background(), *config, t.TempDir()))
 }

@@ -10,9 +10,13 @@ configs:
   telemetrystore-functions:
     file: telemetrystore/clickhouse/functions.yaml
 networks:
-  signoz-network:
+  dokploy-network:
     external: true
     name: dokploy-network
+  signoz-network:
+    attachable: true
+    driver: overlay
+    name: signoz-network
 services:
   signoz-ingester:
     command:
@@ -32,14 +36,14 @@ services:
     environment:
     - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://signoz-telemetrystore-clickhouse-0-0:9000
     - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
+    expose:
+    - "4317"
+    - "4318"
     image: signoz/signoz-otel-collector:latest
     networks:
       signoz-network:
         aliases:
         - signoz-ingester
-    ports:
-    - 4317:4317
-    - 4318:4318
   signoz-metastore-postgres-0:
     deploy:
       restart_policy:
@@ -65,7 +69,7 @@ services:
     deploy:
       labels:
       - traefik.enable=true
-      - traefik.http.services.signoz-signoz-0.loadbalancer.server.port=8080
+      - traefik.docker.network=dokploy-network
       restart_policy:
         condition: on-failure
     environment:
@@ -89,6 +93,7 @@ services:
     image: signoz/signoz:latest
     networks:
     - signoz-network
+    - dokploy-network
   signoz-telemetrykeeper-clickhousekeeper-0:
     configs:
     - source: telemetrykeeper-0

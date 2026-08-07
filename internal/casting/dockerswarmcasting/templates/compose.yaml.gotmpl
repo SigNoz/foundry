@@ -172,9 +172,15 @@ services:
         target: /etc/otel-collector-config.yaml
       - source: manager-config
         target: /etc/opamp-config.yaml
+    {{- if eq $.Spec.Deployment.Platform.String "dokploy" }}
+    expose:
+      - "4317"
+      - "4318"
+    {{- else }}
     ports:
       - "4317:4317"
       - "4318:4318"
+    {{- end }}
     environment:
 {{ if and $.Spec.TelemetryStore.Spec.Enabled $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
       - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN={{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
@@ -191,6 +197,9 @@ services:
     image: {{ $.Spec.Signoz.Spec.Image }}
     networks:
       - {{ $.Metadata.Name }}-network
+      {{- if eq $.Spec.Deployment.Platform.String "dokploy" }}
+      - dokploy-network
+      {{- end }}
     {{- if $.Spec.Signoz.Spec.Env }}
     environment:
       {{- range $key, $value := $.Spec.Signoz.Spec.Env }}
@@ -212,7 +221,7 @@ services:
       {{- if eq $.Spec.Deployment.Platform.String "dokploy" }}
       labels:
         - traefik.enable=true
-        - traefik.http.services.{{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}.loadbalancer.server.port=8080
+        - traefik.docker.network=dokploy-network
       {{- end }}
       restart_policy:
         condition: on-failure
@@ -245,8 +254,13 @@ services:
       - {{ $key }}={{ $value }}
       {{- end }}
     {{- end }}
+    {{- if eq $.Spec.Deployment.Platform.String "dokploy" }}
+    expose:
+      - "8000"
+    {{- else }}
     ports:
       - "8000:8000"
+    {{- end }}
     deploy:
       replicas: {{ int $.Spec.MCP.Spec.Cluster.Replicas }}
       restart_policy:
@@ -281,14 +295,14 @@ services:
         max_attempts: 3
 networks:
   {{ $.Metadata.Name }}-network:
-    {{- if eq $.Spec.Deployment.Platform.String "dokploy" }}
-    name: dokploy-network
-    external: true
-    {{- else }}
     name: {{ $.Metadata.Name }}-network
     driver: overlay
     attachable: true
-    {{- end }}
+  {{- if eq $.Spec.Deployment.Platform.String "dokploy" }}
+  dokploy-network:
+    name: dokploy-network
+    external: true
+  {{- end }}
 volumes:
   {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-telemetrykeeper-{{ $replicaIdx  }}-data:
