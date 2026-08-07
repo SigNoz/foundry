@@ -35,7 +35,7 @@ func (e *kubernetesKustomizeMoldingEnricher) EnrichStatus(ctx context.Context, k
 	}
 
 	buf := bytes.NewBuffer(nil)
-	if err := tmpl.Execute(buf, nil); err != nil {
+	if err := tmpl.Execute(buf, config); err != nil {
 		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute %s template", config.Spec.Collector.Kind)
 	}
 
