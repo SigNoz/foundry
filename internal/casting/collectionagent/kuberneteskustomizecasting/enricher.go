@@ -31,7 +31,7 @@ func (e *kubernetesKustomizeMoldingEnricher) EnrichStatus(ctx context.Context, k
 	case collectionagent.CollectorKindDeployment:
 		tmpl = deploymentYAMLTemplate
 	default:
-		return nil
+		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported collector kind %q", config.Spec.Collector.Kind)
 	}
 
 	buf := bytes.NewBuffer(nil)
