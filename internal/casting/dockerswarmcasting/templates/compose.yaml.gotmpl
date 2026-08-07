@@ -150,7 +150,11 @@ services:
   {{- end }}
   {{- end }}
   {{- $ingesterReplicas := int $.Spec.Ingester.Spec.Cluster.Replicas }}
+  {{- if eq $.Spec.Deployment.Platform.String "dokploy" }}
+  {{ $.Metadata.Name }}-ingester:
+  {{- else }}
   ingester:
+  {{- end }}
     image: {{ $.Spec.Ingester.Spec.Image }}
     networks:
       {{ $.Metadata.Name }}-network:
@@ -193,13 +197,23 @@ services:
       - {{ $key }}={{ $value }}
       {{- end }}
     {{- end }}
+    {{- if eq $.Spec.Deployment.Platform.String "dokploy" }}
+    expose:
+      - "8080"
+    {{- else }}
     ports:
       - "{{ add 8080 (mul $replicaIdx 1000) }}:8080"
+    {{- end }}
     {{- if eq $.Spec.MetaStore.Kind.String "sqlite" }}
     volumes:
       - {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}-data:{{ dir (index $.Spec.Signoz.Spec.Env "SIGNOZ_SQLSTORE_SQLITE_PATH") }}
     {{- end }}
     deploy:
+      {{- if eq $.Spec.Deployment.Platform.String "dokploy" }}
+      labels:
+        - traefik.enable=true
+        - traefik.http.services.{{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}.loadbalancer.server.port=8080
+      {{- end }}
       restart_policy:
         condition: on-failure
     healthcheck:
@@ -215,7 +229,11 @@ services:
       start_period: 60s
   {{- end }}
   {{- if derefBool $.Spec.MCP.Spec.Enabled }}
+  {{- if eq $.Spec.Deployment.Platform.String "dokploy" }}
+  {{ $.Metadata.Name }}-mcp:
+  {{- else }}
   mcp:
+  {{- end }}
     image: {{ $.Spec.MCP.Spec.Image }}
     networks:
       {{ $.Metadata.Name }}-network:
@@ -263,9 +281,14 @@ services:
         max_attempts: 3
 networks:
   {{ $.Metadata.Name }}-network:
+    {{- if eq $.Spec.Deployment.Platform.String "dokploy" }}
+    name: dokploy-network
+    external: true
+    {{- else }}
     name: {{ $.Metadata.Name }}-network
     driver: overlay
     attachable: true
+    {{- end }}
 volumes:
   {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-telemetrykeeper-{{ $replicaIdx  }}-data:

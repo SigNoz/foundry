@@ -86,7 +86,7 @@ func NewRegistry(logger *slog.Logger) *Registry {
 				Platform: v1alpha1.PlatformDokploy,
 				Flavor:   v1alpha1.FlavorStack,
 			}: {
-				Casting: coolifycasting.NewDokploy(logger),
+				Casting: dockerswarmcasting.NewDokploy(logger),
 			},
 			{
 				Platform: v1alpha1.PlatformRailway,
