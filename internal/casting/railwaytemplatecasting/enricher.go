@@ -78,6 +78,11 @@ func (enricher *railwayTemplateMoldingEnricher) EnrichStatus(ctx context.Context
 		}
 		svc := name + "-ingester"
 		config.Spec.Ingester.Status.Addresses.OTLP = []string{domain.MustNewAddress("tcp", railwayInternalHost(svc), 4318).String()}
+	case v1alpha1.MoldingKindMCP:
+		if !config.Spec.MCP.Spec.IsEnabled() {
+			return nil
+		}
+		config.Spec.MCP.Status.Addresses.HTTP = []string{domain.MustNewAddress("http", railwayInternalHost(name+"-mcp"), 8000).String()}
 	}
 
 	return nil

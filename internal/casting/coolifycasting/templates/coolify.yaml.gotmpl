@@ -103,7 +103,7 @@ services:
       {{- end }}
     environment:
       - CLICKHOUSE_SKIP_USER_SETUP=1
-      - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.yaml
+      - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml
     healthcheck:
       test:
         - CMD
@@ -124,7 +124,7 @@ services:
         read_only: true
       - type: bind
         source: ./configs/telemetrystore/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml
-        target: /etc/clickhouse-server/config.yaml
+        target: /etc/clickhouse-server/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml
         content: |
 {{ index $.Spec.TelemetryStore.Spec.Config.Data (printf "config-%d-%d.yaml" $shardIdx $replicaIdx) | indent 10 }}
       - type: bind
@@ -142,10 +142,12 @@ services:
   {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}:
     image: {{ $.Spec.MetaStore.Spec.Image }}
+    {{- if $.Spec.MetaStore.Spec.Env }}
     environment:
-      - POSTGRES_USER=signoz
-      - POSTGRES_PASSWORD=signoz
-      - POSTGRES_DB=signoz
+      {{- range $key, $value := $.Spec.MetaStore.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    {{- end }}
     healthcheck:
       test:
         - CMD-SHELL
@@ -206,6 +208,27 @@ services:
       options:
         max-size: 50m
         max-file: "3"
+  {{- end }}
+  {{- if derefBool $.Spec.MCP.Spec.Enabled }}
+  {{- $mcpReplicas := int $.Spec.MCP.Spec.Cluster.Replicas }}
+  mcp:
+    image: {{ $.Spec.MCP.Spec.Image }}
+    networks:
+      default:
+        aliases:
+          - {{ $.Metadata.Name }}-mcp
+    {{- if $.Spec.MCP.Spec.Env }}
+    environment:
+      {{- range $key, $value := $.Spec.MCP.Spec.Env }}
+      - {{ $key }}={{ $value }}
+      {{- end }}
+    {{- end }}
+    logging:
+      options:
+        max-size: 50m
+        max-file: "3"
+    deploy:
+      replicas: {{ $mcpReplicas }}
   {{- end }}
   {{- $ingesterReplicas := int $.Spec.Ingester.Spec.Cluster.Replicas }}
   ingester:

@@ -10,8 +10,7 @@ services:
       /signoz-otel-collector migrate sync check &&
       /signoz-otel-collector --config=/etc/otel-collector-config.yaml --manager-config=/etc/opamp-config.yaml --copy-path=/var/tmp/collector-config.yaml
     deploy:
-      restart_policy:
-        condition: on-failure
+      replicas: 1
     entrypoint:
     - /bin/sh
     environment:
@@ -25,34 +24,25 @@ services:
     ports:
     - 4317:4317
     - 4318:4318
+    restart: unless-stopped
     volumes:
     - ./ingester/ingester.yaml:/etc/otel-collector-config.yaml:ro
     - ./ingester/opamp.yaml:/etc/opamp-config.yaml:ro
-  signoz-mcp:
-    container_name: signoz-mcp
+  mcp:
     deploy:
-      restart_policy:
-        condition: on-failure
+      replicas: 1
     environment:
     - MCP_SERVER_PORT=8000
     - SIGNOZ_URL=http://signoz-signoz-0:8080
     - TRANSPORT_MODE=http
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test:
-      - CMD
-      - wget
-      - --spider
-      - -q
-      - http://localhost:8000/livez
-      timeout: 10s
     image: signoz/signoz-mcp-server:latest
     networks:
-    - signoz-network
+      signoz-network:
+        aliases:
+        - signoz-mcp
     ports:
     - 8000:8000
+    restart: unless-stopped
   signoz-metastore-postgres-0:
     container_name: signoz-metastore-postgres-0
     environment:
@@ -70,13 +60,11 @@ services:
     image: postgres:16
     networks:
     - signoz-network
+    restart: unless-stopped
     volumes:
     - signoz-metastore-postgres-0-data:/var/lib/postgresql/data
   signoz-signoz-0:
     container_name: signoz-signoz-0
-    deploy:
-      restart_policy:
-        condition: on-failure
     environment:
     - SIGNOZ_SQLSTORE_POSTGRES_DSN=postgres://signoz:signoz@signoz-metastore-postgres-0:5432/signoz?sslmode=disable
     - SIGNOZ_SQLSTORE_PROVIDER=postgres
@@ -98,6 +86,7 @@ services:
     - signoz-network
     ports:
     - 8080:8080
+    restart: unless-stopped
   signoz-telemetrykeeper-clickhousekeeper-0:
     container_name: signoz-telemetrykeeper-clickhousekeeper-0
     entrypoint:
@@ -120,6 +109,7 @@ services:
     image: clickhouse/clickhouse-keeper:25.12.5
     networks:
     - signoz-network
+    restart: unless-stopped
     volumes:
     - signoz-telemetrykeeper-0-data:/var/lib/clickhouse-keeper
     - ./telemetrykeeper/clickhousekeeper/keeper-0.yaml:/etc/clickhouse-keeper/keeper.yaml:ro
@@ -132,7 +122,7 @@ services:
         condition: service_completed_successfully
     environment:
     - CLICKHOUSE_SKIP_USER_SETUP=1
-    - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.yaml
+    - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config-0-0.yaml
     healthcheck:
       interval: 30s
       retries: 3
@@ -147,10 +137,11 @@ services:
     image: clickhouse/clickhouse-server:25.12.5
     networks:
     - signoz-network
+    restart: unless-stopped
     volumes:
     - signoz-telemetrystore-0-0-data:/var/lib/clickhouse
     - signoz-telemetrystore-user-scripts:/var/lib/clickhouse/user_scripts:ro
-    - ./telemetrystore/clickhouse/config-0-0.yaml:/etc/clickhouse-server/config.yaml:ro
+    - ./telemetrystore/clickhouse/config-0-0.yaml:/etc/clickhouse-server/config-0-0.yaml:ro
     - ./telemetrystore/clickhouse/functions.yaml:/etc/clickhouse-server/functions.yaml:ro
   signoz-telemetrystore-clickhouse-user-scripts:
     command:
@@ -169,6 +160,7 @@ services:
     image: clickhouse/clickhouse-server:25.12.5
     networks:
     - signoz-network
+    restart: on-failure
     volumes:
     - signoz-telemetrystore-user-scripts:/var/lib/clickhouse/user_scripts
   signoz-telemetrystore-migrator:
@@ -188,6 +180,7 @@ services:
     image: signoz/signoz-otel-collector:latest
     networks:
     - signoz-network
+    restart: on-failure
 volumes:
   signoz-metastore-postgres-0-data:
     name: signoz-metastore-postgres-0-data

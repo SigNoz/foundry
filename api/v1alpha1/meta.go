@@ -27,6 +27,14 @@ type TypeConfig struct {
 	_    struct{}          `additionalProperties:"false"`
 }
 
+// Set allocates Data on first write.
+func (config *TypeConfig) Set(path string, content []byte) {
+	if config.Data == nil {
+		config.Data = map[string]string{}
+	}
+	config.Data[path] = string(content)
+}
+
 // mergedWith returns a copy of c with override's data deep-merged on top, per key.
 func (c TypeConfig) mergedWith(override TypeConfig) (TypeConfig, error) {
 	data := make(map[string]string, len(c.Data)+len(override.Data))

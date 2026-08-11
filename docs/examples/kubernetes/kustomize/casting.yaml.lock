@@ -349,7 +349,8 @@ spec:
       version: latest
     status:
       addresses:
-        apiserver: null
+        apiserver:
+        - tcp://signoz-signoz:8080
         opamp:
         - ws://signoz-signoz:4320
       config: {}
@@ -549,7 +550,7 @@ spec:
             user_defined_executable_functions_config: /etc/clickhouse-server/functions/custom-functions.xml
             user_directories:
               users_xml:
-                path: users.xml
+                path: config-0-0.yaml
             user_files_path: /var/lib/clickhouse/user_files/
             user_scripts_path: /var/lib/clickhouse/user_scripts/
             users:
@@ -589,7 +590,7 @@ spec:
                   - name: counts
                     type: Array(Float64)
                   - name: quantile
-                    type: Array(Float64)
+                    type: Float64
               command: ./histogramQuantile
               format: CSV
               name: histogramQuantile
@@ -723,7 +724,7 @@ spec:
             user_defined_executable_functions_config: /etc/clickhouse-server/functions/custom-functions.xml
             user_directories:
               users_xml:
-                path: users.xml
+                path: config-0-0.yaml
             user_files_path: /var/lib/clickhouse/user_files/
             user_scripts_path: /var/lib/clickhouse/user_scripts/
             users:
@@ -763,7 +764,7 @@ spec:
                   - name: counts
                     type: Array(Float64)
                   - name: quantile
-                    type: Array(Float64)
+                    type: Float64
               command: ./histogramQuantile
               format: CSV
               name: histogramQuantile

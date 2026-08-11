@@ -72,7 +72,7 @@ services:
       - {{ $.Metadata.Name }}-network
     environment:
       - CLICKHOUSE_SKIP_USER_SETUP=1
-      - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.yaml
+      - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml
     {{- if $.Spec.TelemetryStore.Spec.Env }}
       {{- range $key, $value := $.Spec.TelemetryStore.Spec.Env }}
       - {{ $key }}={{ $value }}
@@ -81,7 +81,7 @@ services:
     volumes:
       - {{ $.Metadata.Name }}-telemetrystore-{{ $shardIdx }}-{{ $replicaIdx }}-data:/var/lib/clickhouse
       - {{ $.Metadata.Name }}-telemetrystore-user-scripts:/var/lib/clickhouse/user_scripts:ro
-      - ./telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml:/etc/clickhouse-server/config.yaml:ro
+      - ./telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml:/etc/clickhouse-server/config-{{ $shardIdx }}-{{ $replicaIdx }}.yaml:ro
       - ./telemetrystore/{{ $.Spec.TelemetryStore.Kind }}/functions.yaml:/etc/clickhouse-server/functions.yaml:ro
     healthcheck:
       test:
@@ -178,10 +178,8 @@ services:
       - {{ $key }}={{ $value }}
       {{- end }}
     {{- end }}
-    {{- if gt $ingesterReplicas 1 }}
     deploy:
       replicas: {{ $ingesterReplicas }}
-    {{- end }}
   {{- range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}:
     container_name: {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}
@@ -214,31 +212,29 @@ services:
       start_period: 60s
   {{- end }}
   {{- if derefBool $.Spec.MCP.Spec.Enabled }}
-  {{ $.Metadata.Name }}-mcp:
-    container_name: {{ $.Metadata.Name }}-mcp
+  {{- $mcpReplicas := int $.Spec.MCP.Spec.Cluster.Replicas }}
+  mcp:
     image: {{ $.Spec.MCP.Spec.Image }}
     restart: unless-stopped
     networks:
-      - {{ $.Metadata.Name }}-network
+      {{ $.Metadata.Name }}-network:
+        aliases:
+          - {{ $.Metadata.Name }}-mcp
     {{- if $.Spec.MCP.Spec.Env }}
     environment:
       {{- range $key, $value := $.Spec.MCP.Spec.Env }}
       - {{ $key }}={{ $value }}
       {{- end }}
     {{- end }}
+    {{- if eq $mcpReplicas 1 }}
     ports:
       - "8000:8000"
-    healthcheck:
-      test:
-      - "CMD"
-      - "wget"
-      - "--spider"
-      - "-q"
-      - "http://localhost:8000/livez"
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+    {{- else }}
+    expose:
+      - "8000"
+    {{- end }}
+    deploy:
+      replicas: {{ $mcpReplicas }}
   {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-migrator:
     container_name: {{ $.Metadata.Name }}-telemetrystore-migrator

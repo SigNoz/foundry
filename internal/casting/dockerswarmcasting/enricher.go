@@ -111,6 +111,17 @@ func (enricher *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, ki
 			domain.MustNewAddress("tcp", config.Metadata.Name+"-ingester", 4318).String(),
 			domain.MustNewAddress("tcp", config.Metadata.Name+"-ingester", 4317).String(),
 		}
+	case v1alpha1.MoldingKindMCP:
+		if !config.Spec.MCP.Spec.IsEnabled() {
+			return nil
+		}
+
+		// The mcp server is scaled via `deploy.replicas` and reached through the
+		// `<metadata.name>-mcp` network alias, which Swarm's routing mesh
+		// load-balances across all replicas.
+		config.Spec.MCP.Status.Addresses.HTTP = []string{
+			domain.MustNewAddress("http", config.Metadata.Name+"-mcp", 8000).String(),
+		}
 	}
 
 	return nil

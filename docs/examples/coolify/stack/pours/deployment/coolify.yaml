@@ -175,9 +175,9 @@ services:
       type: bind
   signoz-metastore-postgres-0:
     environment:
-    - POSTGRES_USER=signoz
-    - POSTGRES_PASSWORD=signoz
     - POSTGRES_DB=signoz
+    - POSTGRES_PASSWORD=signoz
+    - POSTGRES_USER=signoz
     healthcheck:
       interval: 30s
       retries: 3
@@ -288,7 +288,7 @@ services:
         condition: service_completed_successfully
     environment:
     - CLICKHOUSE_SKIP_USER_SETUP=1
-    - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.yaml
+    - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config-0-0.yaml
     healthcheck:
       interval: 30s
       retries: 3
@@ -350,7 +350,7 @@ services:
                     result_rows: 0
         user_directories:
           users_xml:
-            path: users.xml
+            path: config-0-0.yaml
         remote_servers:
           cluster:
             shard:
@@ -396,7 +396,7 @@ services:
         zookeeper_log:
             ttl: "event_date + INTERVAL 1 DAY DELETE"
         tcp_port: 9000
-        user_defined_executable_functions_config: '*function.yaml'
+        user_defined_executable_functions_config: '*functions.yaml'
         user_scripts_path: /var/lib/clickhouse/user_scripts/
         users:
             default:
@@ -410,7 +410,7 @@ services:
                 show_named_collection: 1
                 show_named_collection_secrets: 1
       source: ./configs/telemetrystore/config-0-0.yaml
-      target: /etc/clickhouse-server/config.yaml
+      target: /etc/clickhouse-server/config-0-0.yaml
       type: bind
     - content: |
         functions:
@@ -420,7 +420,7 @@ services:
               - name: counts
                 type: Array(Float64)
               - name: quantile
-                type: Array(Float64)
+                type: Float64
           command: ./histogramQuantile
           format: CSV
           name: histogramQuantile

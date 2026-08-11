@@ -132,6 +132,25 @@ services:
   {{ end }}
   {{ end }}
 
+  {{ if derefBool $.Spec.MCP.Spec.Enabled }}
+  {{ range $replicaIdx := until (int $.Spec.MCP.Spec.Cluster.Replicas) }}
+  - name: {{ $.Metadata.Name }}-mcp-{{ $replicaIdx }}
+    type: web
+    plan: standard
+    runtime: image
+    image:
+      url: {{ $.Spec.MCP.Spec.Image }}
+    healthCheckPath: /livez
+    envVars:
+    {{ if $.Spec.MCP.Spec.Env }}
+      {{ range $key, $value := $.Spec.MCP.Spec.Env }}
+      - key: {{ $key }}
+        value: {{ $value }}
+      {{ end }}
+    {{ end }}
+  {{ end }}
+  {{ end }}
+
   {{ if $.Spec.TelemetryStore.Spec.Enabled }}
   - name: {{ $.Metadata.Name}}-schema-migrator
     type: worker
