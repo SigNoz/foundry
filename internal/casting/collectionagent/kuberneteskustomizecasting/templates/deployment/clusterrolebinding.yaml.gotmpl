@@ -1,4 +1,4 @@
-{{- $name := print $.Metadata.Name "-collector-" $.Spec.Collector.Kind -}}
+{{- $name := print $.Metadata.Name "-collector-deployment" -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -6,7 +6,7 @@ metadata:
   labels:
     app.kubernetes.io/name: {{ $name }}
     app.kubernetes.io/instance: {{ $.Metadata.Name }}
-    app.kubernetes.io/component: collector-{{ $.Spec.Collector.Kind }}
+    app.kubernetes.io/component: collector-deployment
     app.kubernetes.io/managed-by: kustomize
 roleRef:
   apiGroup: rbac.authorization.k8s.io

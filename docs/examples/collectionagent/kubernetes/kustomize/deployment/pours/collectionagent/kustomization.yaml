@@ -1,8 +1,4 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
-configMapGenerator:
-- files:
-  - deployment.yaml=collector/deployment/deployment.yaml
-  name: signoz-collector-deployment
 kind: Kustomization
 labels:
 - includeSelectors: false
@@ -14,8 +10,4 @@ labels:
 namespace: signoz
 resources:
 - namespace.yaml
-- serviceaccount.yaml
-- clusterrole.yaml
-- clusterrolebinding.yaml
-- service.yaml
-- deployment.yaml
+- collector/deployment

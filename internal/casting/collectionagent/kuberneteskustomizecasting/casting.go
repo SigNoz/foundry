@@ -36,19 +36,31 @@ func (c *kubernetesKustomizeCasting) Forge(ctx context.Context, config collectio
 	items := []item{
 		{kustomizationTemplate, "kustomization.yaml"},
 		{namespaceTemplate, "namespace.yaml"},
-		{serviceaccountTemplate, "serviceaccount.yaml"},
-		{clusterroleTemplate, "clusterrole.yaml"},
-		{clusterrolebindingTemplate, "clusterrolebinding.yaml"},
-		{serviceTemplate, "service.yaml"},
 	}
 
 	// The workload follows the collector kind's scope: the agent runs on
 	// every node, the deployment runs replicated behind the service.
+	dir := filepath.Dir(config.Spec.Collector.Kind.ConfigKey())
+
 	switch config.Spec.Collector.Kind {
 	case collectionagent.CollectorKindAgent:
-		items = append(items, item{daemonsetTemplate, "daemonset.yaml"})
+		items = append(items,
+			item{agentKustomizationTemplate, filepath.Join(dir, "kustomization.yaml")},
+			item{agentServiceaccountTemplate, filepath.Join(dir, "serviceaccount.yaml")},
+			item{agentClusterroleTemplate, filepath.Join(dir, "clusterrole.yaml")},
+			item{agentClusterrolebindingTemplate, filepath.Join(dir, "clusterrolebinding.yaml")},
+			item{agentServiceTemplate, filepath.Join(dir, "service.yaml")},
+			item{daemonsetTemplate, filepath.Join(dir, "workload.yaml")},
+		)
 	case collectionagent.CollectorKindDeployment:
-		items = append(items, item{deploymentTemplate, "deployment.yaml"})
+		items = append(items,
+			item{deploymentKustomizationTemplate, filepath.Join(dir, "kustomization.yaml")},
+			item{deploymentServiceaccountTemplate, filepath.Join(dir, "serviceaccount.yaml")},
+			item{deploymentClusterroleTemplate, filepath.Join(dir, "clusterrole.yaml")},
+			item{deploymentClusterrolebindingTemplate, filepath.Join(dir, "clusterrolebinding.yaml")},
+			item{deploymentServiceTemplate, filepath.Join(dir, "service.yaml")},
+			item{deploymentTemplate, filepath.Join(dir, "workload.yaml")},
+		)
 	default:
 		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported collector kind %q", config.Spec.Collector.Kind)
 	}

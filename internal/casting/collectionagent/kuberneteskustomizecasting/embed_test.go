@@ -27,10 +27,18 @@ func TestTemplates_RenderValidYAML(t *testing.T) {
 		{name: "KustomizationTemplate_AgentRendersValidYAML", template: kustomizationTemplate, kind: collectionagent.CollectorKindAgent},
 		{name: "KustomizationTemplate_DeploymentRendersValidYAML", template: kustomizationTemplate, kind: collectionagent.CollectorKindDeployment},
 		{name: "NamespaceTemplate_RendersValidYAML", template: namespaceTemplate, kind: collectionagent.CollectorKindAgent},
-		{name: "ServiceaccountTemplate_RendersValidYAML", template: serviceaccountTemplate, kind: collectionagent.CollectorKindAgent},
+		{name: "AgentKustomizationTemplate_RendersValidYAML", template: agentKustomizationTemplate, kind: collectionagent.CollectorKindAgent},
+		{name: "AgentServiceaccountTemplate_RendersValidYAML", template: agentServiceaccountTemplate, kind: collectionagent.CollectorKindAgent},
+		{name: "AgentClusterroleTemplate_RendersValidYAML", template: agentClusterroleTemplate, kind: collectionagent.CollectorKindAgent},
+		{name: "AgentClusterrolebindingTemplate_RendersValidYAML", template: agentClusterrolebindingTemplate, kind: collectionagent.CollectorKindAgent},
+		{name: "AgentServiceTemplate_RendersValidYAML", template: agentServiceTemplate, kind: collectionagent.CollectorKindAgent},
 		{name: "DaemonsetTemplate_RendersValidYAML", template: daemonsetTemplate, kind: collectionagent.CollectorKindAgent},
+		{name: "DeploymentKustomizationTemplate_RendersValidYAML", template: deploymentKustomizationTemplate, kind: collectionagent.CollectorKindDeployment},
+		{name: "DeploymentServiceaccountTemplate_RendersValidYAML", template: deploymentServiceaccountTemplate, kind: collectionagent.CollectorKindDeployment},
+		{name: "DeploymentClusterroleTemplate_RendersValidYAML", template: deploymentClusterroleTemplate, kind: collectionagent.CollectorKindDeployment},
+		{name: "DeploymentClusterrolebindingTemplate_RendersValidYAML", template: deploymentClusterrolebindingTemplate, kind: collectionagent.CollectorKindDeployment},
+		{name: "DeploymentServiceTemplate_RendersValidYAML", template: deploymentServiceTemplate, kind: collectionagent.CollectorKindDeployment},
 		{name: "DeploymentTemplate_RendersValidYAML", template: deploymentTemplate, kind: collectionagent.CollectorKindDeployment},
-		{name: "ServiceTemplate_RendersValidYAML", template: serviceTemplate, kind: collectionagent.CollectorKindDeployment},
 	}
 
 	for _, tt := range tests {

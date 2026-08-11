@@ -13,17 +13,4 @@ labels:
 
 resources:
   - namespace.yaml
-  - serviceaccount.yaml
-  - clusterrole.yaml
-  - clusterrolebinding.yaml
-  - service.yaml
-{{- if eq (print $.Spec.Collector.Kind) "agent" }}
-  - daemonset.yaml
-{{- else }}
-  - deployment.yaml
-{{- end }}
-
-configMapGenerator:
-  - name: {{ $.Metadata.Name }}-collector-{{ $.Spec.Collector.Kind }}
-    files:
-      - {{ $.Spec.Collector.Kind }}.yaml={{ $.Spec.Collector.Kind.ConfigKey }}
+  - collector/{{ $.Spec.Collector.Kind }}

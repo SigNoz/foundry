@@ -1,4 +1,4 @@
-{{- $name := print $.Metadata.Name "-collector-" $.Spec.Collector.Kind -}}
+{{- $name := print $.Metadata.Name "-collector-deployment" -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -6,65 +6,8 @@ metadata:
   labels:
     app.kubernetes.io/name: {{ $name }}
     app.kubernetes.io/instance: {{ $.Metadata.Name }}
-    app.kubernetes.io/component: collector-{{ $.Spec.Collector.Kind }}
+    app.kubernetes.io/component: collector-deployment
     app.kubernetes.io/managed-by: kustomize
-{{- if eq (print $.Spec.Collector.Kind) "agent" }}
-rules:
-  - apiGroups:
-      - ""
-    resources:
-      - pods
-      - namespaces
-      - nodes
-      - persistentvolumeclaims
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - apps
-    resources:
-      - replicasets
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - extensions
-    resources:
-      - replicasets
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - ""
-    resources:
-      - nodes
-      - endpoints
-    verbs:
-      - list
-      - watch
-  - apiGroups:
-      - batch
-    resources:
-      - jobs
-    verbs:
-      - list
-      - watch
-  - apiGroups:
-      - ""
-    resources:
-      - nodes/proxy
-    verbs:
-      - get
-  - apiGroups:
-      - ""
-    resources:
-      - nodes/stats
-    verbs:
-      - get
-{{- else }}
 rules:
   - apiGroups:
       - ""
@@ -122,4 +65,3 @@ rules:
       - get
       - list
       - watch
-{{- end }}

@@ -29,7 +29,7 @@ spec:
         - name: collector-{{ $.Spec.Collector.Kind }}
           image: {{ $.Spec.Collector.Spec.Image }}
           args:
-            - "--config=/conf/{{ $.Spec.Collector.Kind }}.yaml"
+            - "--config=/conf/agent.yaml"
           env:
             - name: K8S_NODE_NAME
               valueFrom:
