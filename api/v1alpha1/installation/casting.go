@@ -40,7 +40,6 @@ func Default(declared *Casting) *Casting {
 			Metadata:    v1alpha1.TypeMetadata{Name: "signoz"},
 		},
 		Spec: Spec{
-			Infrastructure:  DefaultInfrastructure(),
 			Signoz:          DefaultSigNoz(),
 			TelemetryStore:  DefaultTelemetryStore(),
 			TelemetryKeeper: DefaultTelemetryKeeper(declared.Spec.TelemetryKeeper.Kind),
@@ -99,7 +98,7 @@ func (c *Casting) TrackableProperties() domain.Properties {
 		Set("mode", c.Spec.Deployment.Mode.String()).
 		Set("flavor", c.Spec.Deployment.Flavor.String()).
 		Set("patches_count", len(c.Spec.Patches)).
-		Set("infrastructure_enabled", c.Spec.Infrastructure.Enabled).
+		Set("infrastructure_bound", c.Spec.Infrastructure.Name != "").
 		Set("metastore_kind", c.Spec.MetaStore.Kind.String()).
 		Set("telemetrystore_kind", c.Spec.TelemetryStore.Kind.String()).
 		Set("telemetrykeeper_kind", c.Spec.TelemetryKeeper.Kind.String()).

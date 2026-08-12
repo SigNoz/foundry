@@ -19,6 +19,7 @@ var _ jsonschema.Enum = (*Kind)(nil)
 var (
 	KindInstallation    Kind = Kind{s: "Installation"}
 	KindCollectionAgent Kind = Kind{s: "CollectionAgent"}
+	KindInfrastructure  Kind = Kind{s: "Infrastructure"}
 )
 
 // Kind discriminates between top-level casting resource types.
@@ -33,7 +34,7 @@ func (kind Kind) String() string {
 }
 
 func Kinds() []Kind {
-	return []Kind{KindInstallation, KindCollectionAgent}
+	return []Kind{KindInstallation, KindCollectionAgent, KindInfrastructure}
 }
 
 func (kind Kind) MarshalJSON() ([]byte, error) {

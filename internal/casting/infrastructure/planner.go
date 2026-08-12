@@ -1,40 +1,36 @@
-package installation
+package infrastructure
 
 import (
 	"context"
 	"log/slog"
+	"strings"
 
 	"github.com/signoz/foundry/api/v1alpha1"
-	"github.com/signoz/foundry/api/v1alpha1/installation"
-	"github.com/signoz/foundry/internal/casting"
+	"github.com/signoz/foundry/api/v1alpha1/infrastructure"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
-	"github.com/signoz/foundry/internal/molding"
-	"github.com/signoz/foundry/internal/molding/ingestermolding"
-	"github.com/signoz/foundry/internal/molding/mcpmolding"
-	"github.com/signoz/foundry/internal/molding/metastoremolding"
-	"github.com/signoz/foundry/internal/molding/signozmolding"
-	"github.com/signoz/foundry/internal/molding/telemetrykeepermolding"
-	"github.com/signoz/foundry/internal/molding/telemetrystoremolding"
+	infrastructuremolding "github.com/signoz/foundry/internal/molding/infrastructure"
+	"github.com/signoz/foundry/internal/molding/infrastructure/resourcemolding"
 	"github.com/signoz/foundry/internal/planner"
+	"github.com/signoz/foundry/internal/pourer"
 	"github.com/signoz/foundry/internal/tooler"
 )
 
 var _ planner.Planner = (*Planner)(nil)
 
-// Planner is the Installation Kind's per-Kind orchestrator. It satisfies the
-// foundry planner contract by exposing this Kind's moldings, enricher, and
-// casting strategy as verbs on a single value.
+// Planner is the Infrastructure Kind's per-Kind orchestrator. It satisfies
+// the foundry planner contract by exposing this Kind's moldings, enricher,
+// and casting strategy as verbs on a single value.
 type Planner struct {
-	config   *installation.Casting
+	config   *infrastructure.Casting
 	logger   *slog.Logger
-	casting  casting.Casting
+	casting  Casting
 	toolers  []tooler.Tooler
-	enricher molding.MoldingEnricher
-	moldings []molding.Molding
+	enricher infrastructuremolding.MoldingEnricher
+	moldings []infrastructuremolding.Molding
 }
 
-func NewPlanner(ctx context.Context, c *installation.Casting, logger *slog.Logger) (planner.Planner, error) {
+func NewPlanner(ctx context.Context, c *infrastructure.Casting, logger *slog.Logger) (planner.Planner, error) {
 	registry := NewRegistry(logger)
 
 	castingStrategy, err := registry.Casting(c.Spec.Deployment)
@@ -52,13 +48,8 @@ func NewPlanner(ctx context.Context, c *installation.Casting, logger *slog.Logge
 		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to get molding enricher")
 	}
 
-	moldings := []molding.Molding{
-		telemetrykeepermolding.New(logger),
-		telemetrystoremolding.New(logger),
-		metastoremolding.New(logger),
-		signozmolding.New(logger),
-		ingestermolding.New(logger),
-		mcpmolding.New(logger),
+	moldings := []infrastructuremolding.Molding{
+		resourcemolding.New(logger),
 	}
 
 	return &Planner{
@@ -92,7 +83,7 @@ func (p *Planner) Mold(ctx context.Context, kind v1alpha1.MoldingKind) error {
 			return m.MoldV1Alpha1(ctx, p.config)
 		}
 	}
-	return foundryerrors.Newf(foundryerrors.TypeInternal, "molding %q not registered for installation planner", kind)
+	return foundryerrors.Newf(foundryerrors.TypeInternal, "molding %q not registered for infrastructure planner", kind)
 }
 
 func (p *Planner) MergeStatusIntoSpec() error {
@@ -100,13 +91,15 @@ func (p *Planner) MergeStatusIntoSpec() error {
 }
 
 func (p *Planner) Forge(ctx context.Context, target string) ([]domain.Material, error) {
-	return p.casting.Forge(ctx, *p.config, target)
+	pr := pourer.New(strings.ToLower(p.config.Kind().String()))
+	if err := p.casting.Forge(ctx, *p.config, pr); err != nil {
+		return nil, err
+	}
+	return pr.Pour()
 }
 
 func (p *Planner) Cast(ctx context.Context, poursPath string) error {
-	return p.casting.Cast(ctx, *p.config, poursPath)
+	return p.casting.Cast(ctx, *p.config, poursPath, pourer.New(strings.ToLower(p.config.Kind().String())))
 }
 
-func (p *Planner) Toolers() []tooler.Tooler {
-	return p.toolers
-}
+func (p *Planner) Toolers() []tooler.Tooler { return p.toolers }

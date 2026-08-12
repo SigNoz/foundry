@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/api/v1alpha1/infrastructure"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/stretchr/testify/assert"
@@ -367,6 +368,81 @@ func TestGetV1Alpha1Merge(t *testing.T) {
 			err := v1alpha1.Merge(&base, &override)
 			require.NoError(t, err)
 			tc.assert(t, base)
+		})
+	}
+}
+
+func TestGetV1Alpha1Infrastructure(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		pass  bool
+	}{
+		{
+			name: "Deployment_Valid",
+			input: `
+apiVersion: v1alpha1
+kind: Infrastructure
+metadata:
+  name: signoz
+spec:
+  deployment:
+    platform: ecs
+    mode: ec2
+    flavor: terraform
+`,
+			pass: true,
+		},
+		{
+			name: "NameMissing_Invalid",
+			input: `
+apiVersion: v1alpha1
+kind: Infrastructure
+metadata: {}
+spec:
+  deployment:
+    platform: ecs
+    mode: ec2
+    flavor: terraform
+`,
+			pass: false,
+		},
+		{
+			name: "UnknownPlatform_Invalid",
+			input: `
+apiVersion: v1alpha1
+kind: Infrastructure
+metadata:
+  name: signoz
+spec:
+  deployment:
+    platform: nowhere
+    mode: ec2
+    flavor: terraform
+`,
+			pass: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			castingPath := filepath.Join(t.TempDir(), "casting.yaml")
+			assert.NoError(t, os.WriteFile(castingPath, []byte(tt.input), 0644))
+
+			cfg := New(slog.New(slog.DiscardHandler))
+			machinery, err := cfg.GetV1Alpha1(context.Background(), castingPath)
+			if !tt.pass {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+
+			casting, ok := machinery.(*infrastructure.Casting)
+			assert.True(t, ok)
+			if !ok {
+				return
+			}
+			assert.Equal(t, v1alpha1.KindInfrastructure, casting.Kind())
 		})
 	}
 }

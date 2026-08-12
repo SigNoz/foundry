@@ -9,6 +9,7 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
+	"github.com/signoz/foundry/api/v1alpha1/infrastructure"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	installationcompat "github.com/signoz/foundry/internal/compat/installation"
 	"github.com/signoz/foundry/internal/config"
@@ -28,6 +29,7 @@ func New(logger *slog.Logger) config.Config {
 	c.loaders = map[v1alpha1.Kind]loaderFn{
 		v1alpha1.KindInstallation:    c.loadInstallation,
 		v1alpha1.KindCollectionAgent: c.loadCollectionAgent,
+		v1alpha1.KindInfrastructure:  c.loadInfrastructure,
 	}
 	return c
 }
@@ -126,6 +128,33 @@ func (*yamlConfig) loadCollectionAgent(bytes []byte, path string) (v1alpha1.Mach
 	return base, nil
 }
 
+func (*yamlConfig) loadInfrastructure(bytes []byte, path string) (v1alpha1.Machinery, error) {
+	var loaded infrastructure.Casting
+	if err := domain.UnmarshalYAML(bytes, &loaded); err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "failed to unmarshal infrastructure casting")
+	}
+
+	base := infrastructure.Default()
+	if err := v1alpha1.Merge(base, &loaded); err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to merge default infrastructure casting")
+	}
+
+	contents, err := json.Marshal(base)
+	if err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to marshal infrastructure casting")
+	}
+	toValidate := map[string]any{}
+	if err := json.Unmarshal(contents, &toValidate); err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to unmarshal infrastructure casting for validation")
+	}
+
+	if err := infrastructure.Schema().Validate(toValidate); err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "invalid casting file %s", path)
+	}
+
+	return base, nil
+}
+
 // CreateV1Alpha1Lock writes the resolved casting to the lock file.
 func (*yamlConfig) CreateV1Alpha1Lock(ctx context.Context, machinery v1alpha1.Machinery, path string) error {
 	contents, err := domain.MarshalYAML(machinery)
@@ -163,6 +192,12 @@ func (*yamlConfig) GetV1Alpha1Lock(ctx context.Context, path string) (v1alpha1.M
 		var c collectionagent.Casting
 		if err := domain.UnmarshalYAML(bytes, &c); err != nil {
 			return nil, errors.Wrapf(err, errors.TypeInvalidInput, "failed to unmarshal collectionagent casting")
+		}
+		return &c, nil
+	case v1alpha1.KindInfrastructure:
+		var c infrastructure.Casting
+		if err := domain.UnmarshalYAML(bytes, &c); err != nil {
+			return nil, errors.Wrapf(err, errors.TypeInvalidInput, "failed to unmarshal infrastructure casting")
 		}
 		return &c, nil
 	}
