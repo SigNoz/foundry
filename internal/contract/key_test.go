@@ -1,4 +1,4 @@
-package convention
+package contract
 
 import (
 	"testing"

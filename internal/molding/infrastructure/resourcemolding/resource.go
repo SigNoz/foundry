@@ -9,7 +9,7 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/infrastructure"
-	"github.com/signoz/foundry/internal/convention"
+	"github.com/signoz/foundry/internal/contract"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	infrastructuremolding "github.com/signoz/foundry/internal/molding/infrastructure"
@@ -28,11 +28,10 @@ var _ infrastructuremolding.Molding = (*resourceMolding)(nil)
 
 type resourceMolding struct {
 	logger *slog.Logger
-	derive infrastructuremolding.Deriver
 }
 
-func New(logger *slog.Logger, derive infrastructuremolding.Deriver) *resourceMolding {
-	return &resourceMolding{logger: logger, derive: derive}
+func New(logger *slog.Logger) *resourceMolding {
+	return &resourceMolding{logger: logger}
 }
 
 func (molding *resourceMolding) Kind() v1alpha1.MoldingKind {
@@ -52,14 +51,14 @@ func (molding *resourceMolding) MoldV1Alpha1(ctx context.Context, config *infras
 		Networking: infrastructure.ResourceConfigNetworking{NetworkCIDR: "10.0.0.0/16"},
 		InstanceGroups: map[string]infrastructure.ResourceConfigInstanceGroup{
 			GroupPersistent: {
-				Storage:    v1alpha1.StorageClassPersistent,
+				Storage:    contract.StorageClassPersistent.String(),
 				MinSize:    v1alpha1.IntPtr(3),
 				MaxSize:    v1alpha1.IntPtr(3),
 				RootVolume: infrastructure.ResourceConfigVolume{Size: v1alpha1.IntPtr(30)},
 				DataVolume: &infrastructure.ResourceConfigVolume{Size: v1alpha1.IntPtr(50)},
 			},
 			GroupEphemeral: {
-				Storage:    v1alpha1.StorageClassEphemeral,
+				Storage:    contract.StorageClassEphemeral.String(),
 				MinSize:    v1alpha1.IntPtr(1),
 				MaxSize:    v1alpha1.IntPtr(1),
 				RootVolume: infrastructure.ResourceConfigVolume{Size: v1alpha1.IntPtr(30)},
@@ -95,29 +94,14 @@ func (molding *resourceMolding) MoldV1Alpha1(ctx context.Context, config *infras
 		return foundryerrors.Wrapf(err, foundryerrors.TypeInvalidInput, "failed to unmarshal resolved resource config")
 	}
 
-	substrate, err := convention.NewSubstrate(config.Metadata.Name)
-	if err != nil {
+	// Deriving names from it is the casting's, at forge time; the molding only
+	// checks the name can be a substrate at all.
+	if _, err := contract.NewSubstrate(config.Metadata.Name); err != nil {
 		return foundryerrors.Wrapf(err, foundryerrors.TypeInvalidInput, "failed to resolve the substrate being provisioned")
 	}
 
 	if err := validate(declaration); err != nil {
 		return err
-	}
-
-	resources, err := molding.derive(substrate, declaration, config.Labels())
-	if err != nil {
-		return err
-	}
-
-	// Merged, not marshalled: keys the shared shape does not know survive.
-	derivedDoc, err := domain.MarshalYAML(&infrastructure.ResourceConfig{Resources: resources})
-	if err != nil {
-		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to marshal derived resources")
-	}
-
-	doc, err = domain.MergeYAML(doc, string(derivedDoc))
-	if err != nil {
-		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to merge derived resources")
 	}
 
 	if status.Config.Data == nil {
@@ -130,11 +114,6 @@ func (molding *resourceMolding) MoldV1Alpha1(ctx context.Context, config *infras
 
 // validate checks the shared shape; casting-specific keys pass through.
 func validate(declaration *infrastructure.ResourceConfig) error {
-	// A stated name would disagree with the tag derived beside it.
-	if declaration.Resources != nil {
-		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config states resources, which foundry derives from the declaration")
-	}
-
 	if err := validateNetworking(declaration.Networking); err != nil {
 		return err
 	}
@@ -160,12 +139,13 @@ func validateNetworking(networking infrastructure.ResourceConfigNetworking) erro
 	for _, key := range slices.Sorted(maps.Keys(networking.Subnets)) {
 		subnet := networking.Subnets[key]
 
-		if _, err := convention.NewKey(key); err != nil {
+		if _, err := contract.NewKey(key); err != nil {
 			return foundryerrors.Wrapf(err, foundryerrors.TypeInvalidInput, "resource config subnet %q is not a usable reference", key)
 		}
 
-		if subnet.Type == (v1alpha1.SubnetType{}) {
-			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config subnet %q states no type", key)
+		subnetType, err := contract.ParseSubnetType(subnet.Type)
+		if err != nil {
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInvalidInput, "resource config subnet %q states no usable type", key)
 		}
 
 		if subnet.Zone == "" {
@@ -190,7 +170,7 @@ func validateNetworking(networking infrastructure.ResourceConfigNetworking) erro
 			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config subnet %q is adopted, so its egress is not foundry's to state", key)
 		}
 
-		if subnet.Type.IsPublic() {
+		if subnetType.IsPublic() {
 			if subnet.Egress != "" {
 				return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config subnet %q is public, so it states no egress", key)
 			}
@@ -213,7 +193,7 @@ func validateNetworking(networking infrastructure.ResourceConfigNetworking) erro
 		subnet := networking.Subnets[key]
 
 		// An adopted subnet carries its own routing.
-		if subnet.Type.IsPublic() || subnet.ID != "" || subnet.Egress != "" {
+		if subnet.Type == contract.SubnetTypePublic.String() || subnet.ID != "" || subnet.Egress != "" {
 			continue
 		}
 
@@ -233,12 +213,13 @@ func validateInstanceGroups(declaration *infrastructure.ResourceConfig) error {
 	for _, key := range slices.Sorted(maps.Keys(declaration.InstanceGroups)) {
 		group := declaration.InstanceGroups[key]
 
-		if _, err := convention.NewKey(key); err != nil {
+		if _, err := contract.NewKey(key); err != nil {
 			return foundryerrors.Wrapf(err, foundryerrors.TypeInvalidInput, "resource config instance group %q is not a usable reference", key)
 		}
 
-		if group.Storage == (v1alpha1.StorageClass{}) {
-			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config instance group %q states no storage class", key)
+		storage, err := contract.ParseStorageClass(group.Storage)
+		if err != nil {
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInvalidInput, "resource config instance group %q states no usable storage class", key)
 		}
 
 		if group.MachineType == "" {
@@ -253,11 +234,11 @@ func validateInstanceGroups(declaration *infrastructure.ResourceConfig) error {
 			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config instance group %q has maxSize below minSize", key)
 		}
 
-		if group.Storage.IsPinned() && *group.MinSize != *group.MaxSize {
+		if storage.IsPinned() && *group.MinSize != *group.MaxSize {
 			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config instance group %q is pinned, so minSize and maxSize must be equal", key)
 		}
 
-		if group.Storage.RequiresDataVolume() {
+		if storage.RequiresDataVolume() {
 			if group.DataVolume == nil || group.DataVolume.Size == nil {
 				return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config instance group %q must state a dataVolume size", key)
 			}
@@ -272,7 +253,7 @@ func validateInstanceGroups(declaration *infrastructure.ResourceConfig) error {
 				return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config instance group %q is placed in subnet %q, which is not declared", key, reference)
 			}
 
-			if subnet.Type.IsPublic() {
+			if subnet.Type == contract.SubnetTypePublic.String() {
 				return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "resource config instance group %q is placed in subnet %q, which is public", key, reference)
 			}
 		}

@@ -1,4 +1,4 @@
-package convention
+package contract
 
 // TagKey names one fact a substrate records, unqualified. Spelling is the
 // provider's grammar and is rendered where the resource is created: a GCP label

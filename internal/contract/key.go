@@ -1,4 +1,4 @@
-package convention
+package contract
 
 import (
 	"github.com/signoz/foundry/internal/errors"

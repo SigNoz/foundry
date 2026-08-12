@@ -1,15 +1,13 @@
-package convention
+package contract
 
-import (
-	"github.com/signoz/foundry/api/v1alpha1"
-)
+import ()
 
 // Selection is what a consuming casting looks for: a substrate, narrowed by the
 // facts it knows.
 type Selection struct {
 	substrate  Substrate
-	subnetType v1alpha1.SubnetType
-	storage    v1alpha1.StorageClass
+	subnetType SubnetType
+	storage    StorageClass
 	identities Identities
 }
 
@@ -18,13 +16,13 @@ func (s Substrate) Select() Selection {
 }
 
 // WithSubnetType narrows to the subnets a workload may be placed in.
-func (selection Selection) WithSubnetType(subnetType v1alpha1.SubnetType) Selection {
+func (selection Selection) WithSubnetType(subnetType SubnetType) Selection {
 	selection.subnetType = subnetType
 
 	return selection
 }
 
-func (selection Selection) WithStorage(storage v1alpha1.StorageClass) Selection {
+func (selection Selection) WithStorage(storage StorageClass) Selection {
 	selection.storage = storage
 
 	return selection
@@ -44,11 +42,11 @@ func (selection Selection) Match() map[TagKey]string {
 		TagKeyName: selection.substrate.name,
 	}
 
-	if selection.subnetType != (v1alpha1.SubnetType{}) {
+	if selection.subnetType != (SubnetType{}) {
 		tags[TagKeySubnetType] = selection.subnetType.String()
 	}
 
-	if selection.storage != (v1alpha1.StorageClass{}) {
+	if selection.storage != (StorageClass{}) {
 		tags[TagKeyStorage] = selection.storage.String()
 	}
 

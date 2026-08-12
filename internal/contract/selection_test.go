@@ -1,9 +1,8 @@
-package convention
+package contract
 
 import (
 	"testing"
 
-	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,7 +23,7 @@ func TestSelectionFilter(t *testing.T) {
 		},
 		{
 			name:      "PrivateSubnet_MatchesTheType",
-			selection: substrate.Select().WithSubnetType(v1alpha1.SubnetTypePrivate),
+			selection: substrate.Select().WithSubnetType(SubnetTypePrivate),
 			expectedMatch: map[TagKey]string{
 				TagKeyName:       "foundry",
 				TagKeySubnetType: "private",
@@ -32,7 +31,7 @@ func TestSelectionFilter(t *testing.T) {
 		},
 		{
 			name:      "PersistentClass_MatchesTheClass",
-			selection: substrate.Select().WithStorage(v1alpha1.StorageClassPersistent),
+			selection: substrate.Select().WithStorage(StorageClassPersistent),
 			expectedMatch: map[TagKey]string{
 				TagKeyName:    "foundry",
 				TagKeyStorage: "persistent",
@@ -40,7 +39,7 @@ func TestSelectionFilter(t *testing.T) {
 		},
 		{
 			name:      "EphemeralClass_MatchesTheClass",
-			selection: substrate.Select().WithStorage(v1alpha1.StorageClassEphemeral),
+			selection: substrate.Select().WithStorage(StorageClassEphemeral),
 			expectedMatch: map[TagKey]string{
 				TagKeyName:    "foundry",
 				TagKeyStorage: "ephemeral",
@@ -49,7 +48,7 @@ func TestSelectionFilter(t *testing.T) {
 		{
 			name: "Claim_MatchesTheHolder",
 			selection: substrate.Select().
-				WithStorage(v1alpha1.StorageClassPersistent).
+				WithStorage(StorageClassPersistent).
 				WithClaims(Identities{MustNewIdentity("telemetrystore", 0, 0)}),
 			expectedMatch: map[TagKey]string{
 				TagKeyName:       "foundry",

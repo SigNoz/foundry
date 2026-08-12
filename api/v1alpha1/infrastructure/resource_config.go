@@ -1,12 +1,9 @@
 package infrastructure
 
-import "github.com/signoz/foundry/api/v1alpha1"
-
-// ResourceConfig is the requirement document, written as resource.yaml.
-//
-// Everything above Resources is declared: a molding baseline, a casting's
-// contribution, then the operator's spec, which wins. Resources is derived once
-// that settles.
+// ResourceConfig is the requirement document, written as resource.yaml: a
+// molding baseline, a casting's contribution, then the operator's spec, which
+// wins. Names and tags are not part of it; a casting derives them from the
+// settled declaration at forge time.
 type ResourceConfig struct {
 	Networking ResourceConfigNetworking `json:"networking,omitzero" description:"The network the substrate runs in"`
 
@@ -15,10 +12,6 @@ type ResourceConfig struct {
 	CloudLabels map[string]string `json:"cloudLabels,omitempty" description:"Tags applied to every resource the substrate provisions"`
 
 	InstanceGroups map[string]ResourceConfigInstanceGroup `json:"instanceGroups,omitempty" description:"Pools of nodes the resource requires, keyed by a reference of your choosing"`
-
-	// Stating this is an error, not an override: a name that disagrees with the
-	// tag derived beside it matches nothing.
-	Resources *ResourceConfigResources `json:"resources,omitempty" description:"Derived names and tags for everything the substrate provisions; written by foundry"`
 
 	_ struct{} `additionalProperties:"false"`
 }
@@ -38,7 +31,7 @@ type ResourceConfigNetworking struct {
 // ResourceConfigSubnet follows kOps' ClusterSubnetSpec. Zone has no default:
 // letters are not contiguous within a region and the mapping is per-account.
 type ResourceConfigSubnet struct {
-	Type v1alpha1.SubnetType `json:"type,omitzero" description:"Whether the subnet routes to an internet gateway"`
+	Type string `json:"type,omitempty" description:"Whether the subnet routes to an internet gateway: private or public"`
 
 	Zone string `json:"zone,omitempty" description:"Availability zone the subnet lives in" example:"us-east-1a"`
 
@@ -64,7 +57,7 @@ type ResourceConfigIAM struct {
 // ResourceConfigInstanceGroup follows kOps' InstanceGroupSpec, narrowed to what
 // foundry has to understand.
 type ResourceConfigInstanceGroup struct {
-	Storage v1alpha1.StorageClass `json:"storage,omitzero" description:"Durability of the group's storage, and the only fact about it a consuming casting can select on"`
+	Storage string `json:"storage,omitempty" description:"Durability of the group's storage, persistent or ephemeral, and the only fact about it a consuming casting can select on"`
 
 	MachineType string `json:"machineType,omitempty" description:"Provider machine type for each node in the group" example:"m5.large"`
 
@@ -89,119 +82,6 @@ type ResourceConfigVolume struct {
 	Size *int `json:"size,omitempty" minimum:"1" description:"Size of the volume in GB"`
 
 	Type string `json:"type,omitempty" description:"Provider volume type" example:"gp3"`
-
-	_ struct{} `additionalProperties:"false"`
-}
-
-// ResourceConfigResources is every name and tag derived from the declaration.
-// Templates interpolate these rather than assembling their own.
-type ResourceConfigResources struct {
-	Cluster ResourceConfigResource `json:"cluster,omitzero"`
-
-	VPC ResourceConfigResource `json:"vpc,omitzero"`
-
-	InternetGateway ResourceConfigResource `json:"internetGateway,omitzero"`
-
-	SecurityGroup ResourceConfigResource `json:"securityGroup,omitzero"`
-
-	SecurityGroupRules map[string]ResourceConfigResource `json:"securityGroupRules,omitempty"`
-
-	Roles map[string]ResourceConfigResource `json:"roles,omitempty"`
-
-	InstanceProfile ResourceConfigResource `json:"instanceProfile,omitzero"`
-
-	// Keyed by the subnet reference they serve. Not parallel: a public subnet
-	// has no NAT gateway, and neither has an adopted one.
-	Subnets map[string]ResourceConfigResourceSubnet `json:"subnets,omitempty"`
-
-	RouteTables map[string]ResourceConfigResource `json:"routeTables,omitempty"`
-
-	NATGateways map[string]ResourceConfigResourceNATGateway `json:"natGateways,omitempty"`
-
-	InstanceGroups map[string]ResourceConfigResourceGroup `json:"instanceGroups,omitempty"`
-
-	// Stamped after provisioning by whatever claims a resource; reconciling
-	// them reverts a live claim on every apply.
-	IgnoredTags []string `json:"ignoredTags,omitempty"`
-
-	_ struct{} `additionalProperties:"false"`
-}
-
-// ResourceConfigResource is one derived thing: what to call it and what to
-// stamp on it.
-type ResourceConfigResource struct {
-	Name string `json:"name,omitempty"`
-
-	Tags map[string]string `json:"tags,omitempty"`
-
-	// Set when adopted rather than created; the casting then stamps nothing.
-	ID string `json:"id,omitempty"`
-
-	_ struct{} `additionalProperties:"false"`
-}
-
-// ResourceConfigResourceSubnet resolves a declared subnet.
-type ResourceConfigResourceSubnet struct {
-	Name string `json:"name,omitempty"`
-
-	Tags map[string]string `json:"tags,omitempty"`
-
-	ID string `json:"id,omitempty"`
-
-	Public bool `json:"public"`
-
-	_ struct{} `additionalProperties:"false"`
-}
-
-// ResourceConfigResourceNATGateway is the egress path of one private subnet.
-type ResourceConfigResourceNATGateway struct {
-	Name string `json:"name,omitempty"`
-
-	Tags map[string]string `json:"tags,omitempty"`
-
-	ID string `json:"id,omitempty"`
-
-	// The public subnet it sits in, in the same zone as the one it serves.
-	Subnet string `json:"subnet,omitempty"`
-
-	Address *ResourceConfigResource `json:"address,omitempty"`
-
-	_ struct{} `additionalProperties:"false"`
-}
-
-// ResourceConfigResourceGroup is what a declared instance group resolves to. A
-// pinned group has Nodes and no autoscaling group; a scaling one is the
-// reverse, which is how a casting tells them apart.
-type ResourceConfigResourceGroup struct {
-	Storage v1alpha1.StorageClass `json:"storage,omitzero"`
-
-	// The tag match that finds this group's nodes. The substrate advertises it
-	// wherever the platform does placement.
-	Selector map[string]string `json:"selector,omitempty"`
-
-	Subnets []string `json:"subnets,omitempty"`
-
-	LaunchTemplate *ResourceConfigResource `json:"launchTemplate,omitempty"`
-
-	AutoscalingGroup *ResourceConfigResource `json:"autoscalingGroup,omitempty"`
-
-	Nodes []ResourceConfigResourceNode `json:"nodes,omitempty"`
-
-	_ struct{} `additionalProperties:"false"`
-}
-
-// ResourceConfigResourceNode is one node of a pinned group. Its volume is
-// stated inside it so the two cannot land in different zones.
-type ResourceConfigResourceNode struct {
-	Name string `json:"name,omitempty"`
-
-	Tags map[string]string `json:"tags,omitempty"`
-
-	Ordinal int `json:"ordinal"`
-
-	Subnet string `json:"subnet,omitempty"`
-
-	Volume *ResourceConfigResource `json:"volume,omitempty"`
 
 	_ struct{} `additionalProperties:"false"`
 }

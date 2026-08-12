@@ -1,4 +1,4 @@
-package convention
+package contract
 
 // Ownership is whether the substrate created a resource or adopted one it must
 // never delete.

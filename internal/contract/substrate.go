@@ -4,7 +4,7 @@
 //
 // Provider limits are absent. A casting measures what it derives against its
 // own provider's caps.
-package convention
+package contract
 
 import (
 	"regexp"

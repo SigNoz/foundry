@@ -2,12 +2,12 @@ package resourcemolding
 
 import (
 	"context"
-	"github.com/signoz/foundry/internal/convention"
 	"log/slog"
 	"testing"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/infrastructure"
+	"github.com/signoz/foundry/internal/contract"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/stretchr/testify/assert"
 )
@@ -56,30 +56,9 @@ func mold(t *testing.T, documents ...string) (string, error) {
 		config.Spec.Resource.Spec.Config.Set(ResourceConfigName, []byte(declaration))
 	}
 
-	err := New(slog.New(slog.DiscardHandler), derive).MoldV1Alpha1(context.Background(), config)
+	err := New(slog.New(slog.DiscardHandler)).MoldV1Alpha1(context.Background(), config)
 
 	return config.Spec.Resource.Status.Config.Data[ResourceConfigName], err
-}
-
-// derive stands in for a provider's topology walk. The molding is neutral: it
-// settles the declaration and hands it over, and what a provider makes of it is
-// tested beside that provider.
-func derive(_ convention.Substrate, declaration *infrastructure.ResourceConfig, _ map[string]string) (*infrastructure.ResourceConfigResources, error) {
-	resources := &infrastructure.ResourceConfigResources{
-		InstanceGroups: map[string]infrastructure.ResourceConfigResourceGroup{},
-	}
-
-	for key, group := range declaration.InstanceGroups {
-		resolved := infrastructure.ResourceConfigResourceGroup{Storage: group.Storage}
-
-		if group.Storage.IsPinned() && group.MinSize != nil {
-			resolved.Nodes = make([]infrastructure.ResourceConfigResourceNode, *group.MinSize)
-		}
-
-		resources.InstanceGroups[key] = resolved
-	}
-
-	return resources, nil
 }
 
 func TestMoldV1Alpha1(t *testing.T) {
@@ -92,7 +71,7 @@ func TestMoldV1Alpha1(t *testing.T) {
 	// One baseline for every substrate: the default installation shape.
 	assert.Equal(t, map[string]infrastructure.ResourceConfigInstanceGroup{
 		GroupPersistent: {
-			Storage:     v1alpha1.StorageClassPersistent,
+			Storage:     contract.StorageClassPersistent.String(),
 			MachineType: "m5.large",
 			MinSize:     v1alpha1.IntPtr(3),
 			MaxSize:     v1alpha1.IntPtr(3),
@@ -100,7 +79,7 @@ func TestMoldV1Alpha1(t *testing.T) {
 			DataVolume:  &infrastructure.ResourceConfigVolume{Size: v1alpha1.IntPtr(50)},
 		},
 		GroupEphemeral: {
-			Storage:     v1alpha1.StorageClassEphemeral,
+			Storage:     contract.StorageClassEphemeral.String(),
 			MachineType: "c5.large",
 			MinSize:     v1alpha1.IntPtr(1),
 			MaxSize:     v1alpha1.IntPtr(1),
@@ -119,7 +98,6 @@ func TestMoldV1Alpha1_StatelessSubstrate(t *testing.T) {
 	assert.NoError(t, domain.UnmarshalYAML([]byte(doc), &got))
 	assert.Len(t, got.InstanceGroups, 1)
 	assert.Contains(t, got.InstanceGroups, GroupEphemeral)
-	assert.Empty(t, got.Resources.InstanceGroups[GroupPersistent].Nodes)
 }
 
 // A declaration with no subnets cannot be completed by anything but the
@@ -145,7 +123,7 @@ func TestMoldV1Alpha1_PreservesEnricherContributions(t *testing.T) {
     maxSize: 2
 `))
 
-	err := New(slog.New(slog.DiscardHandler), derive).MoldV1Alpha1(context.Background(), config)
+	err := New(slog.New(slog.DiscardHandler)).MoldV1Alpha1(context.Background(), config)
 	assert.NoError(t, err)
 
 	doc := config.Spec.Resource.Status.Config.Data[ResourceConfigName]
@@ -164,7 +142,6 @@ func TestMoldV1Alpha1_PreservesEnricherContributions(t *testing.T) {
 	persistent := got.InstanceGroups[GroupPersistent]
 	assert.Equal(t, v1alpha1.IntPtr(4), persistent.MinSize)
 	assert.Equal(t, v1alpha1.IntPtr(50), persistent.DataVolume.Size)
-	assert.Len(t, got.Resources.InstanceGroups[GroupPersistent].Nodes, 4)
 
 	ephemeral := got.InstanceGroups[GroupEphemeral]
 	assert.Equal(t, v1alpha1.IntPtr(2), ephemeral.MinSize)
@@ -181,7 +158,7 @@ func TestMoldV1Alpha1_SpecBeatsContribution(t *testing.T) {
   persistent: {machineType: r5.xlarge}
 `))
 
-	err := New(slog.New(slog.DiscardHandler), derive).MoldV1Alpha1(context.Background(), config)
+	err := New(slog.New(slog.DiscardHandler)).MoldV1Alpha1(context.Background(), config)
 	assert.NoError(t, err)
 
 	got := infrastructure.ResourceConfig{}
@@ -307,13 +284,6 @@ func TestValidate(t *testing.T) {
 		{
 			name:      "GroupPlacedInPublicSubnet_Invalid",
 			documents: []string{networking, machineTypes, "instanceGroups:\n  persistent: {subnets: [public-a]}\n"},
-			pass:      false,
-		},
-		{
-			// A stated name and the tag derived beside it would disagree, and
-			// the consuming casting would match nothing.
-			name:      "StatedResources_Invalid",
-			documents: []string{networking, machineTypes, "resources:\n  vpc: {name: my-vpc}\n"},
 			pass:      false,
 		},
 	}
