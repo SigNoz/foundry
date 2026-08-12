@@ -4,9 +4,9 @@ import (
 	"github.com/signoz/foundry/internal/errors"
 )
 
-// Key is the reference an operator chooses for one declared thing, a subnet or
-// an instance group. Identity lives in the key. A partial override restates the
-// key and nothing else.
+// Key is the operator-chosen reference for one declared subnet or instance
+// group, lowercase alphanumeric with interior hyphens. It is the qualifier in
+// every name derived for that thing.
 type Key struct {
 	s string
 }

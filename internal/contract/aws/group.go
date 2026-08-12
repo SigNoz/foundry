@@ -9,9 +9,8 @@ import (
 	"github.com/signoz/foundry/internal/errors"
 )
 
-// PlacedGroup is one declared instance group with its placement resolved: the
-// subnets its nodes go in, stated on the declaration or falling back to every
-// private one.
+// PlacedGroup is one declared instance group with the subnets its nodes go in
+// resolved, either as stated or, when the group states none, every private one.
 type PlacedGroup struct {
 	Key      string
 	Declared infrastructure.ResourceConfigInstanceGroup
@@ -20,11 +19,9 @@ type PlacedGroup struct {
 	Subnets  []string
 }
 
-// PlaceInstanceGroups resolves every declared group in key order. Every
-// substrate places groups the same way; what sits on top of a placed group is
-// the substrate's own.
+// PlaceInstanceGroups resolves every declared group in key order.
 func PlaceInstanceGroups(declaration *infrastructure.ResourceConfig) ([]PlacedGroup, error) {
-	// A group that names no subnet is placed across every private one.
+	// The fallback placement for a group that names no subnet.
 	placement := []string{}
 
 	for _, key := range slices.Sorted(maps.Keys(declaration.Networking.Subnets)) {

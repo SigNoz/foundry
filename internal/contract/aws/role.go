@@ -1,8 +1,7 @@
 package aws
 
-// Role is what a security group or an IAM role is attached to. A security group
-// uses node and task; the rest are IAM only, and cluster is the one a managed
-// control plane assumes rather than a workload.
+// Role is what a security group or an IAM role is attached to. Security groups
+// use node and task; the rest are IAM only.
 type Role struct {
 	s string
 }

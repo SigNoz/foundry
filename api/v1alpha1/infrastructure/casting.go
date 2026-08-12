@@ -22,7 +22,6 @@ type Spec struct {
 
 var _ v1alpha1.Machinery = (*Casting)(nil)
 
-// Default returns an Infrastructure casting with defaults initialised.
 func Default() *Casting {
 	return &Casting{
 		CastingMeta: v1alpha1.CastingMeta{
@@ -52,8 +51,8 @@ func (c *Casting) Kind() v1alpha1.Kind {
 	return v1alpha1.KindInfrastructure
 }
 
-// MergeStatusIntoSpec folds molding-written status into spec. The resource
-// spec carries identity only; nothing merges.
+// MergeStatusIntoSpec folds molding-written status into spec. A casting reads
+// the settled document from the resource's status directly, so nothing folds.
 func (c *Casting) MergeStatusIntoSpec() error {
 	return nil
 }

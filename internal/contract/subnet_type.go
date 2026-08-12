@@ -4,17 +4,15 @@ import "github.com/signoz/foundry/internal/errors"
 
 var (
 	// SubnetTypePrivate subnets have no route to an internet gateway. Workloads
-	// go here; egress, where a subnet needs it, is a NAT gateway's job.
+	// are placed here, and reach out through a NAT gateway.
 	SubnetTypePrivate = SubnetType{s: "private"}
 
-	// SubnetTypePublic subnets route to an internet gateway and are where the
-	// NAT gateways serving the private ones live.
+	// SubnetTypePublic subnets route to an internet gateway and hold the NAT
+	// gateways serving the private ones.
 	SubnetTypePublic = SubnetType{s: "public", public: true}
 )
 
-// SubnetType is whether a subnet faces the internet. A consuming casting
-// filters on it: every workload it places needs a subnet, and this is the only
-// fact about a subnet that both castings can predict independently.
+// SubnetType is whether a subnet faces the internet.
 type SubnetType struct {
 	s      string
 	public bool

@@ -1,9 +1,8 @@
-// Package convention derives the names and tags a provisioned substrate is
-// identified by. Foundry never reads back from a platform, so a producing and a
-// consuming casting must work them out the same way. Both are derived here.
+// Package contract derives the names and tags a provisioned substrate is
+// identified by, so that the casting which provisions it and the casting which
+// consumes it arrive at the same values without reading the platform.
 //
-// Provider limits are absent. A casting measures what it derives against its
-// own provider's caps.
+// Provider name-length caps are not enforced here.
 package contract
 
 import (
@@ -18,9 +17,9 @@ var namePattern = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
 // maxNameLength matches the metadata.name cap in the casting schema.
 const maxNameLength = 63
 
-// Substrate is the infrastructure an installation runs on, known by the
-// provisioning casting's metadata.name. A consumer needs no other fact to find
-// every resource.
+// Substrate is the infrastructure an installation runs on, named by the
+// provisioning casting's metadata.name. Every derived name and tag comes from
+// that name alone.
 type Substrate struct {
 	name string
 }

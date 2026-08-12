@@ -1,9 +1,7 @@
 package contract
 
-import ()
-
-// NodeGroup is a pool of interchangeable nodes. The key names it. The storage
-// class selects it, being the only fact about it a consumer can predict.
+// NodeGroup is a pool of interchangeable nodes, named by its key and selected
+// by its storage class.
 type NodeGroup struct {
 	key     Key
 	storage StorageClass

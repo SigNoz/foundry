@@ -39,14 +39,12 @@ func (molding *resourceMolding) Kind() v1alpha1.MoldingKind {
 }
 
 // MoldV1Alpha1 settles the document from the baseline, the casting's
-// contribution and the operator's spec, then derives from what settled.
+// contribution and the operator's spec, then validates what settled. Names and
+// tags are a casting's, derived from this at forge time.
 func (molding *resourceMolding) MoldV1Alpha1(ctx context.Context, config *infrastructure.Casting) error {
 	status := &config.Spec.Resource.Status
 
-	// One baseline for every substrate: three persistent nodes for the stateful
-	// seats and one interchangeable node for the rest. A substrate that keeps
-	// nothing drops the persistent group with `persistent: null`. Pinned bounds
-	// are equal; every node owns a claimed volume, leaving nothing to scale.
+	// Baseline for the resource substrate
 	baseline := &infrastructure.ResourceConfig{
 		Networking: infrastructure.ResourceConfigNetworking{NetworkCIDR: "10.0.0.0/16"},
 		InstanceGroups: map[string]infrastructure.ResourceConfigInstanceGroup{

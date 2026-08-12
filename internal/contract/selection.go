@@ -1,9 +1,7 @@
 package contract
 
-import ()
-
-// Selection is what a consuming casting looks for: a substrate, narrowed by the
-// facts it knows.
+// Selection is a substrate narrowed by the facts a consumer can predict: the
+// subnet type, the storage class, and the identities claiming a resource.
 type Selection struct {
 	substrate  Substrate
 	subnetType SubnetType
@@ -15,7 +13,6 @@ func (s Substrate) Select() Selection {
 	return Selection{substrate: s}
 }
 
-// WithSubnetType narrows to the subnets a workload may be placed in.
 func (selection Selection) WithSubnetType(subnetType SubnetType) Selection {
 	selection.subnetType = subnetType
 
@@ -28,15 +25,13 @@ func (selection Selection) WithStorage(storage StorageClass) Selection {
 	return selection
 }
 
-// WithClaims narrows to the resource holding these identities. See Identities.
 func (selection Selection) WithClaims(identities Identities) Selection {
 	selection.identities = identities
 
 	return selection
 }
 
-// Match is the only place the facts a consumer depends on are decided. A
-// resource stamps these plus provenance.
+// Match is the tag set that finds exactly what the selection narrows to.
 func (selection Selection) Match() map[TagKey]string {
 	tags := map[TagKey]string{
 		TagKeyName: selection.substrate.name,

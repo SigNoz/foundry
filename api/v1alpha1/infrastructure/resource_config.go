@@ -2,8 +2,7 @@ package infrastructure
 
 // ResourceConfig is the requirement document, written as resource.yaml: a
 // molding baseline, a casting's contribution, then the operator's spec, which
-// wins. Names and tags are not part of it; a casting derives them from the
-// settled declaration at forge time.
+// wins.
 type ResourceConfig struct {
 	Networking ResourceConfigNetworking `json:"networking,omitzero" description:"The network the substrate runs in"`
 

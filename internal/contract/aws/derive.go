@@ -9,10 +9,9 @@ import (
 	"github.com/signoz/foundry/internal/errors"
 )
 
-// Stamper renders a descriptor into the resource it resolves to. Labels sit over the
-// declaration's cloudLabels and under the derived tags, so an operator cannot
-// rename what a consumer matches on. Every deriver shares it: two platforms
-// that stamped differently would not find each other's substrate.
+// Stamper renders a descriptor into the resource it resolves to. Tags layer
+// the declaration's cloudLabels first, then the labels, then the descriptor's
+// own, so an operator cannot rename what a consumer matches on.
 func Stamper(declaration *infrastructure.ResourceConfig, labels map[string]string) func(Descriptor) Resource {
 	base := map[string]string{}
 	maps.Copy(base, declaration.CloudLabels)
@@ -26,9 +25,9 @@ func Stamper(declaration *infrastructure.ResourceConfig, labels map[string]strin
 	}
 }
 
-// Networking derives the network every substrate shares: subnets, route
-// tables, and the gateways traffic leaves through. An adopted network keeps
-// its owner's name and tags, and gets no gateway.
+// Networking derives the network every substrate shares: subnets, route tables
+// and gateways. An adopted network keeps its owner's name and tags, and gets no
+// gateway.
 func Networking(s contract.Substrate,
 	named func(Descriptor) Resource,
 	declaration *infrastructure.ResourceConfig,
@@ -46,8 +45,8 @@ func Networking(s contract.Substrate,
 		network.VPC = Resource{ID: id}
 	}
 
-	// A gateway serves the private subnet it is keyed by and lives in a public
-	// one in the same zone. Walked in key order to keep the choice stable.
+	// A gateway serves the private subnet it is keyed by and sits in a public one
+	// in the same zone. Walked in key order so the choice is stable.
 	publicByZone := map[string]string{}
 
 	for _, key := range slices.Sorted(maps.Keys(subnets)) {

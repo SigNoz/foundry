@@ -1,8 +1,8 @@
 // Package eks derives the resource set for a substrate whose nodes a managed
 // control plane owns. The provider scales each pool and replaces nodes within
-// it, so the substrate names the pool and never a node or a volume in it. A
-// stateful seat's disk is provisioned by the workload's own platform, against
-// the storage class its group advertises.
+// it, so the substrate names the pool and never a node or a volume in it.
+// Persistent volumes are provisioned by the workload's own platform against the
+// storage class its group advertises.
 package eks
 
 import (
@@ -14,27 +14,24 @@ import (
 	"github.com/signoz/foundry/internal/errors"
 )
 
-// Tags the kubernetes ecosystem reads off a subnet, rather than facts foundry
-// stamps: a load balancer controller picks its subnets by these, and there is
-// no foundry-prefixed spelling it would look for.
+// Tags the kubernetes ecosystem reads off a subnet, not facts foundry stamps.
+// A load balancer controller picks its subnets by these and looks for no
+// foundry-prefixed spelling.
 const (
 	tagRoleELB         = "kubernetes.io/role/elb"
 	tagRoleInternalELB = "kubernetes.io/role/internal-elb"
 	tagClusterPrefix   = "kubernetes.io/cluster/"
 )
 
-// tagRoleValue is what the controller expects; only the key carries meaning.
+// tagRoleValue is what the controller expects. Only the key carries meaning.
 const tagRoleValue = "1"
 
-// minimumZones is what a managed control plane places its own interfaces
-// across. It is a platform rule, not a durability preference, so it is checked
-// where the platform is known rather than left to fail on apply.
+// minimumZones is how many availability zones a managed control plane places
+// its own interfaces across.
 const minimumZones = 2
 
 // Resources is the settled declaration beside every name and tag derived from
-// it: everything the substrate provisions, resolved once. Templates
-// interpolate it and assemble no name or tag of their own — a literal spelled
-// twice is a filter that matches nothing.
+// it. Templates interpolate it and assemble no name or tag of their own.
 type Resources struct {
 	Declaration *infrastructure.ResourceConfig
 
@@ -49,9 +46,8 @@ type Resources struct {
 	IgnoredTags []string
 }
 
-// Group is a pool the provider scales and replaces nodes in on the substrate's
-// behalf. There is no name for any node, and a claim is held by a volume the
-// workload's own platform provisions rather than one attached here.
+// Group is a pool the provider scales and replaces nodes in. No node in it is
+// named, and no volume is attached here.
 type Group struct {
 	Declared infrastructure.ResourceConfigInstanceGroup
 
@@ -76,15 +72,14 @@ func Derive(s contract.Substrate, declaration *infrastructure.ResourceConfig, la
 		Cluster:     named(aws.Cluster(s)),
 		Roles:       map[string]aws.Resource{},
 
-		// The control plane stamps its own ownership tag on what it discovers.
-		// Reconciling it would revert a live cluster's claim on every apply.
+		// The control plane stamps this tag on what it discovers, so reconciling
+		// it would revert a live cluster's claim on every apply.
 		IgnoredTags: []string{tagClusterPrefix + aws.Cluster(s).Name()},
 	}
 
-	// Three roles, and none is a tenant workload's. The control plane assumes
-	// one to manage the cluster; a node assumes the second to register with
-	// it; the storage driver — the substrate's own workload — assumes the
-	// third through pod identity.
+	// The control plane assumes the first to manage the cluster, a node the
+	// second to register with it, and the storage driver the third through pod
+	// identity. None belongs to a tenant workload.
 	resources.Roles[aws.RoleCluster.String()] = named(aws.IAMRole(s, aws.RoleCluster))
 	resources.Roles[aws.RoleNode.String()] = named(aws.IAMRole(s, aws.RoleNode))
 	resources.Roles[aws.RoleEBSCSI.String()] = named(aws.IAMRole(s, aws.RoleEBSCSI))
@@ -102,9 +97,9 @@ func Derive(s contract.Substrate, declaration *infrastructure.ResourceConfig, la
 		return nil, err
 	}
 
-	// One pool per declared group. The bounds and the machine type stay on the
-	// declaration; derived here are the pool's name, the tag match that finds
-	// its nodes, and where they go.
+	// One pool per declared group. Bounds and machine type stay on the
+	// declaration; the pool's name, its node tag match and its placement are
+	// derived here.
 	resources.Groups = make(map[string]Group, len(placed))
 
 	for _, placement := range placed {
@@ -134,9 +129,8 @@ func checkZoneSpread(declaration *infrastructure.ResourceConfig) error {
 }
 
 // electSubnetsForLoadBalancers marks which subnets a load balancer may be
-// placed in: an internet-facing one goes in a public subnet, an internal one in
-// a private subnet. An adopted subnet carries whatever its owner tagged it
-// with, so it is left alone.
+// placed in: an internet-facing one in a public subnet, an internal one in a
+// private subnet. An adopted subnet keeps its owner's tags and is left alone.
 func electSubnetsForLoadBalancers(network *aws.NetworkResources) {
 	for key, subnet := range network.Subnets {
 		if subnet.Tags == nil {

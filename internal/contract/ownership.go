@@ -1,7 +1,7 @@
 package contract
 
-// Ownership is whether the substrate created a resource or adopted one it must
-// never delete.
+// Ownership is whether the substrate created a resource or adopted an existing
+// one. The zero value is owned.
 type Ownership struct {
 	s      string
 	shared bool
@@ -12,7 +12,6 @@ var (
 	OwnershipShared = Ownership{s: "shared", shared: true}
 )
 
-// String resolves the zero value to owned.
 func (ownership Ownership) String() string {
 	if ownership.s == "" {
 		return OwnershipOwned.s

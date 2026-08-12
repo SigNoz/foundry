@@ -1,8 +1,8 @@
 package contract
 
-// TagKey names one fact a substrate records, unqualified. Spelling is the
-// provider's grammar and is rendered where the resource is created: a GCP label
-// key rejects the dot and the slash, an Azure tag name rejects the slash.
+// TagKey is one fact a substrate records, without a provider's prefix or
+// grammar. A GCP label key rejects the dot and the slash, an Azure tag name
+// rejects the slash, so each provider renders the key its own way.
 type TagKey struct {
 	s string
 }

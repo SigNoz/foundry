@@ -10,9 +10,8 @@ import (
 
 const identitySeparator = ","
 
-// Identity is a stateful seat that claims a volume and keeps its data across an
-// instance replacement: a component and its ordinals, "telemetrystore-0-0".
-// Deployed claims carry no substrate prefix.
+// Identity is a component and its ordinals, "telemetrystore-0-0". It claims a
+// volume, which is what keeps the component's data across a node replacement.
 type Identity struct {
 	s string
 }
@@ -50,8 +49,8 @@ func MustNewIdentity(component string, ordinals ...int) Identity {
 	return identity
 }
 
-// ParseIdentity reads back a claimed identity. Trailing numeric segments are the
-// ordinals; the rest is the component, which may itself be hyphenated.
+// ParseIdentity splits a claimed identity: trailing numeric segments are the
+// ordinals, the rest is the component, which may itself be hyphenated.
 func ParseIdentity(value string) (Identity, error) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
@@ -80,13 +79,9 @@ func (identity Identity) String() string {
 	return identity.s
 }
 
-// Identities is the claim record one volume carries, sorted and
-// separator-joined to match Terraform's join and split. Sorting keeps an
-// unchanged claim set from producing a diff.
-//
-// Only platforms without a stateful identity primitive need this. Kubernetes,
-// compose, swarm and systemd bind an identity to its disk themselves. The comma
-// encoding is legal on AWS and Azure, illegal on GCP.
+// Identities is the set of claims one volume carries, comma-separated and
+// sorted so that an unchanged set produces no diff. GCP labels reject the
+// comma.
 type Identities []Identity
 
 func (identities Identities) String() string {
@@ -98,8 +93,6 @@ func (identities Identities) String() string {
 	return strings.Join(parts, identitySeparator)
 }
 
-// ParseIdentities is the counterpart of String. It validates through
-// ParseIdentity, keeping one path into the type.
 func ParseIdentities(value string) (Identities, error) {
 	if strings.TrimSpace(value) == "" {
 		return nil, nil

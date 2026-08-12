@@ -1,6 +1,6 @@
-// Package ecs derives the resource set for a substrate whose instances the
-// operator owns: a pinned seat is a named node with a named volume, an elastic
-// group is a pool the substrate scales.
+// Package ecs derives the resource set for a substrate that owns its instances.
+// A pinned group resolves to named nodes with named volumes, an elastic group
+// to a pool the substrate scales.
 package ecs
 
 import (
@@ -9,16 +9,14 @@ import (
 	"github.com/signoz/foundry/internal/contract/aws"
 )
 
-// What the substrate's own roles and rules exist for. Each is a name segment.
+// What the substrate's own rules exist for. Each is a name segment.
 var (
 	purposeIntraCluster = contract.MustNewKey("intra-cluster")
 	purposeAllOutbound  = contract.MustNewKey("all-outbound")
 )
 
 // Resources is the settled declaration beside every name and tag derived from
-// it: everything the substrate provisions, resolved once. Templates
-// interpolate it and assemble no name or tag of their own — a literal spelled
-// twice is a filter that matches nothing.
+// it. Templates interpolate it and assemble no name or tag of their own.
 type Resources struct {
 	Declaration *infrastructure.ResourceConfig
 
@@ -34,9 +32,8 @@ type Resources struct {
 
 	InstanceProfile aws.Resource
 
-	// A declared group resolves to one of two shapes: Pinned when the
-	// substrate owns each instance and the volume attached to it, Pools when
-	// it owns the pool but no instance in it.
+	// A declared group resolves into one of these two: Pinned when the substrate
+	// owns each instance and its volume, Pools when it owns the pool alone.
 	Pinned map[string]PinnedGroup
 
 	Pools map[string]PoolGroup
@@ -54,7 +51,7 @@ type PinnedGroup struct {
 	Nodes []Node
 }
 
-// Node is one node of a pinned group. Its volume is stated inside it so the
+// Node is one node of a pinned group. Its volume is stated inside it, so the
 // two cannot land in different zones.
 type Node struct {
 	Name string
@@ -101,8 +98,8 @@ func Derive(s contract.Substrate, declaration *infrastructure.ResourceConfig, la
 		IgnoredTags: []string{aws.Tag(contract.TagKeyIdentities)},
 	}
 
-	// The node's own credential only. Without it the agent cannot register the
-	// instance with the cluster. Workload identity belongs to the workload.
+	// The node's own credential only, without which the agent cannot register
+	// the instance with the cluster. Workload identity belongs to the workload.
 	resources.Roles[aws.RoleNode.String()] = named(aws.IAMRole(s, aws.RoleNode))
 
 	network, err := aws.Networking(s, named, declaration)

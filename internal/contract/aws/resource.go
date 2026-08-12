@@ -7,8 +7,7 @@ import (
 )
 
 // Descriptor describes one thing a substrate provisions; its name, tags and
-// selection all derive from it. Use the constructor for what you are
-// provisioning.
+// selection all derive from it. Each resource type has its own constructor.
 type Descriptor struct {
 	substrate    contract.Substrate
 	resourceType resourceType
@@ -68,7 +67,7 @@ func IAMRole(s contract.Substrate, role Role) Descriptor {
 	return Descriptor{substrate: s, resourceType: typeRole, role: role}
 }
 
-// RolePolicy is a policy inline on a role, distinguished by what it grants.
+// IAMRolePolicy is a policy inline on a role, distinguished by what it grants.
 func IAMRolePolicy(s contract.Substrate, role Role, purpose contract.Key) Descriptor {
 	return Descriptor{substrate: s, resourceType: typeRole, role: role, purpose: purpose}
 }
@@ -99,23 +98,23 @@ func Volume(s contract.Substrate, group contract.NodeGroup, ordinal int) Descrip
 	return Descriptor{substrate: s, resourceType: typeVolume, key: group.Key(), storage: group.Storage(), ordinal: ordinal}
 }
 
-// WithOwnership marks a resource adopted rather than created. It changes no name.
+// WithOwnership marks a resource adopted rather than created. The derived name
+// is unaffected.
 func (r Descriptor) WithOwnership(ownership contract.Ownership) Descriptor {
 	r.ownership = ownership
 
 	return r
 }
 
-// WithClaims records the identities holding a volume. See contract.Identities.
+// WithClaims records the identities holding a volume.
 func (r Descriptor) WithClaims(identities contract.Identities) Descriptor {
 	r.identities = identities
 
 	return r
 }
 
-// Name is <substrate>-<type>[-<qualifier>...], broad to narrow. It fills a
-// provider's name argument where one exists and the display tag always. An
-// instance has no name of its own.
+// Name is <substrate>-<type>[-<qualifier>...]. A qualifier that does not apply
+// to the resource type is left out.
 func (r Descriptor) Name() string {
 	parts := make([]string, 0, len(r.resourceType.qualifiers)+2)
 	parts = append(parts, r.substrate.String(), r.resourceType.String())
@@ -134,7 +133,7 @@ func (r Descriptor) Selection() contract.Selection {
 	return r.substrate.Select().WithSubnetType(r.subnetType).WithStorage(r.storage).WithClaims(r.identities)
 }
 
-// stamp is the selection's tags plus the provenance nothing reads back.
+// stamp is the selection's tags plus ownership and the display name.
 func (r Descriptor) stamp() map[string]string {
 	tags := Filter(r.Selection())
 	tags[Tag(contract.TagKeyOwner)] = r.ownership.String()
@@ -147,8 +146,8 @@ func (r Descriptor) stamp() map[string]string {
 	return tags
 }
 
-// Tags is every tag this resource carries. A casting merges
-// CastingMeta.Labels() in alongside these.
+// Tags is every tag this resource carries, before a casting merges
+// CastingMeta.Labels() in alongside them.
 func (r Descriptor) Tags() map[string]string {
 	return r.stamp()
 }
@@ -158,8 +157,8 @@ func (r Descriptor) Filter() map[string]string {
 	return Filter(r.Selection())
 }
 
-// resourceType is what a derived name says the thing is, and the ordered
-// qualifiers that narrow it. Adding a resource is one var entry below.
+// resourceType is the type token in a derived name and the ordered qualifiers
+// that follow it.
 type resourceType struct {
 	short      string
 	qualifiers []qualifier
@@ -188,7 +187,7 @@ func (resource resourceType) String() string {
 }
 
 // qualifier renders one axis into a name segment. An empty string drops the
-// segment: one declaration serves a security group and its rules.
+// segment, so a security group and its rules share one resource type.
 type qualifier struct {
 	of func(Descriptor) string
 }
@@ -198,6 +197,6 @@ var (
 	qualifierRole    = qualifier{of: func(r Descriptor) string { return r.role.String() }}
 	qualifierPurpose = qualifier{of: func(r Descriptor) string { return r.purpose.String() }}
 
-	// Only types that have an ordinal declare it. Zero renders as "0".
+	// Declared only by types that have an ordinal, since zero renders as "0".
 	qualifierOrdinal = qualifier{of: func(r Descriptor) string { return strconv.Itoa(r.ordinal) }}
 )
