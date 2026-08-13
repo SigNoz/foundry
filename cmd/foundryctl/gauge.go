@@ -34,11 +34,6 @@ func runGauge(ctx context.Context, logger *slog.Logger, path string) ([]domain.P
 
 	props := trackableProperties(machineries)
 
-	planners, err := foundry.Plan(ctx, machineries)
-	if err != nil {
-		return props, err
-	}
-
-	err = foundry.Gauge(ctx, planners)
+	err = foundry.Gauge(ctx, machineries)
 	return props, err
 }

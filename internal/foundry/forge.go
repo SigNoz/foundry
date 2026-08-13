@@ -7,15 +7,18 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
-	"github.com/signoz/foundry/internal/planner"
 	"github.com/signoz/foundry/internal/writer"
 )
 
 // Forge resolves every document of the casting file, records them all in one
 // lock, and writes their materials. A document that fails takes the run with
 // it, so no lock is written for a set that did not forge whole.
-func (foundry *Foundry) Forge(ctx context.Context, planners []planner.Planner, path string, poursWriterOpts *writer.Options) error {
-	machineries := make([]v1alpha1.Machinery, 0, len(planners))
+func (foundry *Foundry) Forge(ctx context.Context, machineries []v1alpha1.Machinery, path string, poursWriterOpts *writer.Options) error {
+	planners, err := foundry.Plan(ctx, machineries)
+	if err != nil {
+		return err
+	}
+
 	materials := []domain.Material{}
 
 	for _, p := range planners {
@@ -59,7 +62,6 @@ func (foundry *Foundry) Forge(ctx context.Context, planners []planner.Planner, p
 			}
 		}
 
-		machineries = append(machineries, machinery)
 		materials = append(materials, forged...)
 	}
 

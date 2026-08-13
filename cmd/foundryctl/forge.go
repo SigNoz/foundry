@@ -43,11 +43,6 @@ func runForge(ctx context.Context, logger *slog.Logger, path string, poursPath s
 		return props, err
 	}
 
-	planners, err := foundry.Plan(ctx, machineries)
-	if err != nil {
-		return props, err
-	}
-
-	err = foundry.Forge(ctx, planners, path, &writer.Options{Output: &os.File{}, TargetDirectory: poursAbsPath})
+	err = foundry.Forge(ctx, machineries, path, &writer.Options{Output: &os.File{}, TargetDirectory: poursAbsPath})
 	return props, err
 }

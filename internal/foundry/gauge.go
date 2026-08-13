@@ -5,14 +5,19 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/signoz/foundry/api/v1alpha1"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
-	"github.com/signoz/foundry/internal/planner"
 	"github.com/signoz/foundry/internal/tooler"
 )
 
 // Gauge checks the tools the whole casting file needs. Documents that share a
 // tool gauge it once, so a machine is neither probed nor reported twice.
-func (foundry *Foundry) Gauge(ctx context.Context, planners []planner.Planner) error {
+func (foundry *Foundry) Gauge(ctx context.Context, machineries []v1alpha1.Machinery) error {
+	planners, err := foundry.Plan(ctx, machineries)
+	if err != nil {
+		return err
+	}
+
 	toolers := []tooler.Tooler{}
 	for _, p := range planners {
 		toolers = append(toolers, p.Toolers()...)
