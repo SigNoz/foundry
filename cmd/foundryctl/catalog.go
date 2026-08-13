@@ -17,7 +17,7 @@ func registerCatalogCmd(rootCmd *cobra.Command) {
 	catalogCmd := &cobra.Command{
 		Use:   "catalog",
 		Short: "Show available castings",
-		RunE: recoverRunE(domain.EventCatalog, func(cmd *cobra.Command, args []string) ([]domain.Properties, error) {
+		RunE: recoverRunE(domain.EventCatalog, func(cmd *cobra.Command, args []string) (domain.Properties, error) {
 			return runCatalog(rootLogger)
 		}),
 	}
@@ -60,7 +60,7 @@ func catalogGroup(e castingEntry) int {
 	}
 }
 
-func runCatalog(logger *slog.Logger) ([]domain.Properties, error) {
+func runCatalog(logger *slog.Logger) (domain.Properties, error) {
 	registry := installationcasting.NewRegistry(logger)
 
 	var entries []castingEntry
@@ -81,6 +81,8 @@ func runCatalog(logger *slog.Logger) ([]domain.Properties, error) {
 		return entries[i].Example < entries[j].Example
 	})
 
+	props := domain.NewProperties()
+
 	if commonCfg.Format == "text" {
 		table := tablewriter.NewWriter(os.Stdout)
 		table.Header("Mode", "Flavor", "Platform", "Example")
@@ -88,17 +90,17 @@ func runCatalog(logger *slog.Logger) ([]domain.Properties, error) {
 			_ = table.Append(e.Mode, e.Flavor, e.Platform, e.Example)
 		}
 
-		return nil, table.Render()
+		return props, table.Render()
 	}
 
 	data, err := json.MarshalIndent(map[string]any{"Castings": entries}, "", "  ")
 	if err != nil {
-		return nil, err
+		return props, err
 	}
 	if catalogCfg.OutPath != "" {
 		err = os.WriteFile(catalogCfg.OutPath, data, 0644)
-		return nil, err
+		return props, err
 	}
 	_, err = os.Stdout.Write(data)
-	return nil, err
+	return props, err
 }

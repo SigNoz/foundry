@@ -17,7 +17,7 @@ func registerForgeCmd(rootCmd *cobra.Command) {
 		Use:   "forge",
 		Short: "Forge Configuration and Deployment Files",
 		Long:  "Generate deployment configuration files from casting.yaml",
-		RunE: recoverRunE(domain.EventForge, func(cmd *cobra.Command, args []string) ([]domain.Properties, error) {
+		RunE: recoverRunE(domain.EventForge, func(cmd *cobra.Command, args []string) (domain.Properties, error) {
 			return runForge(cmd.Context(), rootLogger, commonCfg.File, poursCfg.Path)
 		}),
 	}
@@ -25,15 +25,15 @@ func registerForgeCmd(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(forgeCmd)
 }
 
-func runForge(ctx context.Context, logger *slog.Logger, path string, poursPath string) ([]domain.Properties, error) {
+func runForge(ctx context.Context, logger *slog.Logger, path string, poursPath string) (domain.Properties, error) {
 	foundry, err := foundry.New(logger)
 	if err != nil {
-		return nil, err
+		return domain.NewProperties(), err
 	}
 
 	machineries, err := foundry.Config.GetV1Alpha1(ctx, path)
 	if err != nil {
-		return nil, err
+		return domain.NewProperties(), err
 	}
 
 	props := trackableProperties(machineries)

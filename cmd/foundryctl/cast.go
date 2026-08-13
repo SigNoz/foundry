@@ -16,7 +16,7 @@ func registerCastCmd(rootCmd *cobra.Command) {
 	castCmd := &cobra.Command{
 		Use:   "cast",
 		Short: "Cast to the target environment.",
-		RunE: recoverRunE(domain.EventCast, func(cmd *cobra.Command, args []string) ([]domain.Properties, error) {
+		RunE: recoverRunE(domain.EventCast, func(cmd *cobra.Command, args []string) (domain.Properties, error) {
 			ctx := cmd.Context()
 
 			if !castCfg.NoGauge {
@@ -39,20 +39,20 @@ func registerCastCmd(rootCmd *cobra.Command) {
 	castCfg.RegisterFlags(castCmd)
 }
 
-func runCast(ctx context.Context, logger *slog.Logger, poursPath string, configPath string) ([]domain.Properties, error) {
+func runCast(ctx context.Context, logger *slog.Logger, poursPath string, configPath string) (domain.Properties, error) {
 	foundry, err := foundry.New(logger)
 	if err != nil {
-		return nil, err
+		return domain.NewProperties(), err
 	}
 
 	poursPath, err = filepath.Abs(poursPath)
 	if err != nil {
-		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to resolve pours path")
+		return domain.NewProperties(), errors.Wrapf(err, errors.TypeInternal, "failed to resolve pours path")
 	}
 
 	machineries, err := foundry.Config.GetV1Alpha1Lock(ctx, configPath)
 	if err != nil {
-		return nil, err
+		return domain.NewProperties(), err
 	}
 
 	props := trackableProperties(machineries)
