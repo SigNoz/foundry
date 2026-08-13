@@ -457,7 +457,7 @@ spec:
 			expectedError: "Installation is declared twice",
 		},
 		{
-			name: "MissingKind_Invalid",
+			name: "MissingKind_DefaultsToInstallation",
 			contents: `
 apiVersion: v1alpha1
 metadata:
@@ -467,7 +467,8 @@ spec:
     mode: docker
     flavor: compose
 `,
-			expectedError: "kind is required",
+			expectedKinds: []v1alpha1.Kind{v1alpha1.KindInstallation},
+			pass:          true,
 		},
 		{
 			name: "UnknownKind_Invalid",

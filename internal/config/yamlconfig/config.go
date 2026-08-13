@@ -172,8 +172,10 @@ func (c *yamlConfig) castings(contents []byte, path string, read func(loader, []
 			return nil, errors.Wrapf(err, errors.TypeInvalidInput, "invalid casting file %s: document %d", path, position)
 		}
 
+		// Empty or missing kind defaults to KindInstallation so existing
+		// castings without `kind` keep working.
 		if probe.Kind == (v1alpha1.Kind{}) {
-			return nil, errors.Newf(errors.TypeInvalidInput, "invalid casting file %s: document %d: kind is required", path, position)
+			probe.Kind = v1alpha1.KindInstallation
 		}
 
 		// A Kind appears at most once: two documents of a Kind would pour into
