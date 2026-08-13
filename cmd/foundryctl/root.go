@@ -5,7 +5,6 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/instrumentation"
@@ -89,14 +88,4 @@ func recoverRunE(
 		props, err = runE(cmd, args)
 		return err
 	}
-}
-
-// trackableProperties keeps single-document reporting as it was. What a
-// multi-document run reports is not settled yet, so it reports bare.
-func trackableProperties(machineries []v1alpha1.Machinery) domain.Properties {
-	if len(machineries) == 1 {
-		return machineries[0].TrackableProperties()
-	}
-
-	return domain.NewProperties()
 }

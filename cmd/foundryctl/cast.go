@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"path/filepath"
 
+	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/foundry"
@@ -55,7 +56,12 @@ func runCast(ctx context.Context, logger *slog.Logger, poursPath string, configP
 		return domain.NewProperties(), err
 	}
 
-	props := trackableProperties(machineries)
+	props := domain.NewProperties()
+	for _, machinery := range machineries {
+		if machinery.Kind() == v1alpha1.KindInstallation {
+			props = machinery.TrackableProperties()
+		}
+	}
 
 	err = foundry.Cast(ctx, machineries, poursPath)
 	return props, err

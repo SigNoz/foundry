@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/foundry"
 	"github.com/spf13/cobra"
@@ -32,7 +33,12 @@ func runGauge(ctx context.Context, logger *slog.Logger, path string) (domain.Pro
 		return domain.NewProperties(), err
 	}
 
-	props := trackableProperties(machineries)
+	props := domain.NewProperties()
+	for _, machinery := range machineries {
+		if machinery.Kind() == v1alpha1.KindInstallation {
+			props = machinery.TrackableProperties()
+		}
+	}
 
 	err = foundry.Gauge(ctx, machineries)
 	return props, err

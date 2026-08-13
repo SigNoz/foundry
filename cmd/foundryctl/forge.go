@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/foundry"
 	"github.com/signoz/foundry/internal/writer"
@@ -36,7 +37,12 @@ func runForge(ctx context.Context, logger *slog.Logger, path string, poursPath s
 		return domain.NewProperties(), err
 	}
 
-	props := trackableProperties(machineries)
+	props := domain.NewProperties()
+	for _, machinery := range machineries {
+		if machinery.Kind() == v1alpha1.KindInstallation {
+			props = machinery.TrackableProperties()
+		}
+	}
 
 	poursAbsPath, err := filepath.Abs(poursPath)
 	if err != nil {
