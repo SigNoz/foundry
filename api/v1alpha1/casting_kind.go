@@ -22,9 +22,8 @@ var (
 	KindInfrastructure  Kind = Kind{s: "Infrastructure"}
 )
 
-// Kind discriminates between top-level casting resource types.
-// An empty/missing kind unmarshals to KindInstallation for backwards compatibility
-// with casting files written before kind was introduced.
+// Kind discriminates between top-level casting resource types. Every casting
+// document states its own, so that one file can hold several.
 type Kind struct {
 	s string
 }
@@ -52,8 +51,7 @@ func (kind *Kind) UnmarshalJSON(text []byte) error {
 
 func (kind *Kind) UnmarshalText(text []byte) error {
 	if len(text) == 0 {
-		*kind = KindInstallation
-		return nil
+		return errors.New("kind is required")
 	}
 
 	for _, available := range Kinds() {

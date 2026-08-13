@@ -11,6 +11,7 @@ const (
 	propertyKeyError      = "error"
 	propertyKeyErrorType  = "error_type"
 	propertyKeyErrorCause = "error_cause"
+	propertyKeyRunID      = "run_id"
 )
 
 // Properties is a string-keyed bag of telemetry values with a fixed shape for
@@ -26,6 +27,13 @@ func NewProperties() Properties {
 
 func (p Properties) Set(key string, value any) Properties {
 	p.values[key] = value
+	return p
+}
+
+// WithRunID records the invocation the tracked operation belongs to, so that
+// the events one command emits for several documents count as one run.
+func (p Properties) WithRunID(id RunID) Properties {
+	p.values[propertyKeyRunID] = id.String()
 	return p
 }
 

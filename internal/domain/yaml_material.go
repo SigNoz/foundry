@@ -19,14 +19,19 @@ type YAMLMaterial struct {
 }
 
 func NewYAMLMaterial(contents []byte, path string) (YAMLMaterial, error) {
-	reader := kio.ByteReader{Reader: bytes.NewReader(contents), OmitReaderAnnotations: true}
+	// Documents are parsed one at a time so a malformed one can be named.
+	var nodes []*yaml.RNode
+	for position, document := range YAMLStream(contents).Documents() {
+		node, err := yaml.Parse(string(document))
+		if err != nil {
+			return YAMLMaterial{}, errors.Wrapf(err, errors.TypeInvalidInput, "failed to create YAML material for path %q: document %d is not valid YAML", path, position)
+		}
 
-	nodes, err := reader.Read()
-	if err != nil {
-		return YAMLMaterial{}, errors.Wrapf(err, errors.TypeInvalidInput, "failed to create YAML material for path %q: contents are not valid YAML", path)
+		nodes = append(nodes, node)
 	}
 
 	var jsonContents []byte
+	var err error
 	if len(nodes) == 1 {
 		jsonContents, err = nodes[0].MarshalJSON()
 		if err != nil {

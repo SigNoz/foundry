@@ -10,6 +10,12 @@ type CastingMeta struct {
 	_           struct{}     `additionalProperties:"false"`
 }
 
+// Name is the identity a casting file keys by, together with the kind: no two
+// documents in one file may share a kind, so the pair locates a document.
+func (meta CastingMeta) Name() string {
+	return meta.Metadata.Name
+}
+
 // Status carries the casting file's checksum.
 type Status struct {
 	Checksum string   `json:"checksum" yaml:"checksum" description:"Checksum of the casting file"`

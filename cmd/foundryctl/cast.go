@@ -4,11 +4,13 @@ package main
 import (
 	"context"
 	"log/slog"
+	"os"
 	"path/filepath"
 
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/foundry"
+	"github.com/signoz/foundry/internal/writer"
 	"github.com/spf13/cobra"
 )
 
@@ -16,22 +18,8 @@ func registerCastCmd(rootCmd *cobra.Command) {
 	castCmd := &cobra.Command{
 		Use:   "cast",
 		Short: "Cast to the target environment.",
-		RunE: recoverRunE(domain.EventCast, func(cmd *cobra.Command, args []string) (domain.Properties, error) {
-			ctx := cmd.Context()
-
-			if !castCfg.NoGauge {
-				if props, err := runGauge(ctx, rootLogger, commonCfg.File); err != nil {
-					return props, err
-				}
-			}
-
-			if !castCfg.NoForge {
-				if props, err := runForge(ctx, rootLogger, commonCfg.File, poursCfg.Path); err != nil {
-					return props, err
-				}
-			}
-
-			return runCast(ctx, rootLogger, poursCfg.Path, commonCfg.File)
+		RunE: recoverRunE(domain.EventCast, func(cmd *cobra.Command, args []string) ([]domain.Properties, error) {
+			return runCast(cmd.Context(), rootLogger, poursCfg.Path, commonCfg.File)
 		}),
 	}
 
@@ -39,24 +27,49 @@ func registerCastCmd(rootCmd *cobra.Command) {
 	castCfg.RegisterFlags(castCmd)
 }
 
-func runCast(ctx context.Context, logger *slog.Logger, poursPath string, configPath string) (domain.Properties, error) {
+// runCast gauges, forges, and casts one set of castings. Forge resolves the set
+// in place and records it in the lock, so cast applies what was just recorded.
+// Without forge nothing resolves the castings, so the lock is the only source.
+func runCast(ctx context.Context, logger *slog.Logger, poursPath string, configPath string) ([]domain.Properties, error) {
 	foundry, err := foundry.New(logger)
 	if err != nil {
-		return domain.NewProperties(), err
+		return nil, err
 	}
 
 	poursPath, err = filepath.Abs(poursPath)
 	if err != nil {
-		return domain.NewProperties(), errors.Wrapf(err, errors.TypeInternal, "failed to resolve pours path")
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to resolve pours path")
 	}
 
-	machinery, err := foundry.Config.GetV1Alpha1Lock(ctx, configPath)
+	read := foundry.Config.GetV1Alpha1
+	if castCfg.NoForge {
+		read = foundry.Config.GetV1Alpha1Lock
+	}
+
+	machineries, err := read(ctx, configPath)
 	if err != nil {
-		return domain.NewProperties(), err
+		return nil, err
 	}
 
-	props := machinery.TrackableProperties()
+	props := trackableProperties(machineries)
 
-	err = foundry.Cast(ctx, machinery, poursPath)
+	planners, err := foundry.Plan(ctx, machineries)
+	if err != nil {
+		return props, err
+	}
+
+	if !castCfg.NoGauge {
+		if err := foundry.Gauge(ctx, planners); err != nil {
+			return props, err
+		}
+	}
+
+	if !castCfg.NoForge {
+		if err := foundry.Forge(ctx, planners, configPath, &writer.Options{Output: &os.File{}, TargetDirectory: poursPath}); err != nil {
+			return props, err
+		}
+	}
+
+	err = foundry.Cast(ctx, planners, poursPath)
 	return props, err
 }
