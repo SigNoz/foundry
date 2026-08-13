@@ -65,7 +65,6 @@ func recoverRunE(
 ) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) (err error) {
 		ctx := cmd.Context()
-		runID := domain.NewRunID()
 		props := []domain.Properties{}
 
 		defer func() {
@@ -85,7 +84,7 @@ func recoverRunE(
 			if err != nil {
 				rootLogger.ErrorContext(ctx, event.String()+" failed", foundryerrors.LogAttr(err))
 				for _, p := range props {
-					rootTracker.Track(ctx, event.Failed(), p.WithRunID(runID).WithError(err))
+					rootTracker.Track(ctx, event.Failed(), p.WithError(err))
 				}
 
 				if commonCfg.Format == "json" {
@@ -96,7 +95,7 @@ func recoverRunE(
 			}
 
 			for _, p := range props {
-				rootTracker.Track(ctx, event.Succeeded(), p.WithRunID(runID).WithSuccess())
+				rootTracker.Track(ctx, event.Succeeded(), p.WithSuccess())
 			}
 		}()
 
