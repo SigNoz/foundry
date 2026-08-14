@@ -31,8 +31,8 @@ type Foundry struct {
 	// Logger for logging.
 	Logger *slog.Logger
 
-	// Planners for the different casting kinds.
-	Planners map[v1alpha1.Kind]plannerCtor
+	// plannerCtors builds a planner for a casting of each Kind.
+	plannerCtors map[v1alpha1.Kind]plannerCtor
 }
 
 func New(logger *slog.Logger) (*Foundry, error) {
@@ -42,7 +42,7 @@ func New(logger *slog.Logger) (*Foundry, error) {
 			v1alpha1.PatchTypeJSONPatch: jsonpatch.New(),
 		},
 		Logger: logger,
-		Planners: map[v1alpha1.Kind]plannerCtor{
+		plannerCtors: map[v1alpha1.Kind]plannerCtor{
 			v1alpha1.KindInstallation: func(ctx context.Context, m v1alpha1.Machinery, logger *slog.Logger) (planner.Planner, error) {
 				return installationcasting.NewPlanner(ctx, m.(*installation.Casting), logger)
 			},
@@ -56,10 +56,24 @@ func New(logger *slog.Logger) (*Foundry, error) {
 	}, nil
 }
 
-func (foundry *Foundry) newPlanner(ctx context.Context, m v1alpha1.Machinery) (planner.Planner, error) {
-	ctor, ok := foundry.Planners[m.Kind()]
-	if !ok {
-		return nil, foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported casting kind %q", m.Kind())
+// Plan builds one planner per casting document, in the order the documents were
+// resolved. Every verb runs against the same set, so a command that gauges,
+// forges and casts plans once.
+func (foundry *Foundry) Plan(ctx context.Context, machineries []v1alpha1.Machinery) ([]planner.Planner, error) {
+	planners := make([]planner.Planner, 0, len(machineries))
+	for _, machinery := range machineries {
+		ctor, ok := foundry.plannerCtors[machinery.Kind()]
+		if !ok {
+			return nil, foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported casting kind %q", machinery.Kind())
+		}
+
+		p, err := ctor(ctx, machinery, foundry.Logger)
+		if err != nil {
+			return nil, err
+		}
+
+		planners = append(planners, p)
 	}
-	return ctor(ctx, m, foundry.Logger)
+
+	return planners, nil
 }

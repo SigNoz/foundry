@@ -10,6 +10,11 @@ type CastingMeta struct {
 	_           struct{}     `additionalProperties:"false"`
 }
 
+// Name labels a document; it is not identity, and may repeat within a file.
+func (meta CastingMeta) Name() string {
+	return meta.Metadata.Name
+}
+
 // Status carries the casting file's checksum.
 type Status struct {
 	Checksum string   `json:"checksum" yaml:"checksum" description:"Checksum of the casting file"`
