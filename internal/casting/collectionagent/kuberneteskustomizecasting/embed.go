@@ -9,14 +9,10 @@ import (
 //go:embed templates/*.gotmpl templates/agent/*.gotmpl templates/deployment/*.gotmpl
 var templates embed.FS
 
-// The pour is one kustomize root: kustomization.yaml is the entry point, and
-// the collector config enters through a configMapGenerator so a config change
-// re-hashes the ConfigMap name and rolls the workload.
 var (
 	kustomizationTemplate = domain.MustNewTemplateFromFS(templates, "templates/kustomization.yaml.gotmpl", domain.FormatYAML)
 	namespaceTemplate     = domain.MustNewTemplateFromFS(templates, "templates/namespace.yaml.gotmpl", domain.FormatYAML)
 
-	agentKustomizationTemplate      = domain.MustNewTemplateFromFS(templates, "templates/agent/kustomization.yaml.gotmpl", domain.FormatYAML)
 	agentServiceaccountTemplate     = domain.MustNewTemplateFromFS(templates, "templates/agent/serviceaccount.yaml.gotmpl", domain.FormatYAML)
 	agentClusterroleTemplate        = domain.MustNewTemplateFromFS(templates, "templates/agent/clusterrole.yaml.gotmpl", domain.FormatYAML)
 	agentClusterrolebindingTemplate = domain.MustNewTemplateFromFS(templates, "templates/agent/clusterrolebinding.yaml.gotmpl", domain.FormatYAML)
@@ -24,7 +20,6 @@ var (
 	daemonsetTemplate               = domain.MustNewTemplateFromFS(templates, "templates/agent/workload.yaml.gotmpl", domain.FormatYAML)
 	agentYAMLTemplate               = domain.MustNewTemplateFromFS(templates, "templates/agent/collector.yaml.gotmpl", domain.FormatYAML)
 
-	deploymentKustomizationTemplate      = domain.MustNewTemplateFromFS(templates, "templates/deployment/kustomization.yaml.gotmpl", domain.FormatYAML)
 	deploymentServiceaccountTemplate     = domain.MustNewTemplateFromFS(templates, "templates/deployment/serviceaccount.yaml.gotmpl", domain.FormatYAML)
 	deploymentClusterroleTemplate        = domain.MustNewTemplateFromFS(templates, "templates/deployment/clusterrole.yaml.gotmpl", domain.FormatYAML)
 	deploymentClusterrolebindingTemplate = domain.MustNewTemplateFromFS(templates, "templates/deployment/clusterrolebinding.yaml.gotmpl", domain.FormatYAML)

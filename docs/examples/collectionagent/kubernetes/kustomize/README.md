@@ -94,9 +94,11 @@ foundryctl forge -f agent/casting.yaml -p agent/pours
 foundryctl forge -f deployment/casting.yaml -p deployment/pours
 ```
 
-Each casting pours a kustomize root under `<kind>/pours/collectionagent/`:
-`kustomization.yaml`, the namespace, RBAC, service, the workload manifest,
-and the collector config under `collector/`.
+Each collector kind pours a kustomize root of its own under
+`<kind>/pours/collectionagent/collector/<kind>/`: `kustomization.yaml`, the
+namespace, RBAC, service, the workload manifest, and the collector config the
+configMapGenerator reads. A casting file declaring both kinds pours a root per
+document, and casting applies each.
 
 ## Cast
 
@@ -109,5 +111,5 @@ This runs `kubectl apply -k` against the pours using your current kubeconfig
 context. To inspect what would be applied first:
 
 ```bash
-kubectl kustomize agent/pours/collectionagent
+kubectl kustomize agent/pours/collectionagent/collector/agent
 ```

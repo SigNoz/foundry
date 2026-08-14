@@ -4,7 +4,16 @@ configMapGenerator:
   - deployment.yaml
   name: signoz-collector-deployment
 kind: Kustomization
+labels:
+- includeSelectors: false
+  includeTemplates: true
+  pairs:
+    foundry.signoz.io/kind: CollectionAgent
+    foundry.signoz.io/managed-by: foundry
+    foundry.signoz.io/name: signoz
+namespace: signoz
 resources:
+- namespace.yaml
 - serviceaccount.yaml
 - clusterrole.yaml
 - clusterrolebinding.yaml

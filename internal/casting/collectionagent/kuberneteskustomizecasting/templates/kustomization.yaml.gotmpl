@@ -13,4 +13,13 @@ labels:
 
 resources:
   - namespace.yaml
-  - collector/{{ $.Spec.Collector.Kind }}
+  - serviceaccount.yaml
+  - clusterrole.yaml
+  - clusterrolebinding.yaml
+  - service.yaml
+  - workload.yaml
+
+configMapGenerator:
+  - name: {{ $.Metadata.Name }}-collector-{{ $.Spec.Collector.Kind }}
+    files:
+      - {{ $.Spec.Collector.Kind }}.yaml
