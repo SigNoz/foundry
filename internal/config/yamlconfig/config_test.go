@@ -484,18 +484,18 @@ spec:
 		{
 			name:          "DuplicateKind_Invalid",
 			contents:      installationDocument + "---" + installationDocument,
-			expectedError: "Installation is declared twice",
+			expectedError: `Installation is already declared as "signoz"`,
 		},
 		{
 			name:          "DuplicateCollectorKind_Invalid",
 			contents:      collectionAgentAgentDocument + "---" + collectionAgentAgentDocument,
-			expectedError: `CollectionAgent with collector kind "agent" is declared twice`,
+			expectedError: `CollectionAgent is already declared as "signoz-agent"`,
 		},
 		{
 			// An omitted collector kind defaults to agent.
 			name:          "DuplicateCollectorKindByDefault_Invalid",
 			contents:      collectionAgentDocument + "---" + collectionAgentAgentDocument,
-			expectedError: `CollectionAgent with collector kind "agent" is declared twice`,
+			expectedError: `CollectionAgent is already declared as "signoz-agent"`,
 		},
 		{
 			name: "MissingKind_DefaultsToInstallation",
