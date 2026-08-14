@@ -56,8 +56,19 @@ func (l loader) resolve(bytes []byte) (v1alpha1.Machinery, error) {
 		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to merge default %s casting", l.kind)
 	}
 
-	if err := validate(casting, l.schema()); err != nil {
-		return nil, err
+	// The schema describes the JSON shape, so the casting validates as JSON.
+	contents, err := json.Marshal(casting)
+	if err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to marshal casting")
+	}
+
+	toValidate := map[string]any{}
+	if err := json.Unmarshal(contents, &toValidate); err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to unmarshal casting for validation")
+	}
+
+	if err := l.schema().Validate(toValidate); err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "failed to validate casting against its schema")
 	}
 
 	if l.check == nil {
@@ -80,26 +91,6 @@ func (l loader) read(bytes []byte) (v1alpha1.Machinery, error) {
 	}
 
 	return casting, nil
-}
-
-// conflict reports the casting a candidate would pour over: any second
-// document of a Kind that holds one, or one sharing the discriminator.
-func (l loader) conflict(declared []v1alpha1.Machinery, candidate v1alpha1.Machinery, path string, position int) error {
-	if l.discriminator == nil {
-		if len(declared) == 0 {
-			return nil
-		}
-
-		return errors.Newf(errors.TypeInvalidInput, "invalid casting file %s: document %d: %s is declared twice, already as %q: a casting file holds at most one document of a kind", path, position, l.kind, declared[0].Name())
-	}
-
-	for _, casting := range declared {
-		if l.discriminator(casting) == l.discriminator(candidate) {
-			return errors.Newf(errors.TypeInvalidInput, "invalid casting file %s: document %d: %s with collector kind %q is declared twice, already as %q: a casting file holds at most one document of a kind per collector kind", path, position, l.kind, l.discriminator(candidate), casting.Name())
-		}
-	}
-
-	return nil
 }
 
 type yamlConfig struct {
@@ -218,9 +209,17 @@ func (c *yamlConfig) castings(contents []byte, path string, read func(loader, []
 			return nil, errors.Wrapf(err, errors.TypeInvalidInput, "invalid casting file %s: document %d (%s)", path, position, probe.Kind)
 		}
 
-		// Resolved castings, so a defaulted value collides with an explicit one.
-		if err := l.conflict(byKind[probe.Kind], casting, path, position); err != nil {
-			return nil, err
+		// Two documents that would pour over each other: a second one of a Kind
+		// that holds one, or one sharing the discriminator. Comparing resolved
+		// castings, so a defaulted value collides with an explicit one.
+		for _, declared := range byKind[probe.Kind] {
+			if l.discriminator == nil {
+				return nil, errors.Newf(errors.TypeInvalidInput, "invalid casting file %s: document %d: %s is declared twice, already as %q: a casting file holds at most one document of a kind", path, position, probe.Kind, declared.Name())
+			}
+
+			if l.discriminator(declared) == l.discriminator(casting) {
+				return nil, errors.Newf(errors.TypeInvalidInput, "invalid casting file %s: document %d: %s with collector kind %q is declared twice, already as %q: a casting file holds at most one document of a kind per collector kind", path, position, probe.Kind, l.discriminator(casting), declared.Name())
+			}
 		}
 
 		byKind[probe.Kind] = append(byKind[probe.Kind], casting)
@@ -238,24 +237,4 @@ func (c *yamlConfig) castings(contents []byte, path string, read func(loader, []
 	}
 
 	return machineries, nil
-}
-
-// validate checks the casting against its schema through JSON, which is the
-// shape the schema describes.
-func validate(casting v1alpha1.Machinery, schema *jsonschema.Resolved) error {
-	contents, err := json.Marshal(casting)
-	if err != nil {
-		return errors.Wrapf(err, errors.TypeInternal, "failed to marshal casting")
-	}
-
-	toValidate := map[string]any{}
-	if err := json.Unmarshal(contents, &toValidate); err != nil {
-		return errors.Wrapf(err, errors.TypeInternal, "failed to unmarshal casting for validation")
-	}
-
-	if err := schema.Validate(toValidate); err != nil {
-		return errors.Wrapf(err, errors.TypeInvalidInput, "failed to validate casting against its schema")
-	}
-
-	return nil
 }
