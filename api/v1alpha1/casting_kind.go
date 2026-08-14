@@ -33,8 +33,10 @@ func (kind Kind) String() string {
 	return kind.s
 }
 
+// Kinds returns the kinds in cast order: a substrate before the workloads that
+// run on it.
 func Kinds() []Kind {
-	return []Kind{KindInstallation, KindCollectionAgent, KindInfrastructure}
+	return []Kind{KindInfrastructure, KindInstallation, KindCollectionAgent}
 }
 
 func (kind Kind) MarshalJSON() ([]byte, error) {

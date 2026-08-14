@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"slices"
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/signoz/foundry/api/v1alpha1"
@@ -22,7 +21,7 @@ import (
 const lockFileName = "casting.yaml.lock"
 
 // loader is one Kind's entry in the table. Supporting a new Kind is one entry
-// in yamlConfig.loaders and nothing else.
+// here and its place in v1alpha1.Kinds().
 type loader struct {
 	kind v1alpha1.Kind
 
@@ -38,6 +37,10 @@ type loader struct {
 
 	// check is the Kind's compatibility matrix. Nil when it has none.
 	check func(casting v1alpha1.Machinery) error
+
+	// discriminator tells two documents of this Kind apart. Nil for a Kind
+	// that holds one document per file.
+	discriminator func(casting v1alpha1.Machinery) string
 }
 
 // resolve lays the Kind's defaults under the declaration, merges the
@@ -79,40 +82,66 @@ func (l loader) read(bytes []byte) (v1alpha1.Machinery, error) {
 	return casting, nil
 }
 
+// conflict reports the casting a candidate would pour over: any second
+// document of a Kind that holds one, or one sharing the discriminator.
+func (l loader) conflict(declared []v1alpha1.Machinery, candidate v1alpha1.Machinery, path string, position int) error {
+	if l.discriminator == nil {
+		if len(declared) == 0 {
+			return nil
+		}
+
+		return errors.Newf(errors.TypeInvalidInput, "invalid casting file %s: document %d: %s is declared twice, already as %q: a casting file holds at most one document of a kind", path, position, l.kind, declared[0].Name())
+	}
+
+	for _, casting := range declared {
+		if l.discriminator(casting) == l.discriminator(candidate) {
+			return errors.Newf(errors.TypeInvalidInput, "invalid casting file %s: document %d: %s with collector kind %q is declared twice, already as %q: a casting file holds at most one document of a kind per collector kind", path, position, l.kind, l.discriminator(candidate), casting.Name())
+		}
+	}
+
+	return nil
+}
+
 type yamlConfig struct {
-	// loaders is one entry per Kind, in cast order: a substrate before the
-	// workloads that run on it.
-	loaders []loader
+	loaders map[v1alpha1.Kind]loader
 }
 
 func New(logger *slog.Logger) config.Config {
-	return &yamlConfig{
-		loaders: []loader{
-			{
-				kind:     v1alpha1.KindInfrastructure,
-				new:      func() v1alpha1.Machinery { return &infrastructure.Casting{} },
-				defaults: func(v1alpha1.Machinery) v1alpha1.Machinery { return infrastructure.Default() },
-				schema:   infrastructure.Schema,
+	loaders := []loader{
+		{
+			kind:     v1alpha1.KindInfrastructure,
+			new:      func() v1alpha1.Machinery { return &infrastructure.Casting{} },
+			defaults: func(v1alpha1.Machinery) v1alpha1.Machinery { return infrastructure.Default() },
+			schema:   infrastructure.Schema,
+		},
+		{
+			kind: v1alpha1.KindInstallation,
+			new:  func() v1alpha1.Machinery { return &installation.Casting{} },
+			defaults: func(declared v1alpha1.Machinery) v1alpha1.Machinery {
+				return installation.Default(declared.(*installation.Casting))
 			},
-			{
-				kind: v1alpha1.KindInstallation,
-				new:  func() v1alpha1.Machinery { return &installation.Casting{} },
-				defaults: func(declared v1alpha1.Machinery) v1alpha1.Machinery {
-					return installation.Default(declared.(*installation.Casting))
-				},
-				schema: installation.Schema,
-				check: func(casting v1alpha1.Machinery) error {
-					return installationcompat.Compatibility(casting.(*installation.Casting), logger)
-				},
+			schema: installation.Schema,
+			check: func(casting v1alpha1.Machinery) error {
+				return installationcompat.Compatibility(casting.(*installation.Casting), logger)
 			},
-			{
-				kind:     v1alpha1.KindCollectionAgent,
-				new:      func() v1alpha1.Machinery { return &collectionagent.Casting{} },
-				defaults: func(v1alpha1.Machinery) v1alpha1.Machinery { return collectionagent.Default() },
-				schema:   collectionagent.Schema,
+		},
+		{
+			kind:     v1alpha1.KindCollectionAgent,
+			new:      func() v1alpha1.Machinery { return &collectionagent.Casting{} },
+			defaults: func(v1alpha1.Machinery) v1alpha1.Machinery { return collectionagent.Default() },
+			schema:   collectionagent.Schema,
+			discriminator: func(casting v1alpha1.Machinery) string {
+				return casting.(*collectionagent.Casting).Spec.Collector.Kind.String()
 			},
 		},
 	}
+
+	byKind := make(map[v1alpha1.Kind]loader, len(loaders))
+	for _, l := range loaders {
+		byKind[l.kind] = l
+	}
+
+	return &yamlConfig{loaders: byKind}
 }
 
 // GetV1Alpha1 reads, dispatches, and validates every casting document in the
@@ -158,11 +187,12 @@ func (*yamlConfig) CreateV1Alpha1Lock(ctx context.Context, machineries []v1alpha
 	return nil
 }
 
-// castings reads every casting document in the stream with its Kind's reader
-// and returns them in cast order. Documents that declare nothing are skipped.
-// Positions in errors count every document in the file, as a reader does.
+// castings reads every casting document with its Kind's reader and returns
+// them in cast order, a Kind's own documents in file order. Positions in
+// errors count every document in the file, empty ones included.
 func (c *yamlConfig) castings(contents []byte, path string, read func(loader, []byte) (v1alpha1.Machinery, error)) ([]v1alpha1.Machinery, error) {
-	byKind := make(map[v1alpha1.Kind]v1alpha1.Machinery, len(c.loaders))
+	byKind := make(map[v1alpha1.Kind][]v1alpha1.Machinery, len(c.loaders))
+	count := 0
 
 	for position, bytes := range domain.YAMLStream(contents).Documents() {
 		var probe struct {
@@ -172,41 +202,39 @@ func (c *yamlConfig) castings(contents []byte, path string, read func(loader, []
 			return nil, errors.Wrapf(err, errors.TypeInvalidInput, "invalid casting file %s: document %d", path, position)
 		}
 
-		// Empty or missing kind defaults to KindInstallation so existing
-		// castings without `kind` keep working.
+		// Empty kind defaults to Installation so castings written before kind
+		// keep working.
 		if probe.Kind == (v1alpha1.Kind{}) {
 			probe.Kind = v1alpha1.KindInstallation
 		}
 
-		// A Kind appears at most once: two documents of a Kind would pour into
-		// the same directory.
-		if declared, taken := byKind[probe.Kind]; taken {
-			return nil, errors.Newf(errors.TypeInvalidInput, "invalid casting file %s: document %d: %s is declared twice, already as %q: a casting file holds at most one document of a kind", path, position, probe.Kind, declared.Name())
-		}
-
-		index := slices.IndexFunc(c.loaders, func(l loader) bool { return l.kind == probe.Kind })
-		if index < 0 {
+		l, supported := c.loaders[probe.Kind]
+		if !supported {
 			return nil, errors.Newf(errors.TypeUnsupported, "invalid casting file %s: document %d: unknown casting kind %q", path, position, probe.Kind)
 		}
 
-		machinery, err := read(c.loaders[index], bytes)
+		casting, err := read(l, bytes)
 		if err != nil {
 			return nil, errors.Wrapf(err, errors.TypeInvalidInput, "invalid casting file %s: document %d (%s)", path, position, probe.Kind)
 		}
 
-		byKind[probe.Kind] = machinery
+		// Resolved castings, so a defaulted value collides with an explicit one.
+		if err := l.conflict(byKind[probe.Kind], casting, path, position); err != nil {
+			return nil, err
+		}
+
+		byKind[probe.Kind] = append(byKind[probe.Kind], casting)
+		count++
 	}
 
-	if len(byKind) == 0 {
+	if count == 0 {
 		return nil, errors.Newf(errors.TypeInvalidInput, "invalid casting file %s: it declares no castings", path)
 	}
 
-	// Walking the loaders emits the set in cast order.
-	machineries := make([]v1alpha1.Machinery, 0, len(byKind))
-	for _, l := range c.loaders {
-		if machinery, declared := byKind[l.kind]; declared {
-			machineries = append(machineries, machinery)
-		}
+	// Kinds are declared in cast order.
+	machineries := make([]v1alpha1.Machinery, 0, count)
+	for _, kind := range v1alpha1.Kinds() {
+		machineries = append(machineries, byKind[kind]...)
 	}
 
 	return machineries, nil

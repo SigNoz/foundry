@@ -10,8 +10,7 @@ type CastingMeta struct {
 	_           struct{}     `additionalProperties:"false"`
 }
 
-// Name is the identity a casting file keys by, together with the kind: no two
-// documents in one file may share a kind, so the pair locates a document.
+// Name labels a document; it is not identity, and may repeat within a file.
 func (meta CastingMeta) Name() string {
 	return meta.Metadata.Name
 }

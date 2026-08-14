@@ -412,6 +412,29 @@ spec:
     mode: docker
     flavor: compose
 `
+	infrastructureDocument := `
+apiVersion: v1alpha1
+kind: Infrastructure
+metadata:
+  name: signoz-infra
+spec:
+  deployment:
+    platform: ecs
+    mode: ec2
+    flavor: terraform
+`
+	collectionAgentAgentDocument := `
+apiVersion: v1alpha1
+kind: CollectionAgent
+metadata:
+  name: signoz-agent
+spec:
+  deployment:
+    mode: docker
+    flavor: compose
+  collector:
+    kind: agent
+`
 
 	tests := []struct {
 		name          string
@@ -440,6 +463,13 @@ spec:
 			pass:          true,
 		},
 		{
+			// Written in reverse: the order comes from v1alpha1.Kinds().
+			name:          "EveryKindReversed_CastOrder_Valid",
+			contents:      collectionAgentDocument + "---" + installationDocument + "---" + infrastructureDocument,
+			expectedKinds: []v1alpha1.Kind{v1alpha1.KindInfrastructure, v1alpha1.KindInstallation, v1alpha1.KindCollectionAgent},
+			pass:          true,
+		},
+		{
 			name:          "EmptyAndCommentDocuments_Valid",
 			contents:      "# a note\n---" + installationDocument + "---\n\n---" + collectionAgentDocument,
 			expectedKinds: []v1alpha1.Kind{v1alpha1.KindInstallation, v1alpha1.KindCollectionAgent},
@@ -455,6 +485,17 @@ spec:
 			name:          "DuplicateKind_Invalid",
 			contents:      installationDocument + "---" + installationDocument,
 			expectedError: "Installation is declared twice",
+		},
+		{
+			name:          "DuplicateCollectorKind_Invalid",
+			contents:      collectionAgentAgentDocument + "---" + collectionAgentAgentDocument,
+			expectedError: `CollectionAgent with collector kind "agent" is declared twice`,
+		},
+		{
+			// An omitted collector kind defaults to agent.
+			name:          "DuplicateCollectorKindByDefault_Invalid",
+			contents:      collectionAgentDocument + "---" + collectionAgentAgentDocument,
+			expectedError: `CollectionAgent with collector kind "agent" is declared twice`,
 		},
 		{
 			name: "MissingKind_DefaultsToInstallation",
@@ -642,6 +683,42 @@ spec:
 `,
 			expectedKinds: []v1alpha1.Kind{v1alpha1.KindInstallation, v1alpha1.KindCollectionAgent},
 			expectedNames: []string{"signoz", "signoz-agent"},
+		},
+		{
+			// Written agent-first, so the lock proves it records cast order
+			// across every kind.
+			name: "EveryKind_RoundTripsInCastOrder",
+			contents: `
+apiVersion: v1alpha1
+kind: CollectionAgent
+metadata:
+  name: signoz-agent
+spec:
+  deployment:
+    mode: docker
+    flavor: compose
+---
+apiVersion: v1alpha1
+kind: Installation
+metadata:
+  name: signoz
+spec:
+  deployment:
+    mode: docker
+    flavor: compose
+---
+apiVersion: v1alpha1
+kind: Infrastructure
+metadata:
+  name: signoz-infra
+spec:
+  deployment:
+    platform: ecs
+    mode: ec2
+    flavor: terraform
+`,
+			expectedKinds: []v1alpha1.Kind{v1alpha1.KindInfrastructure, v1alpha1.KindInstallation, v1alpha1.KindCollectionAgent},
+			expectedNames: []string{"signoz-infra", "signoz", "signoz-agent"},
 		},
 	}
 
