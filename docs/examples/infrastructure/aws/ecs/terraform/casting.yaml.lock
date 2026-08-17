@@ -1,0 +1,63 @@
+apiVersion: v1alpha1
+kind: Infrastructure
+metadata:
+  annotations:
+    foundry.signoz.io/ecs-region: us-east-1
+  name: foundry
+spec:
+  deployment:
+    flavor: terraform
+    mode: ecs
+    platform: aws
+  resource:
+    spec:
+      cluster: {}
+      config:
+        data:
+          resource.yaml: |
+            networking:
+              networkCIDR: 10.0.0.0/16
+              subnets:
+                private-a:
+                  type: private
+                  zone: us-east-1a
+                  cidr: 10.0.0.0/19
+                public-a:
+                  type: public
+                  zone: us-east-1a
+                  cidr: 10.0.96.0/22
+    status:
+      config:
+        data:
+          resource.yaml: |
+            instanceGroups:
+              ephemeral:
+                machineType: c5.large
+                maxSize: 1
+                minSize: 1
+                rootVolume:
+                  size: 30
+                  type: gp3
+                storage: ephemeral
+              persistent:
+                dataVolume:
+                  size: 50
+                  type: gp3
+                machineType: m5.large
+                maxSize: 3
+                minSize: 3
+                rootVolume:
+                  size: 30
+                  type: gp3
+                storage: persistent
+            networking:
+              networkCIDR: 10.0.0.0/16
+              subnets:
+                private-a:
+                  cidr: 10.0.0.0/19
+                  type: private
+                  zone: us-east-1a
+                public-a:
+                  cidr: 10.0.96.0/22
+                  type: public
+                  zone: us-east-1a

@@ -1,0 +1,10 @@
+{
+  "provider": {
+    "aws": {
+      "region": "${var.aws_region}",
+      "ignore_tags": {
+        "keys": ["foundry.signoz.io/identities"]
+      }
+    }
+  }
+}
