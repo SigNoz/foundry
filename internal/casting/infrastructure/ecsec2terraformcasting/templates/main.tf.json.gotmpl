@@ -1,0 +1,292 @@
+{{- /* Names and tags are interpolated from the derived data, never assembled
+       here. A literal spelled twice is a filter that matches nothing. */}}
+{{- $subnets := dict -}}
+{{- range $key, $subnet := $.Network.Subnets }}{{ if not $subnet.ID }}{{ $_ := set $subnets $key $subnet }}{{ end }}{{ end -}}
+{{- $gateways := dict -}}
+{{- range $key, $gateway := $.Network.NATGateways }}{{ if $gateway.Name }}{{ $_ := set $gateways $key $gateway }}{{ end }}{{ end -}}
+{
+  "locals": {
+    "vpc_id": "{{ if $.Network.VPC.ID }}{{ $.Network.VPC.ID }}{{ else }}${aws_vpc.main.id}{{ end }}",
+    "subnet_ids": {
+      {{- $first := true }}{{ range $key, $subnet := $.Network.Subnets }}{{ if not $first }},{{ end }}{{ $first = false }}
+      "{{ $key }}": "{{ if $subnet.ID }}{{ $subnet.ID }}{{ else }}${aws_subnet.{{ $key }}.id}{{ end }}"
+      {{- end }}
+    }
+  },
+  "data": {
+    "aws_ssm_parameter": {
+      "ecs_ami": {
+        "name": "/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id"
+      }
+    }
+  },
+  "resource": {
+    {{- if not $.Network.VPC.ID }}
+    "aws_vpc": {
+      "main": {
+        "cidr_block": "${var.network_cidr}",
+        "enable_dns_hostnames": true,
+        "enable_dns_support": true,
+        "tags": {{ toJson $.Network.VPC.Tags }}
+      }
+    },
+    {{- end }}
+    {{- if $subnets }}
+    "aws_subnet": {
+      {{- $first := true }}{{ range $key, $subnet := $subnets }}{{ if not $first }},{{ end }}{{ $first = false }}
+      "{{ $key }}": {
+        "vpc_id": "${local.vpc_id}",
+        "cidr_block": "${var.subnet_{{ identifier $key }}_cidr}",
+        "availability_zone": "${var.subnet_{{ identifier $key }}_zone}",
+        {{- if $subnet.Public }}
+        "map_public_ip_on_launch": true,
+        {{- end }}
+        "tags": {{ toJson $subnet.Tags }}
+      }
+      {{- end }}
+    },
+    {{- end }}
+    {{- if $.Network.InternetGateway.Name }}
+    "aws_internet_gateway": {
+      "main": {
+        "vpc_id": "${local.vpc_id}",
+        "tags": {{ toJson $.Network.InternetGateway.Tags }}
+      }
+    },
+    {{- end }}
+    {{- if $gateways }}
+    "aws_eip": {
+      {{- $first := true }}{{ range $key, $gateway := $gateways }}{{ if not $first }},{{ end }}{{ $first = false }}
+      "{{ $key }}": {
+        "domain": "vpc",
+        "tags": {{ toJson $gateway.Address.Tags }}
+      }
+      {{- end }}
+    },
+    "aws_nat_gateway": {
+      {{- $first := true }}{{ range $key, $gateway := $gateways }}{{ if not $first }},{{ end }}{{ $first = false }}
+      "{{ $key }}": {
+        "allocation_id": "${aws_eip.{{ $key }}.id}",
+        "subnet_id": "${local.subnet_ids[\"{{ $gateway.Subnet }}\"]}",
+        "tags": {{ toJson $gateway.Tags }},
+        "depends_on": ["aws_internet_gateway.main"]
+      }
+      {{- end }}
+    },
+    {{- end }}
+    {{- if $.Network.RouteTables }}
+    {{- /* A table per subnet. A private subnet's default route is its own
+           zone's gateway. */}}
+    "aws_route_table": {
+      {{- $first := true }}{{ range $key, $table := $.Network.RouteTables }}{{ if not $first }},{{ end }}{{ $first = false }}
+      "{{ $key }}": {
+        "vpc_id": "${local.vpc_id}",
+        "tags": {{ toJson $table.Tags }}
+      }
+      {{- end }}
+    },
+    "aws_route": {
+      {{- $first := true }}{{ range $key, $table := $.Network.RouteTables }}
+      {{- $subnet := index $.Network.Subnets $key }}
+      {{- if $subnet.Public }}{{ if not $first }},{{ end }}{{ $first = false }}
+      "{{ $key }}": {
+        "route_table_id": "${aws_route_table.{{ $key }}.id}",
+        "destination_cidr_block": "0.0.0.0/0",
+        "gateway_id": "${aws_internet_gateway.main.id}"
+      }
+      {{- else }}{{ $gateway := index $.Network.NATGateways $key }}{{ if or $gateway.Name $gateway.ID }}{{ if not $first }},{{ end }}{{ $first = false }}
+      "{{ $key }}": {
+        "route_table_id": "${aws_route_table.{{ $key }}.id}",
+        "destination_cidr_block": "0.0.0.0/0",
+        "nat_gateway_id": "{{ if $gateway.ID }}{{ $gateway.ID }}{{ else }}${aws_nat_gateway.{{ $key }}.id}{{ end }}"
+      }
+      {{- end }}{{ end }}{{ end }}
+    },
+    "aws_route_table_association": {
+      {{- $first := true }}{{ range $key, $table := $.Network.RouteTables }}{{ if not $first }},{{ end }}{{ $first = false }}
+      "{{ $key }}": {
+        "subnet_id": "${local.subnet_ids[\"{{ $key }}\"]}",
+        "route_table_id": "${aws_route_table.{{ $key }}.id}"
+      }
+      {{- end }}
+    },
+    {{- end }}
+    {{- if $.Pinned }}
+    "terraform_data": {
+      {{- $first := true }}{{ range $key, $group := $.Pinned }}{{ if not $first }},{{ end }}{{ $first = false }}
+      "{{ $key }}": {
+        "triggers_replace": "${var.group_{{ identifier $key }}_machine_type}"
+      }
+      {{- end }}
+    },
+    "aws_instance": {
+      {{- $first := true }}{{ range $key, $group := $.Pinned }}{{ range $node := $group.Nodes }}{{ if not $first }},{{ end }}{{ $first = false }}
+      "{{ $key }}-{{ $node.Ordinal }}": {
+        "ami": "${data.aws_ssm_parameter.ecs_ami.value}",
+        "instance_type": "${var.group_{{ identifier $key }}_machine_type}",
+        "subnet_id": "${local.subnet_ids[\"{{ $node.Subnet }}\"]}",
+        "vpc_security_group_ids": ["${aws_security_group.tasks.id}"],
+        "iam_instance_profile": "${aws_iam_instance_profile.node.name}",
+        "user_data_base64": "${filebase64(\"${path.module}/cloud-init/{{ $key }}.yaml\")}",
+        {{- /* Boot config runs on first boot only. A change means a new node. */}}
+        "user_data_replace_on_change": true,
+        "root_block_device": [
+          {
+            "volume_size": "${var.group_{{ identifier $key }}_root_volume_size}",
+            "volume_type": "${var.group_{{ identifier $key }}_root_volume_type}",
+            "delete_on_termination": true
+          }
+        ],
+        "tags": {{ toJson $node.Tags }},
+        {{- /* ECS refuses to re-register an instance whose type changed, and
+               the agent then exits terminally. A type change must REPLACE the
+               node. The AMI is pinned so SSM rotation does not replace the
+               fleet as a side effect. */}}
+        "lifecycle": {
+          "replace_triggered_by": ["terraform_data.{{ $key }}"],
+          "ignore_changes": ["ami"]
+        },
+        "depends_on": ["aws_ecs_cluster.main"]
+      }
+      {{- end }}{{ end }}
+    },
+    "aws_ebs_volume": {
+      {{- $first := true }}{{ range $key, $group := $.Pinned }}{{ range $node := $group.Nodes }}{{ if not $first }},{{ end }}{{ $first = false }}
+      "{{ $key }}-{{ $node.Ordinal }}": {
+        "availability_zone": "${var.subnet_{{ identifier $node.Subnet }}_zone}",
+        "size": "${var.group_{{ identifier $key }}_data_volume_size}",
+        "type": "${var.group_{{ identifier $key }}_data_volume_type}",
+        "tags": {{ toJson $node.Volume.Tags }}
+      }
+      {{- end }}{{ end }}
+    },
+    "aws_volume_attachment": {
+      {{- $first := true }}{{ range $key, $group := $.Pinned }}{{ range $node := $group.Nodes }}{{ if not $first }},{{ end }}{{ $first = false }}
+      "{{ $key }}-{{ $node.Ordinal }}": {
+        "device_name": "/dev/xvdf",
+        "volume_id": "${aws_ebs_volume.{{ $key }}-{{ $node.Ordinal }}.id}",
+        "instance_id": "${aws_instance.{{ $key }}-{{ $node.Ordinal }}.id}"
+      }
+      {{- end }}{{ end }}
+    },
+    {{- end }}
+    {{- if $.Pools }}
+    "aws_launch_template": {
+      {{- $first := true }}{{ range $key, $group := $.Pools }}{{ if not $first }},{{ end }}{{ $first = false }}
+      "{{ $key }}": {
+        "name": "{{ $group.LaunchTemplate.Name }}",
+        "image_id": "${data.aws_ssm_parameter.ecs_ami.value}",
+        "instance_type": "${var.group_{{ identifier $key }}_machine_type}",
+        "iam_instance_profile": {
+          "arn": "${aws_iam_instance_profile.node.arn}"
+        },
+        "vpc_security_group_ids": ["${aws_security_group.tasks.id}"],
+        "user_data": "${filebase64(\"${path.module}/cloud-init/{{ $key }}.yaml\")}",
+        "block_device_mappings": [
+          {
+            "device_name": "/dev/xvda",
+            "ebs": [
+              {
+                "volume_size": "${var.group_{{ identifier $key }}_root_volume_size}",
+                "volume_type": "${var.group_{{ identifier $key }}_root_volume_type}",
+                "delete_on_termination": true
+              }
+            ]
+          }
+        ],
+        "tag_specifications": [
+          {
+            "resource_type": "instance",
+            "tags": {{ toJson $group.LaunchTemplate.Tags }}
+          }
+        ],
+        "tags": {{ toJson $group.LaunchTemplate.Tags }}
+      }
+      {{- end }}
+    },
+    "aws_autoscaling_group": {
+      {{- $first := true }}{{ range $key, $group := $.Pools }}{{ if not $first }},{{ end }}{{ $first = false }}
+      "{{ $key }}": {
+        "name": "{{ $group.AutoscalingGroup.Name }}",
+        "desired_capacity": "${var.group_{{ identifier $key }}_min_size}",
+        "min_size": "${var.group_{{ identifier $key }}_min_size}",
+        "max_size": "${var.group_{{ identifier $key }}_max_size}",
+        "vpc_zone_identifier": [{{ range $i, $subnet := $group.Subnets }}{{ if $i }}, {{ end }}"${local.subnet_ids[\"{{ $subnet }}\"]}"{{ end }}],
+        "launch_template": [
+          {
+            "id": "${aws_launch_template.{{ $key }}.id}",
+            "version": "$Latest"
+          }
+        ],
+        "tag": [
+          {{- $first := true }}{{ range $tag, $value := $group.AutoscalingGroup.Tags }}{{ if not $first }},{{ end }}{{ $first = false }}
+          {"key": "{{ $tag }}", "value": "{{ $value }}", "propagate_at_launch": true}
+          {{- end }}
+        ],
+        "depends_on": ["aws_ecs_cluster.main"]
+      }
+      {{- end }}
+    },
+    {{- end }}
+    "aws_security_group": {
+      "tasks": {
+        "name": "{{ $.SecurityGroup.Name }}",
+        "description": "SigNoz ECS tasks and container instances",
+        "vpc_id": "${local.vpc_id}",
+        "tags": {{ toJson $.SecurityGroup.Tags }}
+      }
+    },
+    "aws_vpc_security_group_ingress_rule": {
+      "intra_cluster": {
+        "security_group_id": "${aws_security_group.tasks.id}",
+        "description": "intra-cluster traffic",
+        "ip_protocol": "-1",
+        "referenced_security_group_id": "${aws_security_group.tasks.id}",
+        "tags": {{ toJson (index $.SecurityGroupRules "intra-cluster").Tags }}
+      }
+    },
+    {{- /* Egress stays open. Image pulls and OS packages have no stable CIDR.
+           Narrow it with VPC endpoints. */}}
+    "aws_vpc_security_group_egress_rule": {
+      "all_outbound": {
+        "security_group_id": "${aws_security_group.tasks.id}",
+        "description": "all outbound",
+        "ip_protocol": "-1",
+        "cidr_ipv4": "0.0.0.0/0",
+        "tags": {{ toJson (index $.SecurityGroupRules "all-outbound").Tags }}
+      }
+    },
+    {{- /* The node's own credential only. Without the managed policy the ECS
+           agent cannot register the instance. Task and execution roles belong
+           to the casting that runs the tasks. */}}
+    "aws_iam_role": {
+      "node": {
+        "name": "{{ $.Roles.node.Name }}",
+        "assume_role_policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Action\" = \"sts:AssumeRole\", \"Effect\" = \"Allow\", \"Principal\" = {\"Service\" = \"ec2.amazonaws.com\"}}]})}",
+        {{- if $.Declaration.IAM.PermissionsBoundary }}
+        "permissions_boundary": "{{ $.Declaration.IAM.PermissionsBoundary }}",
+        {{- end }}
+        "tags": {{ toJson $.Roles.node.Tags }}
+      }
+    },
+    "aws_iam_instance_profile": {
+      "node": {
+        "name": "{{ $.InstanceProfile.Name }}",
+        "role": "${aws_iam_role.node.name}",
+        "tags": {{ toJson $.InstanceProfile.Tags }}
+      }
+    },
+    "aws_iam_role_policy_attachment": {
+      "node": {
+        "policy_arn": "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role",
+        "role": "${aws_iam_role.node.name}"
+      }
+    },
+    "aws_ecs_cluster": {
+      "main": {
+        "name": "{{ $.Cluster.Name }}",
+        "tags": {{ toJson $.Cluster.Tags }}
+      }
+    }
+  }
+}

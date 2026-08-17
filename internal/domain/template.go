@@ -5,6 +5,7 @@ import (
 	"embed"
 	"io"
 	"path/filepath"
+	"strings"
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
@@ -110,6 +111,8 @@ func (t *Template) Format() Format {
 //   - toYaml / fromYaml: round-trip a value through YAML inside templates.
 //   - flattenKeys: flatten a nested map into "/"-joined leaf keys (used to
 //     project hierarchical config into flat env-var-style maps).
+//   - identifier: respell a key's hyphens as underscores for a generated
+//     identifier. Keys cannot contain underscores, so no two keys collide.
 func templateFuncMap() template.FuncMap {
 	fm := template.FuncMap(sprig.FuncMap())
 	fm["derefInt"] = func(p *int) int {
@@ -146,6 +149,9 @@ func templateFuncMap() template.FuncMap {
 		result := make(map[string]any)
 		flattenMapKeys("", m, result)
 		return result
+	}
+	fm["identifier"] = func(s string) string {
+		return strings.ReplaceAll(s, "-", "_")
 	}
 	return fm
 }

@@ -1,0 +1,33 @@
+#cloud-config
+write_files:
+  - path: /etc/ecs/ecs.config
+    content: |
+      ECS_CLUSTER={{ .Cluster }}
+      {{- /* A container instance advertises the group's own selector. A
+             consuming casting's placement constraint filters on these. */}}
+      ECS_INSTANCE_ATTRIBUTES={{ toJson .Selector }}
+{{- if .DataVolume }}
+  # The agent must never register a node whose data volume is not mounted:
+  # tasks would bind-mount onto the root disk and state would silently land
+  # on a disk that dies with the instance.
+  - path: /etc/systemd/system/ecs.service.d/10-foundry-data.conf
+    content: |
+      [Unit]
+      RequiresMountsFor=/var/lib/foundry
+# Terraform attaches the data volume after boot begins, and cloud-init's
+# fs_setup/mounts run once, first boot only, silently skipping devices that do
+# not exist yet (canonical/cloud-init#3386). bootcmd runs every boot, before
+# anything downstream of cloud-init (the agent included), so it waits for the
+# attachment, formats only a device with no filesystem signature, and mounts.
+bootcmd:
+  - 'for i in $(seq 1 120); do test -b /dev/xvdf && break; sleep 5; done'
+  - 'test -b /dev/xvdf || { echo "foundry: data volume /dev/xvdf never attached" >&2; exit 1; }'
+  - 'blkid /dev/xvdf >/dev/null || mkfs.ext4 -L foundry-data /dev/xvdf'
+  - 'mkdir -p /var/lib/foundry'
+  - 'mountpoint -q /var/lib/foundry || mount /dev/xvdf /var/lib/foundry'
+# The fstab entry mounts at local-fs on every later boot and is what gives the
+# RequiresMountsFor gate a real mount unit to require. The device exists by the
+# time this module runs, because bootcmd waited.
+mounts:
+  - [/dev/xvdf, /var/lib/foundry, ext4, "defaults,nofail,x-systemd.device-timeout=10min", "0", "2"]
+{{- end }}

@@ -1,0 +1,41 @@
+apiVersion: v1alpha1
+kind: Infrastructure
+metadata:
+  name: foundry
+spec:
+  deployment:
+    platform: ecs
+    mode: ec2
+    flavor: terraform
+  resource:
+    spec:
+      config:
+        data:
+          resource.yaml: |
+            networking:
+              networkCIDR: 10.0.0.0/16
+              subnets:
+                private-a:
+                  type: private
+                  zone: us-east-1a
+                  cidr: 10.0.0.0/19
+                public-a:
+                  type: public
+                  zone: us-east-1a
+                  cidr: 10.0.96.0/22
+            instanceGroups:
+              persistent:
+                minSize: 3
+                maxSize: 3
+                machineType: t3.medium
+                dataVolume:
+                  size: 5
+              ephemeral:
+                machineType: t3.small
+  patches:
+    - target: "infrastructure/variables.tf.json"
+      type: jsonpatch
+      operations:
+        - op: replace
+          path: /variable/aws_region/default
+          value: us-east-1

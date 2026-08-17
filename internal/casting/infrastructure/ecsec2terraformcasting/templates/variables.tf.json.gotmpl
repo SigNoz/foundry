@@ -1,0 +1,156 @@
+{{- /* Every declared knob arrives as a variable defaulted to what was
+       declared. Names and tags are not knobs; a consumer matches on them. */ -}}
+{
+  "variable": {
+    "aws_region": {
+      "description": "AWS region to deploy resources; it must be the region the declared zones belong to",
+      "type": "string",
+      "default": "us-east-1",
+      "nullable": false,
+      "validation": {
+        "condition": "${can(regex(\"^[a-z]{2}(-gov)?-[a-z]+-[0-9]$\", var.aws_region))}",
+        "error_message": "aws_region must be a region identifier such as us-east-1."
+      }
+    }
+    {{- if not $.Network.VPC.ID }},
+    "network_cidr": {
+      "description": "CIDR block for the network",
+      "type": "string",
+      "default": "{{ $.Declaration.Networking.NetworkCIDR }}",
+      "nullable": false,
+      "validation": {
+        "condition": "${can(cidrhost(var.network_cidr, 0))}",
+        "error_message": "network_cidr must be a valid IPv4 CIDR."
+      }
+    }
+    {{- end }}
+    {{- range $key, $subnet := $.Network.Subnets }},
+    "subnet_{{ identifier $key }}_zone": {
+      "description": "Availability zone the {{ $key }} subnet lives in; a volume can only attach to a machine in its own zone",
+      "type": "string",
+      "default": "{{ (index $.Declaration.Networking.Subnets $key).Zone }}",
+      "nullable": false
+    }
+    {{- if not $subnet.ID }},
+    "subnet_{{ identifier $key }}_cidr": {
+      "description": "CIDR block for the {{ $key }} subnet, carved out of the network",
+      "type": "string",
+      "default": "{{ (index $.Declaration.Networking.Subnets $key).CIDR }}",
+      "nullable": false,
+      "validation": {
+        "condition": "${can(cidrhost(var.subnet_{{ identifier $key }}_cidr, 0))}",
+        "error_message": "subnet_{{ identifier $key }}_cidr must be a valid IPv4 CIDR."
+      }
+    }
+    {{- end }}
+    {{- end }}
+    {{- range $key, $group := $.Pinned }}{{ $declared := $group.Declared }},
+    "group_{{ identifier $key }}_machine_type": {
+      "description": "Provider machine type for each node in the {{ $key }} group",
+      "type": "string",
+      "default": "{{ $declared.MachineType }}",
+      "nullable": false
+    },
+    {{- /* The root disk carries the AMI. Its floor is the snapshot size. */}}
+    "group_{{ identifier $key }}_root_volume_size": {
+      "description": "Root volume size (GB) for each {{ $key }} node; at least the ECS-optimized AMI snapshot size (30)",
+      "type": "number",
+      "default": {{ derefInt $declared.RootVolume.Size }},
+      "nullable": false,
+      "validation": {
+        "condition": "${var.group_{{ identifier $key }}_root_volume_size >= 30}",
+        "error_message": "group_{{ identifier $key }}_root_volume_size must be at least 30 GB, the ECS-optimized AMI snapshot size."
+      }
+    },
+    "group_{{ identifier $key }}_root_volume_type": {
+      "description": "Root volume type for each {{ $key }} node",
+      "type": "string",
+      "default": "{{ $declared.RootVolume.Type }}",
+      "nullable": false
+    }
+    {{- if $declared.DataVolume }},
+    "group_{{ identifier $key }}_data_volume_size": {
+      "description": "Data volume size (GB) attached to each {{ $key }} node; it outlives the node",
+      "type": "number",
+      "default": {{ derefInt $declared.DataVolume.Size }},
+      "nullable": false,
+      "validation": {
+        "condition": "${var.group_{{ identifier $key }}_data_volume_size >= 1}",
+        "error_message": "group_{{ identifier $key }}_data_volume_size must be at least 1 GB."
+      }
+    },
+    "group_{{ identifier $key }}_data_volume_type": {
+      "description": "Data volume type for each {{ $key }} node",
+      "type": "string",
+      "default": "{{ $declared.DataVolume.Type }}",
+      "nullable": false
+    }
+    {{- end }}
+    {{- /* A pinned group has no size variable. Each node is its own resource,
+           and the count changes the plan's shape. */}}
+    {{- end }}
+    {{- range $key, $group := $.Pools }}{{ $declared := $group.Declared }},
+    "group_{{ identifier $key }}_machine_type": {
+      "description": "Provider machine type for each node in the {{ $key }} group",
+      "type": "string",
+      "default": "{{ $declared.MachineType }}",
+      "nullable": false
+    },
+    {{- /* The root disk carries the AMI. Its floor is the snapshot size. */}}
+    "group_{{ identifier $key }}_root_volume_size": {
+      "description": "Root volume size (GB) for each {{ $key }} node; at least the ECS-optimized AMI snapshot size (30)",
+      "type": "number",
+      "default": {{ derefInt $declared.RootVolume.Size }},
+      "nullable": false,
+      "validation": {
+        "condition": "${var.group_{{ identifier $key }}_root_volume_size >= 30}",
+        "error_message": "group_{{ identifier $key }}_root_volume_size must be at least 30 GB, the ECS-optimized AMI snapshot size."
+      }
+    },
+    "group_{{ identifier $key }}_root_volume_type": {
+      "description": "Root volume type for each {{ $key }} node",
+      "type": "string",
+      "default": "{{ $declared.RootVolume.Type }}",
+      "nullable": false
+    }
+    {{- if $declared.DataVolume }},
+    "group_{{ identifier $key }}_data_volume_size": {
+      "description": "Data volume size (GB) attached to each {{ $key }} node; it outlives the node",
+      "type": "number",
+      "default": {{ derefInt $declared.DataVolume.Size }},
+      "nullable": false,
+      "validation": {
+        "condition": "${var.group_{{ identifier $key }}_data_volume_size >= 1}",
+        "error_message": "group_{{ identifier $key }}_data_volume_size must be at least 1 GB."
+      }
+    },
+    "group_{{ identifier $key }}_data_volume_type": {
+      "description": "Data volume type for each {{ $key }} node",
+      "type": "string",
+      "default": "{{ $declared.DataVolume.Type }}",
+      "nullable": false
+    }
+    {{- end }},
+    "group_{{ identifier $key }}_min_size": {
+      "description": "Smallest the {{ $key }} group may be",
+      "type": "number",
+      "default": {{ derefInt $declared.MinSize }},
+      "nullable": false,
+      "validation": {
+        "condition": "${var.group_{{ identifier $key }}_min_size >= 0}",
+        "error_message": "group_{{ identifier $key }}_min_size cannot be negative."
+      }
+    },
+    "group_{{ identifier $key }}_max_size": {
+      "description": "Largest the {{ $key }} group may grow to",
+      "type": "number",
+      "default": {{ derefInt $declared.MaxSize }},
+      "nullable": false,
+      "validation": {
+        "condition": "${var.group_{{ identifier $key }}_max_size >= var.group_{{ identifier $key }}_min_size}",
+        "error_message": "group_{{ identifier $key }}_max_size cannot be below group_{{ identifier $key }}_min_size."
+      }
+    }
+    {{- end }}
+  }
+}

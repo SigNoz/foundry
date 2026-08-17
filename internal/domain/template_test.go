@@ -86,3 +86,37 @@ func TestTemplateRender(t *testing.T) {
 		})
 	}
 }
+
+func TestTemplateIdentifierFunc(t *testing.T) {
+	tests := []struct {
+		name        string
+		key         string
+		expectedFmt []byte
+	}{
+		{
+			name:        "Hyphenated_Underscored",
+			key:         "private-a",
+			expectedFmt: []byte("subnet_private_a_cidr"),
+		},
+		{
+			name:        "NoHyphens_Unchanged",
+			key:         "ephemeral",
+			expectedFmt: []byte("subnet_ephemeral_cidr"),
+		},
+		{
+			name:        "ManyHyphens_AllUnderscored",
+			key:         "a-b-c",
+			expectedFmt: []byte("subnet_a_b_c_cidr"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpl := MustNewTemplate(tt.name, []byte("subnet_{{ identifier .Key }}_cidr"), FormatText)
+
+			material, err := tmpl.Render(map[string]string{"Key": tt.key}, "out.txt")
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedFmt, material.FmtContents())
+		})
+	}
+}

@@ -1,0 +1,77 @@
+apiVersion: v1alpha1
+kind: Infrastructure
+metadata:
+  name: foundry
+spec:
+  deployment:
+    flavor: terraform
+    mode: ec2
+    platform: ecs
+  patches:
+  - operations:
+    - op: replace
+      path: /variable/aws_region/default
+      value: us-east-1
+    target: infrastructure/variables.tf.json
+    type: jsonpatch
+  resource:
+    spec:
+      cluster: {}
+      config:
+        data:
+          resource.yaml: |
+            networking:
+              networkCIDR: 10.0.0.0/16
+              subnets:
+                private-a:
+                  type: private
+                  zone: us-east-1a
+                  cidr: 10.0.0.0/19
+                public-a:
+                  type: public
+                  zone: us-east-1a
+                  cidr: 10.0.96.0/22
+            instanceGroups:
+              persistent:
+                minSize: 3
+                maxSize: 3
+                machineType: t3.medium
+                dataVolume:
+                  size: 5
+              ephemeral:
+                machineType: t3.small
+    status:
+      config:
+        data:
+          resource.yaml: |
+            instanceGroups:
+              ephemeral:
+                machineType: t3.small
+                maxSize: 1
+                minSize: 1
+                rootVolume:
+                  size: 30
+                  type: gp3
+                storage: ephemeral
+              persistent:
+                dataVolume:
+                  size: 5
+                  type: gp3
+                machineType: t3.medium
+                maxSize: 3
+                minSize: 3
+                rootVolume:
+                  size: 30
+                  type: gp3
+                storage: persistent
+            networking:
+              networkCIDR: 10.0.0.0/16
+              subnets:
+                private-a:
+                  cidr: 10.0.0.0/19
+                  type: private
+                  zone: us-east-1a
+                public-a:
+                  cidr: 10.0.96.0/22
+                  type: public
+                  zone: us-east-1a
