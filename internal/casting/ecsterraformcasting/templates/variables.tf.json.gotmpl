@@ -1,40 +1,125 @@
+{{- /* Every identifier arrives as a variable defaulted to what the casting
+       resolved. Stating one on the casting replaces its lookup variable with
+       the value itself, and main.tf emits no data source for it. */}}
+{{- $annotations := default (dict) $.Metadata.Annotations -}}
+{{- $clusterARN := index $annotations "foundry.signoz.io/ecs-cluster-arn" -}}
+{{- $subnetIDs := index $annotations "foundry.signoz.io/ecs-subnet-ids" -}}
+{{- $securityGroupIDs := index $annotations "foundry.signoz.io/ecs-security-group-ids" -}}
+{{- $vpcID := index $annotations "foundry.signoz.io/ecs-vpc-id" -}}
+{{- $taskRoleARN := index $annotations "foundry.signoz.io/ecs-task-role-arn" -}}
+{{- $executionRoleARN := index $annotations "foundry.signoz.io/ecs-task-execution-role-arn" -}}
 {
   "variable": {
-    "region": {
-      "description": "AWS region",
+    "aws_region": {
+      "nullable": false,
+      "validation": {
+        "condition": "${can(regex(\"^[a-z]{2}(-gov)?-[a-z]+-[0-9]$\", var.aws_region))}",
+        "error_message": "aws_region must be a region identifier such as us-east-1."
+      },
+      "description": "AWS region holding the cluster",
       "type": "string"
     },
-    "ecs_cluster_id": {
-      "description": "ID of the existing ECS cluster to deploy services into",
-      "type": "string"
+    {{- if $clusterARN }}
+    "cluster_arn": {
+      "nullable": false,
+      "description": "ARN of the ECS cluster to deploy into",
+      "type": "string",
+      "default": "{{ $clusterARN }}"
     },
+    {{- else }}
+    "cluster_name": {
+      "nullable": false,
+      "description": "Name of the ECS cluster to deploy into",
+      "type": "string",
+      "default": "{{ $.ClusterName }}"
+    },
+    {{- end }}
+    {{- if $subnetIDs }}
     "subnet_ids": {
-      "description": "List of subnet IDs for ECS service networking (awsvpc)",
-      "type": "list(string)"
+      "nullable": false,
+      "description": "IDs of the subnets tasks are placed in",
+      "type": "list(string)",
+      "default": {{ $ids := list }}{{ range splitList "," $subnetIDs }}{{ $ids = append $ids (trim .) }}{{ end }}{{ toJson (compact $ids) }}
     },
+    {{- else }}
+    "subnet_tags": {
+      "nullable": false,
+      "description": "Tags that find the subnets tasks are placed in",
+      "type": "map(string)",
+      "default": {{ toJson $.SubnetTags }}
+    },
+    {{- end }}
+    {{- if $securityGroupIDs }}
     "security_group_ids": {
-      "description": "List of security group IDs for ECS service networking (awsvpc)",
-      "type": "list(string)"
+      "nullable": false,
+      "description": "IDs of the security groups tasks join",
+      "type": "list(string)",
+      "default": {{ $ids := list }}{{ range splitList "," $securityGroupIDs }}{{ $ids = append $ids (trim .) }}{{ end }}{{ toJson (compact $ids) }}
     },
+    {{- else }}
+    "security_group_name": {
+      "nullable": false,
+      "description": "Name of the security group tasks join",
+      "type": "string",
+      "default": "{{ $.SecurityGroupName }}"
+    },
+    {{- end }}
+    {{- if $vpcID }}
     "vpc_id": {
-      "description": "VPC ID for the private DNS namespace",
-      "type": "string"
+      "nullable": false,
+      "description": "ID of the VPC the Cloud Map namespace is created in",
+      "type": "string",
+      "default": "{{ $vpcID }}"
     },
-    "config_bucket": {
-      "description": "S3 bucket name for storing config files",
-      "type": "string"
+    {{- else }}
+    "vpc_tags": {
+      "nullable": false,
+      "description": "Tags that find the VPC the Cloud Map namespace is created in",
+      "type": "map(string)",
+      "default": {{ toJson $.VPCTags }}
     },
+    {{- end }}
+    {{- if $taskRoleARN }}
     "task_role_arn": {
-      "description": "IAM role ARN for ECS tasks",
-      "type": "string"
+      "nullable": false,
+      "description": "ARN of the IAM role tasks assume",
+      "type": "string",
+      "default": "{{ $taskRoleARN }}"
     },
-    "task_execution_role_arn": {
-      "description": "IAM role ARN for ECS task execution (pull images, write logs)",
-      "type": "string"
+    {{- else }}
+    "task_role_name": {
+      "nullable": false,
+      "description": "Name of the IAM role this stack creates for its tasks",
+      "type": "string",
+      "default": "{{ $.TaskRoleName }}"
     },
-    "capacity_provider": {
-      "description": "Name of the ECS capacity provider",
-      "type": "string"
+    {{- end }}
+    {{- if $executionRoleARN }}
+    "execution_role_arn": {
+      "nullable": false,
+      "description": "ARN of the IAM role the ECS agent assumes",
+      "type": "string",
+      "default": "{{ $executionRoleARN }}"
+    },
+    {{- else }}
+    "execution_role_name": {
+      "nullable": false,
+      "description": "Name of the IAM role this stack creates for the ECS agent to pull images and write logs",
+      "type": "string",
+      "default": "{{ $.ExecutionRoleName }}"
+    },
+    {{- end }}
+    "node_tags": {
+      "nullable": false,
+      "description": "Tags that find the persistent instances and the volumes attached to them",
+      "type": "map(string)",
+      "default": {{ toJson $.NodeTags }}
+    },
+    "claim_tag": {
+      "nullable": false,
+      "description": "Tag key recording which identities hold a volume",
+      "type": "string",
+      "default": "{{ $.ClaimTag }}"
     }
   }
 }

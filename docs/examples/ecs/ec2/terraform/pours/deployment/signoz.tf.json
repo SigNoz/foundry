@@ -1,0 +1,79 @@
+{
+  "locals": {
+    "containers_signoz": [
+      {
+        "name": "foundry-signoz",
+        "image": "signoz/signoz:latest",
+        "essential": true,
+        "environment": [{"name":"SIGNOZ_SQLSTORE_POSTGRES_DSN","value":"postgres://signoz:signoz@metastore-postgres-0.foundry.local:5432/signoz?sslmode=disable"},{"name":"SIGNOZ_SQLSTORE_PROVIDER","value":"postgres"},{"name":"SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN","value":"tcp://telemetrystore-clickhouse-0-0.foundry.local:9000"},{"name":"SIGNOZ_TELEMETRYSTORE_PROVIDER","value":"clickhouse"}],
+        "portMappings": [
+          {"name": "http", "containerPort": 8080, "protocol": "tcp", "appProtocol": "http"},
+          {"name": "opamp", "containerPort": 4320, "protocol": "tcp"}
+        ],
+        "cpu": 512,
+        "memoryReservation": 512,
+        "healthCheck": {
+          "command": ["CMD-SHELL", "wget --spider -q http://localhost:8080/api/v1/health || exit 1"],
+          "interval": 30,
+          "timeout": 5,
+          "retries": 3,
+          "startPeriod": 30
+        }
+      }
+    ]
+  },
+  "resource": {
+    "aws_ecs_task_definition": {
+      "signoz": {
+        "family": "foundry-signoz",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"},
+        "network_mode": "awsvpc",
+        "requires_compatibilities": ["EC2"],
+        "task_role_arn": "${local.task_role_arn}",
+        "execution_role_arn": "${local.execution_role_arn}",
+        "container_definitions": "${jsonencode(local.containers_signoz)}"
+      }
+    },
+    "aws_service_discovery_service": {
+      "signoz": {
+        "name": "signoz",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"},
+        "dns_config": {
+          "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
+          "dns_records": [
+            {
+              "ttl": 10,
+              "type": "A"
+            }
+          ],
+          "routing_policy": "MULTIVALUE"
+        }
+      }
+    },
+    "aws_ecs_service": {
+      "signoz": {
+        "name": "foundry-signoz",
+        "cluster": "${local.cluster_arn}",
+        "task_definition": "${aws_ecs_task_definition.signoz.arn}",
+        "desired_count": 1,
+        "deployment_minimum_healthy_percent": 0,
+        "deployment_maximum_percent": 100,
+        "launch_type": "EC2",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"},
+        "network_configuration": {
+          "subnets": "${local.subnet_ids}",
+          "security_groups": "${local.security_group_ids}"
+        },
+        "service_registries": {
+          "registry_arn": "${aws_service_discovery_service.signoz.arn}"
+        },
+        "placement_constraints": [
+          {
+            "type": "memberOf",
+            "expression": "attribute:foundry.signoz.io/name == foundry and attribute:foundry.signoz.io/storage == ephemeral"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,185 @@
+{
+  "locals": {
+    "containers_ingester": [
+      {
+        "name": "foundry-ingester-config-init",
+        "image": "signoz/signoz-otel-collector:latest",
+        "essential": false,
+        "user": "0",
+        "entryPoint": ["/bin/sh", "-c"],
+        "command": ["chown 10001:0 /conf"],
+        "mountPoints": [
+          {
+            "sourceVolume": "ingester-config",
+            "containerPath": "/conf"
+          }
+        ],
+        "memoryReservation": 102
+      },
+      {
+        "name": "foundry-ingester-appconfig-agent",
+        "image": "public.ecr.aws/aws-appconfig/aws-appconfig-agent:2.x",
+        "essential": true,
+        "user": "10001:0",
+        "dependsOn": [
+          {"containerName": "foundry-ingester-config-init", "condition": "SUCCESS"}
+        ],
+        "environment": [
+          {"name": "PREFETCH_LIST", "value": "foundry:default:ingester,foundry:default:ingester-opamp"},
+          {"name": "POLL_INTERVAL", "value": "45s"},
+          {"name": "MANIFEST", "value": "{\"foundry:default:ingester\":{\"writeTo\":{\"path\":\"/conf/ingester.yaml\"}},\"foundry:default:ingester-opamp\":{\"writeTo\":{\"path\":\"/conf/opamp.yaml\"}}}"}
+        ],
+        "mountPoints": [
+          {
+            "sourceVolume": "ingester-config",
+            "containerPath": "/conf"
+          }
+        ],
+        "healthCheck": {
+          "command": ["CMD-SHELL", "test -s /conf/ingester.yaml && test -s /conf/opamp.yaml"],
+          "interval": 5,
+          "timeout": 3,
+          "retries": 10,
+          "startPeriod": 30
+        },
+        "memoryReservation": 102
+      },
+      {
+        "name": "foundry-ingester",
+        "image": "signoz/signoz-otel-collector:latest",
+        "essential": true,
+        "entryPoint": ["/bin/sh", "-c"],
+        "command": ["/signoz-otel-collector migrate sync check && /signoz-otel-collector --config=/conf/ingester.yaml --manager-config=/conf/opamp.yaml --copy-path=/var/tmp/collector-config.yaml"],
+        "environment": [{"name":"FOUNDRY_CONFIG_DIGEST","value":"449e8d4a848e1880ecf8d9e30df69d0a7da71bb4b38c56b7e8b3945549a482b7"},{"name":"SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN","value":"tcp://telemetrystore-clickhouse-0-0.foundry.local:9000"},{"name":"SIGNOZ_OTEL_COLLECTOR_TIMEOUT","value":"10m"}],
+        "portMappings": [
+          {"name": "grpc", "containerPort": 4317, "protocol": "tcp", "appProtocol": "grpc"},
+          {"name": "http", "containerPort": 4318, "protocol": "tcp", "appProtocol": "http"}
+        ],
+        "mountPoints": [
+          {
+            "sourceVolume": "ingester-config",
+            "containerPath": "/conf"
+          }
+        ],
+        "dependsOn": [
+          {"containerName": "foundry-ingester-config-init", "condition": "SUCCESS"},
+          {"containerName": "foundry-ingester-appconfig-agent", "condition": "HEALTHY"}
+        ],
+        "cpu": 512,
+        "memoryReservation": 512
+      }
+    ]
+  },
+  "resource": {
+    "aws_appconfig_configuration_profile": {
+      "ingester": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "name": "ingester",
+        "location_uri": "hosted",
+        "type": "AWS.Freeform",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"}
+      },
+      "ingester_opamp": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "name": "ingester-opamp",
+        "location_uri": "hosted",
+        "type": "AWS.Freeform",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"}
+      }
+    },
+    "aws_appconfig_hosted_configuration_version": {
+      "ingester": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.ingester.configuration_profile_id}",
+        "content_type": "application/x-yaml",
+        "content": "${file(\"${path.module}/ingester/ingester.yaml\")}"
+      },
+      "ingester_opamp": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.ingester_opamp.configuration_profile_id}",
+        "content_type": "application/x-yaml",
+        "content": "${file(\"${path.module}/ingester/opamp.yaml\")}"
+      }
+    },
+    "aws_appconfig_deployment": {
+      "ingester": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "environment_id": "${aws_appconfig_environment.main.environment_id}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.ingester.configuration_profile_id}",
+        "configuration_version": "${aws_appconfig_hosted_configuration_version.ingester.version_number}",
+        "deployment_strategy_id": "${aws_appconfig_deployment_strategy.main.id}",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"}
+      },
+      "ingester_opamp": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "environment_id": "${aws_appconfig_environment.main.environment_id}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.ingester_opamp.configuration_profile_id}",
+        "configuration_version": "${aws_appconfig_hosted_configuration_version.ingester_opamp.version_number}",
+        "deployment_strategy_id": "${aws_appconfig_deployment_strategy.main.id}",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"}
+      }
+    },
+    "aws_ecs_task_definition": {
+      "ingester": {
+        "family": "foundry-ingester",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"},
+        "network_mode": "awsvpc",
+        "requires_compatibilities": ["EC2"],
+        "task_role_arn": "${local.task_role_arn}",
+        "execution_role_arn": "${local.execution_role_arn}",
+        "container_definitions": "${jsonencode(local.containers_ingester)}",
+        "volume": [
+          {
+            "name": "ingester-config",
+            "docker_volume_configuration": {
+              "scope": "task",
+              "driver": "local"
+            }
+          }
+        ],
+        "depends_on": ["aws_appconfig_deployment.ingester", "aws_appconfig_deployment.ingester_opamp"]
+      }
+    },
+    "aws_service_discovery_service": {
+      "ingester": {
+        "name": "ingester",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"},
+        "dns_config": {
+          "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
+          "dns_records": [
+            {
+              "ttl": 10,
+              "type": "A"
+            }
+          ],
+          "routing_policy": "MULTIVALUE"
+        }
+      }
+    },
+    "aws_ecs_service": {
+      "ingester": {
+        "name": "foundry-ingester",
+        "cluster": "${local.cluster_arn}",
+        "task_definition": "${aws_ecs_task_definition.ingester.arn}",
+        "desired_count": 1,
+        "deployment_minimum_healthy_percent": 0,
+        "deployment_maximum_percent": 100,
+        "launch_type": "EC2",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"},
+        "network_configuration": {
+          "subnets": "${local.subnet_ids}",
+          "security_groups": "${local.security_group_ids}"
+        },
+        "service_registries": {
+          "registry_arn": "${aws_service_discovery_service.ingester.arn}"
+        },
+        "placement_constraints": [
+          {
+            "type": "memberOf",
+            "expression": "attribute:foundry.signoz.io/name == foundry and attribute:foundry.signoz.io/storage == ephemeral"
+          }
+        ]
+      }
+    }
+  }
+}

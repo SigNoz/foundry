@@ -1,40 +1,61 @@
 {
   "variable": {
-    "region": {
-      "description": "AWS region",
+    "aws_region": {
+      "nullable": false,
+      "validation": {
+        "condition": "${can(regex(\"^[a-z]{2}(-gov)?-[a-z]+-[0-9]$\", var.aws_region))}",
+        "error_message": "aws_region must be a region identifier such as us-east-1."
+      },
+      "description": "AWS region holding the cluster",
       "type": "string"
     },
-    "ecs_cluster_id": {
-      "description": "ID of the existing ECS cluster to deploy services into",
-      "type": "string"
+    "cluster_name": {
+      "nullable": false,
+      "description": "Name of the ECS cluster to deploy into",
+      "type": "string",
+      "default": "foundry-cls"
     },
-    "subnet_ids": {
-      "description": "List of subnet IDs for ECS service networking (awsvpc)",
-      "type": "list(string)"
+    "subnet_tags": {
+      "nullable": false,
+      "description": "Tags that find the subnets tasks are placed in",
+      "type": "map(string)",
+      "default": {"foundry.signoz.io/name":"foundry","foundry.signoz.io/subnet-type":"private"}
     },
-    "security_group_ids": {
-      "description": "List of security group IDs for ECS service networking (awsvpc)",
-      "type": "list(string)"
+    "security_group_name": {
+      "nullable": false,
+      "description": "Name of the security group tasks join",
+      "type": "string",
+      "default": "foundry-sg-task"
     },
-    "vpc_id": {
-      "description": "VPC ID for the private DNS namespace",
-      "type": "string"
+    "vpc_tags": {
+      "nullable": false,
+      "description": "Tags that find the VPC the Cloud Map namespace is created in",
+      "type": "map(string)",
+      "default": {"foundry.signoz.io/name":"foundry"}
     },
-    "config_bucket": {
-      "description": "S3 bucket name for storing config files",
-      "type": "string"
+    "task_role_name": {
+      "nullable": false,
+      "description": "Name of the IAM role this stack creates for its tasks",
+      "type": "string",
+      "default": "foundry-installation-task"
     },
-    "task_role_arn": {
-      "description": "IAM role ARN for ECS tasks",
-      "type": "string"
+    "execution_role_name": {
+      "nullable": false,
+      "description": "Name of the IAM role this stack creates for the ECS agent to pull images and write logs",
+      "type": "string",
+      "default": "foundry-installation-exec"
     },
-    "task_execution_role_arn": {
-      "description": "IAM role ARN for ECS task execution (pull images, write logs)",
-      "type": "string"
+    "node_tags": {
+      "nullable": false,
+      "description": "Tags that find the persistent instances and the volumes attached to them",
+      "type": "map(string)",
+      "default": {"foundry.signoz.io/name":"foundry","foundry.signoz.io/storage":"persistent"}
     },
-    "capacity_provider": {
-      "description": "Name of the ECS capacity provider",
-      "type": "string"
+    "claim_tag": {
+      "nullable": false,
+      "description": "Tag key recording which identities hold a volume",
+      "type": "string",
+      "default": "foundry.signoz.io/identities"
     }
   }
 }

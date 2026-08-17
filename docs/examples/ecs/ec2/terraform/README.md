@@ -20,34 +20,101 @@ Components:
 
 ## Prerequisites
 
-- An existing ECS cluster with an EC2 capacity provider
+- An ECS cluster tagged the way foundry names things, either from the Infrastructure casting or your own (see [Infrastructure contract](#infrastructure-contract-you-provide-the-cluster))
+- Registered EC2 container instances advertising the substrate's attributes
 - A VPC with private subnets
-- An S3 bucket for storing component configs
 - IAM roles for ECS task and task execution
 - [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.0
 
 ## Configuration
 
+`spec.infrastructure.name` names the substrate this installation runs on. That
+one field is the whole binding: the cluster, its subnets, its security group,
+its VPC and its two IAM roles are all found by the names and tags both castings
+derive from it, and each arrives in Terraform as a variable defaulted to what
+was derived. The region is the only thing left to state; neither the casting
+nor a tag can carry it.
+
 ```yaml
 apiVersion: v1alpha1
+kind: Installation
 metadata:
   name: signoz
   annotations:
-    foundry.signoz.io/ecs/region: us-east-1
-    foundry.signoz.io/ecs/cluster-id: arn:aws:ecs:us-east-1:123456789012:cluster/my-cluster
-    foundry.signoz.io/ecs/subnet-ids: subnet-abc123,subnet-def456
-    foundry.signoz.io/ecs/security-group-ids: sg-abc123
-    foundry.signoz.io/ecs/vpc-id: vpc-abc123
-    foundry.signoz.io/ecs/config-bucket: my-signoz-configs
-    foundry.signoz.io/ecs/task-role-arn: arn:aws:iam::123456789012:role/ecs-task-role
-    foundry.signoz.io/ecs/task-execution-role-arn: arn:aws:iam::123456789012:role/ecs-execution-role
-    foundry.signoz.io/ecs/capacity-provider: my-capacity-provider
+    foundry.signoz.io/ecs-region: us-east-1
 spec:
   deployment:
     platform: ecs
     mode: ec2
     flavor: terraform
+  infrastructure:
+    name: signoz
 ```
+
+### Bringing your own cluster
+
+Each identifier can be stated instead of discovered, one at a time. What you
+state is used verbatim and no lookup is emitted for it; what you leave out is
+still discovered. You can adopt a substrate and pin one piece of it.
+
+```yaml
+metadata:
+  annotations:
+    foundry.signoz.io/ecs-region: us-east-1
+    foundry.signoz.io/ecs-cluster-arn: arn:aws:ecs:us-east-1:123456789012:cluster/my-cluster
+    foundry.signoz.io/ecs-subnet-ids: subnet-abc123,subnet-def456
+    foundry.signoz.io/ecs-security-group-ids: sg-abc123
+    foundry.signoz.io/ecs-vpc-id: vpc-abc123
+    foundry.signoz.io/ecs-task-role-arn: arn:aws:iam::123456789012:role/ecs-task-role
+    foundry.signoz.io/ecs-task-execution-role-arn: arn:aws:iam::123456789012:role/ecs-execution-role
+```
+
+`spec.infrastructure.name` is still required: the container instances and their
+volumes are always found by tag, whoever provisioned them.
+
+## Multi-node clusters
+
+ClickHouse (telemetry store) and the keeper can run as a multi-node cluster. Set the cluster sizes in the spec:
+
+```yaml
+spec:
+  telemetrykeeper:
+    spec:
+      cluster:
+        replicas: 3        # keeper nodes; use an odd number for raft quorum
+  telemetrystore:
+    spec:
+      cluster:
+        shards: 2          # number of shards
+        replicas: 1        # replicas in addition to the primary, so 2 nodes per shard
+```
+
+This generates one ECS service, one Cloud Map service, and one task definition **per node**: ClickHouse nodes are `shards x (replicas+1)` (named `telemetrystore-clickhouse-<shard>-<replica>`) and keeper nodes are `replicas` (named `telemetrykeeper-<kind>-<index>`). Each ClickHouse node fetches its own `config-<shard>-<replica>.yaml`; each keeper node fetches its own `keeper-<index>.yaml` (ClickHouse Keeper) or is clustered via `ZOO_SERVER_ID` / `ZOO_SERVERS` env (ZooKeeper).
+
+Each stateful task places onto the persistent storage class and bind-mounts its data under `/var/lib/foundry/<name>/...`; stateless tasks place onto the ephemeral pool. Tasks use `launch_type = EC2`, so ECS places them onto your registered container instances:
+
+| Component | Placed on instances advertising |
+| --- | --- |
+| ClickHouse, Keeper, Postgres | `foundry.signoz.io/name == <substrate>` and `foundry.signoz.io/storage == persistent` |
+| SigNoz with `sqlite` | `foundry.signoz.io/name == <substrate>` and `foundry.signoz.io/storage == persistent` |
+| Ingester, SigNoz with `postgres` | `foundry.signoz.io/name == <substrate>` and `foundry.signoz.io/storage == ephemeral` |
+
+Node identity is claimed, not computed. At plan time, Terraform reads the `foundry.signoz.io/identities` tag off the persistent instances: identities already claimed stay exactly where they are, new identities take unclaimed instances first and then wrap round-robin onto the fleet. At apply, the claim is written back as the tag and each stateful service is pinned with `ec2InstanceId == '<claimed instance>'` (plus the storage attribute as a bootstrap check). The claim record lives on the instances themselves: neither foundry nor its lock ever holds a binding, re-forging never moves data, and an operator can move an identity by editing the tag with plain AWS knowledge.
+
+Placement is best effort by design: with at least two persistent instances, replicas of one shard land on distinct machines (identities assign round-robin in shard-major order); with fewer instances than identities, they share machines and the ECS scheduler's own limits (task ENIs, memory reservations) decide what actually fits, leaving the rest PENDING. A replaced instance loses its tag, so its identities re-claim automatically on the next apply and start on a fresh disk (replicated components resync; unreplicated start empty).
+
+### Infrastructure contract (you provide the cluster)
+
+The Installation kind **deploys onto** an ECS cluster; it does not provision compute or storage. Whether you use the Infrastructure kind or bring your own cluster, it must satisfy the same convention:
+
+- **Registered EC2 container instances**, enough for the topology: one persistent instance per stateful node. `shards: 2 / replicas: 1` + `3` keepers + Postgres is `4 + 3 + 1 = 8` persistent instances; SigNoz and Ingester run on `ephemeral` capacity.
+- **Instances advertising `foundry.signoz.io/name` and `foundry.signoz.io/storage`** (`persistent` or `ephemeral`). Set them via the agent's `ECS_INSTANCE_ATTRIBUTES={"foundry.signoz.io/name":"signoz","foundry.signoz.io/storage":"persistent"}` or `aws ecs put-attributes`. The name is what keeps one installation off another's nodes in a shared cluster. A task with no matching instance stays PENDING (fail-loud, never silent data loss).
+- **Instances and volumes tagged the same way**. The claim controller finds them by tag, not from a list it is handed.
+- **A durable volume (e.g. EBS) mounted at `/var/lib/foundry`** on each `persistent` instance, so bind-mounted data survives restarts. Keep the volume's lifecycle independent of the instance (a standalone EBS volume re-attached to a replacement) and the node's data survives termination too.
+
+Data survives task restarts on the same instance. A task rescheduled onto a different persistent instance starts empty and re-replicates from its peers (or, for an unreplicated component, starts fresh). Counts, sizing, and autoscaling are yours to manage; foundry only wires the deployment.
+
+Leaving the cluster blocks unset deploys a single node of each component (the default).
 
 ## Deploy
 
@@ -106,9 +173,9 @@ pours/deployment/
 Verify the ECS services are running:
 
 ```bash
-aws ecs list-services --cluster my-cluster --region us-east-1
+aws ecs list-services --cluster signoz-cls --region us-east-1
 aws ecs describe-services \
-  --cluster my-cluster \
+  --cluster signoz-cls \
   --services signoz-signoz signoz-ingester signoz-telemetrystore-clickhouse \
   --region us-east-1
 ```
@@ -167,19 +234,18 @@ Run `foundryctl forge` to see the generated files and identify the JSON paths yo
 
 ## Annotations
 
-Annotations populate `terraform.tfvars.json` so Foundry can generate a ready-to-apply Terraform configuration.
+Only the region is required. The rest override one discovered identifier each,
+and are for a cluster foundry did not provision.
 
-| Annotation | Maps to tfvar | Description |
+| Annotation | Replaces the lookup variable | With |
 | --- | --- | --- |
-| `foundry.signoz.io/ecs/region` | `region` | AWS region |
-| `foundry.signoz.io/ecs/cluster-id` | `ecs_cluster_id` | ECS cluster ARN or ID |
-| `foundry.signoz.io/ecs/subnet-ids` | `subnet_ids` | Comma-separated subnet IDs |
-| `foundry.signoz.io/ecs/security-group-ids` | `security_group_ids` | Comma-separated security group IDs |
-| `foundry.signoz.io/ecs/vpc-id` | `vpc_id` | VPC ID for Cloud Map namespace |
-| `foundry.signoz.io/ecs/config-bucket` | `config_bucket` | S3 bucket for component configs |
-| `foundry.signoz.io/ecs/task-role-arn` | `task_role_arn` | IAM role ARN for ECS tasks |
-| `foundry.signoz.io/ecs/task-execution-role-arn` | `task_execution_role_arn` | IAM role ARN for task execution |
-| `foundry.signoz.io/ecs/capacity-provider` | `capacity_provider` | ECS capacity provider name |
+| `foundry.signoz.io/ecs-region` | | required; nothing else carries it |
+| `foundry.signoz.io/ecs-cluster-arn` | `cluster_name` | `cluster_arn` |
+| `foundry.signoz.io/ecs-subnet-ids` | `subnet_tags` | `subnet_ids` |
+| `foundry.signoz.io/ecs-security-group-ids` | `security_group_name` | `security_group_ids` |
+| `foundry.signoz.io/ecs-vpc-id` | `vpc_tags` | `vpc_id` |
+| `foundry.signoz.io/ecs-task-role-arn` | `task_role_name` | `task_role_arn` |
+| `foundry.signoz.io/ecs-task-execution-role-arn` | `execution_role_name` | `execution_role_arn` |
 
 ## Platform details
 
@@ -204,17 +270,26 @@ The module creates the following AWS resources:
 
 ### Variables
 
-| Variable | Type | Description |
+Everything the casting resolved about the substrate is a variable whose default
+is what it resolved. A one-off change needs no edit to a generated file.
+Change `casting.yaml` and the default moves with it; pass `-var` to override a
+single apply.
+
+| Variable | Type | Default |
 | --- | --- | --- |
-| `region` | `string` | AWS region |
-| `ecs_cluster_id` | `string` | ID of the existing ECS cluster |
-| `subnet_ids` | `list(string)` | Subnet IDs for ECS service networking (awsvpc) |
-| `security_group_ids` | `list(string)` | Security group IDs for ECS service networking |
-| `vpc_id` | `string` | VPC ID for the Cloud Map private DNS namespace |
-| `config_bucket` | `string` | S3 bucket for storing component config files |
-| `task_role_arn` | `string` | IAM role ARN for ECS tasks |
-| `task_execution_role_arn` | `string` | IAM role ARN for ECS task execution (pull images, write logs) |
-| `capacity_provider` | `string` | Name of the ECS capacity provider |
+| `aws_region` | `string` | from the region annotation |
+| `cluster_name` | `string` | `<substrate>-cls` |
+| `subnet_tags` | `map(string)` | `name=<substrate>`, `visibility=private` |
+| `security_group_name` | `string` | `<substrate>-sg-task` |
+| `vpc_tags` | `map(string)` | `name=<substrate>` |
+| `task_role_name` | `string` | `<substrate>-iam-task` |
+| `execution_role_name` | `string` | `<substrate>-iam-exec` |
+| `node_tags` | `map(string)` | `name=<substrate>`, `storage=persistent` |
+| `claim_tag` | `string` | `foundry.signoz.io/identities` |
+
+Stating an identifier on the casting swaps its lookup variable for the value
+itself: `cluster_name` becomes `cluster_arn`, `subnet_tags` becomes
+`subnet_ids`, and no data source is emitted for it.
 
 ### Outputs
 
@@ -244,12 +319,12 @@ Components communicate via Cloud Map DNS within the `{name}.local` namespace:
 
 ### IAM requirements
 
-The **task execution role** (`task_execution_role_arn`) needs:
+The **task execution role** (`execution_role_name`) needs:
 - `ecr:GetAuthorizationToken`, `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer` (pull images)
 - `logs:CreateLogStream`, `logs:PutLogEvents` (CloudWatch logs)
 
-The **task role** (`task_role_arn`) needs:
-- `s3:GetObject` on the config bucket (config-fetcher sidecar reads configs from S3)
+The **task role** (`task_role_name`) needs:
+- `appconfig:StartConfigurationSession` and `appconfig:GetLatestConfiguration` (the config sidecar reads each component's config from AWS AppConfig)
 
 ### Security groups
 

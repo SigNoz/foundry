@@ -1,0 +1,252 @@
+{{- $name := $.Metadata.Name -}}
+{{- $kind := $.Spec.TelemetryStore.Kind.String -}}
+{{- $shards := derefIntDefault $.Spec.TelemetryStore.Spec.Cluster.Shards 1 -}}
+{{- if lt $shards 1 }}{{- $shards = 1 -}}{{- end -}}
+{{- $nodesPerShard := int (add (derefIntDefault $.Spec.TelemetryStore.Spec.Cluster.Replicas 0) 1) -}}
+{{- $nodes := list -}}
+{{- range $s := until $shards -}}
+{{- range $r := until $nodesPerShard -}}
+{{- $nodes = append $nodes (dict "key" (printf "%d_%d" $s $r) "id" (printf "%d-%d" $s $r)) -}}
+{{- end -}}
+{{- end -}}
+{
+  "locals": {
+    {{- range $i, $n := $nodes }}{{ if $i }},{{ end }}
+    "containers_telemetrystore_{{ $n.key }}": [
+      {
+        "name": "{{ $name }}-telemetrystore-user-scripts",
+        "image": "{{ $.Spec.TelemetryStore.Spec.Image }}",
+        "essential": false,
+        "entryPoint": ["/bin/sh", "-c"],
+        "command": ["node_os=$(uname -s | tr '[:upper:]' '[:lower:]') && node_arch=$(uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/) && cd /tmp && wget -O histogram-quantile.tar.gz https://github.com/SigNoz/signoz/releases/download/histogram-quantile%2Fv0.0.1/histogram-quantile_$${node_os}_$${node_arch}.tar.gz && tar -xzf histogram-quantile.tar.gz && mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile && chown clickhouse:clickhouse /etc/clickhouse-server/config.d"],
+        "mountPoints": [
+          {
+            "sourceVolume": "telemetrystore-user-scripts",
+            "containerPath": "/var/lib/clickhouse/user_scripts"
+          },
+          {
+            "sourceVolume": "telemetrystore-config",
+            "containerPath": "/etc/clickhouse-server/config.d"
+          }
+        ],
+        "memoryReservation": 256
+      },
+      {{- /* One agent per task, two configurations: this node's server config
+             and the UDF file, which is identical across nodes and so has a
+             single profile every node reads. */}}
+      {{- $cfgProfile := printf "telemetrystore-%s-%s" $kind $n.id }}
+      {{- $fnProfile := printf "telemetrystore-%s-functions" $kind }}
+      {
+        "name": "{{ $name }}-telemetrystore-appconfig-agent",
+        "image": "public.ecr.aws/aws-appconfig/aws-appconfig-agent:2.x",
+        "essential": true,
+        {{- /* writeTo has no mode or owner setting and the agent writes 0600
+               as whichever uid it runs as. ClickHouse drops to uid 101, so the
+               agent runs as 101 and every rewrite stays readable. */}}
+        "user": "101:101",
+        "dependsOn": [
+          {"containerName": "{{ $name }}-telemetrystore-user-scripts", "condition": "SUCCESS"}
+        ],
+        "environment": [
+          {"name": "PREFETCH_LIST", "value": "{{ $name }}:default:{{ $cfgProfile }},{{ $name }}:default:{{ $fnProfile }}"},
+          {"name": "POLL_INTERVAL", "value": "45s"},
+          {"name": "MANIFEST", "value": "{\"{{ $name }}:default:{{ $cfgProfile }}\":{\"writeTo\":{\"path\":\"/etc/clickhouse-server/config.d/config-{{ $n.id }}.yaml\"}},\"{{ $name }}:default:{{ $fnProfile }}\":{\"writeTo\":{\"path\":\"/etc/clickhouse-server/config.d/functions.yaml\"}}}"}
+        ],
+        "mountPoints": [
+          {
+            "sourceVolume": "telemetrystore-config",
+            "containerPath": "/etc/clickhouse-server/config.d"
+          }
+        ],
+        "healthCheck": {
+          "command": ["CMD-SHELL", "test -s /etc/clickhouse-server/config.d/config-{{ $n.id }}.yaml && test -s /etc/clickhouse-server/config.d/functions.yaml"],
+          "interval": 5,
+          "timeout": 3,
+          "retries": 10,
+          "startPeriod": 30
+        },
+        "memoryReservation": 102
+      },
+      {
+        "name": "{{ $name }}-telemetrystore-{{ $kind }}-{{ $n.id }}",
+        "image": "{{ $.Spec.TelemetryStore.Spec.Image }}",
+        "essential": true,
+        {{- $env := list (dict "name" "CLICKHOUSE_SKIP_USER_SETUP" "value" "1") }}
+        {{- $env = append $env (dict "name" "CLICKHOUSE_CONFIG" "value" (printf "/etc/clickhouse-server/config.d/config-%s.yaml" $n.id)) }}
+        {{- range $key, $value := $.Spec.TelemetryStore.Spec.Env }}
+        {{- $env = append $env (dict "name" $key "value" $value) }}
+        {{- end }}
+        "environment": {{ toJson $env }},
+        "portMappings": [
+          {"name": "native", "containerPort": 9000, "protocol": "tcp"},
+          {"name": "http", "containerPort": 8123, "protocol": "tcp", "appProtocol": "http"},
+          {"name": "prometheus", "containerPort": 9363, "protocol": "tcp", "appProtocol": "http"}
+        ],
+        "mountPoints": [
+          {
+            "sourceVolume": "telemetrystore-user-scripts",
+            "containerPath": "/var/lib/clickhouse/user_scripts"
+          },
+          {
+            "sourceVolume": "telemetrystore-config",
+            "containerPath": "/etc/clickhouse-server/config.d"
+          },
+          {
+            "sourceVolume": "telemetrystore-data",
+            "containerPath": "/var/lib/clickhouse"
+          }
+        ],
+        "dependsOn": [
+          {"containerName": "{{ $name }}-telemetrystore-user-scripts", "condition": "SUCCESS"},
+          {"containerName": "{{ $name }}-telemetrystore-appconfig-agent", "condition": "HEALTHY"}
+        ],
+        "cpu": 1024,
+        "memoryReservation": 512,
+        "healthCheck": {
+          "command": ["CMD-SHELL", "wget --spider -q http://localhost:8123/ping || exit 1"],
+          "interval": 30,
+          "timeout": 5,
+          "retries": 3,
+          "startPeriod": 30
+        }
+      }
+    ]
+    {{- end }}
+  },
+  "resource": {
+    {{- /* A profile per node plus one for the shared UDF file. */}}
+    "aws_appconfig_configuration_profile": {
+      "telemetrystore_functions": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "name": "telemetrystore-{{ $kind }}-functions",
+        "location_uri": "hosted",
+        "type": "AWS.Freeform",
+        "tags": {{ toJson $.Labels }}
+      }
+      {{- range $i, $n := $nodes }},
+      "telemetrystore_{{ $n.key }}": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "name": "telemetrystore-{{ $kind }}-{{ $n.id }}",
+        "location_uri": "hosted",
+        "type": "AWS.Freeform",
+        "tags": {{ toJson $.Labels }}
+      }
+      {{- end }}
+    },
+    "aws_appconfig_hosted_configuration_version": {
+      "telemetrystore_functions": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.telemetrystore_functions.configuration_profile_id}",
+        "content_type": "application/x-yaml",
+        "content": "${file(\"${path.module}/telemetrystore/{{ $kind }}/functions.yaml\")}"
+      }
+      {{- range $i, $n := $nodes }},
+      "telemetrystore_{{ $n.key }}": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.telemetrystore_{{ $n.key }}.configuration_profile_id}",
+        "content_type": "application/x-yaml",
+        "content": "${file(\"${path.module}/telemetrystore/{{ $kind }}/config-{{ $n.id }}.yaml\")}"
+      }
+      {{- end }}
+    },
+    "aws_appconfig_deployment": {
+      "telemetrystore_functions": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "environment_id": "${aws_appconfig_environment.main.environment_id}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.telemetrystore_functions.configuration_profile_id}",
+        "configuration_version": "${aws_appconfig_hosted_configuration_version.telemetrystore_functions.version_number}",
+        "deployment_strategy_id": "${aws_appconfig_deployment_strategy.main.id}",
+        "tags": {{ toJson $.Labels }}
+      }
+      {{- range $i, $n := $nodes }},
+      "telemetrystore_{{ $n.key }}": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "environment_id": "${aws_appconfig_environment.main.environment_id}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.telemetrystore_{{ $n.key }}.configuration_profile_id}",
+        "configuration_version": "${aws_appconfig_hosted_configuration_version.telemetrystore_{{ $n.key }}.version_number}",
+        "deployment_strategy_id": "${aws_appconfig_deployment_strategy.main.id}",
+        "tags": {{ toJson $.Labels }}
+      }
+      {{- end }}
+    },
+    "aws_ecs_task_definition": {
+      {{- range $i, $n := $nodes }}{{ if $i }},{{ end }}
+      "telemetrystore_{{ $n.key }}": {
+        "family": "{{ $name }}-telemetrystore-{{ $kind }}-{{ $n.id }}",
+        "tags": {{ toJson $.Labels }},
+        "network_mode": "awsvpc",
+        "requires_compatibilities": ["EC2"],
+        "task_role_arn": "${local.task_role_arn}",
+        "execution_role_arn": "${local.execution_role_arn}",
+        "container_definitions": "${jsonencode(local.containers_telemetrystore_{{ $n.key }})}",
+        "volume": [
+          {
+            "name": "telemetrystore-user-scripts",
+            "docker_volume_configuration": {
+              "scope": "task",
+              "driver": "local"
+            }
+          },
+          {
+            "name": "telemetrystore-config",
+            "docker_volume_configuration": {
+              "scope": "task",
+              "driver": "local"
+            }
+          },
+          {
+            "name": "telemetrystore-data",
+            "host_path": "/var/lib/foundry/{{ $name }}/telemetrystore/{{ $n.id }}"
+          }
+        ],
+        "depends_on": ["aws_appconfig_deployment.telemetrystore_{{ $n.key }}", "aws_appconfig_deployment.telemetrystore_functions"]
+      }
+      {{- end }}
+    },
+    "aws_service_discovery_service": {
+      {{- range $i, $n := $nodes }}{{ if $i }},{{ end }}
+      "telemetrystore_{{ $n.key }}": {
+        "name": "telemetrystore-{{ $kind }}-{{ $n.id }}",
+        "tags": {{ toJson $.Labels }},
+        "dns_config": {
+          "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
+          "dns_records": [
+            {
+              "ttl": 10,
+              "type": "A"
+            }
+          ],
+          "routing_policy": "MULTIVALUE"
+        }
+      }
+      {{- end }}
+    },
+    "aws_ecs_service": {
+      {{- range $i, $n := $nodes }}{{ if $i }},{{ end }}
+      "telemetrystore_{{ $n.key }}": {
+        "name": "{{ $name }}-telemetrystore-{{ $kind }}-{{ $n.id }}",
+        "cluster": "${local.cluster_arn}",
+        "task_definition": "${aws_ecs_task_definition.telemetrystore_{{ $n.key }}.arn}",
+        "desired_count": 1,
+        "deployment_minimum_healthy_percent": 0,
+        "deployment_maximum_percent": 100,
+        "launch_type": "EC2",
+        "tags": {{ toJson $.Labels }},
+        "network_configuration": {
+          "subnets": "${local.subnet_ids}",
+          "security_groups": "${local.security_group_ids}"
+        },
+        "service_registries": {
+          "registry_arn": "${aws_service_discovery_service.telemetrystore_{{ $n.key }}.arn}"
+        },
+        "placement_constraints": [
+          {
+            "type": "memberOf",
+            "expression": "ec2InstanceId == '${local.seats[\"telemetrystore-{{ $n.id }}\"]}' and {{ $.PersistentPlacement }}"
+          }
+        ]
+      }
+      {{- end }}
+    }
+  }
+}

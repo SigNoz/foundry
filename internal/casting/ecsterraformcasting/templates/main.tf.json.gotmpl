@@ -1,30 +1,203 @@
+{{- $name := $.Metadata.Name -}}
+{{- $annotations := default (dict) $.Metadata.Annotations -}}
+{{- $clusterARN := index $annotations "foundry.signoz.io/ecs-cluster-arn" -}}
+{{- $subnetIDs := index $annotations "foundry.signoz.io/ecs-subnet-ids" -}}
+{{- $securityGroupIDs := index $annotations "foundry.signoz.io/ecs-security-group-ids" -}}
+{{- $vpcID := index $annotations "foundry.signoz.io/ecs-vpc-id" -}}
+{{- $taskRoleARN := index $annotations "foundry.signoz.io/ecs-task-role-arn" -}}
+{{- $executionRoleARN := index $annotations "foundry.signoz.io/ecs-task-execution-role-arn" -}}
+{{- /* The claim controller. An identity claims the VOLUME, not the instance.
+       The volume outlives an instance, and the pairing survives replacement.
+       The claim is a tag on the volume; plans re-read it, existing claims
+       resolve first, new identities take unclaimed volumes then wrap. ECS pins
+       only by ec2InstanceId, so each plan looks up whichever instance holds
+       the claimed volume. */}}
+{{- $keeperReplicas := derefIntDefault $.Spec.TelemetryKeeper.Spec.Cluster.Replicas 1 -}}
+{{- if lt $keeperReplicas 1 }}{{- $keeperReplicas = 1 -}}{{- end -}}
+{{- $shards := derefIntDefault $.Spec.TelemetryStore.Spec.Cluster.Shards 1 -}}
+{{- if lt $shards 1 }}{{- $shards = 1 -}}{{- end -}}
+{{- $nodesPerShard := int (add (derefIntDefault $.Spec.TelemetryStore.Spec.Cluster.Replicas 0) 1) -}}
+{{- $identities := list -}}
+{{- range $i := until $keeperReplicas -}}
+{{- $identities = append $identities (printf "telemetrykeeper-%d" $i) -}}
+{{- end -}}
+{{- if eq $.Spec.MetaStore.Kind.String "sqlite" -}}
+{{- $identities = append $identities "signoz-0" -}}
+{{- else -}}
+{{- $identities = append $identities "metastore-0" -}}
+{{- end -}}
+{{- range $s := until $shards -}}
+{{- range $r := until $nodesPerShard -}}
+{{- $identities = append $identities (printf "telemetrystore-%d-%d" $s $r) -}}
+{{- end -}}
+{{- end -}}
 {
-  "terraform": {
-    "required_version": ">= 1.0",
-    "required_providers": {
-      "aws": {
-        "source": "hashicorp/aws",
-        "version": ">= 5.0"
+  "data": {
+    {{- if not $clusterARN }}
+    "aws_ecs_cluster": {
+      "main": {
+        "cluster_name": "${var.cluster_name}"
+      }
+    },
+    {{- end }}
+    {{- if not $subnetIDs }}
+    "aws_subnets": {
+      "private": {
+        "tags": "${var.subnet_tags}"
+      }
+    },
+    {{- end }}
+    {{- if not $securityGroupIDs }}
+    "aws_security_group": {
+      "tasks": {
+        "name": "${var.security_group_name}"
+      }
+    },
+    {{- end }}
+    {{- if not $vpcID }}
+    "aws_vpc": {
+      "main": {
+        "tags": "${var.vpc_tags}"
+      }
+    },
+    {{- end }}
+    "aws_instances": {
+      "persistent": {
+        "instance_tags": "${var.node_tags}",
+        "instance_state_names": ["running", "pending"]
+      }
+    },
+    "aws_instance": {
+      "persistent": {
+        "for_each": "${toset(data.aws_instances.persistent.ids)}",
+        "instance_id": "${each.value}"
+      }
+    },
+    "aws_ebs_volumes": {
+      "persistent": {
+        "tags": "${var.node_tags}"
+      }
+    },
+    "aws_ebs_volume": {
+      "persistent": {
+        "for_each": "${toset(data.aws_ebs_volumes.persistent.ids)}",
+        "filter": [
+          {
+            "name": "volume-id",
+            "values": ["${each.value}"]
+          }
+        ]
       }
     }
   },
-  "provider": {
-    "aws": {
-      "region": "${var.region}"
-    }
+  "locals": {
+    "cluster_arn": "{{ if $clusterARN }}${var.cluster_arn}{{ else }}${data.aws_ecs_cluster.main.arn}{{ end }}",
+    "subnet_ids": "{{ if $subnetIDs }}${var.subnet_ids}{{ else }}${data.aws_subnets.private.ids}{{ end }}",
+    "security_group_ids": "{{ if $securityGroupIDs }}${var.security_group_ids}{{ else }}${[data.aws_security_group.tasks.id]}{{ end }}",
+    "vpc_id": "{{ if $vpcID }}${var.vpc_id}{{ else }}${data.aws_vpc.main.id}{{ end }}",
+    "task_role_arn": "{{ if $taskRoleARN }}${var.task_role_arn}{{ else }}${aws_iam_role.task.arn}{{ end }}",
+    "execution_role_arn": "{{ if $executionRoleARN }}${var.execution_role_arn}{{ else }}${aws_iam_role.exec.arn}{{ end }}",
+    "identities": [{{ range $i, $identity := $identities }}{{ if $i }}, {{ end }}"{{ $identity }}"{{ end }}],
+    "volume_instance": "${ merge([ for id, instance in data.aws_instance.persistent : { for device in instance.ebs_block_device : device.volume_id => id } ]...) }",
+    "instance_volume": "${ { for volume, instance in local.volume_instance : instance => volume } }",
+    "volume_claims": "${ merge([ for id, volume in data.aws_ebs_volume.persistent : { for identity in split(\",\", volume.tags[var.claim_tag]) : identity => id } if contains(keys(volume.tags), var.claim_tag) ]...) }",
+    "instance_claims": "${ merge([ for id, instance in data.aws_instance.persistent : { for identity in split(\",\", instance.tags[var.claim_tag]) : identity => id } if contains(keys(instance.tags), var.claim_tag) ]...) }",
+    "inherited_claims": "${ { for identity, instance in local.instance_claims : identity => local.instance_volume[instance] if contains(keys(local.instance_volume), instance) } }",
+    "claims": "${ merge(local.inherited_claims, local.volume_claims) }",
+    "unclaimed_volume_ids": "${ sort([ for id, volume in data.aws_ebs_volume.persistent : id if !contains(values(local.claims), id) ]) }",
+    "claimed_volume_ids": "${ sort([ for id, volume in data.aws_ebs_volume.persistent : id if contains(values(local.claims), id) ]) }",
+    "assignment_pool": "${ concat(local.unclaimed_volume_ids, local.claimed_volume_ids) }",
+    "new_identities": "${ [ for identity in local.identities : identity if !contains(keys(local.claims), identity) ] }",
+    "volumes": "${ { for identity in local.identities : identity => contains(keys(local.claims), identity) ? local.claims[identity] : element(local.assignment_pool, index(local.new_identities, identity)) } }",
+    "seats": "${ { for identity, volume in local.volumes : identity => lookup(local.volume_instance, volume, \"unattached\") } }"
   },
-  "module": {
-    "signoz": {
-      "source": "./module",
-      "region": "${var.region}",
-      "ecs_cluster_id": "${var.ecs_cluster_id}",
-      "subnet_ids": "${var.subnet_ids}",
-      "security_group_ids": "${var.security_group_ids}",
-      "vpc_id": "${var.vpc_id}",
-      "config_bucket": "${var.config_bucket}",
-      "task_role_arn": "${var.task_role_arn}",
-      "task_execution_role_arn": "${var.task_execution_role_arn}",
-      "capacity_provider": "${var.capacity_provider}"
+  "resource": {
+    {{- /* Workload identity is the workload's own. A role holds no data and
+           dies with this stack. An operator states an ARN instead and nothing
+           is created. */}}
+    {{- if or (not $taskRoleARN) (not $executionRoleARN) }}
+    "aws_iam_role": {
+      {{- $first := true }}
+      {{- if not $taskRoleARN }}{{ if not $first }},{{ end }}{{ $first = false }}
+      "task": {
+        "name": "${var.task_role_name}",
+        "assume_role_policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Action\" = \"sts:AssumeRole\", \"Effect\" = \"Allow\", \"Principal\" = {\"Service\" = \"ecs-tasks.amazonaws.com\"}}]})}",
+        "tags": {{ toJson $.Labels }}
+      }
+      {{- end }}
+      {{- if not $executionRoleARN }}{{ if not $first }},{{ end }}{{ $first = false }}
+      "exec": {
+        "name": "${var.execution_role_name}",
+        "assume_role_policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Action\" = \"sts:AssumeRole\", \"Effect\" = \"Allow\", \"Principal\" = {\"Service\" = \"ecs-tasks.amazonaws.com\"}}]})}",
+        "tags": {{ toJson $.Labels }}
+      }
+      {{- end }}
+    },
+    {{- end }}
+    {{- if not $executionRoleARN }}
+    "aws_iam_role_policy_attachment": {
+      "exec": {
+        "policy_arn": "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+        "role": "${aws_iam_role.exec.name}"
+      }
+    },
+    {{- end }}
+    {{- if not $taskRoleARN }}
+    {{- /* Scoped to the application this stack creates. GetLatestConfiguration
+           acts on a session token and cannot be scoped. */}}
+    "aws_iam_role_policy": {
+      "task_appconfig_read": {
+        "name": "${var.task_role_name}-appconfig-read",
+        "role": "${aws_iam_role.task.id}",
+        "policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Effect\" = \"Allow\", \"Action\" = [\"appconfig:StartConfigurationSession\"], \"Resource\" = [aws_appconfig_application.main.arn]}, {\"Effect\" = \"Allow\", \"Action\" = [\"appconfig:GetLatestConfiguration\"], \"Resource\" = \"*\"}]})}"
+      }
+    },
+    {{- end }}
+    "aws_service_discovery_private_dns_namespace": {
+      "main": {
+        "name": "{{ $name }}.local",
+        "vpc": "${local.vpc_id}",
+        "tags": {{ toJson $.Labels }}
+      }
+    },
+    "aws_ec2_tag": {
+      "claims": {
+        "for_each": "${ toset(values(local.volumes)) }",
+        "resource_id": "${each.value}",
+        "key": "${var.claim_tag}",
+        "value": "${ join(\",\", sort([ for identity, volume in local.volumes : identity if volume == each.value ])) }"
+      }
+    },
+    {{- /* AppConfig is the ECS analog of a ConfigMap. The sidecar rewrites the
+           config in place, reloading the process instead of replacing the
+           task. Load-bearing for quorum members. Verified against keeper
+           25.12.5. */}}
+    "aws_appconfig_application": {
+      "main": {
+        "name": "{{ $name }}",
+        "description": "SigNoz component configuration",
+        "tags": {{ toJson $.Labels }}
+      }
+    },
+    "aws_appconfig_environment": {
+      "main": {
+        "name": "default",
+        "application_id": "${aws_appconfig_application.main.id}",
+        "tags": {{ toJson $.Labels }}
+      }
+    },
+    {{- /* No bake. AppConfig serializes deployments per environment, paying
+           bake time once per component on every apply. Add it back with
+           CloudWatch monitors that can trigger a rollback. */}}
+    "aws_appconfig_deployment_strategy": {
+      "main": {
+        "name": "{{ $name }}-config",
+        "deployment_duration_in_minutes": 0,
+        "final_bake_time_in_minutes": 0,
+        "growth_factor": 100,
+        "replicate_to": "NONE",
+        "tags": {{ toJson $.Labels }}
+      }
     }
   }
 }

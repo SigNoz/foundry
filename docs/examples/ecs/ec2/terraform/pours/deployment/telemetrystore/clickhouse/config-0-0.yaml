@@ -59,7 +59,7 @@ remote_servers:
   cluster:
     shard:
     - replica:
-      - host: telemetrystore-clickhouse.signoz.local
+      - host: telemetrystore-clickhouse-0-0.foundry.local
         port: 9000
 session_log:
   ttl: event_date + INTERVAL 1 DAY DELETE
@@ -90,7 +90,7 @@ users:
     show_named_collection_secrets: 1
 zookeeper:
   node:
-  - host: telemetrykeeper-clickhousekeeper.signoz.local
+  - host: telemetrykeeper-clickhousekeeper-0.foundry.local
     port: 9181
 zookeeper_log:
   ttl: event_date + INTERVAL 1 DAY DELETE
