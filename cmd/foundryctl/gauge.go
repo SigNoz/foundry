@@ -40,6 +40,9 @@ func runGauge(ctx context.Context, logger *slog.Logger, path string) ([]domain.P
 		}
 	}
 
-	err = foundry.Gauge(ctx, machineries)
-	return []domain.Properties{props}, err
+	if err := foundry.Gauge(ctx, machineries); err != nil {
+		return []domain.Properties{props.WithError(err)}, err
+	}
+
+	return []domain.Properties{props.WithSuccess()}, nil
 }

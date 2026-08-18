@@ -19,23 +19,25 @@ func registerCastCmd(rootCmd *cobra.Command) {
 		RunE: recoverRunE(domain.EventCast, func(cmd *cobra.Command, args []string) ([]domain.Properties, error) {
 			ctx := cmd.Context()
 
-			// A failed inner stage reports only its failure props under the
-			// cast event: what it forged was not cast, so nothing succeeded.
+			// The inner stages report under the cast event.
 			if !castCfg.NoGauge {
 				if props, err := runGauge(ctx, rootLogger, commonCfg.File); err != nil {
-					if len(props) > 0 {
-						props = props[len(props)-1:]
-					}
 					return props, err
 				}
 			}
 
+			// What the forge stage forged was not cast, so only its failure
+			// reports.
 			if !castCfg.NoForge {
 				if props, err := runForge(ctx, rootLogger, commonCfg.File, poursCfg.Path); err != nil {
-					if len(props) > 0 {
-						props = props[len(props)-1:]
+					failed := []domain.Properties{}
+					for _, p := range props {
+						if p.Succeeded() {
+							continue
+						}
+						failed = append(failed, p)
 					}
-					return props, err
+					return failed, err
 				}
 			}
 
@@ -68,10 +70,10 @@ func runCast(ctx context.Context, logger *slog.Logger, poursPath string, configP
 	props := []domain.Properties{}
 	for _, machinery := range machineries {
 		if err := foundry.Cast(ctx, machinery, poursPath); err != nil {
-			return append(props, domain.NewProperties().Set("kind", machinery.Kind().String()).Set("kinds", kinds)), err
+			return append(props, domain.NewProperties().Set("kind", machinery.Kind().String()).Set("kinds", kinds).WithError(err)), err
 		}
 
-		props = append(props, machinery.TrackableProperties().Set("kinds", kinds))
+		props = append(props, machinery.TrackableProperties().Set("kinds", kinds).WithSuccess())
 	}
 
 	return props, nil

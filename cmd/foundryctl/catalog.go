@@ -81,7 +81,7 @@ func runCatalog(logger *slog.Logger) ([]domain.Properties, error) {
 		return entries[i].Example < entries[j].Example
 	})
 
-	props := []domain.Properties{domain.NewProperties()}
+	props := []domain.Properties{domain.NewProperties().WithSuccess()}
 
 	if commonCfg.Format == "text" {
 		table := tablewriter.NewWriter(os.Stdout)
@@ -90,17 +90,24 @@ func runCatalog(logger *slog.Logger) ([]domain.Properties, error) {
 			_ = table.Append(e.Mode, e.Flavor, e.Platform, e.Example)
 		}
 
-		return props, table.Render()
+		if err := table.Render(); err != nil {
+			return nil, err
+		}
+		return props, nil
 	}
 
 	data, err := json.MarshalIndent(map[string]any{"Castings": entries}, "", "  ")
 	if err != nil {
-		return props, err
+		return nil, err
 	}
 	if catalogCfg.OutPath != "" {
-		err = os.WriteFile(catalogCfg.OutPath, data, 0644)
-		return props, err
+		if err := os.WriteFile(catalogCfg.OutPath, data, 0644); err != nil {
+			return nil, err
+		}
+		return props, nil
 	}
-	_, err = os.Stdout.Write(data)
-	return props, err
+	if _, err := os.Stdout.Write(data); err != nil {
+		return nil, err
+	}
+	return props, nil
 }
