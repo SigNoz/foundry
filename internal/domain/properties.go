@@ -55,6 +55,13 @@ func (p Properties) WithError(err error) Properties {
 	return p
 }
 
+// Succeeded reads the stamp WithSuccess and WithError set; an unstamped
+// Properties is not succeeded.
+func (p Properties) Succeeded() bool {
+	success, ok := p.values[propertyKeySuccess].(bool)
+	return ok && success
+}
+
 // Map returns a copy of the underlying values, safe for callers to mutate.
 func (p Properties) Map() map[string]any {
 	out := make(map[string]any, len(p.values))

@@ -56,10 +56,9 @@ func closeRoot() {
 	}
 }
 
-// recoverRunE tracks one event per returned props. On success every props
-// reports succeeded; on failure the last props is the failure event and every
-// props before it succeeded, so a runner returns what landed plus the props
-// the failure should carry (or nil for the bare shape).
+// recoverRunE tracks one event per returned props, each under the outcome the
+// runner stamped with WithSuccess or WithError. An error with no props tracks
+// the bare failure.
 func recoverRunE(
 	event domain.Event,
 	runE func(cmd *cobra.Command, args []string) ([]domain.Properties, error),
@@ -79,28 +78,27 @@ func recoverRunE(
 
 			if err != nil {
 				rootLogger.ErrorContext(ctx, event.String()+" failed", foundryerrors.LogAttr(err))
-				failedProps := domain.NewProperties()
-				if len(props) > 0 {
-					failedProps = props[len(props)-1]
-					for _, p := range props[:len(props)-1] {
-						rootTracker.Track(ctx, event.Succeeded(), p.WithSuccess())
-					}
-				}
-				rootTracker.Track(ctx, event.Failed(), failedProps.WithError(err))
 				if commonCfg.Format == "json" {
 					_ = writer.WriteOutput(os.Stdout, foundryerrors.EnvelopeOf(err))
 					cmd.SilenceErrors = true
 				}
-				return
 			}
 
 			if len(props) == 0 {
+				if err != nil {
+					rootTracker.Track(ctx, event.Failed(), domain.NewProperties().WithError(err))
+					return
+				}
 				rootTracker.Track(ctx, event.Succeeded(), domain.NewProperties().WithSuccess())
 				return
 			}
 
 			for _, p := range props {
-				rootTracker.Track(ctx, event.Succeeded(), p.WithSuccess())
+				if p.Succeeded() {
+					rootTracker.Track(ctx, event.Succeeded(), p)
+					continue
+				}
+				rootTracker.Track(ctx, event.Failed(), p)
 			}
 		}()
 
