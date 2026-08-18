@@ -56,6 +56,10 @@ func closeRoot() {
 	}
 }
 
+// recoverRunE tracks one event per returned props. On success every props
+// reports succeeded; on failure the last props is the failure event and every
+// props before it succeeded, so a runner returns what landed plus the props
+// the failure should carry (or nil for the bare shape).
 func recoverRunE(
 	event domain.Event,
 	runE func(cmd *cobra.Command, args []string) ([]domain.Properties, error),
@@ -77,7 +81,10 @@ func recoverRunE(
 				rootLogger.ErrorContext(ctx, event.String()+" failed", foundryerrors.LogAttr(err))
 				failedProps := domain.NewProperties()
 				if len(props) > 0 {
-					failedProps = props[0]
+					failedProps = props[len(props)-1]
+					for _, p := range props[:len(props)-1] {
+						rootTracker.Track(ctx, event.Succeeded(), p.WithSuccess())
+					}
 				}
 				rootTracker.Track(ctx, event.Failed(), failedProps.WithError(err))
 				if commonCfg.Format == "json" {
