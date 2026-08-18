@@ -17,7 +17,7 @@ func registerCatalogCmd(rootCmd *cobra.Command) {
 	catalogCmd := &cobra.Command{
 		Use:   "catalog",
 		Short: "Show available castings",
-		RunE: recoverRunE(domain.EventCatalog, func(cmd *cobra.Command, args []string) (domain.Properties, error) {
+		RunE: recoverRunE(domain.EventCatalog, func(cmd *cobra.Command, args []string) ([]domain.Properties, error) {
 			return runCatalog(rootLogger)
 		}),
 	}
@@ -60,7 +60,7 @@ func catalogGroup(e castingEntry) int {
 	}
 }
 
-func runCatalog(logger *slog.Logger) (domain.Properties, error) {
+func runCatalog(logger *slog.Logger) ([]domain.Properties, error) {
 	registry := installationcasting.NewRegistry(logger)
 
 	var entries []castingEntry
@@ -81,7 +81,7 @@ func runCatalog(logger *slog.Logger) (domain.Properties, error) {
 		return entries[i].Example < entries[j].Example
 	})
 
-	props := domain.NewProperties()
+	props := []domain.Properties{domain.NewProperties()}
 
 	if commonCfg.Format == "text" {
 		table := tablewriter.NewWriter(os.Stdout)
