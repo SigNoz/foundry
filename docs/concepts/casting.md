@@ -100,6 +100,17 @@ Patches let you customize any generated output file without Foundry needing to m
 
 See [Patches](patches.md) for the full guide.
 
+## Which override goes where
+
+| Change | Where |
+|---|---|
+| Image, version, replicas, env, enabling a component | Molding `spec` fields, see [Moldings](moldings.md) |
+| A component's config file | `config.data` under the molding's spec, see [Custom config files](moldings.md#custom-config-files) |
+| A generated platform file | `spec.patches`, see [Patches](patches.md) |
+| A parameter Foundry reads during generation | `metadata.annotations`, see [Annotations](annotations.md) |
+
+If a spec field exists, use it. `config.data` merges into the component's generated config (maps merge, lists replace). Patches apply last, on the generated output.
+
 ## Minimal example
 
 Docker Compose with all defaults:
