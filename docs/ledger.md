@@ -9,6 +9,7 @@ Each command execution sends a single event with the following properties:
 | Property | Description | Example |
 |---|---|---|
 | `kind` | Casting kind | `Installation`, `CollectionAgent` |
+| `kinds` | Kinds declared in the casting file, in cast order (forge and cast events) | `["Installation", "CollectionAgent"]` |
 | `platform` | Deployment platform from casting.yaml | `aws`, `docker`, `linux` |
 | `mode` | Deployment mode | `docker`, `systemd`, `kubernetes` |
 | `flavor` | Deployment flavor | `compose`, `binary`, `helm` |

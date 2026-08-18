@@ -5,6 +5,7 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/instrumentation"
@@ -57,11 +58,11 @@ func closeRoot() {
 
 func recoverRunE(
 	event domain.Event,
-	runE func(cmd *cobra.Command, args []string) (domain.Properties, error),
+	runE func(cmd *cobra.Command, args []string) ([]domain.Properties, error),
 ) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) (err error) {
 		ctx := cmd.Context()
-		props := domain.NewProperties()
+		props := []domain.Properties{}
 
 		defer func() {
 			if r := recover(); r != nil {
@@ -74,7 +75,11 @@ func recoverRunE(
 
 			if err != nil {
 				rootLogger.ErrorContext(ctx, event.String()+" failed", foundryerrors.LogAttr(err))
-				rootTracker.Track(ctx, event.Failed(), props.WithError(err))
+				failedProps := domain.NewProperties()
+				if len(props) > 0 {
+					failedProps = props[0]
+				}
+				rootTracker.Track(ctx, event.Failed(), failedProps.WithError(err))
 				if commonCfg.Format == "json" {
 					_ = writer.WriteOutput(os.Stdout, foundryerrors.EnvelopeOf(err))
 					cmd.SilenceErrors = true
@@ -82,10 +87,26 @@ func recoverRunE(
 				return
 			}
 
-			rootTracker.Track(ctx, event.Succeeded(), props.WithSuccess())
+			if len(props) == 0 {
+				rootTracker.Track(ctx, event.Succeeded(), domain.NewProperties().WithSuccess())
+				return
+			}
+
+			for _, p := range props {
+				rootTracker.Track(ctx, event.Succeeded(), p.WithSuccess())
+			}
 		}()
 
 		props, err = runE(cmd, args)
 		return err
 	}
+}
+
+// kindsOf lists the declared kinds in cast order.
+func kindsOf(machineries []v1alpha1.Machinery) []string {
+	kinds := make([]string, len(machineries))
+	for i, m := range machineries {
+		kinds[i] = m.Kind().String()
+	}
+	return kinds
 }

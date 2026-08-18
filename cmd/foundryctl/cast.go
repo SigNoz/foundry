@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"path/filepath"
 
-	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/foundry"
@@ -17,7 +16,7 @@ func registerCastCmd(rootCmd *cobra.Command) {
 	castCmd := &cobra.Command{
 		Use:   "cast",
 		Short: "Cast to the target environment.",
-		RunE: recoverRunE(domain.EventCast, func(cmd *cobra.Command, args []string) (domain.Properties, error) {
+		RunE: recoverRunE(domain.EventCast, func(cmd *cobra.Command, args []string) ([]domain.Properties, error) {
 			ctx := cmd.Context()
 
 			if !castCfg.NoGauge {
@@ -40,29 +39,32 @@ func registerCastCmd(rootCmd *cobra.Command) {
 	castCfg.RegisterFlags(castCmd)
 }
 
-func runCast(ctx context.Context, logger *slog.Logger, poursPath string, configPath string) (domain.Properties, error) {
+func runCast(ctx context.Context, logger *slog.Logger, poursPath string, configPath string) ([]domain.Properties, error) {
 	foundry, err := foundry.New(logger)
 	if err != nil {
-		return domain.NewProperties(), err
+		return nil, err
 	}
 
 	poursPath, err = filepath.Abs(poursPath)
 	if err != nil {
-		return domain.NewProperties(), errors.Wrapf(err, errors.TypeInternal, "failed to resolve pours path")
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to resolve pours path")
 	}
 
 	machineries, err := foundry.Config.GetV1Alpha1Lock(ctx, configPath)
 	if err != nil {
-		return domain.NewProperties(), err
+		return nil, err
 	}
 
-	props := domain.NewProperties()
-	for _, machinery := range machineries {
-		if machinery.Kind() == v1alpha1.KindInstallation {
-			props = machinery.TrackableProperties()
-		}
+	kinds := kindsOf(machineries)
+
+	if err := foundry.Cast(ctx, machineries, poursPath); err != nil {
+		return []domain.Properties{domain.NewProperties().Set("kinds", kinds)}, err
 	}
 
-	err = foundry.Cast(ctx, machineries, poursPath)
-	return props, err
+	props := make([]domain.Properties, len(machineries))
+	for i, machinery := range machineries {
+		props[i] = machinery.TrackableProperties().Set("kinds", kinds)
+	}
+
+	return props, nil
 }
