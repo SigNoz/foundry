@@ -190,21 +190,45 @@ func (config *yamlConfig) GetV1Alpha1Lock(ctx context.Context, path string) ([]v
 	return config.castings(contents, lockPath, loader.read)
 }
 
-// CreateV1Alpha1Lock writes the resolved castings beside the casting file, one
-// document each, in the order they were resolved.
-func (*yamlConfig) CreateV1Alpha1Lock(ctx context.Context, machineries []v1alpha1.Machinery, path string) error {
-	documents := make([][]byte, 0, len(machineries))
+// CreateOrUpdateV1Alpha1Lock replaces the casting's entry beside the casting file,
+// keeping every other locked entry, one document per kind in cast order.
+func (config *yamlConfig) CreateOrUpdateV1Alpha1Lock(ctx context.Context, machinery v1alpha1.Machinery, path string) error {
+	lockPath := filepath.Join(filepath.Dir(path), lockFileName)
 
-	for _, machinery := range machineries {
-		contents, err := domain.MarshalYAML(machinery)
+	locked := map[v1alpha1.Kind]v1alpha1.Machinery{}
+	contents, err := os.ReadFile(lockPath)
+	switch {
+	case err == nil:
+		machineries, err := config.castings(contents, lockPath, loader.read)
 		if err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to marshal %s casting %q", machinery.Kind(), machinery.Name())
+			return err
+		}
+		for _, m := range machineries {
+			locked[m.Kind()] = m
+		}
+	case os.IsNotExist(err):
+	default:
+		return errors.Wrapf(err, errors.TypeInternal, "failed to read lock file")
+	}
+
+	locked[machinery.Kind()] = machinery
+
+	documents := make([][]byte, 0, len(locked))
+	for _, kind := range v1alpha1.Kinds() {
+		m, ok := locked[kind]
+		if !ok {
+			continue
+		}
+
+		contents, err := domain.MarshalYAML(m)
+		if err != nil {
+			return errors.Wrapf(err, errors.TypeInternal, "failed to marshal %s casting %q", m.Kind(), m.Name())
 		}
 
 		documents = append(documents, contents)
 	}
 
-	if err := os.WriteFile(filepath.Join(filepath.Dir(path), lockFileName), domain.NewYAMLStream(documents), 0644); err != nil {
+	if err := os.WriteFile(lockPath, domain.NewYAMLStream(documents), 0644); err != nil {
 		return errors.Wrapf(err, errors.TypeInternal, "failed to write lock file")
 	}
 

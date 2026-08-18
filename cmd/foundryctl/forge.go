@@ -43,13 +43,13 @@ func runForge(ctx context.Context, logger *slog.Logger, path string, poursPath s
 		return []domain.Properties{domain.NewProperties().Set("kinds", kinds)}, err
 	}
 
-	if err := foundry.Forge(ctx, machineries, path, &writer.Options{Output: &os.File{}, TargetDirectory: poursAbsPath}); err != nil {
-		return []domain.Properties{domain.NewProperties().Set("kinds", kinds)}, err
-	}
+	props := []domain.Properties{}
+	for _, machinery := range machineries {
+		if err := foundry.Forge(ctx, machinery, path, &writer.Options{Output: &os.File{}, TargetDirectory: poursAbsPath}); err != nil {
+			return append(props, domain.NewProperties().Set("kind", machinery.Kind().String()).Set("kinds", kinds)), err
+		}
 
-	props := make([]domain.Properties, len(machineries))
-	for i, machinery := range machineries {
-		props[i] = machinery.TrackableProperties().Set("kinds", kinds)
+		props = append(props, machinery.TrackableProperties().Set("kinds", kinds))
 	}
 
 	return props, nil

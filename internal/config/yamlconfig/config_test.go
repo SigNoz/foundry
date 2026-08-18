@@ -637,32 +637,9 @@ spec:
 	}
 }
 
-func TestCreateV1Alpha1Lock(t *testing.T) {
-	tests := []struct {
-		name          string
-		contents      string
-		expectedKinds []v1alpha1.Kind
-		expectedNames []string
-	}{
-		{
-			name: "SingleDocument_RoundTrips",
-			contents: `
-apiVersion: v1alpha1
-kind: Installation
-metadata:
-  name: signoz
-spec:
-  deployment:
-    mode: docker
-    flavor: compose
-`,
-			expectedKinds: []v1alpha1.Kind{v1alpha1.KindInstallation},
-			expectedNames: []string{"signoz"},
-		},
-		{
-			// Written agent-first, so the lock proves it records cast order.
-			name: "TwoDocuments_RoundTripInCastOrder",
-			contents: `
+func TestCreateOrUpdateV1Alpha1Lock(t *testing.T) {
+	// Written agent-first, so the lock proves it records cast order.
+	twoDocuments := `
 apiVersion: v1alpha1
 kind: CollectionAgent
 metadata:
@@ -680,7 +657,56 @@ spec:
   deployment:
     mode: docker
     flavor: compose
+`
+
+	tests := []struct {
+		name          string
+		contents      string
+		records       []int
+		expectedKinds []v1alpha1.Kind
+		expectedNames []string
+	}{
+		{
+			name: "SingleDocument_RoundTrips",
+			contents: `
+apiVersion: v1alpha1
+kind: Installation
+metadata:
+  name: signoz
+spec:
+  deployment:
+    mode: docker
+    flavor: compose
 `,
+			records:       []int{0},
+			expectedKinds: []v1alpha1.Kind{v1alpha1.KindInstallation},
+			expectedNames: []string{"signoz"},
+		},
+		{
+			name:          "TwoDocuments_RoundTripInCastOrder",
+			contents:      twoDocuments,
+			records:       []int{0, 1},
+			expectedKinds: []v1alpha1.Kind{v1alpha1.KindInstallation, v1alpha1.KindCollectionAgent},
+			expectedNames: []string{"signoz", "signoz-agent"},
+		},
+		{
+			name:          "PartialRun_LocksOnlyWhatForged",
+			contents:      twoDocuments,
+			records:       []int{0},
+			expectedKinds: []v1alpha1.Kind{v1alpha1.KindInstallation},
+			expectedNames: []string{"signoz"},
+		},
+		{
+			name:          "LaterPartialRun_KeepsOtherEntries",
+			contents:      twoDocuments,
+			records:       []int{0, 1, 0},
+			expectedKinds: []v1alpha1.Kind{v1alpha1.KindInstallation, v1alpha1.KindCollectionAgent},
+			expectedNames: []string{"signoz", "signoz-agent"},
+		},
+		{
+			name:          "OutOfOrderRecords_LockKeepsCastOrder",
+			contents:      twoDocuments,
+			records:       []int{1, 0},
 			expectedKinds: []v1alpha1.Kind{v1alpha1.KindInstallation, v1alpha1.KindCollectionAgent},
 			expectedNames: []string{"signoz", "signoz-agent"},
 		},
@@ -717,6 +743,7 @@ spec:
     mode: ec2
     flavor: terraform
 `,
+			records:       []int{0, 1, 2},
 			expectedKinds: []v1alpha1.Kind{v1alpha1.KindInfrastructure, v1alpha1.KindInstallation, v1alpha1.KindCollectionAgent},
 			expectedNames: []string{"signoz-infra", "signoz", "signoz-agent"},
 		},
@@ -732,7 +759,9 @@ spec:
 
 			machineries, err := cfg.GetV1Alpha1(ctx, castingPath)
 			assert.NoError(t, err)
-			assert.NoError(t, cfg.CreateV1Alpha1Lock(ctx, machineries, castingPath))
+			for _, i := range tt.records {
+				assert.NoError(t, cfg.CreateOrUpdateV1Alpha1Lock(ctx, machineries[i], castingPath))
+			}
 
 			locked, err := cfg.GetV1Alpha1Lock(ctx, castingPath)
 			assert.NoError(t, err)
