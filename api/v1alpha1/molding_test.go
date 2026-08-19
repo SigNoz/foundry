@@ -29,6 +29,20 @@ func TestMergeStatus(t *testing.T) {
 			expected:   map[string]string{"config-0-0.yaml": "a: b\n", "extra.yaml": "foo: bar\n"},
 		},
 		{
+			name:       "ListOverride_ReplacesWholesale",
+			statusData: map[string]string{"agent.yaml": "service:\n  pipelines:\n    metrics:\n      receivers:\n      - otlp\n      - hostmetrics\n"},
+			specData:   map[string]string{"agent.yaml": "service:\n  pipelines:\n    metrics:\n      receivers:\n      - otlp\n"},
+			pass:       true,
+			expected:   map[string]string{"agent.yaml": "service:\n  pipelines:\n    metrics:\n      receivers:\n      - otlp\n"},
+		},
+		{
+			name:       "NullOverride_DeletesKey",
+			statusData: map[string]string{"agent.yaml": "receivers:\n  hostmetrics:\n    collection_interval: 30s\n  otlp:\n    protocols: {}\n"},
+			specData:   map[string]string{"agent.yaml": "receivers:\n  hostmetrics: null\n"},
+			pass:       true,
+			expected:   map[string]string{"agent.yaml": "receivers:\n  otlp:\n    protocols: {}\n"},
+		},
+		{
 			name:       "MalformedOverride_Invalid",
 			statusData: map[string]string{"config-0-0.yaml": "a: b\n"},
 			specData:   map[string]string{"config-0-0.yaml": "a: [b\n"},
