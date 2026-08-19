@@ -36,6 +36,10 @@ func runForge(ctx context.Context, logger *slog.Logger, path string, poursPath s
 		return err
 	}
 
+	if err := foundry.Config.PruneV1Alpha1Lock(ctx, machineries, path); err != nil {
+		return err
+	}
+
 	poursAbsPath, err := filepath.Abs(poursPath)
 	if err != nil {
 		return err

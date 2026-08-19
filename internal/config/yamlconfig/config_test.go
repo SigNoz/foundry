@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/infrastructure"
@@ -777,4 +778,86 @@ spec:
 			assert.Equal(t, tt.expectedNames, names)
 		})
 	}
+}
+
+func TestPruneV1Alpha1Lock(t *testing.T) {
+	twoDocuments := `
+apiVersion: v1alpha1
+kind: Installation
+metadata:
+  name: signoz
+spec:
+  deployment:
+    mode: docker
+    flavor: compose
+---
+apiVersion: v1alpha1
+kind: CollectionAgent
+metadata:
+  name: signoz-agent
+spec:
+  deployment:
+    mode: docker
+    flavor: compose
+`
+
+	lock := func(t *testing.T, contents string) (*yamlConfig, []v1alpha1.Machinery, string) {
+		t.Helper()
+
+		ctx := context.Background()
+		castingPath := filepath.Join(t.TempDir(), "casting.yaml")
+		assert.NoError(t, os.WriteFile(castingPath, []byte(contents), 0644))
+
+		cfg := New(slog.New(slog.DiscardHandler))
+
+		machineries, err := cfg.GetV1Alpha1(ctx, castingPath)
+		assert.NoError(t, err)
+		for _, machinery := range machineries {
+			assert.NoError(t, cfg.CreateOrUpdateV1Alpha1Lock(ctx, machinery, castingPath))
+		}
+
+		return cfg, machineries, castingPath
+	}
+
+	t.Run("RemovedKind_EntryDropped", func(t *testing.T) {
+		ctx := context.Background()
+		cfg, machineries, castingPath := lock(t, twoDocuments)
+
+		assert.NoError(t, cfg.PruneV1Alpha1Lock(ctx, machineries[:1], castingPath))
+
+		locked, err := cfg.GetV1Alpha1Lock(ctx, castingPath)
+		assert.NoError(t, err)
+		assert.Len(t, locked, 1)
+		assert.Equal(t, v1alpha1.KindInstallation, locked[0].Kind())
+	})
+
+	t.Run("AllDeclared_NoRewrite", func(t *testing.T) {
+		ctx := context.Background()
+		cfg, machineries, castingPath := lock(t, twoDocuments)
+
+		lockPath := filepath.Join(filepath.Dir(castingPath), "casting.yaml.lock")
+		past := time.Now().Add(-time.Hour)
+		assert.NoError(t, os.Chtimes(lockPath, past, past))
+
+		assert.NoError(t, cfg.PruneV1Alpha1Lock(ctx, machineries, castingPath))
+
+		info, err := os.Stat(lockPath)
+		assert.NoError(t, err)
+		assert.True(t, info.ModTime().Equal(past), "prune must not rewrite an unchanged lock")
+	})
+
+	t.Run("MissingLock_NoOp", func(t *testing.T) {
+		ctx := context.Background()
+		castingPath := filepath.Join(t.TempDir(), "casting.yaml")
+		assert.NoError(t, os.WriteFile(castingPath, []byte(twoDocuments), 0644))
+
+		cfg := New(slog.New(slog.DiscardHandler))
+
+		machineries, err := cfg.GetV1Alpha1(ctx, castingPath)
+		assert.NoError(t, err)
+		assert.NoError(t, cfg.PruneV1Alpha1Lock(ctx, machineries, castingPath))
+
+		_, err = os.Stat(filepath.Join(filepath.Dir(castingPath), "casting.yaml.lock"))
+		assert.True(t, os.IsNotExist(err), "prune must not create a lock")
+	})
 }
