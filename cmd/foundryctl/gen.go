@@ -91,7 +91,7 @@ func runGenExamples(ctx context.Context, logger *slog.Logger) error {
 			return err
 		}
 
-		if _, err := runForge(ctx, logger, filepath.Join(rootPath, "casting.yaml"), filepath.Join(rootPath, "pours")); err != nil {
+		if err := runForge(ctx, logger, filepath.Join(rootPath, "casting.yaml"), filepath.Join(rootPath, "pours"), func(domain.Properties, error) {}); err != nil {
 			logger.ErrorContext(ctx, "failed to forge casting", slog.Any("deployment", deployment), foundryerrors.LogAttr(err))
 			continue
 		}

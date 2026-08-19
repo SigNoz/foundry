@@ -17,40 +17,38 @@ func registerForgeCmd(rootCmd *cobra.Command) {
 		Use:   "forge",
 		Short: "Forge Configuration and Deployment Files",
 		Long:  "Generate deployment configuration files from casting.yaml",
-		RunE: recoverRunE(domain.EventForge, func(cmd *cobra.Command, args []string) ([]domain.Properties, error) {
-			return runForge(cmd.Context(), rootLogger, commonCfg.File, poursCfg.Path)
+		RunE: recoverRunE(domain.EventForge, func(cmd *cobra.Command, args []string, report reporter) error {
+			return runForge(cmd.Context(), rootLogger, commonCfg.File, poursCfg.Path, report)
 		}),
 	}
 
 	rootCmd.AddCommand(forgeCmd)
 }
 
-func runForge(ctx context.Context, logger *slog.Logger, path string, poursPath string) ([]domain.Properties, error) {
+func runForge(ctx context.Context, logger *slog.Logger, path string, poursPath string, report reporter) error {
 	foundry, err := foundry.New(logger)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	machineries, err := foundry.Config.GetV1Alpha1(ctx, path)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	poursAbsPath, err := filepath.Abs(poursPath)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	props := []domain.Properties{}
 	for _, machinery := range machineries {
-		machineryProps := machinery.TrackableProperties().Set("kinds_count", len(machineries))
-
 		if err := foundry.Forge(ctx, machinery, path, &writer.Options{Output: &os.File{}, TargetDirectory: poursAbsPath}); err != nil {
-			return append(props, machineryProps.WithError(err)), err
+			report(machinery.TrackableProperties(), err)
+			return err
 		}
 
-		props = append(props, machineryProps.WithSuccess())
+		report(machinery.TrackableProperties(), nil)
 	}
 
-	return props, nil
+	return nil
 }

@@ -56,7 +56,6 @@ func New(logger *slog.Logger) (*Foundry, error) {
 	}, nil
 }
 
-// Plan builds the planner for one casting document.
 func (foundry *Foundry) Plan(ctx context.Context, machinery v1alpha1.Machinery) (planner.Planner, error) {
 	ctor, ok := foundry.plannerCtors[machinery.Kind()]
 	if !ok {
