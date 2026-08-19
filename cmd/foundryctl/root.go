@@ -5,7 +5,6 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/instrumentation"
@@ -85,12 +84,11 @@ func recoverRunE(
 			}
 
 			if len(props) == 0 {
+				bare := domain.NewProperties().WithSuccess()
 				if err != nil {
-					rootTracker.Track(ctx, event.Failed(), domain.NewProperties().WithError(err))
-					return
+					bare = domain.NewProperties().WithError(err)
 				}
-				rootTracker.Track(ctx, event.Succeeded(), domain.NewProperties().WithSuccess())
-				return
+				props = []domain.Properties{bare}
 			}
 
 			for _, p := range props {
@@ -105,13 +103,4 @@ func recoverRunE(
 		props, err = runE(cmd, args)
 		return err
 	}
-}
-
-// kindsOf lists the declared kinds in cast order.
-func kindsOf(machineries []v1alpha1.Machinery) []string {
-	kinds := make([]string, len(machineries))
-	for i, m := range machineries {
-		kinds[i] = m.Kind().String()
-	}
-	return kinds
 }

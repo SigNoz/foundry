@@ -36,20 +36,20 @@ func runForge(ctx context.Context, logger *slog.Logger, path string, poursPath s
 		return nil, err
 	}
 
-	kinds := kindsOf(machineries)
-
 	poursAbsPath, err := filepath.Abs(poursPath)
 	if err != nil {
-		return []domain.Properties{domain.NewProperties().Set("kinds", kinds).WithError(err)}, err
+		return nil, err
 	}
 
 	props := []domain.Properties{}
 	for _, machinery := range machineries {
+		machineryProps := machinery.TrackableProperties().Set("kinds_count", len(machineries))
+
 		if err := foundry.Forge(ctx, machinery, path, &writer.Options{Output: &os.File{}, TargetDirectory: poursAbsPath}); err != nil {
-			return append(props, domain.NewProperties().Set("kind", machinery.Kind().String()).Set("kinds", kinds).WithError(err)), err
+			return append(props, machineryProps.WithError(err)), err
 		}
 
-		props = append(props, machinery.TrackableProperties().Set("kinds", kinds).WithSuccess())
+		props = append(props, machineryProps.WithSuccess())
 	}
 
 	return props, nil

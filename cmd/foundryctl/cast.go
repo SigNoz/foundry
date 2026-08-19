@@ -65,15 +65,15 @@ func runCast(ctx context.Context, logger *slog.Logger, poursPath string, configP
 		return nil, err
 	}
 
-	kinds := kindsOf(machineries)
-
 	props := []domain.Properties{}
 	for _, machinery := range machineries {
+		machineryProps := machinery.TrackableProperties().Set("kinds_count", len(machineries))
+
 		if err := foundry.Cast(ctx, machinery, poursPath); err != nil {
-			return append(props, domain.NewProperties().Set("kind", machinery.Kind().String()).Set("kinds", kinds).WithError(err)), err
+			return append(props, machineryProps.WithError(err)), err
 		}
 
-		props = append(props, machinery.TrackableProperties().Set("kinds", kinds).WithSuccess())
+		props = append(props, machineryProps.WithSuccess())
 	}
 
 	return props, nil
