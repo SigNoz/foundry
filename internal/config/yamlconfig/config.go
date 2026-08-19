@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/signoz/foundry/api/v1alpha1"
@@ -191,44 +192,119 @@ func (config *yamlConfig) GetV1Alpha1Lock(ctx context.Context, path string) ([]v
 }
 
 // CreateOrUpdateV1Alpha1Lock replaces the casting's entry beside the casting file,
-// keeping every other locked entry, one document per kind in cast order.
+// keeping every other locked entry.
 func (config *yamlConfig) CreateOrUpdateV1Alpha1Lock(ctx context.Context, machinery v1alpha1.Machinery, path string) error {
 	lockPath := filepath.Join(filepath.Dir(path), lockFileName)
 
-	locked := map[v1alpha1.Kind]v1alpha1.Machinery{}
-	contents, err := os.ReadFile(lockPath)
-	switch {
-	case err == nil:
-		machineries, err := config.castings(contents, lockPath, loader.read)
-		if err != nil {
-			return err
-		}
-		for _, m := range machineries {
-			locked[m.Kind()] = m
-		}
-	case os.IsNotExist(err):
-	default:
-		return errors.Wrapf(err, errors.TypeInternal, "failed to read lock file")
+	locked, err := config.readLock(lockPath)
+	if err != nil {
+		return err
 	}
 
-	locked[machinery.Kind()] = machinery
+	locked[config.identityOf(machinery)] = machinery
 
-	documents := make([][]byte, 0, len(locked))
-	for _, kind := range v1alpha1.Kinds() {
-		m, ok := locked[kind]
-		if !ok {
+	return config.writeLock(lockPath, locked)
+}
+
+// PruneV1Alpha1Lock drops lock entries for castings the file no longer
+// declares; entries for declared castings are untouched.
+func (config *yamlConfig) PruneV1Alpha1Lock(ctx context.Context, declared []v1alpha1.Machinery, path string) error {
+	lockPath := filepath.Join(filepath.Dir(path), lockFileName)
+
+	locked, err := config.readLock(lockPath)
+	if err != nil {
+		return err
+	}
+
+	identities := make(map[string]struct{}, len(declared))
+	for _, m := range declared {
+		identities[config.identityOf(m)] = struct{}{}
+	}
+
+	pruned := false
+	for identity := range locked {
+		if _, ok := identities[identity]; ok {
 			continue
 		}
 
-		contents, err := domain.MarshalYAML(m)
-		if err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to marshal %s casting %q", m.Kind(), m.Name())
-		}
-
-		documents = append(documents, contents)
+		delete(locked, identity)
+		pruned = true
 	}
 
-	if err := os.WriteFile(lockPath, domain.NewYAMLStream(documents), 0644); err != nil {
+	if !pruned {
+		return nil
+	}
+
+	return config.writeLock(lockPath, locked)
+}
+
+// identityOf is the casting's collision identity: its kind, qualified by the
+// kind's discriminator value when the loader declares one.
+func (config *yamlConfig) identityOf(machinery v1alpha1.Machinery) string {
+	l := config.loaders[machinery.Kind()]
+
+	if l.discriminator == nil {
+		return machinery.Kind().String()
+	}
+
+	return machinery.Kind().String() + "/" + l.discriminator.of(machinery)
+}
+
+// readLock maps the locked castings by identity; a missing lock is empty.
+func (config *yamlConfig) readLock(lockPath string) (map[string]v1alpha1.Machinery, error) {
+	locked := map[string]v1alpha1.Machinery{}
+
+	contents, err := os.ReadFile(lockPath)
+	switch {
+	case os.IsNotExist(err):
+		return locked, nil
+	case err != nil:
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to read lock file")
+	}
+
+	machineries, err := config.castings(contents, lockPath, loader.read)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, m := range machineries {
+		locked[config.identityOf(m)] = m
+	}
+
+	return locked, nil
+}
+
+// writeLock writes the entries in cast order, a kind's own entries sorted by
+// identity, through a temporary file so a crash never truncates the lock.
+func (config *yamlConfig) writeLock(lockPath string, locked map[string]v1alpha1.Machinery) error {
+	byKind := make(map[v1alpha1.Kind][]string, len(locked))
+	for identity, m := range locked {
+		byKind[m.Kind()] = append(byKind[m.Kind()], identity)
+	}
+
+	documents := make([][]byte, 0, len(locked))
+	for _, kind := range v1alpha1.Kinds() {
+		identities := byKind[kind]
+		sort.Strings(identities)
+
+		for _, identity := range identities {
+			m := locked[identity]
+
+			contents, err := domain.MarshalYAML(m)
+			if err != nil {
+				return errors.Wrapf(err, errors.TypeInternal, "failed to marshal %s casting %q", m.Kind(), m.Name())
+			}
+
+			documents = append(documents, contents)
+		}
+	}
+
+	tmpPath := lockPath + ".tmp"
+	if err := os.WriteFile(tmpPath, domain.NewYAMLStream(documents), 0644); err != nil {
+		return errors.Wrapf(err, errors.TypeInternal, "failed to write lock file")
+	}
+
+	if err := os.Rename(tmpPath, lockPath); err != nil {
 		return errors.Wrapf(err, errors.TypeInternal, "failed to write lock file")
 	}
 
