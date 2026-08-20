@@ -56,24 +56,11 @@ func New(logger *slog.Logger) (*Foundry, error) {
 	}, nil
 }
 
-// Plan builds one planner per casting document, in the order the documents were
-// resolved. Every verb runs against the same set, so a command that gauges,
-// forges and casts plans once.
-func (foundry *Foundry) Plan(ctx context.Context, machineries []v1alpha1.Machinery) ([]planner.Planner, error) {
-	planners := make([]planner.Planner, 0, len(machineries))
-	for _, machinery := range machineries {
-		ctor, ok := foundry.plannerCtors[machinery.Kind()]
-		if !ok {
-			return nil, foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported casting kind %q", machinery.Kind())
-		}
-
-		p, err := ctor(ctx, machinery, foundry.Logger)
-		if err != nil {
-			return nil, err
-		}
-
-		planners = append(planners, p)
+func (foundry *Foundry) Plan(ctx context.Context, machinery v1alpha1.Machinery) (planner.Planner, error) {
+	ctor, ok := foundry.plannerCtors[machinery.Kind()]
+	if !ok {
+		return nil, foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported casting kind %q", machinery.Kind())
 	}
 
-	return planners, nil
+	return ctor(ctx, machinery, foundry.Logger)
 }
