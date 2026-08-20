@@ -16,7 +16,8 @@ type Config interface {
 	CreateOrUpdateV1Alpha1Lock(ctx context.Context, machinery v1alpha1.Machinery, path string) error
 
 	// PruneV1Alpha1Lock drops lock entries for castings the file no longer
-	// declares; entries for declared castings are untouched.
+	// declares; entries for declared castings are untouched. A lock left with
+	// no entries is removed.
 	PruneV1Alpha1Lock(ctx context.Context, declared []v1alpha1.Machinery, path string) error
 
 	// GetV1Alpha1Lock reads the lock file from disk.

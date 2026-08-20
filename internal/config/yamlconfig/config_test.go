@@ -778,6 +778,26 @@ spec:
 			assert.Equal(t, tt.expectedNames, names)
 		})
 	}
+
+	// A zero-byte lock and a missing lock state the same fact, no entries
+	// recorded, so a lock truncated outside foundry reads as empty and the
+	// next forge rebuilds it instead of failing every later run.
+	t.Run("EmptyLockFile_TreatedAsMissing", func(t *testing.T) {
+		ctx := context.Background()
+		castingPath := filepath.Join(t.TempDir(), "casting.yaml")
+		assert.NoError(t, os.WriteFile(castingPath, []byte(tests[0].contents), 0644))
+		assert.NoError(t, os.WriteFile(filepath.Join(filepath.Dir(castingPath), "casting.yaml.lock"), nil, 0644))
+
+		cfg := New(slog.New(slog.DiscardHandler))
+
+		machineries, err := cfg.GetV1Alpha1(ctx, castingPath)
+		assert.NoError(t, err)
+		assert.NoError(t, cfg.CreateOrUpdateV1Alpha1Lock(ctx, machineries[0], castingPath))
+
+		locked, err := cfg.GetV1Alpha1Lock(ctx, castingPath)
+		assert.NoError(t, err)
+		assert.Len(t, locked, 1)
+	})
 }
 
 func TestPruneV1Alpha1Lock(t *testing.T) {
@@ -844,6 +864,45 @@ spec:
 		info, err := os.Stat(lockPath)
 		assert.NoError(t, err)
 		assert.True(t, info.ModTime().Equal(past), "prune must not rewrite an unchanged lock")
+	})
+
+	t.Run("AllUndeclared_LockRemovedAndUpsertRecovers", func(t *testing.T) {
+		ctx := context.Background()
+		cfg, _, castingPath := lock(t, `
+apiVersion: v1alpha1
+kind: CollectionAgent
+metadata:
+  name: signoz-agent
+spec:
+  deployment:
+    mode: docker
+    flavor: compose
+`)
+
+		assert.NoError(t, os.WriteFile(castingPath, []byte(`
+apiVersion: v1alpha1
+kind: Installation
+metadata:
+  name: signoz
+spec:
+  deployment:
+    mode: docker
+    flavor: compose
+`), 0644))
+
+		declared, err := cfg.GetV1Alpha1(ctx, castingPath)
+		assert.NoError(t, err)
+		assert.NoError(t, cfg.PruneV1Alpha1Lock(ctx, declared, castingPath))
+
+		_, err = os.Stat(filepath.Join(filepath.Dir(castingPath), "casting.yaml.lock"))
+		assert.True(t, os.IsNotExist(err), "a lock left with no entries must be removed")
+
+		assert.NoError(t, cfg.CreateOrUpdateV1Alpha1Lock(ctx, declared[0], castingPath))
+
+		locked, err := cfg.GetV1Alpha1Lock(ctx, castingPath)
+		assert.NoError(t, err)
+		assert.Len(t, locked, 1)
+		assert.Equal(t, v1alpha1.KindInstallation, locked[0].Kind())
 	})
 
 	t.Run("MissingLock_NoOp", func(t *testing.T) {

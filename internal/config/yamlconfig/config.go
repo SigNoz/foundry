@@ -199,7 +199,8 @@ func lockPathFor(path string) string {
 	return filepath.Join(filepath.Dir(path), lockFileName)
 }
 
-// readLock maps the locked castings by identity; a missing lock is empty.
+// readLock maps the locked castings by identity; a missing or empty lock is
+// empty.
 func (config *yamlConfig) readLock(lockPath string) (map[string]v1alpha1.Machinery, error) {
 	locked := map[string]v1alpha1.Machinery{}
 
@@ -209,6 +210,10 @@ func (config *yamlConfig) readLock(lockPath string) (map[string]v1alpha1.Machine
 		return locked, nil
 	case err != nil:
 		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to read lock file")
+	}
+
+	if len(contents) == 0 {
+		return locked, nil
 	}
 
 	machineries, err := config.castings(contents, lockPath, loader.read)
@@ -224,8 +229,17 @@ func (config *yamlConfig) readLock(lockPath string) (map[string]v1alpha1.Machine
 }
 
 // writeLock writes the entries in cast order, a kind's own entries sorted by
-// identity, through a temporary file so a crash never truncates the lock.
+// identity, through a temporary file so a crash never truncates the lock. Zero
+// entries remove the lock: nothing locked and no lock are the same state.
 func (config *yamlConfig) writeLock(lockPath string, locked map[string]v1alpha1.Machinery) error {
+	if len(locked) == 0 {
+		if err := os.Remove(lockPath); err != nil && !os.IsNotExist(err) {
+			return errors.Wrapf(err, errors.TypeInternal, "failed to remove lock file")
+		}
+
+		return nil
+	}
+
 	byKind := make(map[v1alpha1.Kind][]string, len(locked))
 	for identity, m := range locked {
 		byKind[m.Kind()] = append(byKind[m.Kind()], identity)
