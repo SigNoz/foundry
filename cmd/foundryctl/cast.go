@@ -63,6 +63,11 @@ func runCast(ctx context.Context, logger *slog.Logger, poursPath string, configP
 		}
 	}
 
-	err = foundry.Cast(ctx, machineries, poursPath)
-	return props, err
+	for _, machinery := range machineries {
+		if err := foundry.Cast(ctx, machinery, poursPath); err != nil {
+			return props, err
+		}
+	}
+
+	return props, nil
 }
