@@ -14,23 +14,23 @@ func registerGaugeCmd(rootCmd *cobra.Command) {
 	gaugeCmd := &cobra.Command{
 		Use:   "gauge",
 		Short: "Gauge whether required tools are available.",
-		RunE: recoverRunE(domain.EventGauge, func(cmd *cobra.Command, args []string) (domain.Properties, error) {
-			return runGauge(cmd.Context(), rootLogger, commonCfg.File)
+		RunE: recoverRunE(domain.EventGauge, func(cmd *cobra.Command, args []string, report reporter) error {
+			return runGauge(cmd.Context(), rootLogger, commonCfg.File, report)
 		}),
 	}
 
 	rootCmd.AddCommand(gaugeCmd)
 }
 
-func runGauge(ctx context.Context, logger *slog.Logger, path string) (domain.Properties, error) {
+func runGauge(ctx context.Context, logger *slog.Logger, path string, report reporter) error {
 	foundry, err := foundry.New(logger)
 	if err != nil {
-		return domain.NewProperties(), err
+		return err
 	}
 
 	machineries, err := foundry.Config.GetV1Alpha1(ctx, path)
 	if err != nil {
-		return domain.NewProperties(), err
+		return err
 	}
 
 	props := domain.NewProperties()
@@ -41,5 +41,6 @@ func runGauge(ctx context.Context, logger *slog.Logger, path string) (domain.Pro
 	}
 
 	err = foundry.Gauge(ctx, machineries)
-	return props, err
+	report(props, err)
+	return err
 }
