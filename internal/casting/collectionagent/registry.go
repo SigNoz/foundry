@@ -8,6 +8,7 @@ import (
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockerswarmcasting"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/runner"
+	"github.com/signoz/foundry/internal/runner/composerunner"
 	"github.com/signoz/foundry/internal/tooler"
 	"github.com/signoz/foundry/internal/tooler/dockerswarmtooler"
 	"github.com/signoz/foundry/internal/tooler/dockertooler"
@@ -32,6 +33,7 @@ func NewRegistry(logger *slog.Logger) *Registry {
 				Flavor: v1alpha1.FlavorCompose,
 			}: {
 				Casting: dockercomposecasting.New(logger),
+				Runners: []runner.Runner{composerunner.New(logger)},
 			},
 			{
 				Mode:   v1alpha1.ModeDocker,
