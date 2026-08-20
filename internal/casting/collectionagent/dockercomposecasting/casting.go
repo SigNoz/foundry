@@ -83,13 +83,19 @@ func (c *dockerComposeCasting) checkOwnership(ctx context.Context, config collec
 		return nil
 	}
 
-	ownership := domain.ParseOwnership(string(out))
-
-	if foreign, conflict := ownership.Foreign(config.Kind().String()); conflict {
-		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "%q already belongs to a foundry %s on this host: choose a different metadata.name or remove the existing deployment", config.Metadata.Name, foreign)
+	owners := []domain.Owner{}
+	for kind := range strings.SplitSeq(strings.TrimRight(string(out), "\n"), "\n") {
+		owners = append(owners, domain.Owner{v1alpha1.LabelKind.Key: kind})
 	}
 
-	if ownership.HasUnlabeled() {
+	ownership := domain.NewOwnership(owners...)
+	self := domain.Owner{v1alpha1.LabelKind.Key: config.Kind().String()}
+
+	if foreign, conflict := ownership.Foreign(self); conflict {
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "%q already belongs to a foundry %s on this host: choose a different metadata.name or remove the existing deployment", config.Metadata.Name, foreign[v1alpha1.LabelKind.Key])
+	}
+
+	if ownership.HasUnowned() {
 		c.logger.WarnContext(ctx, "compose project has containers without foundry ownership labels", slog.String("project", config.Metadata.Name))
 	}
 
