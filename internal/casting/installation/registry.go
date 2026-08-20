@@ -15,8 +15,8 @@ import (
 	"github.com/signoz/foundry/internal/casting/rendercasting"
 	"github.com/signoz/foundry/internal/casting/systemdcasting"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
+	"github.com/signoz/foundry/internal/runner"
 	"github.com/signoz/foundry/internal/tooler"
-	"github.com/signoz/foundry/internal/tooler/dockercomposetooler"
 	"github.com/signoz/foundry/internal/tooler/dockerswarmtooler"
 	"github.com/signoz/foundry/internal/tooler/dockertooler"
 	"github.com/signoz/foundry/internal/tooler/helmtooler"
@@ -32,6 +32,11 @@ type CastingItem struct {
 
 	// The toolers for the particular casting.
 	Toolers []tooler.Tooler
+
+	// The runners for the particular casting. The same objects gauge
+	// preflights are handed to Cast and Uncast, so the tools checked and
+	// the tools used cannot drift.
+	Runners []runner.Runner
 }
 
 type Registry struct {
@@ -47,7 +52,6 @@ func NewRegistry(logger *slog.Logger) *Registry {
 				Flavor: v1alpha1.FlavorCompose,
 			}: {
 				Casting: dockercomposecasting.New(logger),
-				Toolers: []tooler.Tooler{dockertooler.New(), dockercomposetooler.New()},
 			},
 			{
 				Mode:   v1alpha1.ModeSystemd,
@@ -138,4 +142,12 @@ func (registry *Registry) Toolers(deployment v1alpha1.TypeDeployment) ([]tooler.
 		return nil, foundryerrors.Newf(foundryerrors.TypeUnsupported, "deployment '%+v' is not supported, raise an issue at https://github.com/signoz/foundry/issues to request support for this deployment", deployment)
 	}
 	return item.Toolers, nil
+}
+
+func (registry *Registry) Runners(deployment v1alpha1.TypeDeployment) ([]runner.Runner, error) {
+	item, ok := registry.lookup(deployment)
+	if !ok {
+		return nil, foundryerrors.Newf(foundryerrors.TypeUnsupported, "deployment '%+v' is not supported, raise an issue at https://github.com/signoz/foundry/issues to request support for this deployment", deployment)
+	}
+	return item.Runners, nil
 }

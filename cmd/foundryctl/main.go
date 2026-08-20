@@ -26,6 +26,7 @@ func main() {
 	registerGaugeCmd(rootCmd)
 	registerForgeCmd(rootCmd)
 	registerCastCmd(rootCmd)
+	registerUncastCmd(rootCmd)
 	registerGenCmd(rootCmd)
 	registerCatalogCmd(rootCmd)
 	registerVersionCmd(rootCmd)

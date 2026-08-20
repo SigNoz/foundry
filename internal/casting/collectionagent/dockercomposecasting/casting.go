@@ -15,6 +15,7 @@ import (
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	collectionagentmolding "github.com/signoz/foundry/internal/molding/collectionagent"
 	"github.com/signoz/foundry/internal/pourer"
+	"github.com/signoz/foundry/internal/runner"
 )
 
 type dockerComposeCasting struct {
@@ -44,7 +45,7 @@ func (c *dockerComposeCasting) Forge(ctx context.Context, config collectionagent
 	return nil
 }
 
-func (c *dockerComposeCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
+func (c *dockerComposeCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer, _ []runner.Runner) error {
 	composeFile := filepath.Join(outputPath, p.Dir(), "compose.yaml")
 
 	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
@@ -69,6 +70,11 @@ func (c *dockerComposeCasting) Cast(ctx context.Context, config collectionagent.
 	cmd.Stderr = os.Stderr
 
 	return cmd.Run()
+}
+
+// Uncast is not implemented for this casting yet.
+func (c *dockerComposeCasting) Uncast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer, _ []runner.Runner) error {
+	return foundryerrors.Newf(foundryerrors.TypeUnsupported, "uncast is not implemented for this casting yet")
 }
 
 // checkOwnership refuses to deploy over a compose project of the same name

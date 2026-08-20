@@ -15,6 +15,7 @@ import (
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
+	"github.com/signoz/foundry/internal/runner"
 )
 
 var _ rootcasting.Casting = (*kustomizeCasting)(nil)
@@ -89,7 +90,7 @@ var clickhouseCRDs = []string{
 	"clickhousekeeperinstallations.clickhouse-keeper.altinity.com.crd.yaml",
 }
 
-func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting, poursPath string) error {
+func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting, poursPath string, _ []runner.Runner) error {
 	c.logger.InfoContext(ctx, "Applying kustomize manifests")
 
 	kustomizeDir := filepath.Join(poursPath, rootcasting.DeploymentDir)
@@ -118,6 +119,11 @@ func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting
 
 	c.logger.InfoContext(runctx, "Kustomize manifests applied successfully")
 	return nil
+}
+
+// Uncast is not implemented for this casting yet.
+func (c *kustomizeCasting) Uncast(ctx context.Context, config installation.Casting, poursPath string, _ []runner.Runner) error {
+	return errors.Newf(errors.TypeUnsupported, "uncast is not implemented for this casting yet")
 }
 
 func (c *kustomizeCasting) applyCRDs(ctx context.Context) error {

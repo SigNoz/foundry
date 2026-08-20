@@ -8,6 +8,7 @@ import (
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
+	"github.com/signoz/foundry/internal/runner"
 	"github.com/signoz/foundry/internal/tooler"
 	"github.com/signoz/foundry/internal/tooler/binarytooler"
 
@@ -62,7 +63,7 @@ func (c *systemdCasting) Forge(ctx context.Context, cfg installation.Casting, po
 	return materials, nil
 }
 
-func (c *systemdCasting) Cast(ctx context.Context, config installation.Casting, poursPath string) error {
+func (c *systemdCasting) Cast(ctx context.Context, config installation.Casting, poursPath string, _ []runner.Runner) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
@@ -93,6 +94,11 @@ func (c *systemdCasting) Cast(ctx context.Context, config installation.Casting, 
 
 	c.logger.InfoContext(ctx, "installed systemd services", slog.Int("count", len(units)))
 	return nil
+}
+
+// Uncast is not implemented for this casting yet.
+func (c *systemdCasting) Uncast(ctx context.Context, config installation.Casting, poursPath string, _ []runner.Runner) error {
+	return errors.Newf(errors.TypeUnsupported, "uncast is not implemented for this casting yet")
 }
 
 func (c *systemdCasting) forgeTelemetryKeeper(cfg *installation.Casting) ([]domain.Material, error) {

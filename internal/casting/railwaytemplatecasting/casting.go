@@ -11,6 +11,7 @@ import (
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
+	"github.com/signoz/foundry/internal/runner"
 )
 
 var _ casting.Casting = (*railwayTemplateCasting)(nil)
@@ -160,8 +161,15 @@ func (c *railwayTemplateCasting) Forge(ctx context.Context, config installation.
 	return materials, nil
 }
 
-func (c *railwayTemplateCasting) Cast(ctx context.Context, config installation.Casting, poursPath string) error {
+func (c *railwayTemplateCasting) Cast(ctx context.Context, config installation.Casting, poursPath string, _ []runner.Runner) error {
 	c.logger.InfoContext(ctx, "Please use the template.")
+	return nil
+}
+
+// Uncast tells the operator where to remove the deployment: foundry does not
+// drive Railway.
+func (c *railwayTemplateCasting) Uncast(ctx context.Context, config installation.Casting, poursPath string, _ []runner.Runner) error {
+	c.logger.InfoContext(ctx, "Remove the services from Railway directly; foundry does not manage Railway resources.")
 	return nil
 }
 
