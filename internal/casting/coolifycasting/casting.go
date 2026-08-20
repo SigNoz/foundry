@@ -11,6 +11,7 @@ import (
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
+	"github.com/signoz/foundry/internal/runner"
 )
 
 var _ rootcasting.Casting = (*coolifyCasting)(nil)
@@ -48,10 +49,18 @@ func (c *coolifyCasting) Forge(ctx context.Context, config installation.Casting,
 	return []domain.Material{coolifyMaterial}, nil
 }
 
-func (c *coolifyCasting) Cast(ctx context.Context, config installation.Casting, poursPath string) error {
+func (c *coolifyCasting) Cast(ctx context.Context, config installation.Casting, poursPath string, _ []runner.Runner) error {
 	c.logger.InfoContext(ctx, "Please run 'forge' first to generate the Coolify Casting",
 		slog.String("pours_path", poursPath))
 	c.logger.InfoContext(ctx, "After forging, deploy coolify.yaml to Coolify using the stack feature",
+		slog.String("docs", "https://coolify.io/docs/knowledge-base/docker/compose"))
+	return nil
+}
+
+// Uncast tells the operator where to remove the deployment: foundry does not
+// drive Coolify.
+func (c *coolifyCasting) Uncast(ctx context.Context, config installation.Casting, poursPath string, _ []runner.Runner) error {
+	c.logger.InfoContext(ctx, "Remove the stack from Coolify directly; foundry does not manage Coolify resources",
 		slog.String("docs", "https://coolify.io/docs/knowledge-base/docker/compose"))
 	return nil
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/signoz/foundry/internal/molding/collectionagent/collectormolding"
 	"github.com/signoz/foundry/internal/planner"
 	"github.com/signoz/foundry/internal/pourer"
+	"github.com/signoz/foundry/internal/runner"
 	"github.com/signoz/foundry/internal/tooler"
 )
 
@@ -26,6 +27,7 @@ type Planner struct {
 	logger   *slog.Logger
 	casting  Casting
 	toolers  []tooler.Tooler
+	runners  []runner.Runner
 	enricher collectionagentmolding.MoldingEnricher
 	moldings []collectionagentmolding.Molding
 }
@@ -39,6 +41,11 @@ func NewPlanner(ctx context.Context, c *collectionagent.Casting, logger *slog.Lo
 	}
 
 	toolers, err := registry.Toolers(c.Spec.Deployment)
+	if err != nil {
+		return nil, err
+	}
+
+	runners, err := registry.Runners(c.Spec.Deployment)
 	if err != nil {
 		return nil, err
 	}
@@ -57,6 +64,7 @@ func NewPlanner(ctx context.Context, c *collectionagent.Casting, logger *slog.Lo
 		logger:   logger,
 		casting:  castingStrategy,
 		toolers:  toolers,
+		runners:  runners,
 		enricher: enricher,
 		moldings: moldings,
 	}, nil
@@ -99,7 +107,13 @@ func (p *Planner) Forge(ctx context.Context, target string) ([]domain.Material, 
 }
 
 func (p *Planner) Cast(ctx context.Context, poursPath string) error {
-	return p.casting.Cast(ctx, *p.config, poursPath, pourer.New(strings.ToLower(p.config.Kind().String())))
+	return p.casting.Cast(ctx, *p.config, poursPath, pourer.New(strings.ToLower(p.config.Kind().String())), p.runners)
+}
+
+func (p *Planner) Uncast(ctx context.Context, poursPath string) error {
+	return p.casting.Uncast(ctx, *p.config, poursPath, pourer.New(strings.ToLower(p.config.Kind().String())), p.runners)
 }
 
 func (p *Planner) Toolers() []tooler.Tooler { return p.toolers }
+
+func (p *Planner) Runners() []runner.Runner { return p.runners }

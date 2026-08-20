@@ -15,6 +15,7 @@ import (
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
+	"github.com/signoz/foundry/internal/runner"
 )
 
 var _ rootcasting.Casting = (*dockerSwarmCasting)(nil)
@@ -95,7 +96,7 @@ func (casting *dockerSwarmCasting) Forge(ctx context.Context, config installatio
 	return materials, nil
 }
 
-func (casting *dockerSwarmCasting) Cast(ctx context.Context, config installation.Casting, outputPath string) error {
+func (casting *dockerSwarmCasting) Cast(ctx context.Context, config installation.Casting, outputPath string, _ []runner.Runner) error {
 	casting.logger.InfoContext(ctx, "Deploying stack to Docker Swarm")
 
 	composeFile := filepath.Join(outputPath, rootcasting.DeploymentDir, "compose.yaml")
@@ -125,6 +126,11 @@ func (casting *dockerSwarmCasting) Cast(ctx context.Context, config installation
 	casting.logger.InfoContext(runctx, "Stack deployed successfully")
 
 	return nil
+}
+
+// Uncast is not implemented for this casting yet.
+func (casting *dockerSwarmCasting) Uncast(ctx context.Context, config installation.Casting, outputPath string, _ []runner.Runner) error {
+	return errors.Newf(errors.TypeUnsupported, "uncast is not implemented for this casting yet")
 }
 
 func getComposeMaterial(config *installation.Casting, path string) (domain.StructuredMaterial, error) {

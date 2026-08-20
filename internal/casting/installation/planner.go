@@ -17,6 +17,7 @@ import (
 	"github.com/signoz/foundry/internal/molding/telemetrykeepermolding"
 	"github.com/signoz/foundry/internal/molding/telemetrystoremolding"
 	"github.com/signoz/foundry/internal/planner"
+	"github.com/signoz/foundry/internal/runner"
 	"github.com/signoz/foundry/internal/tooler"
 )
 
@@ -30,6 +31,7 @@ type Planner struct {
 	logger   *slog.Logger
 	casting  casting.Casting
 	toolers  []tooler.Tooler
+	runners  []runner.Runner
 	enricher molding.MoldingEnricher
 	moldings []molding.Molding
 }
@@ -43,6 +45,11 @@ func NewPlanner(ctx context.Context, c *installation.Casting, logger *slog.Logge
 	}
 
 	toolers, err := registry.Toolers(c.Spec.Deployment)
+	if err != nil {
+		return nil, err
+	}
+
+	runners, err := registry.Runners(c.Spec.Deployment)
 	if err != nil {
 		return nil, err
 	}
@@ -66,6 +73,7 @@ func NewPlanner(ctx context.Context, c *installation.Casting, logger *slog.Logge
 		logger:   logger,
 		casting:  castingStrategy,
 		toolers:  toolers,
+		runners:  runners,
 		enricher: enricher,
 		moldings: moldings,
 	}, nil
@@ -104,7 +112,15 @@ func (p *Planner) Forge(ctx context.Context, target string) ([]domain.Material, 
 }
 
 func (p *Planner) Cast(ctx context.Context, poursPath string) error {
-	return p.casting.Cast(ctx, *p.config, poursPath)
+	return p.casting.Cast(ctx, *p.config, poursPath, p.runners)
+}
+
+func (p *Planner) Uncast(ctx context.Context, poursPath string) error {
+	return p.casting.Uncast(ctx, *p.config, poursPath, p.runners)
+}
+
+func (p *Planner) Runners() []runner.Runner {
+	return p.runners
 }
 
 func (p *Planner) Toolers() []tooler.Tooler {

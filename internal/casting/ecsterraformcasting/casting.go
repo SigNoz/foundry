@@ -14,6 +14,7 @@ import (
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
+	"github.com/signoz/foundry/internal/runner"
 )
 
 var _ rootcasting.Casting = (*ecsCasting)(nil)
@@ -155,7 +156,7 @@ func (c *ecsCasting) Forge(ctx context.Context, config installation.Casting, pou
 	return materials, nil
 }
 
-func (c *ecsCasting) Cast(ctx context.Context, config installation.Casting, outputPath string) error {
+func (c *ecsCasting) Cast(ctx context.Context, config installation.Casting, outputPath string, _ []runner.Runner) error {
 	c.logger.InfoContext(ctx, "Running Terraform for ECS deployment")
 
 	deploymentDir := filepath.Join(outputPath, rootcasting.DeploymentDir)
@@ -220,4 +221,9 @@ func getMaterials(config *installation.Casting) ([]domain.StructuredMaterial, er
 	}
 
 	return materials, nil
+}
+
+// Uncast is not implemented for this casting yet.
+func (c *ecsCasting) Uncast(ctx context.Context, config installation.Casting, outputPath string, _ []runner.Runner) error {
+	return errors.Newf(errors.TypeUnsupported, "uncast is not implemented for this casting yet")
 }

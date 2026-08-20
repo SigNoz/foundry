@@ -20,10 +20,11 @@ var (
 	EventGauge   = Event{name: "gauge"}
 	EventForge   = Event{name: "forge"}
 	EventCast    = Event{name: "cast"}
+	EventUncast  = Event{name: "uncast"}
 	EventCatalog = Event{name: "catalog"}
 )
 
-var allEvents = []Event{EventGauge, EventForge, EventCast, EventCatalog}
+var allEvents = []Event{EventGauge, EventForge, EventCast, EventUncast, EventCatalog}
 
 // NewEvent accepts only the names of declared base Event values. The returned
 // Event has no outcome; use Succeeded or Failed to attach one.

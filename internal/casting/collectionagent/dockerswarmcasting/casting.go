@@ -16,6 +16,7 @@ import (
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	collectionagentmolding "github.com/signoz/foundry/internal/molding/collectionagent"
 	"github.com/signoz/foundry/internal/pourer"
+	"github.com/signoz/foundry/internal/runner"
 )
 
 type dockerSwarmCasting struct {
@@ -45,7 +46,7 @@ func (c *dockerSwarmCasting) Forge(ctx context.Context, config collectionagent.C
 	return nil
 }
 
-func (c *dockerSwarmCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
+func (c *dockerSwarmCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer, _ []runner.Runner) error {
 	composeFile := filepath.Join(outputPath, p.Dir(), "compose.yaml")
 
 	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
@@ -70,9 +71,15 @@ func (c *dockerSwarmCasting) Cast(ctx context.Context, config collectionagent.Ca
 	return cmd.Run()
 }
 
+// Uncast is not implemented for this casting yet.
+func (c *dockerSwarmCasting) Uncast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer, _ []runner.Runner) error {
+	return foundryerrors.Newf(foundryerrors.TypeUnsupported, "uncast is not implemented for this casting yet")
+}
+
 // checkOwnership refuses to deploy over a swarm stack of the same name that
-// belongs to a different foundry Kind. Unlabeled task containers only warn:
-// they are either a pre-label foundry deployment or a foreign stack.
+// belongs to a different foundry Kind. Task containers that record no owner
+// only warn: they are either a pre-label foundry deployment or a foreign
+// stack.
 func (c *dockerSwarmCasting) checkOwnership(ctx context.Context, config collectionagent.Casting) error {
 	out, err := exec.CommandContext(ctx, "docker", "ps", "-a",
 		"--filter", "label=com.docker.stack.namespace="+config.Metadata.Name,

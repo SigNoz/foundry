@@ -15,6 +15,7 @@ import (
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
+	"github.com/signoz/foundry/internal/runner"
 )
 
 var _ rootcasting.Casting = (*dockerComposeCasting)(nil)
@@ -99,7 +100,7 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config installat
 	return materials, nil
 }
 
-func (casting *dockerComposeCasting) Cast(ctx context.Context, config installation.Casting, outputPath string) error {
+func (casting *dockerComposeCasting) Cast(ctx context.Context, config installation.Casting, outputPath string, _ []runner.Runner) error {
 	casting.logger.InfoContext(ctx, "Executing commands for platform")
 
 	// Check if compose file exists
@@ -132,6 +133,11 @@ func (casting *dockerComposeCasting) Cast(ctx context.Context, config installati
 	casting.logger.InfoContext(ctx, "Command executed successfully")
 
 	return nil
+}
+
+// Uncast is not implemented for this casting yet.
+func (casting *dockerComposeCasting) Uncast(ctx context.Context, config installation.Casting, outputPath string, _ []runner.Runner) error {
+	return foundryerrors.Newf(foundryerrors.TypeUnsupported, "uncast is not implemented for this casting yet")
 }
 
 func getComposeMaterial(config *installation.Casting, path string) (domain.StructuredMaterial, error) {

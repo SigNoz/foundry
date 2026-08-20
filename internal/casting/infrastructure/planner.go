@@ -13,6 +13,7 @@ import (
 	"github.com/signoz/foundry/internal/molding/infrastructure/resourcemolding"
 	"github.com/signoz/foundry/internal/planner"
 	"github.com/signoz/foundry/internal/pourer"
+	"github.com/signoz/foundry/internal/runner"
 	"github.com/signoz/foundry/internal/tooler"
 )
 
@@ -101,5 +102,13 @@ func (p *Planner) Forge(ctx context.Context, target string) ([]domain.Material, 
 func (p *Planner) Cast(ctx context.Context, poursPath string) error {
 	return p.casting.Cast(ctx, *p.config, poursPath, pourer.New(strings.ToLower(p.config.Kind().String())))
 }
+
+func (p *Planner) Uncast(ctx context.Context, poursPath string) error {
+	return foundryerrors.Newf(foundryerrors.TypeUnsupported, "uncast is not implemented for the infrastructure kind yet")
+}
+
+// Runners is empty: terraform is still invoked by the casting itself, and the
+// terraform tooler is what gauge checks.
+func (p *Planner) Runners() []runner.Runner { return nil }
 
 func (p *Planner) Toolers() []tooler.Tooler { return p.toolers }

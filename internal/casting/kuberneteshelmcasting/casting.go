@@ -14,6 +14,7 @@ import (
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
+	"github.com/signoz/foundry/internal/runner"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
@@ -69,7 +70,7 @@ func (c *helmCasting) Forge(ctx context.Context, config installation.Casting, po
 	return []domain.Material{valuesMaterial}, nil
 }
 
-func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, poursPath string) error {
+func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, poursPath string, _ []runner.Runner) error {
 
 	valuesFile := filepath.Join(poursPath, rootcasting.DeploymentDir, "values.yaml")
 	if _, err := os.Stat(valuesFile); os.IsNotExist(err) {
@@ -188,6 +189,11 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 		slog.String("namespace", config.Metadata.Name),
 	)
 	return nil
+}
+
+// Uncast is not implemented for this casting yet.
+func (c *helmCasting) Uncast(ctx context.Context, config installation.Casting, poursPath string, _ []runner.Runner) error {
+	return errors.Newf(errors.TypeUnsupported, "uncast is not implemented for this casting yet")
 }
 
 func (c *helmCasting) shouldForgeChart(config *installation.Casting) bool {

@@ -12,6 +12,9 @@ var (
 	// Stores cast configuration.
 	castCfg castConfig
 
+	// Stores uncast configuration.
+	uncastCfg uncastConfig
+
 	// Stores catalog configuration.
 	catalogCfg catalogConfig
 )
@@ -43,6 +46,14 @@ func (c *poursConfig) RegisterFlags(cmd *cobra.Command) {
 type castConfig struct {
 	NoGauge bool
 	NoForge bool
+}
+
+type uncastConfig struct {
+	Yes bool
+}
+
+func (c *uncastConfig) RegisterFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().BoolVar(&c.Yes, "yes", false, "Confirm removing the deployment.")
 }
 
 func (c *castConfig) RegisterFlags(cmd *cobra.Command) {
