@@ -5,6 +5,10 @@ services:
     container_name: {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}
     image: {{ $.Spec.TelemetryKeeper.Spec.Image }}
     restart: unless-stopped
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     networks:
       - {{ $.Metadata.Name }}-network
     {{- if eq $.Spec.TelemetryKeeper.Kind.String "zookeeper" }}
@@ -68,6 +72,10 @@ services:
       {{- end }}
     image: {{ $.Spec.TelemetryStore.Spec.Image }}
     restart: unless-stopped
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     networks:
       - {{ $.Metadata.Name }}-network
     environment:
@@ -100,6 +108,10 @@ services:
     container_name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts
     image: {{ $.Spec.TelemetryStore.Spec.Image }}
     restart: on-failure
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     networks:
       - {{ $.Metadata.Name }}-network
     volumes:
@@ -122,6 +134,10 @@ services:
     container_name: {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}
     image: {{ $.Spec.MetaStore.Spec.Image }}
     restart: unless-stopped
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     networks:
       - {{ $.Metadata.Name }}-network
     {{- if $.Spec.MetaStore.Spec.Env }}
@@ -146,6 +162,10 @@ services:
   ingester:
     image: {{ $.Spec.Ingester.Spec.Image }}
     restart: unless-stopped
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     networks:
       {{ $.Metadata.Name }}-network:
         aliases:
@@ -185,6 +205,10 @@ services:
     container_name: {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}
     image: {{ $.Spec.Signoz.Spec.Image }}
     restart: unless-stopped
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     networks:
       - {{ $.Metadata.Name }}-network
     {{- if $.Spec.Signoz.Spec.Env }}
@@ -216,6 +240,10 @@ services:
   mcp:
     image: {{ $.Spec.MCP.Spec.Image }}
     restart: unless-stopped
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     networks:
       {{ $.Metadata.Name }}-network:
         aliases:
@@ -240,6 +268,10 @@ services:
     container_name: {{ $.Metadata.Name }}-telemetrystore-migrator
     image: {{ $.Spec.Ingester.Spec.Image }}
     restart: on-failure
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     networks:
       - {{ $.Metadata.Name }}-network
     entrypoint:
