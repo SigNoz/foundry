@@ -1,4 +1,4 @@
-package composerunner
+package dockercomposetooler
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/signoz/foundry/internal/domain"
-	"github.com/signoz/foundry/internal/runner"
+	"github.com/signoz/foundry/internal/tooler"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -33,10 +33,10 @@ func requireEngine(t *testing.T) {
 	}
 }
 
-type otherRunner struct{}
+type otherTooler struct{}
 
-func (otherRunner) Name() string                    { return "other" }
-func (otherRunner) Gauge(ctx context.Context) error { return nil }
+func (otherTooler) Name() string                    { return "other" }
+func (otherTooler) Gauge(ctx context.Context) error { return nil }
 
 func TestNew(t *testing.T) {
 	r := New(slog.New(slog.DiscardHandler))
@@ -49,18 +49,18 @@ func TestLookup(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		runners []runner.Runner
+		toolers []tooler.Tooler
 		pass    bool
 	}{
-		{name: "Registered_Found", runners: []runner.Runner{compose}, pass: true},
-		{name: "AmongOthers_Found", runners: []runner.Runner{otherRunner{}, compose}, pass: true},
-		{name: "Empty_Invalid", runners: nil, pass: false},
-		{name: "OnlyOthers_Invalid", runners: []runner.Runner{otherRunner{}}, pass: false},
+		{name: "Registered_Found", toolers: []tooler.Tooler{compose}, pass: true},
+		{name: "AmongOthers_Found", toolers: []tooler.Tooler{otherTooler{}, compose}, pass: true},
+		{name: "Empty_Invalid", toolers: nil, pass: false},
+		{name: "OnlyOthers_Invalid", toolers: []tooler.Tooler{otherTooler{}}, pass: false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			found, err := Lookup(tt.runners)
+			found, err := Lookup(tt.toolers)
 			if !tt.pass {
 				assert.Error(t, err)
 				return
@@ -72,35 +72,33 @@ func TestLookup(t *testing.T) {
 	}
 }
 
-// The verbs validate what they execute against, so a casting that forgot to
-// state the file, or forged nothing, fails before the tool is spawned.
-func TestRunValidatesFile(t *testing.T) {
+// The mutating verbs state what they act on before the tool is spawned: an
+// unstated file would make compose act on the working directory's own
+// compose.yaml, and an unstated claim would silently skip the owner guard. A
+// stated-but-missing file is compose's own loud refusal, not foundry's.
+func TestMutateStatesTheRelease(t *testing.T) {
+	claim := domain.Owner{"foundry.signoz.io/managed-by": "foundry"}
+
 	tests := []struct {
-		name string
-		file string
-		pass bool
+		name    string
+		release Release
 	}{
-		{name: "Unset_Invalid", file: "", pass: false},
-		{name: "Missing_Invalid", file: filepath.Join(t.TempDir(), "absent", "compose.yaml"), pass: false},
+		{name: "UnstatedFile_Invalid", release: Release{Release: domain.Release{Name: "signoz", Owner: claim}}},
+		{name: "UnstatedClaim_Invalid", release: Release{File: "compose.yaml"}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := New(slog.New(slog.DiscardHandler))
 
-			if !tt.pass {
-				assert.Error(t, r.Up(context.Background(), Options{File: tt.file}))
-				assert.Error(t, r.Down(context.Background(), Options{File: tt.file}))
-				return
-			}
-
-			assert.NoError(t, r.Up(context.Background(), Options{File: tt.file}))
+			assert.Error(t, r.Up(context.Background(), tt.release))
+			assert.Error(t, r.Down(context.Background(), tt.release))
 		})
 	}
 }
 
-// owners reads docker's flat output back into the owners domain compares.
-// The encoding is the runner's: a container reporting nothing must read as
+// parse reads docker's flat output back into the owners domain compares.
+// The encoding is the tooler's: a container reporting nothing must read as
 // unowned, not as an owner whose every value is empty.
 func TestOwners(t *testing.T) {
 	keys := []string{"foundry.signoz.io/kind", "foundry.signoz.io/managed-by", "foundry.signoz.io/name"}
@@ -133,13 +131,13 @@ func TestOwners(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expectedOwners, owners(keys, tt.out))
+			assert.Equal(t, tt.expectedOwners, parse(keys, tt.out))
 		})
 	}
 
 	// A container reporting nothing marks the group unowned rather than
 	// conflicting with the caller.
-	ownership := domain.NewOwnership(owners(keys, "||\n")...)
+	ownership := domain.NewOwnership(parse(keys, "||\n")...)
 	_, conflict := ownership.Foreign(domain.Owner{"foundry.signoz.io/kind": "Installation"})
 
 	assert.False(t, conflict)
@@ -152,14 +150,27 @@ func TestUpDown(t *testing.T) {
 	requireEngine(t)
 
 	composeFile := filepath.Join(t.TempDir(), "compose.yaml")
-	contents := "name: composerunner-test\nservices:\n  ok:\n    image: busybox:stable\n    command: [\"sleep\", \"300\"]\n"
+	contents := "name: dockercomposetooler-test\nservices:\n  ok:\n    image: busybox:stable\n    command: [\"sleep\", \"300\"]\n"
 	assert.NoError(t, os.WriteFile(composeFile, []byte(contents), 0o644))
 
 	r := New(slog.New(slog.DiscardHandler))
+	r.sink = io.Discard
+
+	release := Release{
+		Release: domain.Release{
+			Name: "dockercomposetooler-test",
+			Owner: domain.Owner{
+				"foundry.signoz.io/managed-by": "foundry",
+				"foundry.signoz.io/kind":       "Installation",
+				"foundry.signoz.io/name":       "dockercomposetooler-test",
+			},
+		},
+		File: composeFile,
+	}
 
 	assert.NoError(t, r.Gauge(context.Background()))
-	assert.NoError(t, r.Up(context.Background(), Options{File: composeFile, Stdout: io.Discard, Stderr: io.Discard}))
-	assert.NoError(t, r.Down(context.Background(), Options{File: composeFile, Stdout: io.Discard, Stderr: io.Discard}))
+	assert.NoError(t, r.Up(context.Background(), release))
+	assert.NoError(t, r.Down(context.Background(), release))
 }
 
 // A project labelled for one owner is refused to another, and granted back to
@@ -167,7 +178,7 @@ func TestUpDown(t *testing.T) {
 func TestOwnerGuardsTheProject(t *testing.T) {
 	requireEngine(t)
 
-	const project = "composerunner-owner-test"
+	const project = "dockercomposetooler-owner-test"
 
 	owner := domain.Owner{
 		"foundry.signoz.io/managed-by": "foundry",
@@ -185,23 +196,23 @@ func TestOwnerGuardsTheProject(t *testing.T) {
 	assert.NoError(t, os.WriteFile(composeFile, []byte(contents), 0o644))
 
 	r := New(slog.New(slog.DiscardHandler))
-	options := Options{
+	r.sink = io.Discard
+
+	release := Release{
+		Release: domain.Release{Name: project},
 		File:    composeFile,
-		Project: project,
-		Stdout:  io.Discard,
-		Stderr:  io.Discard,
 	}
 
-	installation := options
+	installation := release
 	installation.Owner = owner
 
 	// One label of the set differing is a different owner.
-	agent := options
+	agent := release
 	agent.Owner = maps.Clone(owner)
 	agent.Owner["foundry.signoz.io/kind"] = "CollectionAgent"
 
 	assert.NoError(t, r.Up(context.Background(), installation))
-	t.Cleanup(func() { _ = r.Down(context.Background(), options) })
+	t.Cleanup(func() { _ = r.Down(context.Background(), installation) })
 
 	assert.Error(t, r.Up(context.Background(), agent))
 	assert.Error(t, r.Down(context.Background(), agent))
