@@ -18,7 +18,6 @@ import (
 	"github.com/signoz/foundry/internal/molding/telemetrystoremolding"
 	"github.com/signoz/foundry/internal/planner"
 	"github.com/signoz/foundry/internal/tooler"
-	"github.com/signoz/foundry/internal/tooler/terraformtooler"
 )
 
 var _ planner.Planner = (*Planner)(nil)
@@ -109,9 +108,5 @@ func (p *Planner) Cast(ctx context.Context, poursPath string) error {
 }
 
 func (p *Planner) Toolers() []tooler.Tooler {
-	toolers := p.toolers
-	if p.config.Spec.Infrastructure.Enabled {
-		toolers = append(toolers, terraformtooler.New())
-	}
-	return toolers
+	return p.toolers
 }

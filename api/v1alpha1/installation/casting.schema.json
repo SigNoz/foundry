@@ -10,14 +10,11 @@
     "InstallationInfrastructure": {
       "additionalProperties": false,
       "properties": {
-        "enabled": {
-          "type": "boolean"
-        },
-        "status": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "type": "object"
+        "name": {
+          "description": "Name of the infrastructure casting this installation runs on",
+          "maxLength": 63,
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "type": "string"
         }
       },
       "type": "object"

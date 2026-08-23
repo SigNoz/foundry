@@ -63,10 +63,24 @@ spec:
 
 ### Custom config files
 
-Use `config.data` to override a component's config files. The key is the filename; whatever you set gets merged with the config Foundry generates, so you only set what you want to change.
+Use `config.data` to override a component's config files. The key is the name of a file Foundry generates; the value is a YAML fragment with only the changes. Foundry merges the fragment onto the generated file per [JSON Merge Patch (RFC 7386)](https://datatracker.ietf.org/doc/html/rfc7386):
+
+- Scalars and maps deep-merge: your value wins, generated siblings survive.
+- Setting a key to `null` deletes it.
+- Lists are replaced wholesale: restate every member you want to keep.
+
+Run `foundryctl forge` and read the generated file under `pours/` to see what a fragment merges onto.
+
+Overriding a single value in the ingester's config:
 
 ```yaml
+apiVersion: v1alpha1
+metadata:
+  name: signoz
 spec:
+  deployment:
+    mode: docker
+    flavor: compose
   ingester:
     spec:
       config:
@@ -77,6 +91,58 @@ spec:
                 protocols:
                   grpc:
                     endpoint: 0.0.0.0:4317
+```
+
+Adding a receiver to a pipeline. `receivers` is a list, so the generated `otlp` member is restated:
+
+```yaml
+apiVersion: v1alpha1
+metadata:
+  name: signoz
+spec:
+  deployment:
+    mode: docker
+    flavor: compose
+  ingester:
+    spec:
+      config:
+        data:
+          ingester.yaml: |
+            receivers:
+              prometheus:
+                config:
+                  scrape_configs:
+                    - job_name: my-app
+                      static_configs:
+                        - targets: ["localhost:8080"]
+            service:
+              pipelines:
+                metrics:
+                  receivers: [otlp, prometheus]
+```
+
+> [!WARNING]
+> Writing `receivers: [prometheus]` above would replace the list and drop `otlp` from the pipeline.
+
+To remove something, set its definition to `null` and restate the list that references it. Disabling the ingester's `pprof` extension:
+
+```yaml
+apiVersion: v1alpha1
+metadata:
+  name: signoz
+spec:
+  deployment:
+    mode: docker
+    flavor: compose
+  ingester:
+    spec:
+      config:
+        data:
+          ingester.yaml: |
+            extensions:
+              pprof: null
+            service:
+              extensions: [signoz_health_check]
 ```
 
 > [!NOTE]

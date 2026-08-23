@@ -1,36 +1,11 @@
 package installation
 
-import "encoding/json"
-
-// Infrastructure holds the configuration for infrastructure manifest generation (e.g., Terraform).
-// The cloud provider is resolved automatically from spec.deployment.platform — no provider field
-// is needed here.
+// Infrastructure is the installation's binding to the substrate it runs on. The
+// consumer owns the binding because the two castings share no state: naming the
+// substrate is what lets a casting derive the tag filter that finds its
+// resources. Only a casting resolves it.
 type Infrastructure struct {
-	// Whether infrastructure manifest generation is enabled
-	Enabled bool `json:"enabled" yaml:"enabled"`
-
-	// Status holds the generated IaC file contents keyed by filename (e.g. "main.tf.json").
-	// This is populated by foundry after generation and written to the lock file.
-	Status map[string]string `json:"status,omitempty" yaml:"status,omitempty"`
+	Name string `json:"name,omitempty" yaml:"name,omitempty" pattern:"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" maxLength:"63" description:"Name of the infrastructure casting this installation runs on"`
 
 	_ struct{} `additionalProperties:"false"`
-}
-
-// MarshalJSON implements json.Marshaler. It manually omits Status when zero
-// so that the strategic merge patch doesn't overwrite defaults with empty values.
-func (i Infrastructure) MarshalJSON() ([]byte, error) {
-	m := map[string]any{
-		"enabled": i.Enabled,
-	}
-	if len(i.Status) > 0 {
-		m["status"] = i.Status
-	}
-	return json.Marshal(m)
-}
-
-// DefaultInfrastructure returns the default Infrastructure configuration.
-func DefaultInfrastructure() Infrastructure {
-	return Infrastructure{
-		Enabled: false,
-	}
 }

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/foundry"
 	"github.com/signoz/foundry/internal/writer"
@@ -31,18 +32,23 @@ func runForge(ctx context.Context, logger *slog.Logger, path string, poursPath s
 		return domain.NewProperties(), err
 	}
 
-	machinery, err := foundry.Config.GetV1Alpha1(ctx, path)
+	machineries, err := foundry.Config.GetV1Alpha1(ctx, path)
 	if err != nil {
 		return domain.NewProperties(), err
 	}
 
-	props := machinery.TrackableProperties()
+	props := domain.NewProperties()
+	for _, machinery := range machineries {
+		if machinery.Kind() == v1alpha1.KindInstallation {
+			props = machinery.TrackableProperties()
+		}
+	}
 
 	poursAbsPath, err := filepath.Abs(poursPath)
 	if err != nil {
 		return props, err
 	}
 
-	err = foundry.Forge(ctx, machinery, path, &writer.Options{Output: &os.File{}, TargetDirectory: poursAbsPath})
+	err = foundry.Forge(ctx, machineries, path, &writer.Options{Output: &os.File{}, TargetDirectory: poursAbsPath})
 	return props, err
 }

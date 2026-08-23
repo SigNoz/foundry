@@ -1,0 +1,68 @@
+package infrastructure
+
+import (
+	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/internal/domain"
+)
+
+// Casting is the Infrastructure kind.
+type Casting struct {
+	v1alpha1.CastingMeta `json:",inline" yaml:",inline"`
+	Spec                 Spec     `json:"spec" yaml:"spec" required:"true" description:"Infrastructure specification"`
+	_                    struct{} `additionalProperties:"false"`
+}
+
+// Spec is the Infrastructure-specific configuration.
+type Spec struct {
+	Deployment v1alpha1.TypeDeployment `json:"deployment" yaml:"deployment" required:"true" description:"Deployment configuration for the platform"`
+	Resource   Resource                `json:"resource" yaml:"resource" required:"true" description:"The configuration for the resource molding"`
+	Patches    []v1alpha1.PatchEntry   `json:"patches,omitempty" yaml:"patches,omitempty" description:"Patch operations to apply to generated materials"`
+	_          struct{}                `additionalProperties:"false"`
+}
+
+var _ v1alpha1.Machinery = (*Casting)(nil)
+
+func Default() *Casting {
+	return &Casting{
+		CastingMeta: v1alpha1.CastingMeta{
+			TypeVersion: v1alpha1.TypeVersion{APIVersion: "v1alpha1"},
+			Kind:        v1alpha1.KindInfrastructure,
+			Metadata:    v1alpha1.TypeMetadata{Name: "signoz"},
+		},
+		Spec: Spec{},
+	}
+}
+
+// Example returns a minimal Infrastructure; the forge pipeline fills in
+// defaults.
+func Example() *Casting {
+	return &Casting{
+		CastingMeta: v1alpha1.CastingMeta{
+			TypeVersion: v1alpha1.TypeVersion{APIVersion: "v1alpha1"},
+			Kind:        v1alpha1.KindInfrastructure,
+			Metadata:    v1alpha1.TypeMetadata{Name: "signoz"},
+		},
+	}
+}
+
+// Kind reports the casting kind. Shadows the embedded CastingMeta.Kind field;
+// the field stays reachable as c.CastingMeta.Kind.
+func (c *Casting) Kind() v1alpha1.Kind {
+	return v1alpha1.KindInfrastructure
+}
+
+// MergeStatusIntoSpec folds molding-written status into spec. A casting reads
+// the settled document from the resource's status directly, so nothing folds.
+func (c *Casting) MergeStatusIntoSpec() error {
+	return nil
+}
+
+// TrackableProperties returns analytics tags for the casting.
+func (c *Casting) TrackableProperties() domain.Properties {
+	return domain.NewProperties().
+		Set("kind", v1alpha1.KindInfrastructure.String()).
+		Set("platform", c.Spec.Deployment.Platform.String()).
+		Set("mode", c.Spec.Deployment.Mode.String()).
+		Set("flavor", c.Spec.Deployment.Flavor.String()).
+		Set("patches_count", len(c.Spec.Patches))
+}

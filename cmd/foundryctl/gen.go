@@ -11,6 +11,7 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
+	"github.com/signoz/foundry/api/v1alpha1/infrastructure"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	installationcasting "github.com/signoz/foundry/internal/casting/installation"
 	"github.com/signoz/foundry/internal/domain"
@@ -30,6 +31,7 @@ type schemaTarget struct {
 var schemaTargets = []schemaTarget{
 	{v1alpha1.KindInstallation, installation.Casting{}},
 	{v1alpha1.KindCollectionAgent, collectionagent.Casting{}},
+	{v1alpha1.KindInfrastructure, infrastructure.Casting{}},
 }
 
 func registerGenCmd(rootCmd *cobra.Command) {
