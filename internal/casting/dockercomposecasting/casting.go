@@ -5,14 +5,15 @@ import (
 	"context"
 	"log/slog"
 	"path/filepath"
+	"strings"
 
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
-	"github.com/signoz/foundry/internal/runner"
-	"github.com/signoz/foundry/internal/runner/composerunner"
+	"github.com/signoz/foundry/internal/tooler"
+	"github.com/signoz/foundry/internal/tooler/dockercomposetooler"
 )
 
 var _ rootcasting.Casting = (*dockerComposeCasting)(nil)
@@ -97,34 +98,33 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config installat
 	return materials, nil
 }
 
-func (casting *dockerComposeCasting) Cast(ctx context.Context, config installation.Casting, outputPath string, runners []runner.Runner) error {
-	compose, err := composerunner.Lookup(runners)
+func (casting *dockerComposeCasting) Cast(ctx context.Context, config installation.Casting, outputPath string, toolers []tooler.Tooler) error {
+	compose, err := dockercomposetooler.Lookup(toolers)
 	if err != nil {
 		return err
 	}
+	release := dockercomposetooler.Release{
+		Release: domain.Release{Name: config.Metadata.Name, Owner: config.Labels()},
+		File:    filepath.Join(outputPath, rootcasting.DeploymentDir, strings.TrimSuffix(composeYAMLTemplate.Name(), ".gotmpl")),
+	}
 
-	return compose.Up(ctx, casting.options(config, outputPath))
+	return compose.Up(ctx, release)
 }
 
 // Uncast removes the containers and networks; the volumes holding component
 // data stay.
-func (casting *dockerComposeCasting) Uncast(ctx context.Context, config installation.Casting, outputPath string, runners []runner.Runner) error {
-	compose, err := composerunner.Lookup(runners)
+func (casting *dockerComposeCasting) Uncast(ctx context.Context, config installation.Casting, outputPath string, toolers []tooler.Tooler) error {
+	compose, err := dockercomposetooler.Lookup(toolers)
 	if err != nil {
 		return err
 	}
 
-	return compose.Down(ctx, casting.options(config, outputPath))
-}
-
-// options states the project this casting owns, so the runner refuses a
-// project of the same name that belongs to another foundry Kind.
-func (casting *dockerComposeCasting) options(config installation.Casting, outputPath string) composerunner.Options {
-	return composerunner.Options{
-		File:    filepath.Join(outputPath, rootcasting.DeploymentDir, "compose.yaml"),
-		Project: config.Metadata.Name,
-		Owner:   config.Labels(),
+	release := dockercomposetooler.Release{
+		Release: domain.Release{Name: config.Metadata.Name, Owner: config.Labels()},
+		File:    filepath.Join(outputPath, rootcasting.DeploymentDir, strings.TrimSuffix(composeYAMLTemplate.Name(), ".gotmpl")),
 	}
+
+	return compose.Down(ctx, release)
 }
 
 func getComposeMaterial(config *installation.Casting, path string) (domain.StructuredMaterial, error) {

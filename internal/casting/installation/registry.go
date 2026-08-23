@@ -15,11 +15,9 @@ import (
 	"github.com/signoz/foundry/internal/casting/rendercasting"
 	"github.com/signoz/foundry/internal/casting/systemdcasting"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
-	"github.com/signoz/foundry/internal/runner"
-	"github.com/signoz/foundry/internal/runner/composerunner"
 	"github.com/signoz/foundry/internal/tooler"
+	"github.com/signoz/foundry/internal/tooler/dockercomposetooler"
 	"github.com/signoz/foundry/internal/tooler/dockerswarmtooler"
-	"github.com/signoz/foundry/internal/tooler/dockertooler"
 	"github.com/signoz/foundry/internal/tooler/helmtooler"
 	"github.com/signoz/foundry/internal/tooler/kubectltooler"
 	"github.com/signoz/foundry/internal/tooler/systemdtooler"
@@ -31,13 +29,10 @@ type CastingItem struct {
 	// The particular casting implementation.
 	Casting casting.Casting
 
-	// The toolers for the particular casting.
-	Toolers []tooler.Tooler
-
-	// The runners for the particular casting. The same objects gauge
+	// The toolers for the particular casting. The same objects gauge
 	// preflights are handed to Cast and Uncast, so the tools checked and
 	// the tools used cannot drift.
-	Runners []runner.Runner
+	Toolers []tooler.Tooler
 }
 
 type Registry struct {
@@ -53,28 +48,28 @@ func NewRegistry(logger *slog.Logger) *Registry {
 				Flavor: v1alpha1.FlavorCompose,
 			}: {
 				Casting: dockercomposecasting.New(logger),
-				Runners: []runner.Runner{composerunner.New(logger)},
+				Toolers: []tooler.Tooler{dockercomposetooler.New(logger)},
 			},
 			{
 				Mode:   v1alpha1.ModeSystemd,
 				Flavor: v1alpha1.FlavorBinary,
 			}: {
 				Casting: systemdcasting.New(logger),
-				Toolers: []tooler.Tooler{systemdtooler.New()},
+				Toolers: []tooler.Tooler{systemdtooler.New(logger)},
 			},
 			{
 				Mode:   v1alpha1.ModeDocker,
 				Flavor: v1alpha1.FlavorSwarm,
 			}: {
 				Casting: dockerswarmcasting.New(logger),
-				Toolers: []tooler.Tooler{dockertooler.New(), dockerswarmtooler.New()},
+				Toolers: []tooler.Tooler{dockerswarmtooler.New(logger)},
 			},
 			{
 				Mode:   v1alpha1.ModeKubernetes,
 				Flavor: v1alpha1.FlavorKustomize,
 			}: {
 				Casting: kuberneteskustomizecasting.New(logger),
-				Toolers: []tooler.Tooler{kubectltooler.New()},
+				Toolers: []tooler.Tooler{kubectltooler.New(logger)},
 			},
 			{
 				Platform: v1alpha1.PlatformRender,
@@ -100,14 +95,14 @@ func NewRegistry(logger *slog.Logger) *Registry {
 				Mode:     v1alpha1.ModeEC2,
 			}: {
 				Casting: ecsterraformcasting.New(logger),
-				Toolers: []tooler.Tooler{terraformtooler.New()},
+				Toolers: []tooler.Tooler{terraformtooler.New(logger)},
 			},
 			{
 				Mode:   v1alpha1.ModeKubernetes,
 				Flavor: v1alpha1.FlavorHelm,
 			}: {
 				Casting: kuberneteshelmcasting.New(logger),
-				Toolers: []tooler.Tooler{helmtooler.New()},
+				Toolers: []tooler.Tooler{helmtooler.New(logger)},
 			},
 		},
 	}
@@ -144,12 +139,4 @@ func (registry *Registry) Toolers(deployment v1alpha1.TypeDeployment) ([]tooler.
 		return nil, foundryerrors.Newf(foundryerrors.TypeUnsupported, "deployment '%+v' is not supported, raise an issue at https://github.com/signoz/foundry/issues to request support for this deployment", deployment)
 	}
 	return item.Toolers, nil
-}
-
-func (registry *Registry) Runners(deployment v1alpha1.TypeDeployment) ([]runner.Runner, error) {
-	item, ok := registry.lookup(deployment)
-	if !ok {
-		return nil, foundryerrors.Newf(foundryerrors.TypeUnsupported, "deployment '%+v' is not supported, raise an issue at https://github.com/signoz/foundry/issues to request support for this deployment", deployment)
-	}
-	return item.Runners, nil
 }

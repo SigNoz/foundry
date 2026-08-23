@@ -4,18 +4,16 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
-	"github.com/signoz/foundry/internal/runner"
+	"github.com/signoz/foundry/internal/tooler"
+	"github.com/signoz/foundry/internal/tooler/kubectltooler"
 )
 
 var _ rootcasting.Casting = (*kustomizeCasting)(nil)
@@ -90,64 +88,39 @@ var clickhouseCRDs = []string{
 	"clickhousekeeperinstallations.clickhouse-keeper.altinity.com.crd.yaml",
 }
 
-func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting, poursPath string, _ []runner.Runner) error {
-	c.logger.InfoContext(ctx, "Applying kustomize manifests")
-
-	kustomizeDir := filepath.Join(poursPath, rootcasting.DeploymentDir)
-	if _, err := os.Stat(filepath.Join(kustomizeDir, "kustomization.yaml")); os.IsNotExist(err) {
-		return errors.Newf(errors.TypeNotFound, "kustomization.yaml does not exist at path: %s, run 'forge' first", kustomizeDir)
+func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting, poursPath string, toolers []tooler.Tooler) error {
+	kubectl, err := kubectltooler.Lookup(toolers)
+	if err != nil {
+		return err
 	}
 
-	runctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-	defer cancel()
-
-	if err := c.applyCRDs(runctx); err != nil {
-		return errors.Wrapf(err, errors.TypeInternal, "failed to apply CRDs")
+	release := kubectltooler.Release{
+		Release: domain.Release{Name: config.Metadata.Name, Owner: config.Labels()},
+		Dir:     filepath.Join(poursPath, rootcasting.DeploymentDir),
 	}
 
-	cmd := exec.CommandContext(runctx, "kubectl", "apply", "-k", kustomizeDir)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	c.logger.DebugContext(runctx, "Running command",
-		slog.String("command", fmt.Sprintf("kubectl apply -k %s", kustomizeDir)))
-
-	if err := cmd.Run(); err != nil {
-		c.logger.ErrorContext(runctx, "kubectl apply failed", slog.String("error", err.Error()))
-		return errors.Wrapf(err, errors.TypeInternal, "kubectl apply -k failed")
-	}
-
-	c.logger.InfoContext(runctx, "Kustomize manifests applied successfully")
-	return nil
-}
-
-// Uncast is not implemented for this casting yet.
-func (c *kustomizeCasting) Uncast(ctx context.Context, config installation.Casting, poursPath string, _ []runner.Runner) error {
-	return errors.Newf(errors.TypeUnsupported, "uncast is not implemented for this casting yet")
-}
-
-func (c *kustomizeCasting) applyCRDs(ctx context.Context) error {
-	c.logger.InfoContext(ctx, "Applying ClickHouse CRDs",
-		slog.String("version", clickhouseOperatorVersion))
-
-	for _, crd := range clickhouseCRDs {
-		url := fmt.Sprintf(
-			"https://raw.githubusercontent.com/Altinity/clickhouse-operator/%s/deploy/operatorhub/%s/%s",
-			clickhouseOperatorVersion, clickhouseOperatorVersion, crd,
-		)
-
-		cmd := exec.CommandContext(ctx, "kubectl", "apply", "-f", url)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		c.logger.DebugContext(ctx, "Applying CRD", slog.String("url", url))
-
-		if err := cmd.Run(); err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to apply CRD %s", crd)
+	if enabled := config.Spec.TelemetryStore.Spec.Enabled; enabled != nil && *enabled {
+		for _, crd := range clickhouseCRDs {
+			release.URLs = append(release.URLs, fmt.Sprintf("https://raw.githubusercontent.com/Altinity/clickhouse-operator/%s/deploy/operatorhub/%s/%s", clickhouseOperatorVersion, clickhouseOperatorVersion, crd))
 		}
 	}
 
-	return nil
+	return kubectl.Apply(ctx, release)
+}
+
+// Uncast deletes what the kustomize root declares, the namespace included.
+func (c *kustomizeCasting) Uncast(ctx context.Context, config installation.Casting, poursPath string, toolers []tooler.Tooler) error {
+	kubectl, err := kubectltooler.Lookup(toolers)
+	if err != nil {
+		return err
+	}
+
+	release := kubectltooler.Release{
+		Release: domain.Release{Name: config.Metadata.Name, Owner: config.Labels()},
+		Dir:     filepath.Join(poursPath, rootcasting.DeploymentDir),
+	}
+
+	return kubectl.Delete(ctx, release)
 }
 
 func (c *kustomizeCasting) forgeCasting(tmpl *domain.Template, cfg *installation.Casting, poursPath string) ([]domain.Material, error) {
