@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
 	"os"
+	"os/signal"
+	"syscall"
 
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/version"
@@ -9,6 +12,7 @@ import (
 )
 
 func main() {
+
 	rootCmd := &cobra.Command{
 		Use:          "foundryctl",
 		SilenceUsage: true,
@@ -31,7 +35,19 @@ func main() {
 	registerCatalogCmd(rootCmd)
 	registerVersionCmd(rootCmd)
 
-	err := rootCmd.Execute()
+	// Foundry survives the interrupt to keep reading the tool's streams: dying
+	// here SIGPIPEs the tool mid-write. Exec'd tools get the kernel's copy
+	// directly; the cancelled context is the relay only for in-process SDK work.
+	// A second signal kills foundry by the OS default.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	go func() {
+		<-ctx.Done()
+		stop()
+	}()
+
+	err := rootCmd.ExecuteContext(ctx)
 
 	if rootNotifier != nil {
 		rootNotifier.Finish(version.Info.Version(), os.Stderr)

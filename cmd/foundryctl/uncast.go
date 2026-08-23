@@ -9,6 +9,7 @@ import (
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/foundry"
+	"github.com/signoz/foundry/internal/tooler"
 	"github.com/spf13/cobra"
 )
 
@@ -22,6 +23,8 @@ func registerUncastCmd(rootCmd *cobra.Command) {
 			if !uncastCfg.Yes {
 				return errors.Newf(errors.TypeInvalidInput, "uncast removes the deployment (data and volumes always stay); re-run with --yes to confirm")
 			}
+
+			ctx = tooler.WithApproval(ctx)
 
 			return runUncast(ctx, rootLogger, poursCfg.Path, commonCfg.File, report)
 		}),

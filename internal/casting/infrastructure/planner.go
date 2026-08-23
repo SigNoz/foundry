@@ -13,7 +13,6 @@ import (
 	"github.com/signoz/foundry/internal/molding/infrastructure/resourcemolding"
 	"github.com/signoz/foundry/internal/planner"
 	"github.com/signoz/foundry/internal/pourer"
-	"github.com/signoz/foundry/internal/runner"
 	"github.com/signoz/foundry/internal/tooler"
 )
 
@@ -26,7 +25,6 @@ type Planner struct {
 	config   *infrastructure.Casting
 	logger   *slog.Logger
 	casting  Casting
-	toolers  []tooler.Tooler
 	enricher infrastructuremolding.MoldingEnricher
 	moldings []infrastructuremolding.Molding
 }
@@ -35,11 +33,6 @@ func NewPlanner(ctx context.Context, c *infrastructure.Casting, logger *slog.Log
 	registry := NewRegistry(logger)
 
 	castingStrategy, err := registry.Casting(c.Spec.Deployment)
-	if err != nil {
-		return nil, err
-	}
-
-	toolers, err := registry.Toolers(c.Spec.Deployment)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +50,6 @@ func NewPlanner(ctx context.Context, c *infrastructure.Casting, logger *slog.Log
 		config:   c,
 		logger:   logger,
 		casting:  castingStrategy,
-		toolers:  toolers,
 		enricher: enricher,
 		moldings: moldings,
 	}, nil
@@ -107,8 +99,5 @@ func (p *Planner) Uncast(ctx context.Context, poursPath string) error {
 	return foundryerrors.Newf(foundryerrors.TypeUnsupported, "uncast is not implemented for the infrastructure kind yet")
 }
 
-// Runners is empty: terraform is still invoked by the casting itself, and the
-// terraform tooler is what gauge checks.
-func (p *Planner) Runners() []runner.Runner { return nil }
-
-func (p *Planner) Toolers() []tooler.Tooler { return p.toolers }
+// Toolers is empty: no infrastructure casting is registered yet.
+func (p *Planner) Toolers() []tooler.Tooler { return nil }

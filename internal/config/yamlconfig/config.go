@@ -21,7 +21,9 @@ import (
 
 var _ config.Config = (*yamlConfig)(nil)
 
-const lockFileName = "casting.yaml.lock"
+const (
+	lockFileName = "casting.yaml.lock"
+)
 
 type yamlConfig struct {
 	loaders map[v1alpha1.Kind]loader

@@ -46,6 +46,7 @@ func (c *poursConfig) RegisterFlags(cmd *cobra.Command) {
 type castConfig struct {
 	NoGauge bool
 	NoForge bool
+	Yes     bool
 }
 
 type uncastConfig struct {
@@ -53,12 +54,13 @@ type uncastConfig struct {
 }
 
 func (c *uncastConfig) RegisterFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().BoolVar(&c.Yes, "yes", false, "Confirm removing the deployment.")
+	cmd.PersistentFlags().BoolVar(&c.Yes, "yes", false, "Confirm the verbs that change infrastructure.")
 }
 
 func (c *castConfig) RegisterFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().BoolVar(&c.NoGauge, "no-gauge", false, "Do not run gauge before forge and cast.")
 	cmd.PersistentFlags().BoolVar(&c.NoForge, "no-forge", false, "Do not run forge before cast.")
+	cmd.PersistentFlags().BoolVar(&c.Yes, "yes", false, "Confirm the verbs that change infrastructure.")
 }
 
 type catalogConfig struct {

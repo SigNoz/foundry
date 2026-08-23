@@ -9,6 +9,7 @@ import (
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/foundry"
+	"github.com/signoz/foundry/internal/tooler"
 	"github.com/spf13/cobra"
 )
 
@@ -18,6 +19,10 @@ func registerCastCmd(rootCmd *cobra.Command) {
 		Short: "Cast to the target environment.",
 		RunE: recoverRunE(domain.EventCast, func(cmd *cobra.Command, args []string, report reporter) error {
 			ctx := cmd.Context()
+
+			if castCfg.Yes {
+				ctx = tooler.WithApproval(ctx)
+			}
 
 			// A document the inner stages pass is prepared, not cast, so
 			// only their failures report.

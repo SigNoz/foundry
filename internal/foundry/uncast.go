@@ -3,8 +3,10 @@ package foundry
 import (
 	"context"
 	"log/slog"
+	"slices"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 )
 
 // Uncast uncasts one document. The caller walks the set backwards, against the
@@ -13,6 +15,10 @@ func (foundry *Foundry) Uncast(ctx context.Context, machinery v1alpha1.Machinery
 	p, err := foundry.Plan(ctx, machinery)
 	if err != nil {
 		return err
+	}
+
+	if ctx.Err() != nil {
+		return foundryerrors.Wrapf(ctx.Err(), foundryerrors.TypeInternal, "failed to uncast %s: the run was interrupted", machinery.Name())
 	}
 
 	foundry.Logger.InfoContext(ctx, "uncasting",
