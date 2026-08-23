@@ -9,8 +9,7 @@ import (
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 )
 
-// gaugeable is what toolers and runners both expose. Runners replace toolers
-// one tool at a time, so gauge checks whichever a casting is registered with.
+// gaugeable is the reach surface every tooler exposes; gauge probes each once.
 type gaugeable interface {
 	Name() string
 	Gauge(ctx context.Context) error
@@ -28,10 +27,6 @@ func (foundry *Foundry) Gauge(ctx context.Context, machineries []v1alpha1.Machin
 	for _, p := range planners {
 		for _, t := range p.Toolers() {
 			tools = append(tools, t)
-		}
-
-		for _, r := range p.Runners() {
-			tools = append(tools, r)
 		}
 	}
 

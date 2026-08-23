@@ -18,6 +18,10 @@ type base struct {
 
 	// s contains the stacktrace captured at error creation time.
 	stacktrace fmt.Stringer
+
+	// output holds a tool's own last words when the error accounts for a
+	// failed tool conversation.
+	output string
 }
 
 func (b *base) Error() string {
@@ -41,6 +45,13 @@ func (b *base) Stacktrace() string {
 	return b.stacktrace.String()
 }
 
+// WithOutput attaches what the tool wrote. It is the tool's diagnostic, so it
+// rides the error for the user and never enters tracked properties.
+func (b *base) WithOutput(output string) *base {
+	b.output = output
+	return b
+}
+
 func Newf(t typ, info string, args ...any) *base {
 	return &base{
 		t:          t,
@@ -50,7 +61,7 @@ func Newf(t typ, info string, args ...any) *base {
 	}
 }
 
-func Wrapf(cause error, t typ, format string, args ...any) error {
+func Wrapf(cause error, t typ, format string, args ...any) *base {
 	return &base{
 		t:          t,
 		info:       fmt.Sprintf(format, args...),

@@ -20,7 +20,9 @@ import (
 
 var _ config.Config = (*yamlConfig)(nil)
 
-const lockFileName = "casting.yaml.lock"
+const (
+	lockFileName = "casting.yaml.lock"
+)
 
 type yamlConfig struct {
 	loaders map[v1alpha1.Kind]loader
@@ -180,7 +182,7 @@ func (config *yamlConfig) GetV1Alpha1(ctx context.Context, path string) ([]v1alp
 // GetV1Alpha1Lock reads the lock beside the casting file; its documents are
 // already resolved, so they take neither defaults nor validation.
 func (config *yamlConfig) GetV1Alpha1Lock(ctx context.Context, path string) ([]v1alpha1.Machinery, error) {
-	lockPath := filepath.Join(filepath.Dir(path), lockFileName)
+	lockPath := lockPathFor(path)
 
 	contents, err := os.ReadFile(lockPath)
 	if err != nil {
@@ -204,11 +206,16 @@ func (*yamlConfig) CreateV1Alpha1Lock(ctx context.Context, machineries []v1alpha
 		documents = append(documents, contents)
 	}
 
-	if err := os.WriteFile(filepath.Join(filepath.Dir(path), lockFileName), domain.NewYAMLStream(documents), 0644); err != nil {
+	if err := os.WriteFile(lockPathFor(path), domain.NewYAMLStream(documents), 0644); err != nil {
 		return errors.Wrapf(err, errors.TypeInternal, "failed to write lock file")
 	}
 
 	return nil
+}
+
+// The lock and its guard live beside the casting file they resolve.
+func lockPathFor(path string) string {
+	return filepath.Join(filepath.Dir(path), lockFileName)
 }
 
 // castings reads every casting document in the stream and returns them in cast

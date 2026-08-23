@@ -5,12 +5,10 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
-	"github.com/signoz/foundry/internal/tooler"
 )
 
 type CastingItem struct {
 	Casting Casting
-	Toolers []tooler.Tooler
 }
 
 type Registry struct {
@@ -36,12 +34,4 @@ func (registry *Registry) Casting(deployment v1alpha1.TypeDeployment) (Casting, 
 		return nil, foundryerrors.Newf(foundryerrors.TypeUnsupported, "infrastructure deployment '%+v' is not supported", deployment)
 	}
 	return item.Casting, nil
-}
-
-func (registry *Registry) Toolers(deployment v1alpha1.TypeDeployment) ([]tooler.Tooler, error) {
-	item, ok := registry.lookup(deployment)
-	if !ok {
-		return nil, foundryerrors.Newf(foundryerrors.TypeUnsupported, "infrastructure deployment '%+v' is not supported", deployment)
-	}
-	return item.Toolers, nil
 }
