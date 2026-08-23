@@ -4,19 +4,16 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	collectionagentmolding "github.com/signoz/foundry/internal/molding/collectionagent"
 	"github.com/signoz/foundry/internal/pourer"
-	"github.com/signoz/foundry/internal/runner"
+	"github.com/signoz/foundry/internal/tooler"
+	"github.com/signoz/foundry/internal/tooler/dockerswarmtooler"
 )
 
 type dockerSwarmCasting struct {
@@ -46,64 +43,32 @@ func (c *dockerSwarmCasting) Forge(ctx context.Context, config collectionagent.C
 	return nil
 }
 
-func (c *dockerSwarmCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer, _ []runner.Runner) error {
-	composeFile := filepath.Join(outputPath, p.Dir(), "compose.yaml")
-
-	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
-		return foundryerrors.Newf(foundryerrors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
-	}
-
-	if err := c.checkOwnership(ctx, config); err != nil {
+func (c *dockerSwarmCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer, toolers []tooler.Tooler) error {
+	swarm, err := dockerswarmtooler.Lookup(toolers)
+	if err != nil {
 		return err
 	}
 
-	runctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-	defer cancel()
+	release := dockerswarmtooler.Release{
+		Release: domain.Release{Name: config.Metadata.Name, Owner: config.Labels()},
+		File:    filepath.Join(outputPath, p.Dir(), strings.TrimSuffix(composeYAMLTemplate.Name(), ".gotmpl")),
+	}
 
-	args := []string{"stack", "deploy", "-d", "-c", composeFile, config.Metadata.Name}
-
-	c.logger.DebugContext(runctx, "running command", slog.String("command", strings.Join(append([]string{"docker"}, args...), " ")))
-
-	cmd := exec.CommandContext(runctx, "docker", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	return cmd.Run()
+	return swarm.Up(ctx, release)
 }
 
-// Uncast is not implemented for this casting yet.
-func (c *dockerSwarmCasting) Uncast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer, _ []runner.Runner) error {
-	return foundryerrors.Newf(foundryerrors.TypeUnsupported, "uncast is not implemented for this casting yet")
-}
-
-// checkOwnership refuses to deploy over a swarm stack of the same name that
-// belongs to a different foundry Kind. Task containers that record no owner
-// only warn: they are either a pre-label foundry deployment or a foreign
-// stack.
-func (c *dockerSwarmCasting) checkOwnership(ctx context.Context, config collectionagent.Casting) error {
-	out, err := exec.CommandContext(ctx, "docker", "ps", "-a",
-		"--filter", "label=com.docker.stack.namespace="+config.Metadata.Name,
-		"--format", `{{.Label "`+v1alpha1.LabelKind.Key+`"}}`).Output()
+// Uncast removes the stack's services and networks; the volumes holding
+// component data stay.
+func (c *dockerSwarmCasting) Uncast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer, toolers []tooler.Tooler) error {
+	swarm, err := dockerswarmtooler.Lookup(toolers)
 	if err != nil {
-		c.logger.WarnContext(ctx, "skipping the ownership check: could not read labels from docker", foundryerrors.LogAttr(err))
-		return nil
+		return err
 	}
 
-	owners := []domain.Owner{}
-	for kind := range strings.SplitSeq(strings.TrimRight(string(out), "\n"), "\n") {
-		owners = append(owners, domain.Owner{v1alpha1.LabelKind.Key: kind})
+	release := dockerswarmtooler.Release{
+		Release: domain.Release{Name: config.Metadata.Name, Owner: config.Labels()},
+		File:    filepath.Join(outputPath, p.Dir(), strings.TrimSuffix(composeYAMLTemplate.Name(), ".gotmpl")),
 	}
 
-	ownership := domain.NewOwnership(owners...)
-	self := domain.Owner{v1alpha1.LabelKind.Key: config.Kind().String()}
-
-	if foreign, conflict := ownership.Foreign(self); conflict {
-		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "%q already belongs to a foundry %s on this host: choose a different metadata.name or remove the existing deployment", config.Metadata.Name, foreign[v1alpha1.LabelKind.Key])
-	}
-
-	if ownership.HasUnowned() {
-		c.logger.WarnContext(ctx, "swarm stack has task containers without foundry ownership labels", slog.String("stack", config.Metadata.Name))
-	}
-
-	return nil
+	return swarm.Down(ctx, release)
 }

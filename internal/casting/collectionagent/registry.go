@@ -7,18 +7,15 @@ import (
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockercomposecasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockerswarmcasting"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
-	"github.com/signoz/foundry/internal/runner"
-	"github.com/signoz/foundry/internal/runner/composerunner"
 	"github.com/signoz/foundry/internal/tooler"
+	"github.com/signoz/foundry/internal/tooler/dockercomposetooler"
 	"github.com/signoz/foundry/internal/tooler/dockerswarmtooler"
-	"github.com/signoz/foundry/internal/tooler/dockertooler"
 )
 
 type CastingItem struct {
 	Casting Casting
-	Toolers []tooler.Tooler
 
-	Runners []runner.Runner
+	Toolers []tooler.Tooler
 }
 
 type Registry struct {
@@ -33,14 +30,14 @@ func NewRegistry(logger *slog.Logger) *Registry {
 				Flavor: v1alpha1.FlavorCompose,
 			}: {
 				Casting: dockercomposecasting.New(logger),
-				Runners: []runner.Runner{composerunner.New(logger)},
+				Toolers: []tooler.Tooler{dockercomposetooler.New(logger)},
 			},
 			{
 				Mode:   v1alpha1.ModeDocker,
 				Flavor: v1alpha1.FlavorSwarm,
 			}: {
 				Casting: dockerswarmcasting.New(logger),
-				Toolers: []tooler.Tooler{dockertooler.New(), dockerswarmtooler.New()},
+				Toolers: []tooler.Tooler{dockerswarmtooler.New(logger)},
 			},
 		},
 	}
@@ -71,12 +68,4 @@ func (registry *Registry) Toolers(deployment v1alpha1.TypeDeployment) ([]tooler.
 		return nil, foundryerrors.Newf(foundryerrors.TypeUnsupported, "collectionagent deployment '%+v' is not supported", deployment)
 	}
 	return item.Toolers, nil
-}
-
-func (registry *Registry) Runners(deployment v1alpha1.TypeDeployment) ([]runner.Runner, error) {
-	item, ok := registry.lookup(deployment)
-	if !ok {
-		return nil, foundryerrors.Newf(foundryerrors.TypeUnsupported, "collectionagent deployment '%+v' is not supported", deployment)
-	}
-	return item.Runners, nil
 }
