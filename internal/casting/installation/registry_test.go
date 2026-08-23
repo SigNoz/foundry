@@ -5,13 +5,13 @@ import (
 	"testing"
 
 	"github.com/signoz/foundry/api/v1alpha1"
-	"github.com/signoz/foundry/internal/runner/composerunner"
+	"github.com/signoz/foundry/internal/tooler/dockercomposetooler"
 	"github.com/stretchr/testify/assert"
 )
 
-// The compose casting resolves its runner from the registry entry at cast
+// The compose casting resolves its tooler from the registry entry at cast
 // time; this pins the entry so the lookup cannot silently go empty.
-func TestRegistryRunners(t *testing.T) {
+func TestRegistryToolers(t *testing.T) {
 	registry := NewRegistry(slog.New(slog.DiscardHandler))
 
 	tests := []struct {
@@ -19,16 +19,16 @@ func TestRegistryRunners(t *testing.T) {
 		deployment v1alpha1.TypeDeployment
 		pass       bool
 	}{
-		{name: "DockerCompose_ComposeRunner", deployment: v1alpha1.TypeDeployment{Mode: v1alpha1.ModeDocker, Flavor: v1alpha1.FlavorCompose}, pass: true},
-		{name: "DockerSwarm_NoRunnerYet", deployment: v1alpha1.TypeDeployment{Mode: v1alpha1.ModeDocker, Flavor: v1alpha1.FlavorSwarm}, pass: false},
+		{name: "DockerCompose_Valid", deployment: v1alpha1.TypeDeployment{Mode: v1alpha1.ModeDocker, Flavor: v1alpha1.FlavorCompose}, pass: true},
+		{name: "DockerSwarm_Invalid", deployment: v1alpha1.TypeDeployment{Mode: v1alpha1.ModeDocker, Flavor: v1alpha1.FlavorSwarm}, pass: false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			runners, err := registry.Runners(tt.deployment)
+			toolers, err := registry.Toolers(tt.deployment)
 			assert.NoError(t, err)
 
-			_, err = composerunner.Lookup(runners)
+			_, err = dockercomposetooler.Lookup(toolers)
 			if !tt.pass {
 				assert.Error(t, err)
 				return

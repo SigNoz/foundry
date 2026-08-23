@@ -12,7 +12,7 @@ import (
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
-	"github.com/signoz/foundry/internal/runner"
+	"github.com/signoz/foundry/internal/tooler"
 )
 
 var _ casting.Casting = (*renderCasting)(nil)
@@ -112,7 +112,7 @@ func (c *renderCasting) Forge(ctx context.Context, config installation.Casting, 
 	return materials, nil
 }
 
-func (c *renderCasting) Cast(ctx context.Context, config installation.Casting, poursPath string, _ []runner.Runner) error {
+func (c *renderCasting) Cast(ctx context.Context, config installation.Casting, poursPath string, _ []tooler.Tooler) error {
 	c.logger.InfoContext(ctx, "Please run 'forge' first to generate the Render Casting",
 		slog.String("pours_path", poursPath))
 	c.logger.InfoContext(ctx, "After forging, deploy render.yaml to Render using Infrastructure as Code",
@@ -122,7 +122,7 @@ func (c *renderCasting) Cast(ctx context.Context, config installation.Casting, p
 
 // Uncast tells the operator where to remove the deployment: foundry does not
 // drive Render.
-func (c *renderCasting) Uncast(ctx context.Context, config installation.Casting, poursPath string, _ []runner.Runner) error {
+func (c *renderCasting) Uncast(ctx context.Context, config installation.Casting, poursPath string, _ []tooler.Tooler) error {
 	c.logger.InfoContext(ctx, "Remove the services from Render directly; foundry does not manage Render resources",
 		slog.String("Docs", "https://render.com/docs/infrastructure-as-code#setup"))
 	return nil

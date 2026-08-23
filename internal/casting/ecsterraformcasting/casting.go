@@ -3,18 +3,15 @@ package ecsterraformcasting
 import (
 	"context"
 	"log/slog"
-	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
-	"time"
 
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
-	"github.com/signoz/foundry/internal/runner"
+	"github.com/signoz/foundry/internal/tooler"
+	"github.com/signoz/foundry/internal/tooler/terraformtooler"
 )
 
 var _ rootcasting.Casting = (*ecsCasting)(nil)
@@ -156,45 +153,18 @@ func (c *ecsCasting) Forge(ctx context.Context, config installation.Casting, pou
 	return materials, nil
 }
 
-func (c *ecsCasting) Cast(ctx context.Context, config installation.Casting, outputPath string, _ []runner.Runner) error {
+func (c *ecsCasting) Cast(ctx context.Context, config installation.Casting, outputPath string, toolers []tooler.Tooler) error {
 	c.logger.InfoContext(ctx, "Running Terraform for ECS deployment")
 
-	deploymentDir := filepath.Join(outputPath, rootcasting.DeploymentDir)
-
-	// Verify terraform files exist
-	if _, err := os.Stat(filepath.Join(deploymentDir, "main.tf.json")); os.IsNotExist(err) {
-		return errors.Newf(errors.TypeNotFound, "terraform files do not exist at path: %s; run forge first", deploymentDir)
+	terraform, err := terraformtooler.Lookup(toolers)
+	if err != nil {
+		return err
 	}
 
-	// Create a context with 10-minute timeout (terraform can be slow)
-	runctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
-	defer cancel()
-
-	// Run terraform init
-	c.logger.InfoContext(runctx, "Running terraform init")
-	initCmd := exec.CommandContext(runctx, "terraform", "-chdir="+deploymentDir, "init")
-	initCmd.Stdout = os.Stdout
-	initCmd.Stderr = os.Stderr
-	if err := initCmd.Run(); err != nil {
-		c.logger.ErrorContext(runctx, "terraform init failed", slog.String("error", err.Error()))
-		return errors.Wrapf(err, errors.TypeInternal, "terraform init failed")
-	}
-
-	// Run terraform apply
-	c.logger.InfoContext(runctx, "Running terraform apply")
-	args := []string{"-chdir=" + deploymentDir, "apply", "-auto-approve"}
-	c.logger.DebugContext(runctx, "Running command", slog.String("command", "terraform "+strings.Join(args, " ")))
-
-	applyCmd := exec.CommandContext(runctx, "terraform", args...)
-	applyCmd.Stdout = os.Stdout
-	applyCmd.Stderr = os.Stderr
-	if err := applyCmd.Run(); err != nil {
-		c.logger.ErrorContext(runctx, "terraform apply failed", slog.String("error", err.Error()))
-		return errors.Wrapf(err, errors.TypeInternal, "terraform apply failed")
-	}
-
-	c.logger.InfoContext(runctx, "Terraform apply completed successfully")
-	return nil
+	return terraform.Apply(ctx, terraformtooler.Release{
+		Release: domain.Release{Name: config.Metadata.Name, Owner: config.Labels()},
+		Root:    filepath.Join(outputPath, rootcasting.DeploymentDir),
+	})
 }
 
 // getMaterials renders all module templates and returns them as JSONMaterials.
@@ -224,6 +194,6 @@ func getMaterials(config *installation.Casting) ([]domain.StructuredMaterial, er
 }
 
 // Uncast is not implemented for this casting yet.
-func (c *ecsCasting) Uncast(ctx context.Context, config installation.Casting, outputPath string, _ []runner.Runner) error {
+func (c *ecsCasting) Uncast(ctx context.Context, config installation.Casting, outputPath string, _ []tooler.Tooler) error {
 	return errors.Newf(errors.TypeUnsupported, "uncast is not implemented for this casting yet")
 }
