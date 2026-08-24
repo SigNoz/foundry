@@ -55,7 +55,7 @@ func TestRunModes(t *testing.T) {
 }
 
 // A tool that says no is a conversation failure: the verb names it and the
-// tool's own last words ride the error, whatever the mode streamed.
+// tool's own last words are the reason, whatever the mode streamed.
 func TestRunFailureCarriesTheTail(t *testing.T) {
 	tests := []struct {
 		name string
@@ -78,8 +78,10 @@ func TestRunFailureCarriesTheTail(t *testing.T) {
 			require.Error(t, err)
 
 			exception := errors.ExceptionOf(err)
-			assert.Equal(t, "failed to run sh -c", exception.Message)
-			assert.Equal(t, "the tool said no\n", exception.Tail)
+			assert.Equal(t, "failed to run sh -c: the tool said no\n", exception.Message)
+
+			require.NotNil(t, exception.Cause)
+			assert.Equal(t, "exit status 3", exception.Cause.Message)
 		})
 	}
 }

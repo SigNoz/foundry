@@ -8,7 +8,6 @@ import (
 type Exception struct {
 	Type       string     `json:"type,omitempty"`
 	Message    string     `json:"message"`
-	Tail       string     `json:"tail,omitempty"`
 	Cause      *Exception `json:"cause,omitempty"`
 	Action     string     `json:"action,omitempty"`
 	Stacktrace string     `json:"stacktrace,omitempty"`
@@ -22,36 +21,11 @@ func (e Envelope) MarshalJSON() ([]byte, error) {
 	return json.MarshalIndent(map[string]*Exception{"exception": e.Exception}, "", "  ")
 }
 
-// Tail rides the outermost link that carries one: the tool's last words
-// account for the whole conversation, and a further wrap must not drop them.
-func ExceptionOf(err error) *Exception {
-	e := walk(err)
-	if e == nil {
-		return nil
-	}
-
-	for link := err; link != nil; {
-		b, ok := link.(*base)
-		if !ok {
-			break
-		}
-
-		if b.tail != "" {
-			e.Tail = b.tail
-			break
-		}
-
-		link = b.cause
-	}
-
-	return e
-}
-
 // The walk terminates at the first non-*base link, which emits Message alone
 // — stdlib wrappers format their full subtree in Error(), so re-walking them
 // would duplicate that text. Stacktrace emits on TypeFatal links only; every
 // *base captures one at construction time but emitting them all is noise.
-func walk(err error) *Exception {
+func ExceptionOf(err error) *Exception {
 	if err == nil {
 		return nil
 	}
@@ -65,7 +39,7 @@ func walk(err error) *Exception {
 		Type:    b.t.String(),
 		Message: b.info,
 		Action:  b.t.action,
-		Cause:   walk(b.cause),
+		Cause:   ExceptionOf(b.cause),
 	}
 	if b.t == TypeFatal && b.stacktrace != nil {
 		if st := b.stacktrace.String(); st != "" {
@@ -91,10 +65,6 @@ func exceptionAttrs(e *Exception) []slog.Attr {
 	}
 
 	attrs = append(attrs, slog.String("message", e.Message))
-
-	if e.Tail != "" {
-		attrs = append(attrs, slog.String("tail", e.Tail))
-	}
 
 	if e.Cause != nil {
 		attrs = append(attrs, slog.GroupAttrs("cause", exceptionAttrs(e.Cause)...))
