@@ -70,7 +70,12 @@ func Invoke(ctx context.Context, settings Settings, inv Invocation) (Result, err
 	captured := inv.Mode.wire(cmd, sink, tail)
 
 	if err := cmd.Run(); err != nil {
-		return Result{}, errors.Wrapf(err, errors.TypeInternal, "failed to run %s", inv.Verb).WithTail(tail.String())
+		// The tool's last words are the reason.
+		if words := tail.String(); words != "" {
+			return Result{}, errors.Wrapf(err, errors.TypeInternal, "failed to run %s: %s", inv.Verb, words)
+		}
+
+		return Result{}, errors.Wrapf(err, errors.TypeInternal, "failed to run %s", inv.Verb)
 	}
 
 	if captured == nil {
