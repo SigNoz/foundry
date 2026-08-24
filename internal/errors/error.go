@@ -19,9 +19,9 @@ type base struct {
 	// s contains the stacktrace captured at error creation time.
 	stacktrace fmt.Stringer
 
-	// output holds a tool's own last words when the error accounts for a
-	// failed tool conversation.
-	output string
+	// tail holds the last words a failed tool wrote. It rides the error to
+	// the user and never enters tracked properties.
+	tail string
 }
 
 func (b *base) Error() string {
@@ -45,10 +45,8 @@ func (b *base) Stacktrace() string {
 	return b.stacktrace.String()
 }
 
-// WithOutput attaches what the tool wrote. It is the tool's diagnostic, so it
-// rides the error for the user and never enters tracked properties.
-func (b *base) WithOutput(output string) *base {
-	b.output = output
+func (b *base) WithTail(tail string) *base {
+	b.tail = tail
 	return b
 }
 

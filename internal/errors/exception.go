@@ -8,7 +8,7 @@ import (
 type Exception struct {
 	Type       string     `json:"type,omitempty"`
 	Message    string     `json:"message"`
-	Output     string     `json:"output,omitempty"`
+	Tail       string     `json:"tail,omitempty"`
 	Cause      *Exception `json:"cause,omitempty"`
 	Action     string     `json:"action,omitempty"`
 	Stacktrace string     `json:"stacktrace,omitempty"`
@@ -22,10 +22,10 @@ func (e Envelope) MarshalJSON() ([]byte, error) {
 	return json.MarshalIndent(map[string]*Exception{"exception": e.Exception}, "", "  ")
 }
 
-// Output rides the outermost link that carries one: the tool's last words
+// Tail rides the outermost link that carries one: the tool's last words
 // account for the whole conversation, and a further wrap must not drop them.
 func ExceptionOf(err error) *Exception {
-	e := exceptionOf(err)
+	e := walk(err)
 	if e == nil {
 		return nil
 	}
@@ -36,8 +36,8 @@ func ExceptionOf(err error) *Exception {
 			break
 		}
 
-		if b.output != "" {
-			e.Output = b.output
+		if b.tail != "" {
+			e.Tail = b.tail
 			break
 		}
 
@@ -51,7 +51,7 @@ func ExceptionOf(err error) *Exception {
 // — stdlib wrappers format their full subtree in Error(), so re-walking them
 // would duplicate that text. Stacktrace emits on TypeFatal links only; every
 // *base captures one at construction time but emitting them all is noise.
-func exceptionOf(err error) *Exception {
+func walk(err error) *Exception {
 	if err == nil {
 		return nil
 	}
@@ -65,7 +65,7 @@ func exceptionOf(err error) *Exception {
 		Type:    b.t.String(),
 		Message: b.info,
 		Action:  b.t.action,
-		Cause:   exceptionOf(b.cause),
+		Cause:   walk(b.cause),
 	}
 	if b.t == TypeFatal && b.stacktrace != nil {
 		if st := b.stacktrace.String(); st != "" {
@@ -92,8 +92,8 @@ func exceptionAttrs(e *Exception) []slog.Attr {
 
 	attrs = append(attrs, slog.String("message", e.Message))
 
-	if e.Output != "" {
-		attrs = append(attrs, slog.String("output", e.Output))
+	if e.Tail != "" {
+		attrs = append(attrs, slog.String("tail", e.Tail))
 	}
 
 	if e.Cause != nil {
