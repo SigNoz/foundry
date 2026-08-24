@@ -25,6 +25,7 @@ type Planner struct {
 	config   *infrastructure.Casting
 	logger   *slog.Logger
 	casting  Casting
+	toolers  []tooler.Tooler
 	enricher infrastructuremolding.MoldingEnricher
 	moldings []infrastructuremolding.Molding
 }
@@ -99,5 +100,6 @@ func (p *Planner) Melt(ctx context.Context, poursPath string) error {
 	return foundryerrors.Newf(foundryerrors.TypeUnsupported, "melt is not implemented for the infrastructure kind yet")
 }
 
-// Toolers is empty: no infrastructure casting is registered yet.
-func (p *Planner) Toolers() []tooler.Tooler { return nil }
+func (p *Planner) Toolers() []tooler.Tooler {
+	return p.toolers
+}

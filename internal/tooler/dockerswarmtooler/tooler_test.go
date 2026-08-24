@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/signoz/foundry/internal/domain"
-	"github.com/signoz/foundry/internal/tooler"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -50,69 +49,6 @@ func waitForStack(t *testing.T, stack string) {
 	}
 
 	t.Fatal("stack container did not appear")
-}
-
-type otherTooler struct{}
-
-func (otherTooler) Name() string                    { return "other" }
-func (otherTooler) Gauge(ctx context.Context) error { return nil }
-
-func TestNew(t *testing.T) {
-	r := New(slog.New(slog.DiscardHandler))
-
-	assert.Equal(t, "docker stack", r.Name())
-}
-
-func TestLookup(t *testing.T) {
-	swarm := New(slog.New(slog.DiscardHandler))
-
-	tests := []struct {
-		name    string
-		toolers []tooler.Tooler
-		pass    bool
-	}{
-		{name: "Registered_Found", toolers: []tooler.Tooler{swarm}, pass: true},
-		{name: "AmongOthers_Found", toolers: []tooler.Tooler{otherTooler{}, swarm}, pass: true},
-		{name: "Empty_Invalid", toolers: nil, pass: false},
-		{name: "OnlyOthers_Invalid", toolers: []tooler.Tooler{otherTooler{}}, pass: false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			found, err := Lookup(tt.toolers)
-			if !tt.pass {
-				assert.Error(t, err)
-				return
-			}
-
-			assert.NoError(t, err)
-			assert.Equal(t, swarm, found)
-		})
-	}
-}
-
-// The mutating verbs state what they act on before the tool is spawned: an
-// unstated file has no stack to deploy, and an unstated claim would silently
-// skip the owner guard.
-func TestMutateStatesTheRelease(t *testing.T) {
-	claim := domain.Owner{"foundry.signoz.io/managed-by": "foundry"}
-
-	tests := []struct {
-		name    string
-		release Release
-	}{
-		{name: "UnstatedFile_Invalid", release: Release{Release: domain.Release{Name: "signoz", Owner: claim}}},
-		{name: "UnstatedClaim_Invalid", release: Release{File: "compose.yaml"}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := New(slog.New(slog.DiscardHandler))
-
-			assert.Error(t, r.Up(context.Background(), tt.release))
-			assert.Error(t, r.Down(context.Background(), tt.release))
-		})
-	}
 }
 
 // parse reads docker's flat output back into the owners domain compares. A

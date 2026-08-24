@@ -38,8 +38,8 @@ func New(logger *slog.Logger) *Tooler {
 }
 
 func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
-	for _, r := range toolers {
-		if aws, ok := r.(*Tooler); ok {
+	for _, t := range toolers {
+		if aws, ok := t.(*Tooler); ok {
 			return aws, nil
 		}
 	}
@@ -47,24 +47,24 @@ func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
 	return nil, errors.Newf(errors.TypeNotFound, "failed to look up the aws tooler: it is not registered for this casting")
 }
 
-func (r *Tooler) Name() string {
+func (t *Tooler) Name() string {
 	return "aws"
 }
 
-func (r *Tooler) Gauge(ctx context.Context) error {
-	_, err := r.probe(ctx)
+func (t *Tooler) Gauge(ctx context.Context) error {
+	_, err := t.probe(ctx)
 
 	return err
 }
 
 // UpdateKubeconfig writes the cluster's kubecontext and leaves it selected;
 // the alias is the cluster name, not the ARN, so it stays derivable.
-func (r *Tooler) UpdateKubeconfig(ctx context.Context, options Options) error {
+func (t *Tooler) UpdateKubeconfig(ctx context.Context, options Options) error {
 	if options.ClusterName == "" {
 		return errors.Newf(errors.TypeInvalidInput, "failed to run aws eks update-kubeconfig: no cluster is stated")
 	}
 
-	dialect, err := r.probe(ctx)
+	dialect, err := t.probe(ctx)
 	if err != nil {
 		return err
 	}
@@ -74,9 +74,9 @@ func (r *Tooler) UpdateKubeconfig(ctx context.Context, options Options) error {
 		argv = append(argv, "--region", options.Region)
 	}
 
-	r.logger.DebugContext(ctx, "running command", slog.String("command", strings.Join(append([]string{dialect.argv[0]}, argv...), " ")))
+	t.logger.DebugContext(ctx, "running command", slog.String("command", strings.Join(append([]string{dialect.argv[0]}, argv...), " ")))
 
-	_, err = tooler.Invoke(ctx, tooler.Settings{Sink: r.sink}, tooler.Invocation{
+	_, err = tooler.Invoke(ctx, tooler.Settings{Sink: t.sink}, tooler.Invocation{
 		Verb: dialect.name + " eks update-kubeconfig",
 		Path: dialect.argv[0],
 		Args: argv,
@@ -88,9 +88,9 @@ func (r *Tooler) UpdateKubeconfig(ctx context.Context, options Options) error {
 
 // The memo is unguarded; foundry runs single-threaded, and a lock would claim a
 // concurrency contract toolers do not have.
-func (r *Tooler) probe(ctx context.Context) (dialect, error) {
-	if len(r.dialect.argv) != 0 {
-		return r.dialect, nil
+func (t *Tooler) probe(ctx context.Context) (dialect, error) {
+	if len(t.dialect.argv) != 0 {
+		return t.dialect, nil
 	}
 
 	path, err := tooler.Resolve("aws")
@@ -107,7 +107,7 @@ func (r *Tooler) probe(ctx context.Context) (dialect, error) {
 		return dialect{}, errors.Wrapf(err, errors.TypeNotFound, "failed to find aws: install it from https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html")
 	}
 
-	r.dialect = dialect{name: "aws", argv: []string{path}}
+	t.dialect = dialect{name: "aws", argv: []string{path}}
 
-	return r.dialect, nil
+	return t.dialect, nil
 }

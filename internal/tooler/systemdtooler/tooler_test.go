@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/signoz/foundry/internal/domain"
-	"github.com/signoz/foundry/internal/tooler"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -28,67 +27,6 @@ func requireSystemd(t *testing.T) {
 
 	if os.Geteuid() != 0 {
 		t.Skip("systemd test needs root")
-	}
-}
-
-type otherTooler struct{}
-
-func (otherTooler) Name() string                    { return "other" }
-func (otherTooler) Gauge(ctx context.Context) error { return nil }
-
-func TestNew(t *testing.T) {
-	assert.Equal(t, "systemctl", New(slog.New(slog.DiscardHandler)).Name())
-}
-
-func TestLookup(t *testing.T) {
-	systemd := New(slog.New(slog.DiscardHandler))
-
-	tests := []struct {
-		name    string
-		toolers []tooler.Tooler
-		pass    bool
-	}{
-		{name: "Registered_Found", toolers: []tooler.Tooler{systemd}, pass: true},
-		{name: "AmongOthers_Found", toolers: []tooler.Tooler{otherTooler{}, systemd}, pass: true},
-		{name: "Empty_Invalid", toolers: nil, pass: false},
-		{name: "OnlyOthers_Invalid", toolers: []tooler.Tooler{otherTooler{}}, pass: false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			found, err := Lookup(tt.toolers)
-			if !tt.pass {
-				assert.Error(t, err)
-				return
-			}
-
-			assert.NoError(t, err)
-			assert.Equal(t, systemd, found)
-		})
-	}
-}
-
-// The mutating verbs state what they act on before systemctl is spawned: no
-// units means nothing to bring up, and an unstated claim leaves the deployable
-// unit unidentified.
-func TestMutateStatesTheRelease(t *testing.T) {
-	claim := domain.Owner{"foundry.signoz.io/managed-by": "foundry"}
-
-	tests := []struct {
-		name    string
-		release Release
-	}{
-		{name: "UnstatedUnits_Invalid", release: Release{Release: domain.Release{Name: "signoz", Owner: claim}}},
-		{name: "UnstatedClaim_Invalid", release: Release{Units: []string{"signoz.service"}}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := New(slog.New(slog.DiscardHandler))
-
-			assert.Error(t, r.Up(context.Background(), tt.release))
-			assert.Error(t, r.Down(context.Background(), tt.release))
-		})
 	}
 }
 

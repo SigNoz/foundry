@@ -63,8 +63,8 @@ func New(logger *slog.Logger) *Tooler {
 }
 
 func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
-	for _, r := range toolers {
-		if helm, ok := r.(*Tooler); ok {
+	for _, t := range toolers {
+		if helm, ok := t.(*Tooler); ok {
 			return helm, nil
 		}
 	}
@@ -72,18 +72,18 @@ func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
 	return nil, errors.Newf(errors.TypeNotFound, "failed to look up the helm tooler: it is not registered for this casting")
 }
 
-func (r *Tooler) Name() string {
+func (t *Tooler) Name() string {
 	return "helm"
 }
 
 // Gauge has no reach check: helm is the SDK, so there is no binary to find.
-func (r *Tooler) Gauge(ctx context.Context) error {
+func (t *Tooler) Gauge(ctx context.Context) error {
 	return nil
 }
 
 // Upgrade is helm's own upgrade --install: action.Upgrade.Install is
 // informative only, so the caller dispatches install-vs-upgrade.
-func (r *Tooler) Upgrade(ctx context.Context, release Release) error {
+func (t *Tooler) Upgrade(ctx context.Context, release Release) error {
 	if err := release.Validate(); err != nil {
 		return err
 	}
@@ -92,7 +92,7 @@ func (r *Tooler) Upgrade(ctx context.Context, release Release) error {
 		return errors.Newf(errors.TypeInvalidInput, "failed to run helm upgrade: no chart is stated")
 	}
 
-	settings, config, err := r.configure(ctx, release.Namespace)
+	settings, config, err := t.configure(ctx, release.Namespace)
 	if err != nil {
 		return err
 	}
@@ -103,21 +103,21 @@ func (r *Tooler) Upgrade(ctx context.Context, release Release) error {
 		}
 	}
 
-	found, err := r.claim(ctx, config, release.Name, release.Owner)
+	found, err := t.claim(ctx, config, release.Name, release.Owner)
 	if err != nil {
 		return err
 	}
 
 	if !found {
-		return r.install(ctx, settings, config, release)
+		return t.install(ctx, settings, config, release)
 	}
 
-	return r.upgrade(ctx, settings, config, release)
+	return t.upgrade(ctx, settings, config, release)
 }
 
 // Uninstall has no context-aware form in the SDK, so ctx is honored at entry
 // alone; the removal cannot abort midway.
-func (r *Tooler) Uninstall(ctx context.Context, release Release) error {
+func (t *Tooler) Uninstall(ctx context.Context, release Release) error {
 	if err := release.Validate(); err != nil {
 		return err
 	}
@@ -126,12 +126,12 @@ func (r *Tooler) Uninstall(ctx context.Context, release Release) error {
 		return errors.Wrapf(err, errors.TypeInternal, "failed to run helm uninstall")
 	}
 
-	_, config, err := r.configure(ctx, release.Namespace)
+	_, config, err := t.configure(ctx, release.Namespace)
 	if err != nil {
 		return err
 	}
 
-	if _, err := r.claim(ctx, config, release.Name, release.Owner); err != nil {
+	if _, err := t.claim(ctx, config, release.Name, release.Owner); err != nil {
 		return err
 	}
 
@@ -146,7 +146,7 @@ func (r *Tooler) Uninstall(ctx context.Context, release Release) error {
 	return nil
 }
 
-func (r *Tooler) install(ctx context.Context, settings *cli.EnvSettings, config *action.Configuration, release Release) error {
+func (t *Tooler) install(ctx context.Context, settings *cli.EnvSettings, config *action.Configuration, release Release) error {
 	install := action.NewInstall(config)
 	install.ReleaseName = release.Name
 	install.Namespace = release.Namespace
@@ -167,7 +167,7 @@ func (r *Tooler) install(ctx context.Context, settings *cli.EnvSettings, config 
 	return nil
 }
 
-func (r *Tooler) upgrade(ctx context.Context, settings *cli.EnvSettings, config *action.Configuration, release Release) error {
+func (t *Tooler) upgrade(ctx context.Context, settings *cli.EnvSettings, config *action.Configuration, release Release) error {
 	upgrade := action.NewUpgrade(config)
 	upgrade.Install = true
 	upgrade.Namespace = release.Namespace
@@ -189,7 +189,7 @@ func (r *Tooler) upgrade(ctx context.Context, settings *cli.EnvSettings, config 
 
 // verify compares only the keys foundry stamps: a release also carries helm's
 // own system labels.
-func (r *Tooler) verify(ctx context.Context, rel *helmrelease.Release, owner domain.Owner) error {
+func (t *Tooler) verify(ctx context.Context, rel *helmrelease.Release, owner domain.Owner) error {
 	if len(owner) == 0 {
 		return nil
 	}
@@ -206,13 +206,13 @@ func (r *Tooler) verify(ctx context.Context, rel *helmrelease.Release, owner dom
 	}
 
 	if ownership.HasUnowned() {
-		r.logger.WarnContext(ctx, "helm release has no ownership labels", slog.String("release", rel.Name))
+		t.logger.WarnContext(ctx, "helm release has no ownership labels", slog.String("release", rel.Name))
 	}
 
 	return nil
 }
 
-func (r *Tooler) claim(ctx context.Context, config *action.Configuration, name string, owner domain.Owner) (bool, error) {
+func (t *Tooler) claim(ctx context.Context, config *action.Configuration, name string, owner domain.Owner) (bool, error) {
 	history := action.NewHistory(config)
 	history.Max = 1
 
@@ -221,16 +221,16 @@ func (r *Tooler) claim(ctx context.Context, config *action.Configuration, name s
 		return false, nil
 	}
 
-	return true, r.verify(ctx, releases[len(releases)-1], owner)
+	return true, t.verify(ctx, releases[len(releases)-1], owner)
 }
 
-func (r *Tooler) configure(ctx context.Context, namespace string) (*cli.EnvSettings, *action.Configuration, error) {
+func (t *Tooler) configure(ctx context.Context, namespace string) (*cli.EnvSettings, *action.Configuration, error) {
 	settings := cli.New()
 	settings.SetNamespace(namespace)
 
 	config := new(action.Configuration)
 	if err := config.Init(settings.RESTClientGetter(), namespace, os.Getenv("HELM_DRIVER"), func(format string, v ...any) {
-		r.logger.DebugContext(ctx, fmt.Sprintf(format, v...))
+		t.logger.DebugContext(ctx, fmt.Sprintf(format, v...))
 	}); err != nil {
 		return nil, nil, errors.Wrapf(err, errors.TypeInternal, "failed to initialize helm: the cluster is not reachable")
 	}

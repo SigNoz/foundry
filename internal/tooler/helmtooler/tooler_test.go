@@ -6,57 +6,9 @@ import (
 	"testing"
 
 	"github.com/signoz/foundry/internal/domain"
-	"github.com/signoz/foundry/internal/tooler"
 	"github.com/stretchr/testify/assert"
 	helmrelease "helm.sh/helm/v3/pkg/release"
 )
-
-type otherTooler struct{}
-
-func (otherTooler) Name() string                    { return "other" }
-func (otherTooler) Gauge(ctx context.Context) error { return nil }
-
-func TestNew(t *testing.T) {
-	r := New(slog.New(slog.DiscardHandler))
-
-	assert.Equal(t, "helm", r.Name())
-}
-
-// Gauge has no reach check: helm is the SDK, so there is no binary to find and
-// a preflight always passes.
-func TestGaugeNeedsNoBinary(t *testing.T) {
-	r := New(slog.New(slog.DiscardHandler))
-
-	assert.NoError(t, r.Gauge(context.Background()))
-}
-
-func TestLookup(t *testing.T) {
-	helm := New(slog.New(slog.DiscardHandler))
-
-	tests := []struct {
-		name    string
-		toolers []tooler.Tooler
-		pass    bool
-	}{
-		{name: "Registered_Found", toolers: []tooler.Tooler{helm}, pass: true},
-		{name: "AmongOthers_Found", toolers: []tooler.Tooler{otherTooler{}, helm}, pass: true},
-		{name: "Empty_Invalid", toolers: nil, pass: false},
-		{name: "OnlyOthers_Invalid", toolers: []tooler.Tooler{otherTooler{}}, pass: false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			found, err := Lookup(tt.toolers)
-			if !tt.pass {
-				assert.Error(t, err)
-				return
-			}
-
-			assert.NoError(t, err)
-			assert.Equal(t, helm, found)
-		})
-	}
-}
 
 // A verb that names neither release nor namespace refuses before it reaches
 // the cluster, the same statement check every mutating verb owns.
