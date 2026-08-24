@@ -9,59 +9,45 @@ import (
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 )
 
-// gaugeable is the reach surface every tooler exposes; gauge probes each once.
-type gaugeable interface {
-	Name() string
-	Gauge(ctx context.Context) error
-}
-
-// Gauge checks the tools the whole casting file needs. Documents that share a
-// tool gauge it once, so a machine is neither probed nor reported twice.
+// Gauge proves a tool once across documents: proving one is a statement about
+// the machine, not about a document. Every tool is gauged before any of them
+// reports, so a machine missing several is told about all of them at once.
 func (foundry *Foundry) Gauge(ctx context.Context, machineries []v1alpha1.Machinery) error {
-	tools := []gaugeable{}
+	proven := map[string]struct{}{}
+	unavailable := []string{}
+
 	for _, machinery := range machineries {
 		p, err := foundry.Plan(ctx, machinery)
 		if err != nil {
 			return err
 		}
 
-		for _, t := range p.Toolers() {
-			tools = append(tools, t)
+		foundry.Logger.InfoContext(ctx, "gauging",
+			slog.String("casting.kind", machinery.Kind().String()),
+			slog.String("casting.metadata.name", machinery.Name()))
+
+		for _, tool := range p.Toolers() {
+			if _, done := proven[tool.Name()]; done {
+				continue
+			}
+
+			proven[tool.Name()] = struct{}{}
+
+			if err := tool.Gauge(ctx); err != nil {
+				foundry.Logger.ErrorContext(ctx, "tool is not available or cannot be detected properly",
+					slog.String("tool.name", tool.Name()), foundryerrors.LogAttr(err))
+				unavailable = append(unavailable, tool.Name())
+
+				continue
+			}
+
+			foundry.Logger.InfoContext(ctx, "tool is available", slog.String("tool.name", tool.Name()))
 		}
 	}
 
-	unavailableTools := []string{}
-	for _, tool := range dedupeByName(tools) {
-		if err := tool.Gauge(ctx); err != nil {
-			foundry.Logger.ErrorContext(ctx, "tool is not available or cannot be detected properly", slog.String("tool.name", tool.Name()), foundryerrors.LogAttr(err))
-			unavailableTools = append(unavailableTools, tool.Name())
-			continue
-		}
-
-		foundry.Logger.InfoContext(ctx, "tool is available", slog.String("tool.name", tool.Name()))
-	}
-
-	if len(unavailableTools) > 0 {
-		return foundryerrors.Newf(foundryerrors.TypeNotFound, "tools are not available, please install them and try again: %s", strings.Join(unavailableTools, ", "))
+	if len(unavailable) > 0 {
+		return foundryerrors.Newf(foundryerrors.TypeNotFound, "tools are not available, please install them and try again: %s", strings.Join(unavailable, ", "))
 	}
 
 	return nil
-}
-
-// dedupeByName keeps the first tool of each name, in the order the documents
-// asked for them.
-func dedupeByName(tools []gaugeable) []gaugeable {
-	deduped := make([]gaugeable, 0, len(tools))
-	named := make(map[string]struct{}, len(tools))
-
-	for _, tool := range tools {
-		if _, gathered := named[tool.Name()]; gathered {
-			continue
-		}
-
-		named[tool.Name()] = struct{}{}
-		deduped = append(deduped, tool)
-	}
-
-	return deduped
 }

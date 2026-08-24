@@ -57,8 +57,8 @@ func New(logger *slog.Logger) *Tooler {
 }
 
 func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
-	for _, r := range toolers {
-		if kubectl, ok := r.(*Tooler); ok {
+	for _, t := range toolers {
+		if kubectl, ok := t.(*Tooler); ok {
 			return kubectl, nil
 		}
 	}
@@ -66,45 +66,45 @@ func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
 	return nil, errors.Newf(errors.TypeNotFound, "failed to look up the kubectl tooler: it is not registered for this casting")
 }
 
-func (r *Tooler) Name() string {
+func (t *Tooler) Name() string {
 	return "kubectl"
 }
 
-func (r *Tooler) Gauge(ctx context.Context) error {
-	_, err := r.probe(ctx)
+func (t *Tooler) Gauge(ctx context.Context) error {
+	_, err := t.probe(ctx)
 
 	return err
 }
 
 // Apply lays the URL prerequisites down first, so the kustomize resources that
 // depend on them resolve.
-func (r *Tooler) Apply(ctx context.Context, release Release) error {
+func (t *Tooler) Apply(ctx context.Context, release Release) error {
 	if len(release.URLs) > 0 {
 		args := make([]string, 0, len(release.URLs)*2)
 		for _, url := range release.URLs {
 			args = append(args, "-f", url)
 		}
 
-		if err := r.mutate(ctx, release, "apply", args...); err != nil {
+		if err := t.mutate(ctx, release, "apply", args...); err != nil {
 			return err
 		}
 	}
 
-	return r.mutate(ctx, release, "apply", "-k", release.Dir)
+	return t.mutate(ctx, release, "apply", "-k", release.Dir)
 }
 
 // Delete removes only the kustomize; the URL prerequisites are cluster-shared
 // and stay.
-func (r *Tooler) Delete(ctx context.Context, release Release) error {
-	return r.mutate(ctx, release, "delete", "-k", release.Dir)
+func (t *Tooler) Delete(ctx context.Context, release Release) error {
+	return t.mutate(ctx, release, "delete", "-k", release.Dir)
 }
 
-func (r *Tooler) mutate(ctx context.Context, release Release, verb string, args ...string) error {
+func (t *Tooler) mutate(ctx context.Context, release Release, verb string, args ...string) error {
 	if err := release.Validate(); err != nil {
 		return err
 	}
 
-	dialect, err := r.probe(ctx)
+	dialect, err := t.probe(ctx)
 	if err != nil {
 		return err
 	}
@@ -112,9 +112,9 @@ func (r *Tooler) mutate(ctx context.Context, release Release, verb string, args 
 	argv := append(slices.Clone(dialect.argv[1:]), verb)
 	argv = append(argv, args...)
 
-	r.logger.DebugContext(ctx, "running command", slog.String("command", strings.Join(append([]string{dialect.argv[0]}, argv...), " ")))
+	t.logger.DebugContext(ctx, "running command", slog.String("command", strings.Join(append([]string{dialect.argv[0]}, argv...), " ")))
 
-	_, err = tooler.Invoke(ctx, tooler.Settings{Sink: r.sink}, tooler.Invocation{
+	_, err = tooler.Invoke(ctx, tooler.Settings{Sink: t.sink}, tooler.Invocation{
 		Verb: dialect.name + " " + verb,
 		Path: dialect.argv[0],
 		Args: argv,
@@ -126,9 +126,9 @@ func (r *Tooler) mutate(ctx context.Context, release Release, verb string, args 
 
 // The memo is unguarded; foundry runs single-threaded, and a lock would claim a
 // concurrency contract toolers do not have.
-func (r *Tooler) probe(ctx context.Context) (dialect, error) {
-	if len(r.dialect.argv) != 0 {
-		return r.dialect, nil
+func (t *Tooler) probe(ctx context.Context) (dialect, error) {
+	if len(t.dialect.argv) != 0 {
+		return t.dialect, nil
 	}
 
 	path, err := tooler.Resolve("kubectl")
@@ -145,7 +145,7 @@ func (r *Tooler) probe(ctx context.Context) (dialect, error) {
 		return dialect{}, errors.Wrapf(err, errors.TypeNotFound, "failed to find kubectl: install it from https://kubernetes.io/docs/tasks/tools/")
 	}
 
-	r.dialect = dialect{name: "kubectl", argv: []string{path}}
+	t.dialect = dialect{name: "kubectl", argv: []string{path}}
 
-	return r.dialect, nil
+	return t.dialect, nil
 }

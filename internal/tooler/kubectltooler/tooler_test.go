@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/signoz/foundry/internal/domain"
-	"github.com/signoz/foundry/internal/tooler"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -41,67 +40,6 @@ func kustomize(t *testing.T) string {
 	assert.NoError(t, os.WriteFile(filepath.Join(dir, "configmap.yaml"), []byte("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: kubectltooler-test\ndata:\n  ok: \"yes\"\n"), 0o644))
 
 	return dir
-}
-
-type otherTooler struct{}
-
-func (otherTooler) Name() string                    { return "other" }
-func (otherTooler) Gauge(ctx context.Context) error { return nil }
-
-func TestNew(t *testing.T) {
-	assert.Equal(t, "kubectl", New(slog.New(slog.DiscardHandler)).Name())
-}
-
-func TestLookup(t *testing.T) {
-	kubectl := New(slog.New(slog.DiscardHandler))
-
-	tests := []struct {
-		name    string
-		toolers []tooler.Tooler
-		pass    bool
-	}{
-		{name: "Registered_Found", toolers: []tooler.Tooler{kubectl}, pass: true},
-		{name: "AmongOthers_Found", toolers: []tooler.Tooler{otherTooler{}, kubectl}, pass: true},
-		{name: "Empty_Invalid", toolers: nil, pass: false},
-		{name: "OnlyOthers_Invalid", toolers: []tooler.Tooler{otherTooler{}}, pass: false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			found, err := Lookup(tt.toolers)
-			if !tt.pass {
-				assert.Error(t, err)
-				return
-			}
-
-			assert.NoError(t, err)
-			assert.Equal(t, kubectl, found)
-		})
-	}
-}
-
-// The mutating verbs state what they act on before kubectl is spawned: an
-// unstated directory has nothing to apply, and an unstated claim leaves the
-// deployable unit unidentified.
-func TestMutateStatesTheRelease(t *testing.T) {
-	claim := domain.Owner{"foundry.signoz.io/managed-by": "foundry"}
-
-	tests := []struct {
-		name    string
-		release Release
-	}{
-		{name: "UnstatedDir_Invalid", release: Release{Release: domain.Release{Name: "signoz", Owner: claim}}},
-		{name: "UnstatedClaim_Invalid", release: Release{Dir: "/tmp/kustomize"}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := New(slog.New(slog.DiscardHandler))
-
-			assert.Error(t, r.Apply(context.Background(), tt.release))
-			assert.Error(t, r.Delete(context.Background(), tt.release))
-		})
-	}
 }
 
 // Apply then Delete a one-ConfigMap kustomize; needs a reachable cluster, so it

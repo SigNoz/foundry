@@ -54,8 +54,8 @@ func New(logger *slog.Logger) *Tooler {
 }
 
 func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
-	for _, r := range toolers {
-		if systemd, ok := r.(*Tooler); ok {
+	for _, t := range toolers {
+		if systemd, ok := t.(*Tooler); ok {
 			return systemd, nil
 		}
 	}
@@ -63,49 +63,49 @@ func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
 	return nil, errors.Newf(errors.TypeNotFound, "failed to look up the systemd tooler: it is not registered for this casting")
 }
 
-func (r *Tooler) Name() string {
+func (t *Tooler) Name() string {
 	return "systemctl"
 }
 
-func (r *Tooler) Gauge(ctx context.Context) error {
-	_, err := r.probe(ctx)
+func (t *Tooler) Gauge(ctx context.Context) error {
+	_, err := t.probe(ctx)
 
 	return err
 }
 
 // Up enables the units by path, reloads so systemd picks up the new files, then
 // starts them; --no-block returns before long-running services converge.
-func (r *Tooler) Up(ctx context.Context, release Release) error {
-	if err := r.mutate(ctx, release, "enable", release.Units...); err != nil {
+func (t *Tooler) Up(ctx context.Context, release Release) error {
+	if err := t.mutate(ctx, release, "enable", release.Units...); err != nil {
 		return err
 	}
 
-	if err := r.mutate(ctx, release, "daemon-reload"); err != nil {
+	if err := t.mutate(ctx, release, "daemon-reload"); err != nil {
 		return err
 	}
 
-	return r.mutate(ctx, release, "start", append([]string{"--no-block"}, names(release.Units)...)...)
+	return t.mutate(ctx, release, "start", append([]string{"--no-block"}, names(release.Units)...)...)
 }
 
 // Down stops and disables the units; the unit files and provisioned state stay.
-func (r *Tooler) Down(ctx context.Context, release Release) error {
-	if err := r.mutate(ctx, release, "stop", names(release.Units)...); err != nil {
+func (t *Tooler) Down(ctx context.Context, release Release) error {
+	if err := t.mutate(ctx, release, "stop", names(release.Units)...); err != nil {
 		return err
 	}
 
-	if err := r.mutate(ctx, release, "disable", names(release.Units)...); err != nil {
+	if err := t.mutate(ctx, release, "disable", names(release.Units)...); err != nil {
 		return err
 	}
 
-	return r.mutate(ctx, release, "daemon-reload")
+	return t.mutate(ctx, release, "daemon-reload")
 }
 
-func (r *Tooler) mutate(ctx context.Context, release Release, verb string, args ...string) error {
+func (t *Tooler) mutate(ctx context.Context, release Release, verb string, args ...string) error {
 	if err := release.Validate(); err != nil {
 		return err
 	}
 
-	dialect, err := r.probe(ctx)
+	dialect, err := t.probe(ctx)
 	if err != nil {
 		return err
 	}
@@ -113,9 +113,9 @@ func (r *Tooler) mutate(ctx context.Context, release Release, verb string, args 
 	argv := append(slices.Clone(dialect.argv[1:]), verb)
 	argv = append(argv, args...)
 
-	r.logger.DebugContext(ctx, "running command", slog.String("command", strings.Join(append([]string{dialect.argv[0]}, argv...), " ")))
+	t.logger.DebugContext(ctx, "running command", slog.String("command", strings.Join(append([]string{dialect.argv[0]}, argv...), " ")))
 
-	_, err = tooler.Invoke(ctx, tooler.Settings{Sink: r.sink}, tooler.Invocation{
+	_, err = tooler.Invoke(ctx, tooler.Settings{Sink: t.sink}, tooler.Invocation{
 		Verb: dialect.name + " " + verb,
 		Path: dialect.argv[0],
 		Args: argv,
@@ -137,9 +137,9 @@ func names(units []string) []string {
 
 // The memo is unguarded; foundry runs single-threaded, and a lock would claim a
 // concurrency contract toolers do not have.
-func (r *Tooler) probe(ctx context.Context) (dialect, error) {
-	if len(r.dialect.argv) != 0 {
-		return r.dialect, nil
+func (t *Tooler) probe(ctx context.Context) (dialect, error) {
+	if len(t.dialect.argv) != 0 {
+		return t.dialect, nil
 	}
 
 	path, err := tooler.Resolve("systemctl")
@@ -156,7 +156,7 @@ func (r *Tooler) probe(ctx context.Context) (dialect, error) {
 		return dialect{}, errors.Wrapf(err, errors.TypeNotFound, "failed to find systemctl: this host is not running systemd")
 	}
 
-	r.dialect = dialect{name: "systemctl", argv: []string{path}}
+	t.dialect = dialect{name: "systemctl", argv: []string{path}}
 
-	return r.dialect, nil
+	return t.dialect, nil
 }

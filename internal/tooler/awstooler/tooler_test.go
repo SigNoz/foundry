@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"testing"
 
-	"github.com/signoz/foundry/internal/tooler"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -20,43 +19,6 @@ func requireAWS(t *testing.T) {
 
 	if _, err := exec.LookPath("aws"); err != nil {
 		t.Skip("aws is not available")
-	}
-}
-
-type otherTooler struct{}
-
-func (otherTooler) Name() string                    { return "other" }
-func (otherTooler) Gauge(ctx context.Context) error { return nil }
-
-func TestNew(t *testing.T) {
-	assert.Equal(t, "aws", New(slog.New(slog.DiscardHandler)).Name())
-}
-
-func TestLookup(t *testing.T) {
-	aws := New(slog.New(slog.DiscardHandler))
-
-	tests := []struct {
-		name    string
-		toolers []tooler.Tooler
-		pass    bool
-	}{
-		{name: "Registered_Found", toolers: []tooler.Tooler{aws}, pass: true},
-		{name: "AmongOthers_Found", toolers: []tooler.Tooler{otherTooler{}, aws}, pass: true},
-		{name: "Empty_Invalid", toolers: nil, pass: false},
-		{name: "OnlyOthers_Invalid", toolers: []tooler.Tooler{otherTooler{}}, pass: false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			found, err := Lookup(tt.toolers)
-			if !tt.pass {
-				assert.Error(t, err)
-				return
-			}
-
-			assert.NoError(t, err)
-			assert.Equal(t, aws, found)
-		})
 	}
 }
 

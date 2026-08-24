@@ -58,8 +58,8 @@ func New(logger *slog.Logger) *Tooler {
 }
 
 func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
-	for _, r := range toolers {
-		if swarm, ok := r.(*Tooler); ok {
+	for _, t := range toolers {
+		if swarm, ok := t.(*Tooler); ok {
 			return swarm, nil
 		}
 	}
@@ -67,46 +67,46 @@ func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
 	return nil, errors.Newf(errors.TypeNotFound, "failed to look up the swarm tooler: it is not registered for this casting")
 }
 
-func (r *Tooler) Name() string {
+func (t *Tooler) Name() string {
 	return "docker stack"
 }
 
-func (r *Tooler) Gauge(ctx context.Context) error {
-	_, err := r.probe(ctx)
+func (t *Tooler) Gauge(ctx context.Context) error {
+	_, err := t.probe(ctx)
 
 	return err
 }
 
 // Up returns once the stack is accepted, not once its services converge.
-func (r *Tooler) Up(ctx context.Context, release Release) error {
-	return r.mutate(ctx, release, "deploy", "-d", "-c", release.File)
+func (t *Tooler) Up(ctx context.Context, release Release) error {
+	return t.mutate(ctx, release, "deploy", "-d", "-c", release.File)
 }
 
 // Down removes the stack's services and networks; volumes stay (the data line).
-func (r *Tooler) Down(ctx context.Context, release Release) error {
-	return r.mutate(ctx, release, "rm")
+func (t *Tooler) Down(ctx context.Context, release Release) error {
+	return t.mutate(ctx, release, "rm")
 }
 
 // Owners lists who holds the stack, read from its task containers' labels.
-func (r *Tooler) Owners(ctx context.Context, release Release) (domain.Ownership, error) {
+func (t *Tooler) Owners(ctx context.Context, release Release) (domain.Ownership, error) {
 	if err := release.Release.Validate(); err != nil {
 		return domain.Ownership{}, err
 	}
 
-	return r.list(ctx, release)
+	return t.list(ctx, release)
 }
 
-func (r *Tooler) mutate(ctx context.Context, release Release, verb string, args ...string) error {
+func (t *Tooler) mutate(ctx context.Context, release Release, verb string, args ...string) error {
 	if err := release.Validate(); err != nil {
 		return err
 	}
 
-	dialect, err := r.probe(ctx)
+	dialect, err := t.probe(ctx)
 	if err != nil {
 		return err
 	}
 
-	if err := r.verify(ctx, release); err != nil {
+	if err := t.verify(ctx, release); err != nil {
 		return err
 	}
 
@@ -114,9 +114,9 @@ func (r *Tooler) mutate(ctx context.Context, release Release, verb string, args 
 	argv = append(argv, args...)
 	argv = append(argv, release.Name)
 
-	r.logger.DebugContext(ctx, "running command", slog.String("command", strings.Join(append([]string{dialect.argv[0]}, argv...), " ")))
+	t.logger.DebugContext(ctx, "running command", slog.String("command", strings.Join(append([]string{dialect.argv[0]}, argv...), " ")))
 
-	_, err = tooler.Invoke(ctx, tooler.Settings{Sink: r.sink}, tooler.Invocation{
+	_, err = tooler.Invoke(ctx, tooler.Settings{Sink: t.sink}, tooler.Invocation{
 		Verb: dialect.name + " stack " + verb,
 		Path: dialect.argv[0],
 		Args: argv,
@@ -128,10 +128,10 @@ func (r *Tooler) mutate(ctx context.Context, release Release, verb string, args 
 
 // An unreadable docker skips the ownership check rather than blocks; the verb
 // itself then fails loudly, in the tool's own words.
-func (r *Tooler) verify(ctx context.Context, release Release) error {
-	ownership, err := r.list(ctx, release)
+func (t *Tooler) verify(ctx context.Context, release Release) error {
+	ownership, err := t.list(ctx, release)
 	if err != nil {
-		r.logger.WarnContext(ctx, "skipping the ownership check: could not read labels from docker", errors.LogAttr(err))
+		t.logger.WarnContext(ctx, "skipping the ownership check: could not read labels from docker", errors.LogAttr(err))
 
 		return nil
 	}
@@ -141,13 +141,13 @@ func (r *Tooler) verify(ctx context.Context, release Release) error {
 	}
 
 	if ownership.HasUnowned() {
-		r.logger.WarnContext(ctx, "swarm stack has containers without ownership labels", slog.String("stack", release.Name))
+		t.logger.WarnContext(ctx, "swarm stack has containers without ownership labels", slog.String("stack", release.Name))
 	}
 
 	return nil
 }
 
-func (r *Tooler) list(ctx context.Context, release Release) (domain.Ownership, error) {
+func (t *Tooler) list(ctx context.Context, release Release) (domain.Ownership, error) {
 	docker, err := tooler.Resolve("docker")
 	if err != nil {
 		return domain.Ownership{}, errors.Newf(errors.TypeNotFound, "failed to run docker ps: docker is not available")
@@ -203,9 +203,9 @@ func parse(keys []string, out string) []domain.Owner {
 
 // The memo is unguarded; foundry runs single-threaded, and a lock would claim a
 // concurrency contract toolers do not have.
-func (r *Tooler) probe(ctx context.Context) (dialect, error) {
-	if len(r.dialect.argv) != 0 {
-		return r.dialect, nil
+func (t *Tooler) probe(ctx context.Context) (dialect, error) {
+	if len(t.dialect.argv) != 0 {
+		return t.dialect, nil
 	}
 
 	path, err := tooler.Resolve("docker")
@@ -222,7 +222,7 @@ func (r *Tooler) probe(ctx context.Context) (dialect, error) {
 		return dialect{}, errors.Wrapf(err, errors.TypeNotFound, "failed to find docker: install it from https://docs.docker.com/engine/install/")
 	}
 
-	r.dialect = dialect{name: "docker", argv: []string{path}}
+	t.dialect = dialect{name: "docker", argv: []string{path}}
 
-	return r.dialect, nil
+	return t.dialect, nil
 }
