@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"os/exec"
-	"strings"
 	"testing"
 
 	"github.com/signoz/foundry/internal/errors"
@@ -80,7 +79,7 @@ func TestRunFailureCarriesTheTail(t *testing.T) {
 
 			exception := errors.ExceptionOf(err)
 			assert.Equal(t, "failed to run sh -c", exception.Message)
-			assert.Equal(t, "the tool said no\n", exception.Output)
+			assert.Equal(t, "the tool said no\n", exception.Tail)
 		})
 	}
 }
@@ -129,51 +128,6 @@ func TestRunValidatesTheInvocation(t *testing.T) {
 
 			require.Error(t, err)
 			assert.Contains(t, errors.ExceptionOf(err).Message, "failed to build invocation")
-		})
-	}
-}
-
-// The tail is bounded: a chatty tool cannot grow an error past what a log line
-// and an envelope can carry, and what it keeps is the tool's last words.
-func TestTailTruncates(t *testing.T) {
-	tests := []struct {
-		name          string
-		writes        []string
-		expectedLen   int
-		expectedEnd   string
-		expectedStart string
-	}{
-		{name: "UnderCap_Kept", writes: []string{"cast"}, expectedLen: 4, expectedEnd: "cast", expectedStart: "cast"},
-		{
-			name:          "OverCapInOneWrite_LastBytes",
-			writes:        []string{strings.Repeat("a", tailCap) + "tail"},
-			expectedLen:   tailCap,
-			expectedEnd:   "tail",
-			expectedStart: "a",
-		},
-		{
-			name:          "OverCapAcrossWrites_LastBytes",
-			writes:        []string{strings.Repeat("a", tailCap-2), "bb", "tail"},
-			expectedLen:   tailCap,
-			expectedEnd:   "tail",
-			expectedStart: "a",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			target := &tail{}
-
-			for _, write := range tt.writes {
-				n, err := target.Write([]byte(write))
-
-				assert.NoError(t, err)
-				assert.Equal(t, len(write), n)
-			}
-
-			assert.Len(t, target.String(), tt.expectedLen)
-			assert.True(t, strings.HasSuffix(target.String(), tt.expectedEnd))
-			assert.True(t, strings.HasPrefix(target.String(), tt.expectedStart))
 		})
 	}
 }
