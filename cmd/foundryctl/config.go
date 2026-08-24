@@ -12,8 +12,8 @@ var (
 	// Stores cast configuration.
 	castCfg castConfig
 
-	// Stores uncast configuration.
-	uncastCfg uncastConfig
+	// Stores melt configuration.
+	meltCfg meltConfig
 
 	// Stores catalog configuration.
 	catalogCfg catalogConfig
@@ -49,11 +49,11 @@ type castConfig struct {
 	Yes     bool
 }
 
-type uncastConfig struct {
+type meltConfig struct {
 	Yes bool
 }
 
-func (c *uncastConfig) RegisterFlags(cmd *cobra.Command) {
+func (c *meltConfig) RegisterFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().BoolVar(&c.Yes, "yes", false, "Confirm the verbs that change infrastructure.")
 }
 

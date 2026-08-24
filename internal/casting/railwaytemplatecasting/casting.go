@@ -166,9 +166,9 @@ func (c *railwayTemplateCasting) Cast(ctx context.Context, config installation.C
 	return nil
 }
 
-// Uncast tells the operator where to remove the deployment: foundry does not
+// Melt tells the operator where to remove the deployment: foundry does not
 // drive Railway.
-func (c *railwayTemplateCasting) Uncast(ctx context.Context, config installation.Casting, poursPath string, _ []tooler.Tooler) error {
+func (c *railwayTemplateCasting) Melt(ctx context.Context, config installation.Casting, poursPath string, _ []tooler.Tooler) error {
 	c.logger.InfoContext(ctx, "Remove the services from Railway directly; foundry does not manage Railway resources.")
 	return nil
 }

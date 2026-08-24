@@ -193,7 +193,7 @@ func getMaterials(config *installation.Casting) ([]domain.StructuredMaterial, er
 	return materials, nil
 }
 
-// Uncast is not implemented for this casting yet.
-func (c *ecsCasting) Uncast(ctx context.Context, config installation.Casting, outputPath string, _ []tooler.Tooler) error {
-	return errors.Newf(errors.TypeUnsupported, "uncast is not implemented for this casting yet")
+// Melt is not implemented for this casting yet.
+func (c *ecsCasting) Melt(ctx context.Context, config installation.Casting, outputPath string, _ []tooler.Tooler) error {
+	return errors.Newf(errors.TypeUnsupported, "melt is not implemented for this casting yet")
 }

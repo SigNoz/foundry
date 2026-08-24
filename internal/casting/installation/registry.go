@@ -30,7 +30,7 @@ type CastingItem struct {
 	Casting casting.Casting
 
 	// The toolers for the particular casting. The same objects gauge
-	// preflights are handed to Cast and Uncast, so the tools checked and
+	// preflights are handed to Cast and Melt, so the tools checked and
 	// the tools used cannot drift.
 	Toolers []tooler.Tooler
 }

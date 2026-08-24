@@ -57,8 +57,8 @@ func (c *dockerComposeCasting) Cast(ctx context.Context, config collectionagent.
 	return compose.Up(ctx, release)
 }
 
-// Uncast removes the agent's containers and networks; volumes stay.
-func (c *dockerComposeCasting) Uncast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer, toolers []tooler.Tooler) error {
+// Melt removes the agent's containers and networks; volumes stay.
+func (c *dockerComposeCasting) Melt(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer, toolers []tooler.Tooler) error {
 	compose, err := dockercomposetooler.Lookup(toolers)
 	if err != nil {
 		return err

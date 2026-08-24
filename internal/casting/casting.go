@@ -26,5 +26,5 @@ type Casting interface {
 
 	// Removes what Cast deployed: definitions only, never data, never
 	// users, config stays.
-	Uncast(ctx context.Context, config installation.Casting, poursPath string, toolers []tooler.Tooler) error
+	Melt(ctx context.Context, config installation.Casting, poursPath string, toolers []tooler.Tooler) error
 }

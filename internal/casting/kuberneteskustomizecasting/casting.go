@@ -148,8 +148,8 @@ func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting
 	return kubectl.Apply(ctx, release)
 }
 
-// Uncast deletes what the kustomize root declares, the namespace included.
-func (c *kustomizeCasting) Uncast(ctx context.Context, config installation.Casting, poursPath string, toolers []tooler.Tooler) error {
+// Melt deletes what the kustomize root declares, the namespace included.
+func (c *kustomizeCasting) Melt(ctx context.Context, config installation.Casting, poursPath string, toolers []tooler.Tooler) error {
 	kubectl, err := kubectltooler.Lookup(toolers)
 	if err != nil {
 		return err

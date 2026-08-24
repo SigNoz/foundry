@@ -120,9 +120,9 @@ func (c *renderCasting) Cast(ctx context.Context, config installation.Casting, p
 	return nil
 }
 
-// Uncast tells the operator where to remove the deployment: foundry does not
+// Melt tells the operator where to remove the deployment: foundry does not
 // drive Render.
-func (c *renderCasting) Uncast(ctx context.Context, config installation.Casting, poursPath string, _ []tooler.Tooler) error {
+func (c *renderCasting) Melt(ctx context.Context, config installation.Casting, poursPath string, _ []tooler.Tooler) error {
 	c.logger.InfoContext(ctx, "Remove the services from Render directly; foundry does not manage Render resources",
 		slog.String("Docs", "https://render.com/docs/infrastructure-as-code#setup"))
 	return nil

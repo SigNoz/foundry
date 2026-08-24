@@ -95,8 +95,8 @@ func (p *Planner) Cast(ctx context.Context, poursPath string) error {
 	return p.casting.Cast(ctx, *p.config, poursPath, pourer.New(strings.ToLower(p.config.Kind().String())))
 }
 
-func (p *Planner) Uncast(ctx context.Context, poursPath string) error {
-	return foundryerrors.Newf(foundryerrors.TypeUnsupported, "uncast is not implemented for the infrastructure kind yet")
+func (p *Planner) Melt(ctx context.Context, poursPath string) error {
+	return foundryerrors.Newf(foundryerrors.TypeUnsupported, "melt is not implemented for the infrastructure kind yet")
 }
 
 // Toolers is empty: no infrastructure casting is registered yet.

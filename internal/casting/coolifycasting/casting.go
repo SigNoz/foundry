@@ -57,9 +57,9 @@ func (c *coolifyCasting) Cast(ctx context.Context, config installation.Casting, 
 	return nil
 }
 
-// Uncast tells the operator where to remove the deployment: foundry does not
+// Melt tells the operator where to remove the deployment: foundry does not
 // drive Coolify.
-func (c *coolifyCasting) Uncast(ctx context.Context, config installation.Casting, poursPath string, _ []tooler.Tooler) error {
+func (c *coolifyCasting) Melt(ctx context.Context, config installation.Casting, poursPath string, _ []tooler.Tooler) error {
 	c.logger.InfoContext(ctx, "Remove the stack from Coolify directly; foundry does not manage Coolify resources",
 		slog.String("docs", "https://coolify.io/docs/knowledge-base/docker/compose"))
 	return nil

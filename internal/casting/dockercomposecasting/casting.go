@@ -111,9 +111,9 @@ func (casting *dockerComposeCasting) Cast(ctx context.Context, config installati
 	return compose.Up(ctx, release)
 }
 
-// Uncast removes the containers and networks; the volumes holding component
+// Melt removes the containers and networks; the volumes holding component
 // data stay.
-func (casting *dockerComposeCasting) Uncast(ctx context.Context, config installation.Casting, outputPath string, toolers []tooler.Tooler) error {
+func (casting *dockerComposeCasting) Melt(ctx context.Context, config installation.Casting, outputPath string, toolers []tooler.Tooler) error {
 	compose, err := dockercomposetooler.Lookup(toolers)
 	if err != nil {
 		return err

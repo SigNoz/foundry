@@ -83,7 +83,7 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 	return helm.Upgrade(ctx, release)
 }
 
-func (c *helmCasting) Uncast(ctx context.Context, config installation.Casting, poursPath string, toolers []tooler.Tooler) error {
+func (c *helmCasting) Melt(ctx context.Context, config installation.Casting, poursPath string, toolers []tooler.Tooler) error {
 	helm, err := helmtooler.Lookup(toolers)
 	if err != nil {
 		return err
