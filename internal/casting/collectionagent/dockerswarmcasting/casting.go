@@ -57,9 +57,9 @@ func (c *dockerSwarmCasting) Cast(ctx context.Context, config collectionagent.Ca
 	return swarm.Up(ctx, release)
 }
 
-// Uncast removes the stack's services and networks; the volumes holding
+// Melt removes the stack's services and networks; the volumes holding
 // component data stay.
-func (c *dockerSwarmCasting) Uncast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer, toolers []tooler.Tooler) error {
+func (c *dockerSwarmCasting) Melt(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer, toolers []tooler.Tooler) error {
 	swarm, err := dockerswarmtooler.Lookup(toolers)
 	if err != nil {
 		return err

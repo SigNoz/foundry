@@ -14,7 +14,7 @@ import (
 //   - identity:   Machinery, Patches, Toolers
 //   - ordering:   MoldingKinds (the moldings this Kind processes, in order)
 //   - stages:     EnrichStatus, Mold, MergeStatusIntoSpec
-//   - lifecycle:  Forge, Cast, Uncast
+//   - lifecycle:  Forge, Cast, Melt
 type Planner interface {
 	Machinery() v1alpha1.Machinery
 	Patches() []v1alpha1.PatchEntry
@@ -27,5 +27,5 @@ type Planner interface {
 
 	Forge(ctx context.Context, target string) ([]domain.Material, error)
 	Cast(ctx context.Context, poursPath string) error
-	Uncast(ctx context.Context, poursPath string) error
+	Melt(ctx context.Context, poursPath string) error
 }

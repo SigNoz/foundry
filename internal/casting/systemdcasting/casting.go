@@ -105,7 +105,7 @@ func (c *systemdCasting) Cast(ctx context.Context, config installation.Casting, 
 	return nil
 }
 
-func (c *systemdCasting) Uncast(ctx context.Context, config installation.Casting, poursPath string, toolers []tooler.Tooler) error {
+func (c *systemdCasting) Melt(ctx context.Context, config installation.Casting, poursPath string, toolers []tooler.Tooler) error {
 	units, err := c.discoverUnits(poursPath)
 	if err != nil {
 		return err

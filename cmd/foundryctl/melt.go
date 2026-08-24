@@ -13,26 +13,27 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func registerUncastCmd(rootCmd *cobra.Command) {
-	uncastCmd := &cobra.Command{
-		Use:   "uncast",
-		Short: "Remove the cast deployment. Definitions are removed; data is never touched.",
-		RunE: recoverRunE(domain.EventUncast, func(cmd *cobra.Command, args []string) (domain.Properties, error) {
+func registerMeltCmd(rootCmd *cobra.Command) {
+	meltCmd := &cobra.Command{
+		Use:   "melt",
+		Short: "Remove the cast deployment",
+		Long:  "Remove the cast deployment from the target environment; data is never touched",
+		RunE: recoverRunE(domain.EventMelt, func(cmd *cobra.Command, args []string) (domain.Properties, error) {
 			ctx := cmd.Context()
 
-			if uncastCfg.Yes {
+			if meltCfg.Yes {
 				ctx = tooler.WithApproval(ctx)
 			}
 
-			return runUncast(ctx, rootLogger, poursCfg.Path, commonCfg.File)
+			return runMelt(ctx, rootLogger, poursCfg.Path, commonCfg.File)
 		}),
 	}
 
-	rootCmd.AddCommand(uncastCmd)
-	uncastCfg.RegisterFlags(uncastCmd)
+	rootCmd.AddCommand(meltCmd)
+	meltCfg.RegisterFlags(meltCmd)
 }
 
-func runUncast(ctx context.Context, logger *slog.Logger, poursPath string, configPath string) (domain.Properties, error) {
+func runMelt(ctx context.Context, logger *slog.Logger, poursPath string, configPath string) (domain.Properties, error) {
 	foundry, err := foundry.New(logger)
 	if err != nil {
 		return domain.NewProperties(), err
@@ -55,6 +56,6 @@ func runUncast(ctx context.Context, logger *slog.Logger, poursPath string, confi
 		}
 	}
 
-	err = foundry.Uncast(ctx, machineries, poursPath)
+	err = foundry.Melt(ctx, machineries, poursPath)
 	return props, err
 }

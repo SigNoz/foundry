@@ -107,8 +107,8 @@ func (p *Planner) Cast(ctx context.Context, poursPath string) error {
 	return p.casting.Cast(ctx, *p.config, poursPath, p.toolers)
 }
 
-func (p *Planner) Uncast(ctx context.Context, poursPath string) error {
-	return p.casting.Uncast(ctx, *p.config, poursPath, p.toolers)
+func (p *Planner) Melt(ctx context.Context, poursPath string) error {
+	return p.casting.Melt(ctx, *p.config, poursPath, p.toolers)
 }
 
 func (p *Planner) Toolers() []tooler.Tooler {
