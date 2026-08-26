@@ -26,6 +26,40 @@ func TestOwnerIsZero(t *testing.T) {
 	}
 }
 
+func TestOwnerRead(t *testing.T) {
+	tests := []struct {
+		name          string
+		owner         Owner
+		recorded      map[string]string
+		expectedOwner Owner
+	}{
+		{
+			name:          "AskedKeysOnly_Kept",
+			owner:         Owner{"kind": "", "name": ""},
+			recorded:      map[string]string{"kind": "Installation", "name": "signoz", "owner": "helm"},
+			expectedOwner: Owner{"kind": "Installation", "name": "signoz"},
+		},
+		{
+			name:          "MissingKey_Empty",
+			owner:         Owner{"kind": "", "name": ""},
+			recorded:      map[string]string{"kind": "Installation"},
+			expectedOwner: Owner{"kind": "Installation", "name": ""},
+		},
+		{
+			name:          "NothingAsked_Empty",
+			owner:         Owner{},
+			recorded:      map[string]string{"kind": "Installation"},
+			expectedOwner: Owner{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expectedOwner, tt.owner.Read(tt.recorded))
+		})
+	}
+}
+
 func TestOwnerEqual(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -142,4 +176,57 @@ func TestOwnershipDeduplicates(t *testing.T) {
 	ownership := NewOwnership(installation, installation, installation)
 
 	assert.Len(t, ownership.owners, 1)
+}
+
+// ParseOwner is String's inverse, so an owner survives a round trip through its
+// own string form.
+func TestParseOwner(t *testing.T) {
+	tests := []struct {
+		name  string
+		owner Owner
+	}{
+		{name: "Attributes_RoundTrip", owner: Owner{"kind": "Installation", "name": "signoz"}},
+		{name: "EmptyValues_RoundTrip", owner: Owner{"kind": "", "name": ""}},
+		{name: "None_RoundTrip", owner: Owner{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.owner, ParseOwner(tt.owner.String()))
+		})
+	}
+}
+
+// ParseOwnership reads one owner per line, each in Owner.String form, so a line
+// with no attributes marks the group partly unowned rather than becoming an
+// owner whose every value is empty.
+func TestParseOwnership(t *testing.T) {
+	t.Run("Rows_NoConflict", func(t *testing.T) {
+		ownership := ParseOwnership("kind=Installation,name=signoz\nkind=Installation,name=signoz\n")
+
+		_, conflict := ownership.Foreign(Owner{"kind": "Installation", "name": "signoz"})
+
+		assert.False(t, conflict)
+		assert.False(t, ownership.HasUnowned())
+	})
+
+	t.Run("ForeignRow_Conflict", func(t *testing.T) {
+		ownership := ParseOwnership("kind=Installation,name=other\n")
+
+		_, conflict := ownership.Foreign(Owner{"kind": "Installation", "name": "signoz"})
+
+		assert.True(t, conflict)
+	})
+
+	t.Run("EmptyValues_Unowned", func(t *testing.T) {
+		ownership := ParseOwnership("kind=,name=\n")
+
+		assert.True(t, ownership.HasUnowned())
+	})
+
+	t.Run("NoOutput_Empty", func(t *testing.T) {
+		ownership := ParseOwnership("")
+
+		assert.False(t, ownership.HasUnowned())
+	})
 }

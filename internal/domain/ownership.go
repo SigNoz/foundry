@@ -54,6 +54,33 @@ func (owner Owner) String() string {
 	return strings.Join(pairs, ",")
 }
 
+// ParseOwner reads an owner back from its String form,
+// "kind=Installation,name=signoz". It is String's inverse.
+func ParseOwner(raw string) Owner {
+	owner := Owner{}
+	if raw == "" {
+		return owner
+	}
+
+	for pair := range strings.SplitSeq(raw, ",") {
+		key, value, _ := strings.Cut(pair, "=")
+		owner[key] = value
+	}
+
+	return owner
+}
+
+// Read pulls this owner's attributes out of what a platform recorded, keeping
+// only the keys asked for: a workload also carries labels nobody asked about.
+func (owner Owner) Read(recorded map[string]string) Owner {
+	read := Owner{}
+	for key := range owner {
+		read[key] = recorded[key]
+	}
+
+	return read
+}
+
 // Ownership is the owners a group of workloads reports, one owner per
 // workload, deduplicated.
 type Ownership struct {
@@ -81,6 +108,22 @@ func NewOwnership(owners ...Owner) Ownership {
 	}
 
 	return ownership
+}
+
+// ParseOwnership reads one owner per line, each in Owner.String form, into a
+// deduplicated group. A line with no attributes marks the group partly unowned,
+// the same as NewOwnership.
+func ParseOwnership(output string) Ownership {
+	owners := []Owner{}
+	for line := range strings.SplitSeq(strings.TrimRight(output, "\n"), "\n") {
+		if line == "" {
+			continue
+		}
+
+		owners = append(owners, ParseOwner(line))
+	}
+
+	return NewOwnership(owners...)
 }
 
 // Foreign returns an owner that is not self, when one exists.

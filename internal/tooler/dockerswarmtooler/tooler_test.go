@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/signoz/foundry/internal/domain"
+	"github.com/signoz/foundry/internal/tooler"
 	"github.com/stretchr/testify/assert"
 )
 
-// requireSwarm skips a test that drives a real docker swarm manager.
 func requireSwarm(t *testing.T) {
 	t.Helper()
 
@@ -34,8 +34,6 @@ func requireSwarm(t *testing.T) {
 	}
 }
 
-// waitForStack polls until the stack's task container is scheduled, since stack
-// deploy returns before its tasks converge.
 func waitForStack(t *testing.T, stack string) {
 	t.Helper()
 
@@ -51,53 +49,6 @@ func waitForStack(t *testing.T, stack string) {
 	t.Fatal("stack container did not appear")
 }
 
-// parse reads docker's flat output back into the owners domain compares. A
-// container reporting nothing must read as unowned, not as an owner whose every
-// value is empty.
-func TestOwners(t *testing.T) {
-	keys := []string{"foundry.signoz.io/kind", "foundry.signoz.io/managed-by", "foundry.signoz.io/name"}
-
-	tests := []struct {
-		name           string
-		out            string
-		expectedOwners []domain.Owner
-	}{
-		{name: "NoContainers_None", out: "", expectedOwners: []domain.Owner{}},
-		{
-			name: "OneContainer_OneOwner",
-			out:  "CollectionAgent|foundry|signoz\n",
-			expectedOwners: []domain.Owner{{
-				"foundry.signoz.io/kind":       "CollectionAgent",
-				"foundry.signoz.io/managed-by": "foundry",
-				"foundry.signoz.io/name":       "signoz",
-			}},
-		},
-		{
-			name: "NoLabels_ZeroOwner",
-			out:  "||\n",
-			expectedOwners: []domain.Owner{{
-				"foundry.signoz.io/kind":       "",
-				"foundry.signoz.io/managed-by": "",
-				"foundry.signoz.io/name":       "",
-			}},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expectedOwners, parse(keys, tt.out))
-		})
-	}
-
-	ownership := domain.NewOwnership(parse(keys, "||\n")...)
-	_, conflict := ownership.Foreign(domain.Owner{"foundry.signoz.io/kind": "Installation"})
-
-	assert.False(t, conflict)
-	assert.True(t, ownership.HasUnowned())
-}
-
-// Up then Down against a minimal stack; needs a running swarm manager, so it
-// skips wherever one is absent.
 func TestUpDown(t *testing.T) {
 	requireSwarm(t)
 
@@ -106,7 +57,7 @@ func TestUpDown(t *testing.T) {
 	assert.NoError(t, os.WriteFile(composeFile, []byte(contents), 0o644))
 
 	r := New(slog.New(slog.DiscardHandler))
-	r.sink = io.Discard
+	r.Settings = tooler.NewSettings(io.Discard)
 
 	release := Release{
 		Release: domain.Release{
@@ -126,8 +77,6 @@ func TestUpDown(t *testing.T) {
 	assert.NoError(t, r.Down(context.Background(), release))
 }
 
-// A stack labelled for one owner is refused to another, and granted back to the
-// owner that holds it. Needs a running swarm manager.
 func TestOwnerGuardsTheStack(t *testing.T) {
 	requireSwarm(t)
 
@@ -149,7 +98,7 @@ func TestOwnerGuardsTheStack(t *testing.T) {
 	assert.NoError(t, os.WriteFile(composeFile, []byte(contents), 0o644))
 
 	r := New(slog.New(slog.DiscardHandler))
-	r.sink = io.Discard
+	r.Settings = tooler.NewSettings(io.Discard)
 
 	release := Release{
 		Release: domain.Release{Name: stack},

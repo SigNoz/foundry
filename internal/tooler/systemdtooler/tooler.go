@@ -1,12 +1,11 @@
+// Package systemdtooler speaks systemctl.
 package systemdtooler
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"path/filepath"
 	"slices"
-	"strings"
 
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/errors"
@@ -15,7 +14,6 @@ import (
 
 var _ tooler.Tooler = (*Tooler)(nil)
 
-// Release is the deployable unit the casting drafts for a systemctl call.
 type Release struct {
 	domain.Release
 
@@ -35,22 +33,15 @@ func (r Release) Validate() error {
 	return nil
 }
 
-type dialect struct {
-	name string
-	argv []string
-}
-
 type Tooler struct {
-	logger *slog.Logger
+	tooler.Tool
 
-	dialect dialect
-
-	// sink takes streamed output; nil is stderr. Only tests set it.
-	sink io.Writer
+	// words is the resolved command prefix, memoized by command.
+	words []string
 }
 
 func New(logger *slog.Logger) *Tooler {
-	return &Tooler{logger: logger}
+	return &Tooler{Tool: tooler.NewTool("systemctl", logger)}
 }
 
 func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
@@ -63,64 +54,56 @@ func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
 	return nil, errors.Newf(errors.TypeNotFound, "failed to look up the systemd tooler: it is not registered for this casting")
 }
 
-func (t *Tooler) Name() string {
-	return "systemctl"
-}
-
 func (t *Tooler) Gauge(ctx context.Context) error {
-	_, err := t.probe(ctx)
+	_, err := t.command(ctx)
 
 	return err
 }
 
-// Up enables the units by path, reloads so systemd picks up the new files, then
-// starts them; --no-block returns before long-running services converge.
+// Up starts units with --no-block: it returns before they converge.
 func (t *Tooler) Up(ctx context.Context, release Release) error {
-	if err := t.mutate(ctx, release, "enable", release.Units...); err != nil {
+	if err := t.run(ctx, release, "enable", release.Units...); err != nil {
 		return err
 	}
 
-	if err := t.mutate(ctx, release, "daemon-reload"); err != nil {
+	if err := t.run(ctx, release, "daemon-reload"); err != nil {
 		return err
 	}
 
-	return t.mutate(ctx, release, "start", append([]string{"--no-block"}, names(release.Units)...)...)
+	return t.run(ctx, release, "start", append([]string{"--no-block"}, names(release.Units)...)...)
 }
 
 // Down stops and disables the units; the unit files and provisioned state stay.
 func (t *Tooler) Down(ctx context.Context, release Release) error {
-	if err := t.mutate(ctx, release, "stop", names(release.Units)...); err != nil {
+	if err := t.run(ctx, release, "stop", names(release.Units)...); err != nil {
 		return err
 	}
 
-	if err := t.mutate(ctx, release, "disable", names(release.Units)...); err != nil {
+	if err := t.run(ctx, release, "disable", names(release.Units)...); err != nil {
 		return err
 	}
 
-	return t.mutate(ctx, release, "daemon-reload")
+	return t.run(ctx, release, "daemon-reload")
 }
 
-func (t *Tooler) mutate(ctx context.Context, release Release, verb string, args ...string) error {
+func (t *Tooler) run(ctx context.Context, release Release, verb string, args ...string) error {
 	if err := release.Validate(); err != nil {
 		return err
 	}
 
-	dialect, err := t.probe(ctx)
+	words, err := t.command(ctx)
 	if err != nil {
 		return err
 	}
 
-	argv := append(slices.Clone(dialect.argv[1:]), verb)
+	argv := append(slices.Clone(words), verb)
 	argv = append(argv, args...)
 
-	t.logger.DebugContext(ctx, "running command", slog.String("command", strings.Join(append([]string{dialect.argv[0]}, argv...), " ")))
+	inv := tooler.Invocation{Argv: argv, Mode: tooler.Stream}
 
-	_, err = tooler.Invoke(ctx, tooler.Settings{Sink: t.sink}, tooler.Invocation{
-		Verb: dialect.name + " " + verb,
-		Path: dialect.argv[0],
-		Args: argv,
-		Mode: tooler.Stream,
-	})
+	t.Logger.DebugContext(ctx, "running command", slog.String("command", inv.Command()))
+
+	_, err = tooler.Invoke(ctx, t.Settings, inv)
 
 	return err
 }
@@ -137,26 +120,24 @@ func names(units []string) []string {
 
 // The memo is unguarded; foundry runs single-threaded, and a lock would claim a
 // concurrency contract toolers do not have.
-func (t *Tooler) probe(ctx context.Context) (dialect, error) {
-	if len(t.dialect.argv) != 0 {
-		return t.dialect, nil
+func (t *Tooler) command(ctx context.Context) ([]string, error) {
+	if len(t.words) != 0 {
+		return t.words, nil
 	}
 
 	path, err := tooler.Resolve("systemctl")
 	if err != nil {
-		return dialect{}, errors.Wrapf(err, errors.TypeNotFound, "failed to find systemctl: this host is not running systemd")
+		return nil, errors.Wrapf(err, errors.TypeNotFound, "failed to find systemctl: this host is not running systemd")
 	}
 
-	if _, err := tooler.Invoke(ctx, tooler.Settings{}, tooler.Invocation{
-		Verb: "systemctl --version",
-		Path: path,
-		Args: []string{"--version"},
+	if _, err := tooler.Invoke(ctx, t.Settings, tooler.Invocation{
+		Argv: []string{path, "--version"},
 		Mode: tooler.Capture,
 	}); err != nil {
-		return dialect{}, errors.Wrapf(err, errors.TypeNotFound, "failed to find systemctl: this host is not running systemd")
+		return nil, errors.Wrapf(err, errors.TypeNotFound, "failed to find systemctl: this host is not running systemd")
 	}
 
-	t.dialect = dialect{name: "systemctl", argv: []string{path}}
+	t.words = []string{path}
 
-	return t.dialect, nil
+	return t.words, nil
 }

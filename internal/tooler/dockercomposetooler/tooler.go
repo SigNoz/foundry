@@ -1,8 +1,8 @@
+// Package dockercomposetooler speaks docker compose.
 package dockercomposetooler
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"maps"
 	"slices"
@@ -15,10 +15,8 @@ import (
 
 var _ tooler.Tooler = (*Tooler)(nil)
 
-// ownerSeparator joins the label values docker returns; no stamped label
-// carries it.
-const ownerSeparator = "|"
-
+// Release is the deployable unit the casting drafts for a compose project; the
+// project compose keys on is the release name.
 type Release struct {
 	domain.Release
 
@@ -37,22 +35,15 @@ func (r Release) Validate() error {
 	return nil
 }
 
-type dialect struct {
-	name string
-	argv []string
-}
-
 type Tooler struct {
-	logger *slog.Logger
+	tooler.Tool
 
-	dialect dialect
-
-	// sink takes streamed output; nil is stderr. Only tests set it.
-	sink io.Writer
+	// words is the resolved command prefix, memoized by command.
+	words []string
 }
 
 func New(logger *slog.Logger) *Tooler {
-	return &Tooler{logger: logger}
+	return &Tooler{Tool: tooler.NewTool("docker compose", logger)}
 }
 
 func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
@@ -65,24 +56,20 @@ func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
 	return nil, errors.Newf(errors.TypeNotFound, "failed to look up the compose tooler: it is not registered for this casting")
 }
 
-func (t *Tooler) Name() string {
-	return "docker compose"
-}
-
 func (t *Tooler) Gauge(ctx context.Context) error {
-	_, err := t.probe(ctx)
+	_, err := t.command(ctx)
 
 	return err
 }
 
 // Up returns once the containers are started, not once they are healthy.
 func (t *Tooler) Up(ctx context.Context, release Release) error {
-	return t.mutate(ctx, release, "up", "-d")
+	return t.run(ctx, release, "up", "-d")
 }
 
 // Down removes containers and networks; volumes stay (the data line).
 func (t *Tooler) Down(ctx context.Context, release Release) error {
-	return t.mutate(ctx, release, "down")
+	return t.run(ctx, release, "down")
 }
 
 func (t *Tooler) Owners(ctx context.Context, release Release) (domain.Ownership, error) {
@@ -90,60 +77,38 @@ func (t *Tooler) Owners(ctx context.Context, release Release) (domain.Ownership,
 		return domain.Ownership{}, err
 	}
 
-	return t.list(ctx, release)
+	return t.read(ctx, release)
 }
 
-func (t *Tooler) mutate(ctx context.Context, release Release, verb string, args ...string) error {
+func (t *Tooler) run(ctx context.Context, release Release, verb string, args ...string) error {
 	if err := release.Validate(); err != nil {
 		return err
 	}
 
-	dialect, err := t.probe(ctx)
+	words, err := t.command(ctx)
 	if err != nil {
 		return err
 	}
 
-	if err := t.verify(ctx, release); err != nil {
+	if err := tooler.Verify(ctx, t.Tool, release.Release, func(ctx context.Context) (domain.Ownership, error) {
+		return t.read(ctx, release)
+	}); err != nil {
 		return err
 	}
 
-	argv := append(slices.Clone(dialect.argv[1:]), "-f", release.File, verb)
+	argv := append(slices.Clone(words), "-f", release.File, verb)
 	argv = append(argv, args...)
 
-	t.logger.DebugContext(ctx, "running command", slog.String("command", strings.Join(append([]string{dialect.argv[0]}, argv...), " ")))
+	inv := tooler.Invocation{Argv: argv, Mode: tooler.Stream}
 
-	_, err = tooler.Invoke(ctx, tooler.Settings{Sink: t.sink}, tooler.Invocation{
-		Verb: dialect.name + " " + verb,
-		Path: dialect.argv[0],
-		Args: argv,
-		Mode: tooler.Stream,
-	})
+	t.Logger.DebugContext(ctx, "running command", slog.String("command", inv.Command()))
+
+	_, err = tooler.Invoke(ctx, t.Settings, inv)
 
 	return err
 }
 
-// An unreadable docker skips the ownership check rather than blocks; the verb
-// itself then fails loudly, in the tool's own words.
-func (t *Tooler) verify(ctx context.Context, release Release) error {
-	ownership, err := t.list(ctx, release)
-	if err != nil {
-		t.logger.WarnContext(ctx, "skipping the ownership check: could not read labels from docker", errors.LogAttr(err))
-
-		return nil
-	}
-
-	if foreign, conflict := ownership.Foreign(release.Owner); conflict {
-		return errors.Newf(errors.TypeInvalidInput, "failed to run docker compose: project %q already belongs to [%s], not [%s]: remove it, or deploy under a different name", release.Name, foreign, release.Owner)
-	}
-
-	if ownership.HasUnowned() {
-		t.logger.WarnContext(ctx, "compose project has containers without ownership labels", slog.String("project", release.Name))
-	}
-
-	return nil
-}
-
-func (t *Tooler) list(ctx context.Context, release Release) (domain.Ownership, error) {
+func (t *Tooler) read(ctx context.Context, release Release) (domain.Ownership, error) {
 	docker, err := tooler.Resolve("docker")
 	if err != nil {
 		return domain.Ownership{}, errors.Newf(errors.TypeNotFound, "failed to run docker ps: docker is not available")
@@ -151,80 +116,52 @@ func (t *Tooler) list(ctx context.Context, release Release) (domain.Ownership, e
 
 	keys := slices.Sorted(maps.Keys(release.Owner))
 
+	// Each container prints its owner in domain.Owner's String form, sorted, so
+	// domain.ParseOwnership reads it straight back.
 	directives := make([]string, 0, len(keys))
 	for _, key := range keys {
-		directives = append(directives, `{{.Label "`+key+`"}}`)
+		directives = append(directives, key+`={{.Label "`+key+`"}}`)
 	}
 
-	result, err := tooler.Invoke(ctx, tooler.Settings{}, tooler.Invocation{
-		Verb: "docker ps",
-		Path: docker,
-		Args: []string{"ps", "-a",
+	result, err := tooler.Invoke(ctx, t.Settings, tooler.Invocation{
+		Argv: []string{docker, "ps", "-a",
 			"--filter", "label=com.docker.compose.project=" + release.Name,
-			"--format", strings.Join(directives, ownerSeparator)},
+			"--format", strings.Join(directives, ",")},
 		Mode: tooler.Capture,
 	})
 	if err != nil {
 		return domain.Ownership{}, err
 	}
 
-	return domain.NewOwnership(parse(keys, string(result.Output))...), nil
-}
-
-// A container reporting nothing reads as unowned, not as an owner whose every
-// value is empty.
-func parse(keys []string, out string) []domain.Owner {
-	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
-
-	parsed := make([]domain.Owner, 0, len(lines))
-	for _, line := range lines {
-		if line == "" {
-			continue
-		}
-
-		values := strings.Split(line, ownerSeparator)
-
-		owner := domain.Owner{}
-		for i, key := range keys {
-			if i < len(values) {
-				owner[key] = values[i]
-			}
-		}
-
-		parsed = append(parsed, owner)
-	}
-
-	return parsed
+	return domain.ParseOwnership(string(result.Output)), nil
 }
 
 // The memo is unguarded; foundry runs single-threaded, and a lock would claim a
 // concurrency contract toolers do not have.
-func (t *Tooler) probe(ctx context.Context) (dialect, error) {
-	if len(t.dialect.argv) != 0 {
-		return t.dialect, nil
+func (t *Tooler) command(ctx context.Context) ([]string, error) {
+	if len(t.words) != 0 {
+		return t.words, nil
 	}
 
-	docker, _ := tooler.Resolve("docker")
+	path, _ := tooler.Resolve("docker")
 
-	if docker != "" {
-		_, err := tooler.Invoke(ctx, tooler.Settings{}, tooler.Invocation{
-			Verb: "docker compose version",
-			Path: docker,
-			Args: []string{"compose", "version"},
+	if path != "" {
+		_, err := tooler.Invoke(ctx, t.Settings, tooler.Invocation{
+			Argv: []string{path, "compose", "version"},
 			Mode: tooler.Capture,
 		})
 		if err == nil {
-			t.dialect = dialect{name: "docker compose", argv: []string{docker, "compose"}}
+			t.words = []string{path, "compose"}
 
-			return t.dialect, nil
+			return t.words, nil
 		}
 	}
 
 	if legacy, err := tooler.Resolve("docker-compose"); err == nil {
-		t.dialect = dialect{name: "docker-compose", argv: []string{legacy}}
+		t.words = []string{legacy}
 
-		return t.dialect, nil
+		return t.words, nil
 	}
 
-	return dialect{}, errors.Newf(errors.TypeNotFound, "failed to find docker compose: install the docker compose plugin or docker-compose")
+	return nil, errors.Newf(errors.TypeNotFound, "failed to find docker compose: install the docker compose plugin or docker-compose")
 }

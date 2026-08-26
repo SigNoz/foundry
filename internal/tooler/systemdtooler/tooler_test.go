@@ -10,10 +10,10 @@ import (
 	"testing"
 
 	"github.com/signoz/foundry/internal/domain"
+	"github.com/signoz/foundry/internal/tooler"
 	"github.com/stretchr/testify/assert"
 )
 
-// requireSystemd skips a test that drives a real systemd on the host.
 func requireSystemd(t *testing.T) {
 	t.Helper()
 
@@ -30,7 +30,6 @@ func requireSystemd(t *testing.T) {
 	}
 }
 
-// names reduces unit paths to the names systemctl start and stop take.
 func TestNames(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -48,8 +47,6 @@ func TestNames(t *testing.T) {
 	}
 }
 
-// Up then Down a harmless oneshot unit; needs root on a systemd host, so it
-// skips wherever one is absent.
 func TestUpDown(t *testing.T) {
 	requireSystemd(t)
 
@@ -58,7 +55,7 @@ func TestUpDown(t *testing.T) {
 	assert.NoError(t, os.WriteFile(unit, []byte(contents), 0o644))
 
 	r := New(slog.New(slog.DiscardHandler))
-	r.sink = io.Discard
+	r.Settings = tooler.NewSettings(io.Discard)
 
 	release := Release{
 		Release: domain.Release{

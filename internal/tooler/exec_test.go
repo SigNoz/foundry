@@ -3,7 +3,6 @@ package tooler
 import (
 	"bytes"
 	"context"
-	"os/exec"
 	"testing"
 
 	"github.com/signoz/foundry/internal/errors"
@@ -11,19 +10,33 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// binary resolves a tool every unix host has, so the tests prove the wiring
-// against a real conversation rather than a fake.
 func binary(t *testing.T, name string) string {
 	t.Helper()
 
-	path, err := exec.LookPath(name)
+	path, err := Resolve(name)
 	require.NoError(t, err)
 
 	return path
 }
 
-// The mode is what a verb chooses, and it decides where the tool's words go:
-// to the user, to the caller, or nowhere. In every mode the tail keeps them.
+func TestCommand(t *testing.T) {
+	tests := []struct {
+		name            string
+		argv            []string
+		expectedCommand string
+	}{
+		{name: "ResolvedBinary_Based", argv: []string{"/usr/bin/echo", "cast"}, expectedCommand: "echo cast"},
+		{name: "BareBinary_Unchanged", argv: []string{"echo"}, expectedCommand: "echo"},
+		{name: "NoArgv_Empty", argv: nil, expectedCommand: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expectedCommand, Invocation{Argv: tt.argv}.Command())
+		})
+	}
+}
+
 func TestRunModes(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -40,10 +53,8 @@ func TestRunModes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			sink := &bytes.Buffer{}
 
-			result, err := Invoke(context.Background(), Settings{Sink: sink}, Invocation{
-				Verb: "echo cast",
-				Path: binary(t, "echo"),
-				Args: []string{"cast"},
+			result, err := Invoke(context.Background(), NewSettings(sink), Invocation{
+				Argv: []string{binary(t, "echo"), "cast"},
 				Mode: tt.mode,
 			})
 
@@ -54,8 +65,6 @@ func TestRunModes(t *testing.T) {
 	}
 }
 
-// A tool that says no is a conversation failure: the verb names it and the
-// tool's own last words are the reason, whatever the mode streamed.
 func TestRunFailureCarriesTheTail(t *testing.T) {
 	tests := []struct {
 		name string
@@ -68,17 +77,15 @@ func TestRunFailureCarriesTheTail(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := Invoke(context.Background(), Settings{Sink: &bytes.Buffer{}}, Invocation{
-				Verb: "sh -c",
-				Path: binary(t, "sh"),
-				Args: []string{"-c", "echo the tool said no >&2; exit 3"},
+			_, err := Invoke(context.Background(), NewSettings(&bytes.Buffer{}), Invocation{
+				Argv: []string{binary(t, "sh"), "-c", "echo the tool said no >&2; exit 3"},
 				Mode: tt.mode,
 			})
 
 			require.Error(t, err)
 
 			exception := errors.ExceptionOf(err)
-			assert.Equal(t, "failed to run sh -c: the tool said no\n", exception.Message)
+			assert.Equal(t, "failed to run sh -c echo the tool said no >&2; exit 3: the tool said no\n", exception.Message)
 
 			require.NotNil(t, exception.Cause)
 			assert.Equal(t, "exit status 3", exception.Cause.Message)
@@ -90,9 +97,7 @@ func TestRunFailureCarriesTheTail(t *testing.T) {
 // hanging on a CI tooler with nothing to answer it.
 func TestRunLeavesStdinUnattached(t *testing.T) {
 	result, err := Invoke(context.Background(), Settings{}, Invocation{
-		Verb: "sh -c cat",
-		Path: binary(t, "sh"),
-		Args: []string{"-c", "cat"},
+		Argv: []string{binary(t, "sh"), "-c", "cat"},
 		Mode: Capture,
 	})
 
@@ -100,28 +105,23 @@ func TestRunLeavesStdinUnattached(t *testing.T) {
 	assert.Empty(t, string(result.Output))
 }
 
-// A cancelled context never reaches an exec'd tool: its interrupt channel is
-// the kernel's, and Run must not open a second one.
 func TestRunIgnoresACancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	result, err := Invoke(ctx, Settings{}, Invocation{Verb: "echo cast", Path: binary(t, "echo"), Args: []string{"cast"}, Mode: Capture})
+	result, err := Invoke(ctx, Settings{}, Invocation{Argv: []string{binary(t, "echo"), "cast"}, Mode: Capture})
 
 	assert.NoError(t, err)
 	assert.Equal(t, "cast\n", string(result.Output))
 }
 
-// A malformed invocation is a tooler bug, not user input: an unset mode or an
-// unresolved binary fails with a typed error before anything is spawned,
-// never a panic.
 func TestRunValidatesTheInvocation(t *testing.T) {
 	tests := []struct {
 		name       string
 		invocation Invocation
 	}{
-		{name: "NoMode_Invalid", invocation: Invocation{Verb: "echo", Path: binary(t, "echo"), Args: []string{"cast"}}},
-		{name: "NoBinary_Invalid", invocation: Invocation{Verb: "echo", Mode: Capture}},
+		{name: "NoMode_Invalid", invocation: Invocation{Argv: []string{binary(t, "echo"), "cast"}}},
+		{name: "NoArgv_Invalid", invocation: Invocation{Mode: Capture}},
 	}
 
 	for _, tt := range tests {

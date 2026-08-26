@@ -1,11 +1,23 @@
+{{- $clickhouseOperator := "0.25.3" }}
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 namespace: {{ $.Metadata.Name }}
 
+labels:
+- includeSelectors: false
+  pairs:
+{{- range $key, $value := $.Labels }}
+    {{ $key }}: {{ $value }}
+{{- end }}
+
 resources:
 - namespace.yaml
 {{- if $.Spec.TelemetryStore.Spec.Enabled }}
+- https://raw.githubusercontent.com/Altinity/clickhouse-operator/{{ $clickhouseOperator }}/deploy/operatorhub/{{ $clickhouseOperator }}/clickhouseinstallations.clickhouse.altinity.com.crd.yaml
+- https://raw.githubusercontent.com/Altinity/clickhouse-operator/{{ $clickhouseOperator }}/deploy/operatorhub/{{ $clickhouseOperator }}/clickhouseinstallationtemplates.clickhouse.altinity.com.crd.yaml
+- https://raw.githubusercontent.com/Altinity/clickhouse-operator/{{ $clickhouseOperator }}/deploy/operatorhub/{{ $clickhouseOperator }}/clickhouseoperatorconfigurations.clickhouse.altinity.com.crd.yaml
+- https://raw.githubusercontent.com/Altinity/clickhouse-operator/{{ $clickhouseOperator }}/deploy/operatorhub/{{ $clickhouseOperator }}/clickhousekeeperinstallations.clickhouse-keeper.altinity.com.crd.yaml
 - clickhouse-operator
 - telemetrystore/clickhouse
 {{- end }}
