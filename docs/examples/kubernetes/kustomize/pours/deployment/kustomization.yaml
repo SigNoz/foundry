@@ -1,5 +1,11 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+labels:
+- includeSelectors: false
+  pairs:
+    foundry.signoz.io/kind: Installation
+    foundry.signoz.io/managed-by: foundry
+    foundry.signoz.io/name: signoz
 namespace: signoz
 resources:
 - namespace.yaml

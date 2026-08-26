@@ -10,8 +10,6 @@ import (
 	helmrelease "helm.sh/helm/v3/pkg/release"
 )
 
-// A verb that names neither release nor namespace refuses before it reaches
-// the cluster, the same statement check every mutating verb owns.
 func TestVerbsRequireReleaseAndNamespace(t *testing.T) {
 	helm := New(slog.New(slog.DiscardHandler))
 
@@ -19,9 +17,6 @@ func TestVerbsRequireReleaseAndNamespace(t *testing.T) {
 	assert.Error(t, helm.Uninstall(context.Background(), Release{}))
 }
 
-// Ownership compares only the attributes foundry stamps: a release also
-// carries helm's own system labels, and a foreign owner blocks the call the
-// way the compose project guard does.
 func TestOwnerGuard(t *testing.T) {
 	helm := New(slog.New(slog.DiscardHandler))
 
@@ -57,6 +52,7 @@ func TestOwnerGuard(t *testing.T) {
 			err := helm.verify(context.Background(), &helmrelease.Release{Name: "signoz", Labels: tt.labels}, owner)
 			if !tt.pass {
 				assert.Error(t, err)
+
 				return
 			}
 

@@ -12,7 +12,7 @@ import (
 	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 	"github.com/signoz/foundry/internal/tooler"
-	"github.com/signoz/foundry/internal/tooler/kubectltooler"
+	"github.com/signoz/foundry/internal/tooler/kubetooler"
 )
 
 var _ rootcasting.Casting = (*kustomizeCasting)(nil)
@@ -123,44 +123,52 @@ func (c *kustomizeCasting) Forge(ctx context.Context, cfg installation.Casting, 
 	return materials, nil
 }
 
+// Cast applies the operators tier before the root: one pass would post the
+// ClickHouseInstallation before its kind exists.
 func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting, poursPath string, toolers []tooler.Tooler) error {
-	kubectl, err := kubectltooler.Lookup(toolers)
+	kube, err := kubetooler.Lookup(toolers)
 	if err != nil {
 		return err
 	}
 
-	release := kubectltooler.Release{
-		Release: domain.Release{Name: config.Metadata.Name, Owner: config.Labels()},
-		Dir:     filepath.Join(poursPath, rootcasting.DeploymentDir),
-	}
+	c.logger.InfoContext(ctx, "applying kustomize manifests",
+		slog.String("release", config.Metadata.Name),
+		slog.String("namespace", config.Metadata.Name),
+	)
 
-	// The operators tier goes first: one pass would post the
-	// ClickHouseInstallation before its kind exists.
 	if needsClickhouseOperator(&config) {
-		operators := release
-		operators.Dir = filepath.Join(release.Dir, "operators", "clickhouse-operator")
+		operators := c.release(config, poursPath)
+		operators.Dir = filepath.Join(operators.Dir, "operators", "clickhouse-operator")
 
-		if err := kubectl.Apply(ctx, operators); err != nil {
+		if err := kube.Apply(ctx, operators); err != nil {
 			return err
 		}
 	}
 
-	return kubectl.Apply(ctx, release)
+	return kube.Apply(ctx, c.release(config, poursPath))
 }
 
-// Melt deletes what the kustomize root declares, the namespace included.
+// Melt leaves the namespace and the definitions standing: the tooler keeps
+// what carries data or is shared with every other release in the cluster.
 func (c *kustomizeCasting) Melt(ctx context.Context, config installation.Casting, poursPath string, toolers []tooler.Tooler) error {
-	kubectl, err := kubectltooler.Lookup(toolers)
+	kube, err := kubetooler.Lookup(toolers)
 	if err != nil {
 		return err
 	}
 
-	release := kubectltooler.Release{
-		Release: domain.Release{Name: config.Metadata.Name, Owner: config.Labels()},
-		Dir:     filepath.Join(poursPath, rootcasting.DeploymentDir),
-	}
+	return kube.Delete(ctx, c.release(config, poursPath))
+}
 
-	return kubectl.Delete(ctx, release)
+func (c *kustomizeCasting) release(config installation.Casting, poursPath string) kubetooler.Release {
+	return kubetooler.Release{
+		Release:   domain.Release{Name: config.Metadata.Name, Owner: config.Labels()},
+		Namespace: config.Metadata.Name,
+		Dir:       filepath.Join(poursPath, rootcasting.DeploymentDir),
+
+		// The Kind, not the release, so an Installation's apply never contends
+		// with a CollectionAgent's over an object they share.
+		FieldManager: "foundry-" + strings.ToLower(config.Kind().String()),
+	}
 }
 
 // The Altinity operator serves both the CHI and the CHK.

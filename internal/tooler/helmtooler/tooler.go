@@ -1,3 +1,4 @@
+// Package helmtooler speaks helm.
 package helmtooler
 
 import (
@@ -5,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"time"
 
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/errors"
@@ -17,12 +17,18 @@ import (
 	"helm.sh/helm/v3/pkg/getter"
 	helmrelease "helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/discovery"
+	memory "k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/transport"
 )
 
 var _ tooler.Tooler = (*Tooler)(nil)
-
-// deployTimeout is helm's own --timeout, not a clock foundry puts on the work.
-const deployTimeout = 10 * time.Minute
 
 type Repo struct {
 	Name string
@@ -40,6 +46,10 @@ type Release struct {
 	Repo Repo
 
 	Values map[string]any
+
+	// The zero value is the ambient kubeconfig, which is also how the
+	// in-cluster case resolves.
+	Connection tooler.Connection
 }
 
 func (r Release) Validate() error {
@@ -55,11 +65,11 @@ func (r Release) Validate() error {
 }
 
 type Tooler struct {
-	logger *slog.Logger
+	tooler.Tool
 }
 
 func New(logger *slog.Logger) *Tooler {
-	return &Tooler{logger: logger}
+	return &Tooler{Tool: tooler.NewTool("helm", logger)}
 }
 
 func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
@@ -72,12 +82,13 @@ func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
 	return nil, errors.Newf(errors.TypeNotFound, "failed to look up the helm tooler: it is not registered for this casting")
 }
 
-func (t *Tooler) Name() string {
-	return "helm"
-}
-
-// Gauge has no reach check: helm is the SDK, so there is no binary to find.
+// Gauge proves a kubeconfig exists and parses, not that a cluster answers:
+// reach is a per-verb question.
 func (t *Tooler) Gauge(ctx context.Context) error {
+	if _, err := cli.New().RESTClientGetter().ToRESTConfig(); err != nil {
+		return errors.Wrapf(err, errors.TypeNotFound, "failed to reach a cluster: no kubeconfig resolved")
+	}
+
 	return nil
 }
 
@@ -92,13 +103,13 @@ func (t *Tooler) Upgrade(ctx context.Context, release Release) error {
 		return errors.Newf(errors.TypeInvalidInput, "failed to run helm upgrade: no chart is stated")
 	}
 
-	settings, config, err := t.configure(ctx, release.Namespace)
+	env, config, err := t.configure(release)
 	if err != nil {
 		return err
 	}
 
 	if release.Repo.Name != "" && release.Repo.URL != "" {
-		if err := addRepo(settings, release.Repo); err != nil {
+		if err := addRepo(env, release.Repo); err != nil {
 			return errors.Wrapf(err, errors.TypeInternal, "failed to run helm upgrade: could not add repo %q", release.Repo.Name)
 		}
 	}
@@ -109,10 +120,10 @@ func (t *Tooler) Upgrade(ctx context.Context, release Release) error {
 	}
 
 	if !found {
-		return t.install(ctx, settings, config, release)
+		return t.install(ctx, env, config, release)
 	}
 
-	return t.upgrade(ctx, settings, config, release)
+	return t.upgrade(ctx, env, config, release)
 }
 
 // Uninstall has no context-aware form in the SDK, so ctx is honored at entry
@@ -126,7 +137,7 @@ func (t *Tooler) Uninstall(ctx context.Context, release Release) error {
 		return errors.Wrapf(err, errors.TypeInternal, "failed to run helm uninstall")
 	}
 
-	_, config, err := t.configure(ctx, release.Namespace)
+	_, config, err := t.configure(release)
 	if err != nil {
 		return err
 	}
@@ -137,7 +148,6 @@ func (t *Tooler) Uninstall(ctx context.Context, release Release) error {
 
 	uninstall := action.NewUninstall(config)
 	uninstall.Wait = true
-	uninstall.Timeout = deployTimeout
 
 	if _, err := uninstall.Run(release.Name); err != nil {
 		return errors.Wrapf(err, errors.TypeInternal, "failed to run helm uninstall")
@@ -146,16 +156,15 @@ func (t *Tooler) Uninstall(ctx context.Context, release Release) error {
 	return nil
 }
 
-func (t *Tooler) install(ctx context.Context, settings *cli.EnvSettings, config *action.Configuration, release Release) error {
+func (t *Tooler) install(ctx context.Context, env *cli.EnvSettings, config *action.Configuration, release Release) error {
 	install := action.NewInstall(config)
 	install.ReleaseName = release.Name
 	install.Namespace = release.Namespace
 	install.CreateNamespace = true
 	install.Wait = true
-	install.Timeout = deployTimeout
 	install.Labels = release.Owner
 
-	chart, err := loadChart(settings, install.LocateChart, release.Chart)
+	chart, err := loadChart(env, install.LocateChart, release.Chart)
 	if err != nil {
 		return err
 	}
@@ -167,46 +176,20 @@ func (t *Tooler) install(ctx context.Context, settings *cli.EnvSettings, config 
 	return nil
 }
 
-func (t *Tooler) upgrade(ctx context.Context, settings *cli.EnvSettings, config *action.Configuration, release Release) error {
+func (t *Tooler) upgrade(ctx context.Context, env *cli.EnvSettings, config *action.Configuration, release Release) error {
 	upgrade := action.NewUpgrade(config)
 	upgrade.Install = true
 	upgrade.Namespace = release.Namespace
 	upgrade.Wait = true
-	upgrade.Timeout = deployTimeout
 	upgrade.Labels = release.Owner
 
-	chart, err := loadChart(settings, upgrade.LocateChart, release.Chart)
+	chart, err := loadChart(env, upgrade.LocateChart, release.Chart)
 	if err != nil {
 		return err
 	}
 
 	if _, err := upgrade.RunWithContext(ctx, release.Name, chart, release.Values); err != nil {
 		return errors.Wrapf(err, errors.TypeInternal, "failed to run helm upgrade")
-	}
-
-	return nil
-}
-
-// verify compares only the keys foundry stamps: a release also carries helm's
-// own system labels.
-func (t *Tooler) verify(ctx context.Context, rel *helmrelease.Release, owner domain.Owner) error {
-	if len(owner) == 0 {
-		return nil
-	}
-
-	stamped := domain.Owner{}
-	for key := range owner {
-		stamped[key] = rel.Labels[key]
-	}
-
-	ownership := domain.NewOwnership(stamped)
-
-	if foreign, conflict := ownership.Foreign(owner); conflict {
-		return errors.Newf(errors.TypeInvalidInput, "failed to run helm: release %q already belongs to [%s], not [%s]: remove it, or deploy under a different name", rel.Name, foreign, owner)
-	}
-
-	if ownership.HasUnowned() {
-		t.logger.WarnContext(ctx, "helm release has no ownership labels", slog.String("release", rel.Name))
 	}
 
 	return nil
@@ -224,22 +207,20 @@ func (t *Tooler) claim(ctx context.Context, config *action.Configuration, name s
 	return true, t.verify(ctx, releases[len(releases)-1], owner)
 }
 
-func (t *Tooler) configure(ctx context.Context, namespace string) (*cli.EnvSettings, *action.Configuration, error) {
-	settings := cli.New()
-	settings.SetNamespace(namespace)
-
-	config := new(action.Configuration)
-	if err := config.Init(settings.RESTClientGetter(), namespace, os.Getenv("HELM_DRIVER"), func(format string, v ...any) {
-		t.logger.DebugContext(ctx, fmt.Sprintf(format, v...))
-	}); err != nil {
-		return nil, nil, errors.Wrapf(err, errors.TypeInternal, "failed to initialize helm: the cluster is not reachable")
+// verify compares only the keys foundry stamps: a release also carries helm's
+// own system labels.
+func (t *Tooler) verify(ctx context.Context, rel *helmrelease.Release, owner domain.Owner) error {
+	if len(owner) == 0 {
+		return nil
 	}
 
-	return settings, config, nil
+	return tooler.Verify(ctx, t.Tool, domain.Release{Name: rel.Name, Owner: owner}, func(context.Context) (domain.Ownership, error) {
+		return domain.NewOwnership(owner.Read(rel.Labels)), nil
+	})
 }
 
-func loadChart(settings *cli.EnvSettings, locate func(string, *cli.EnvSettings) (string, error), ref string) (*chart.Chart, error) {
-	path, err := locate(ref, settings)
+func loadChart(env *cli.EnvSettings, locate func(string, *cli.EnvSettings) (string, error), ref string) (*chart.Chart, error) {
+	path, err := locate(ref, env)
 	if err != nil {
 		return nil, errors.Wrapf(err, errors.TypeNotFound, "failed to locate chart %q", ref)
 	}
@@ -252,25 +233,92 @@ func loadChart(settings *cli.EnvSettings, locate func(string, *cli.EnvSettings) 
 	return loaded, nil
 }
 
-func addRepo(settings *cli.EnvSettings, r Repo) error {
+func addRepo(env *cli.EnvSettings, r Repo) error {
 	entry := &repo.Entry{Name: r.Name, URL: r.URL}
 
-	chartRepo, err := repo.NewChartRepository(entry, getter.All(settings))
+	chartRepo, err := repo.NewChartRepository(entry, getter.All(env))
 	if err != nil {
 		return err
 	}
 
-	chartRepo.CachePath = settings.RepositoryCache
+	chartRepo.CachePath = env.RepositoryCache
 	if _, err := chartRepo.DownloadIndexFile(); err != nil {
 		return err
 	}
 
-	file, err := repo.LoadFile(settings.RepositoryConfig)
+	file, err := repo.LoadFile(env.RepositoryConfig)
 	if err != nil {
 		file = repo.NewFile()
 	}
 
 	file.Update(entry)
 
-	return file.WriteFile(settings.RepositoryConfig, 0o644)
+	return file.WriteFile(env.RepositoryConfig, 0o644)
+}
+
+func (t *Tooler) configure(release Release) (*cli.EnvSettings, *action.Configuration, error) {
+	env := cli.New()
+	env.SetNamespace(release.Namespace)
+
+	config := new(action.Configuration)
+	if err := config.Init(clientGetter(env, release), release.Namespace, os.Getenv("HELM_DRIVER"), func(format string, v ...any) {
+		_, _ = fmt.Fprintf(t.Settings.Sink(), format+"\n", v...)
+	}); err != nil {
+		return nil, nil, errors.Wrapf(err, errors.TypeInternal, "failed to initialize helm: the cluster is not reachable")
+	}
+
+	return env, config, nil
+}
+
+// A stated connection means helm never consults a kubeconfig foundry did not
+// give it.
+func clientGetter(env *cli.EnvSettings, release Release) genericclioptions.RESTClientGetter {
+	if release.Connection.IsZero() {
+		return env.RESTClientGetter()
+	}
+
+	config := &rest.Config{Host: release.Connection.Address().String()}
+	config.CAData = release.Connection.CA()
+
+	// The token is minted per request, never once: an EKS token outlives
+	// neither a slow install nor a wait.
+	config.Wrap(transport.TokenSourceWrapTransport(transport.NewCachedTokenSource(release.Connection.TokenSource())))
+
+	return restGetter{config: config, namespace: release.Namespace}
+}
+
+type restGetter struct {
+	config *rest.Config
+
+	namespace string
+}
+
+func (c restGetter) ToRESTConfig() (*rest.Config, error) {
+	return c.config, nil
+}
+
+func (c restGetter) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
+	client, err := discovery.NewDiscoveryClientForConfig(c.config)
+	if err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to build the kubernetes client")
+	}
+
+	return memory.NewMemCacheClient(client), nil
+}
+
+func (c restGetter) ToRESTMapper() (meta.RESTMapper, error) {
+	client, err := c.ToDiscoveryClient()
+	if err != nil {
+		return nil, err
+	}
+
+	return restmapper.NewDeferredDiscoveryRESTMapper(client), nil
+}
+
+// An exact connection has no kubeconfig behind it, so the loader carries the
+// namespace alone.
+func (c restGetter) ToRawKubeConfigLoader() clientcmd.ClientConfig {
+	overrides := &clientcmd.ConfigOverrides{Context: clientcmdapi.Context{Namespace: c.namespace}}
+
+	return clientcmd.NewDefaultClientConfig(*clientcmdapi.NewConfig(), overrides)
 }

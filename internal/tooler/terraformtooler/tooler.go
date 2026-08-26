@@ -1,11 +1,10 @@
+// Package terraformtooler speaks terraform.
 package terraformtooler
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"slices"
-	"strings"
 
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/errors"
@@ -32,22 +31,15 @@ func (r Release) Validate() error {
 	return nil
 }
 
-type dialect struct {
-	name string
-	argv []string
-}
-
 type Tooler struct {
-	logger *slog.Logger
+	tooler.Tool
 
-	dialect dialect
-
-	// sink takes streamed output; nil is stderr. Only tests set it.
-	sink io.Writer
+	// words is the resolved command prefix, memoized by command.
+	words []string
 }
 
 func New(logger *slog.Logger) *Tooler {
-	return &Tooler{logger: logger}
+	return &Tooler{Tool: tooler.NewTool("terraform", logger)}
 }
 
 func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
@@ -60,12 +52,8 @@ func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
 	return nil, errors.Newf(errors.TypeNotFound, "failed to look up the terraform tooler: it is not registered for this casting")
 }
 
-func (t *Tooler) Name() string {
-	return "terraform"
-}
-
 func (t *Tooler) Gauge(ctx context.Context) error {
-	_, err := t.probe(ctx)
+	_, err := t.command(ctx)
 
 	return err
 }
@@ -77,11 +65,11 @@ func (t *Tooler) Apply(ctx context.Context, release Release) error {
 		return errors.Newf(errors.TypeInvalidInput, "failed to run terraform apply: no approval is stated; re-run with --yes")
 	}
 
-	if err := t.mutate(ctx, release, "init"); err != nil {
+	if err := t.run(ctx, release, "init"); err != nil {
 		return err
 	}
 
-	return t.mutate(ctx, release, "apply", "-auto-approve")
+	return t.run(ctx, release, "apply", "-auto-approve")
 }
 
 func (t *Tooler) Destroy(ctx context.Context, release Release) error {
@@ -89,61 +77,56 @@ func (t *Tooler) Destroy(ctx context.Context, release Release) error {
 		return errors.Newf(errors.TypeInvalidInput, "failed to run terraform destroy: no approval is stated; re-run with --yes")
 	}
 
-	if err := t.mutate(ctx, release, "init"); err != nil {
+	if err := t.run(ctx, release, "init"); err != nil {
 		return err
 	}
 
-	return t.mutate(ctx, release, "destroy", "-auto-approve")
+	return t.run(ctx, release, "destroy", "-auto-approve")
 }
 
-func (t *Tooler) mutate(ctx context.Context, release Release, verb string, args ...string) error {
+func (t *Tooler) run(ctx context.Context, release Release, verb string, args ...string) error {
 	if err := release.Validate(); err != nil {
 		return err
 	}
 
-	dialect, err := t.probe(ctx)
+	words, err := t.command(ctx)
 	if err != nil {
 		return err
 	}
 
 	// -chdir tells terraform the root; foundry never changes its own cwd.
-	argv := append(slices.Clone(dialect.argv[1:]), "-chdir="+release.Root, verb)
+	argv := append(slices.Clone(words), "-chdir="+release.Root, verb)
 	argv = append(argv, args...)
 
-	t.logger.DebugContext(ctx, "running command", slog.String("command", strings.Join(append([]string{dialect.argv[0]}, argv...), " ")))
+	inv := tooler.Invocation{Argv: argv, Mode: tooler.Stream}
 
-	_, err = tooler.Invoke(ctx, tooler.Settings{Sink: t.sink}, tooler.Invocation{
-		Verb: dialect.name + " " + verb,
-		Path: dialect.argv[0],
-		Args: argv,
-		Mode: tooler.Stream,
-	})
+	t.Logger.DebugContext(ctx, "running command", slog.String("command", inv.Command()))
+
+	_, err = tooler.Invoke(ctx, t.Settings, inv)
 
 	return err
 }
 
 // The memo is unguarded; foundry runs single-threaded, and a lock would claim a
 // concurrency contract toolers do not have.
-func (t *Tooler) probe(ctx context.Context) (dialect, error) {
-	if len(t.dialect.argv) != 0 {
-		return t.dialect, nil
+func (t *Tooler) command(ctx context.Context) ([]string, error) {
+	if len(t.words) != 0 {
+		return t.words, nil
 	}
 
 	path, err := tooler.Resolve("terraform")
 	if err != nil {
-		return dialect{}, errors.Wrapf(err, errors.TypeNotFound, "failed to find terraform: install it from https://developer.hashicorp.com/terraform/install")
+		return nil, errors.Wrapf(err, errors.TypeNotFound, "failed to find terraform: install it from https://developer.hashicorp.com/terraform/install")
 	}
 
-	if _, err := tooler.Invoke(ctx, tooler.Settings{}, tooler.Invocation{
-		Verb: "terraform version",
-		Path: path,
-		Args: []string{"version"},
+	if _, err := tooler.Invoke(ctx, t.Settings, tooler.Invocation{
+		Argv: []string{path, "version"},
 		Mode: tooler.Capture,
 	}); err != nil {
-		return dialect{}, errors.Wrapf(err, errors.TypeNotFound, "failed to find terraform: install it from https://developer.hashicorp.com/terraform/install")
+		return nil, errors.Wrapf(err, errors.TypeNotFound, "failed to find terraform: install it from https://developer.hashicorp.com/terraform/install")
 	}
 
-	t.dialect = dialect{name: "terraform", argv: []string{path}}
+	t.words = []string{path}
 
-	return t.dialect, nil
+	return t.words, nil
 }

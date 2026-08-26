@@ -19,7 +19,7 @@ import (
 	"github.com/signoz/foundry/internal/tooler/dockercomposetooler"
 	"github.com/signoz/foundry/internal/tooler/dockerswarmtooler"
 	"github.com/signoz/foundry/internal/tooler/helmtooler"
-	"github.com/signoz/foundry/internal/tooler/kubectltooler"
+	"github.com/signoz/foundry/internal/tooler/kubetooler"
 	"github.com/signoz/foundry/internal/tooler/systemdtooler"
 	"github.com/signoz/foundry/internal/tooler/terraformtooler"
 )
@@ -67,7 +67,7 @@ func NewRegistry(logger *slog.Logger) *Registry {
 				Flavor: v1alpha1.FlavorKustomize,
 			}: {
 				Casting: kuberneteskustomizecasting.New(logger),
-				Toolers: []tooler.Tooler{kubectltooler.New(logger)},
+				Toolers: []tooler.Tooler{kubetooler.New(logger)},
 			},
 			{
 				Platform: v1alpha1.PlatformRender,
