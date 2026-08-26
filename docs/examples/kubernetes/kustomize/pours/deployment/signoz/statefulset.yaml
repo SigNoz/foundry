@@ -25,11 +25,11 @@ spec:
       containers:
       - env:
         - name: SIGNOZ_SQLSTORE_POSTGRES_DSN
-          value: postgres://signoz:signoz@signoz-metastore.signoz:5432/signoz?sslmode=disable
+          value: postgres://signoz:signoz@signoz-metastore:5432/signoz?sslmode=disable
         - name: SIGNOZ_SQLSTORE_PROVIDER
           value: postgres
         - name: SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN
-          value: tcp://signoz-clickhouse.signoz:9000
+          value: tcp://signoz-clickhouse:9000
         - name: SIGNOZ_TELEMETRYSTORE_PROVIDER
           value: clickhouse
         image: signoz/signoz:latest

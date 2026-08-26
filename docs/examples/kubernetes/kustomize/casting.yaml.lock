@@ -69,31 +69,31 @@ spec:
                   - name: service.version
             exporters:
               clickhousetraces:
-                datasource: tcp://signoz-clickhouse.signoz:9000/signoz_traces
+                datasource: tcp://signoz-clickhouse:9000/signoz_traces
                 low_cardinal_exception_grouping: ${env:LOW_CARDINAL_EXCEPTION_GROUPING}
                 use_new_schema: true
                 timeout: 45s
                 sending_queue:
                   enabled: false
               signozclickhousemetrics:
-                dsn: tcp://signoz-clickhouse.signoz:9000/signoz_metrics
+                dsn: tcp://signoz-clickhouse:9000/signoz_metrics
                 timeout: 45s
                 sending_queue:
                   enabled: false
               clickhouselogsexporter:
-                dsn: tcp://signoz-clickhouse.signoz:9000/signoz_logs
+                dsn: tcp://signoz-clickhouse:9000/signoz_logs
                 use_new_schema: true
                 timeout: 45s
                 sending_queue:
                   enabled: false
               signozclickhousemeter:
-                dsn: tcp://signoz-clickhouse.signoz:9000/signoz_meter
+                dsn: tcp://signoz-clickhouse:9000/signoz_meter
                 timeout: 45s
                 sending_queue:
                   enabled: false
               metadataexporter:
                 enabled: true
-                dsn: tcp://signoz-clickhouse.signoz:9000/signoz_metadata
+                dsn: tcp://signoz-clickhouse:9000/signoz_metadata
                 timeout: 45s
                 cache:
                   provider: in_memory
@@ -146,7 +146,7 @@ spec:
                   exporters:
                     - signozclickhousemeter
           opamp.yaml: |
-            server_endpoint: ws://signoz-signoz.signoz:4320/v1/opamp
+            server_endpoint: ws://signoz-signoz:4320/v1/opamp
       enabled: true
       env:
         SIGNOZ_OTEL_COLLECTOR_TIMEOUT: 10m
@@ -155,8 +155,8 @@ spec:
     status:
       addresses:
         otlp:
-        - tcp://signoz-ingester.signoz:4318
-        - tcp://signoz-ingester.signoz:4317
+        - tcp://signoz-ingester:4318
+        - tcp://signoz-ingester:4317
       config:
         data:
           ingester.yaml: |
@@ -216,31 +216,31 @@ spec:
                   - name: service.version
             exporters:
               clickhousetraces:
-                datasource: tcp://signoz-clickhouse.signoz:9000/signoz_traces
+                datasource: tcp://signoz-clickhouse:9000/signoz_traces
                 low_cardinal_exception_grouping: ${env:LOW_CARDINAL_EXCEPTION_GROUPING}
                 use_new_schema: true
                 timeout: 45s
                 sending_queue:
                   enabled: false
               signozclickhousemetrics:
-                dsn: tcp://signoz-clickhouse.signoz:9000/signoz_metrics
+                dsn: tcp://signoz-clickhouse:9000/signoz_metrics
                 timeout: 45s
                 sending_queue:
                   enabled: false
               clickhouselogsexporter:
-                dsn: tcp://signoz-clickhouse.signoz:9000/signoz_logs
+                dsn: tcp://signoz-clickhouse:9000/signoz_logs
                 use_new_schema: true
                 timeout: 45s
                 sending_queue:
                   enabled: false
               signozclickhousemeter:
-                dsn: tcp://signoz-clickhouse.signoz:9000/signoz_meter
+                dsn: tcp://signoz-clickhouse:9000/signoz_meter
                 timeout: 45s
                 sending_queue:
                   enabled: false
               metadataexporter:
                 enabled: true
-                dsn: tcp://signoz-clickhouse.signoz:9000/signoz_metadata
+                dsn: tcp://signoz-clickhouse:9000/signoz_metadata
                 timeout: 45s
                 cache:
                   provider: in_memory
@@ -293,7 +293,7 @@ spec:
                   exporters:
                     - signozclickhousemeter
           opamp.yaml: |
-            server_endpoint: ws://signoz-signoz.signoz:4320/v1/opamp
+            server_endpoint: ws://signoz-signoz:4320/v1/opamp
       env:
         SIGNOZ_OTEL_COLLECTOR_TIMEOUT: 10m
   mcp:
@@ -324,7 +324,7 @@ spec:
     status:
       addresses:
         dsn:
-        - postgres://signoz-metastore.signoz:5432
+        - postgres://signoz-metastore:5432
       config: {}
       env:
         POSTGRES_DB: signoz
@@ -337,23 +337,23 @@ spec:
       config: {}
       enabled: true
       env:
-        SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@signoz-metastore.signoz:5432/signoz?sslmode=disable
+        SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@signoz-metastore:5432/signoz?sslmode=disable
         SIGNOZ_SQLSTORE_PROVIDER: postgres
-        SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://signoz-clickhouse.signoz:9000
+        SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://signoz-clickhouse:9000
         SIGNOZ_TELEMETRYSTORE_PROVIDER: clickhouse
       image: signoz/signoz:latest
       version: latest
     status:
       addresses:
         apiserver:
-        - tcp://signoz-signoz.signoz:8080
+        - tcp://signoz-signoz:8080
         opamp:
-        - ws://signoz-signoz.signoz:4320
+        - ws://signoz-signoz:4320
       config: {}
       env:
-        SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@signoz-metastore.signoz:5432/signoz?sslmode=disable
+        SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@signoz-metastore:5432/signoz?sslmode=disable
         SIGNOZ_SQLSTORE_PROVIDER: postgres
-        SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://signoz-clickhouse.signoz:9000
+        SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://signoz-clickhouse:9000
         SIGNOZ_TELEMETRYSTORE_PROVIDER: clickhouse
   telemetrykeeper:
     kind: clickhousekeeper
@@ -514,7 +514,7 @@ spec:
               cluster:
                 shard:
                 - replica:
-                  - host: signoz-clickhouse.signoz
+                  - host: signoz-clickhouse
                     port: 9000
             send_crash_reports:
               enabled: false
@@ -598,7 +598,7 @@ spec:
     status:
       addresses:
         tcp:
-        - tcp://signoz-clickhouse.signoz:9000
+        - tcp://signoz-clickhouse:9000
       config:
         data:
           config-0-0.yaml: |
@@ -688,7 +688,7 @@ spec:
               cluster:
                 shard:
                 - replica:
-                  - host: signoz-clickhouse.signoz
+                  - host: signoz-clickhouse
                     port: 9000
             send_crash_reports:
               enabled: false

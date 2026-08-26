@@ -78,13 +78,13 @@ func (e *kustomizeMoldingEnricher) enrichTelemetryStore(config *installation.Cas
 		replicas = *cluster.Replicas + 1
 	}
 
-	addresses := []string{domain.MustNewAddress("tcp", string(name)+"."+config.Metadata.Name, telemetryStorePort).String()}
+	addresses := []string{domain.MustNewAddress("tcp", string(name), telemetryStorePort).String()}
 	for s := 0; s < shards; s++ {
 		for r := 0; r < replicas; r++ {
 			if s == 0 && r == 0 {
 				continue
 			}
-			host := fmt.Sprintf("chi-%s-cluster-%d-%d.%s", name, s, r, config.Metadata.Name)
+			host := fmt.Sprintf("chi-%s-cluster-%d-%d", name, s, r)
 			addresses = append(addresses, domain.MustNewAddress("tcp", host, telemetryStorePort).String())
 		}
 	}
@@ -126,15 +126,15 @@ func (e *kustomizeMoldingEnricher) enrichMetaStore(config *installation.Casting)
 		return errors.Wrapf(err, errors.TypeInternal, "failed to get metastore service names")
 	}
 	config.Spec.MetaStore.Status.Addresses.DSN = []string{
-		fmt.Sprintf("postgres://%s.%s:5432", name, config.Metadata.Name),
+		fmt.Sprintf("postgres://%s:5432", name),
 	}
 	return nil
 }
 
 func (e *kustomizeMoldingEnricher) enrichSignoz(config *installation.Casting) error {
-	host := config.Metadata.Name + "-signoz." + config.Metadata.Name
-	config.Spec.Signoz.Status.Addresses.APIServer = []string{domain.MustNewAddress("tcp", host, signozAPIServerPort).String()}
-	config.Spec.Signoz.Status.Addresses.Opamp = []string{domain.MustNewAddress("ws", host, signozOpampPort).String()}
+	name := config.Metadata.Name + "-signoz"
+	config.Spec.Signoz.Status.Addresses.APIServer = []string{domain.MustNewAddress("tcp", name, signozAPIServerPort).String()}
+	config.Spec.Signoz.Status.Addresses.Opamp = []string{domain.MustNewAddress("ws", name, signozOpampPort).String()}
 	return nil
 }
 
@@ -149,10 +149,10 @@ func (e *kustomizeMoldingEnricher) enrichMCP(config *installation.Casting) error
 }
 
 func (e *kustomizeMoldingEnricher) enrichIngester(config *installation.Casting) error {
-	host := config.Metadata.Name + "-ingester." + config.Metadata.Name
+	name := config.Metadata.Name + "-ingester"
 	config.Spec.Ingester.Status.Addresses.OTLP = []string{
-		domain.MustNewAddress("tcp", host, ingesterOTLPHTTPPort).String(),
-		domain.MustNewAddress("tcp", host, ingesterOTLPGRPCPort).String(),
+		domain.MustNewAddress("tcp", name, ingesterOTLPHTTPPort).String(),
+		domain.MustNewAddress("tcp", name, ingesterOTLPGRPCPort).String(),
 	}
 	return nil
 }

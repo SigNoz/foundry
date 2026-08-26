@@ -57,31 +57,31 @@ data:
           - name: service.version
     exporters:
       clickhousetraces:
-        datasource: tcp://signoz-clickhouse.signoz:9000/signoz_traces
+        datasource: tcp://signoz-clickhouse:9000/signoz_traces
         low_cardinal_exception_grouping: ${env:LOW_CARDINAL_EXCEPTION_GROUPING}
         use_new_schema: true
         timeout: 45s
         sending_queue:
           enabled: false
       signozclickhousemetrics:
-        dsn: tcp://signoz-clickhouse.signoz:9000/signoz_metrics
+        dsn: tcp://signoz-clickhouse:9000/signoz_metrics
         timeout: 45s
         sending_queue:
           enabled: false
       clickhouselogsexporter:
-        dsn: tcp://signoz-clickhouse.signoz:9000/signoz_logs
+        dsn: tcp://signoz-clickhouse:9000/signoz_logs
         use_new_schema: true
         timeout: 45s
         sending_queue:
           enabled: false
       signozclickhousemeter:
-        dsn: tcp://signoz-clickhouse.signoz:9000/signoz_meter
+        dsn: tcp://signoz-clickhouse:9000/signoz_meter
         timeout: 45s
         sending_queue:
           enabled: false
       metadataexporter:
         enabled: true
-        dsn: tcp://signoz-clickhouse.signoz:9000/signoz_metadata
+        dsn: tcp://signoz-clickhouse:9000/signoz_metadata
         timeout: 45s
         cache:
           provider: in_memory
@@ -133,7 +133,7 @@ data:
             - batch/meter
           exporters:
             - signozclickhousemeter
-  opamp.yaml: 'server_endpoint: ws://signoz-signoz.signoz:4320/v1/opamp'
+  opamp.yaml: 'server_endpoint: ws://signoz-signoz:4320/v1/opamp'
 kind: ConfigMap
 metadata:
   labels:
