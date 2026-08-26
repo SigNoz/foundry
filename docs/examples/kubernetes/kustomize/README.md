@@ -39,18 +39,14 @@ Or step by step:
 # Generate manifests
 foundryctl forge -f casting.yaml
 
-# Apply CRDs first (cast does this automatically)
-kubectl apply -f https://raw.githubusercontent.com/Altinity/clickhouse-operator/0.25.3/deploy/operatorhub/0.25.3/clickhouseinstallations.clickhouse.altinity.com.crd.yaml
-kubectl apply -f https://raw.githubusercontent.com/Altinity/clickhouse-operator/0.25.3/deploy/operatorhub/0.25.3/clickhouseinstallationtemplates.clickhouse.altinity.com.crd.yaml
-kubectl apply -f https://raw.githubusercontent.com/Altinity/clickhouse-operator/0.25.3/deploy/operatorhub/0.25.3/clickhouseoperatorconfigurations.clickhouse.altinity.com.crd.yaml
-kubectl apply -f https://raw.githubusercontent.com/Altinity/clickhouse-operator/0.25.3/deploy/operatorhub/0.25.3/clickhousekeeperinstallations.clickhouse-keeper.altinity.com.crd.yaml
-
-# Apply with kubectl
+# Operators first (CRDs + clickhouse-operator), then the workloads
+kubectl apply -k pours/deployment/operators/clickhouse-operator
+kubectl wait --for=condition=Established crd/clickhouseinstallations.clickhouse.altinity.com crd/clickhousekeeperinstallations.clickhouse-keeper.altinity.com
 kubectl apply -k pours/deployment/
 ```
 
 > [!NOTE]
-> `foundryctl cast` automatically fetches and applies the four Altinity ClickHouse Operator CRDs (v0.25.3) from GitHub before running `kubectl apply -k`. If you apply manually, you must install the CRDs first or the ClickHouseInstallation and ClickHouseKeeperInstallation resources will fail to create.
+> `pours/deployment/kustomization.yaml` covers the namespace and the SigNoz components only. `operators/clickhouse-operator` is a separate tier: it lists the four Altinity CRDs (v0.25.3) as remote resources, so applying it needs network access to raw.githubusercontent.com, and it has to be applied and established before the root, which is what `foundryctl cast` does.
 
 ## Generated output
 
@@ -69,19 +65,21 @@ pours/deployment/
     configmap.yaml
     serviceaccount.yaml
     kustomization.yaml
+  operators/
+    clickhouse-operator/
+      namespace.yaml
+      deployment.yaml
+      clusterrole.yaml
+      clusterrolebinding.yaml
+      configmap.yaml
+      service.yaml
+      serviceaccount.yaml
+      kustomization.yaml
   telemetrystore/
     clickhouse/
       clickhouseinstallation.yaml
       configmap.yaml
       kustomization.yaml
-  clickhouse-operator/
-    deployment.yaml
-    clusterrole.yaml
-    clusterrolebinding.yaml
-    configmap.yaml
-    service.yaml
-    serviceaccount.yaml
-    kustomization.yaml
   telemetrykeeper/
     clickhousekeeper/
       clickhousekeeperinstallation.yaml
@@ -91,7 +89,7 @@ pours/deployment/
       statefulset.yaml
       service.yaml
       serviceaccount.yaml
-      kustomization.yaml
+        kustomization.yaml
   telemetrystore-migrator/
     job.yaml
     kustomization.yaml

@@ -18,6 +18,8 @@ spec:
 {{- $config := index $configData "config-0-0.yaml" | fromYaml }}
 {{- if $config }}
 {{- $files := omit $config "profiles" "users" "quotas" "remote_servers" "zookeeper" "macros" "tcp_port" "http_port" "interserver_http_port" "listen_host" "display_name" "distributed_ddl" "user_directories" }}
+{{- /* system-log tables whose engine and retention the operator configd layer owns */}}
+{{- $files = omit $files "query_log" "part_log" "trace_log" "asynchronous_insert_log" "asynchronous_metric_log" "backup_log" "blob_storage_log" "crash_log" "metric_log" "query_thread_log" "query_views_log" "session_log" "zookeeper_log" "processors_profile_log" }}
       config.d/crash.yaml: |
 {{ pick $files "send_crash_reports" | toYaml | indent 8 }}
 {{- $files = omit $files "send_crash_reports" }}
@@ -62,7 +64,7 @@ spec:
     clusters:
     - name: cluster
       layout:
-        replicasCount: {{ int $.Spec.TelemetryStore.Spec.Cluster.Replicas }}
+        replicasCount: {{ add (int $.Spec.TelemetryStore.Spec.Cluster.Replicas) 1 }}
         shardsCount: {{ int $.Spec.TelemetryStore.Spec.Cluster.Shards }}
     zookeeper:
       nodes:
@@ -141,7 +143,7 @@ spec:
           env:
           {{- range $key, $val := $.Spec.TelemetryStore.Spec.Env }}
             - name: {{ $key }}
-              value: {{ $val }}
+              value: {{ $val | quote }}
           {{- end }}
           {{ end }}
         initContainers:

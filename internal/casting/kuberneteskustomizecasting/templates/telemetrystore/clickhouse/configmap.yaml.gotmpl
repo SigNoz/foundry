@@ -10,5 +10,5 @@ metadata:
     app.kubernetes.io/part-of: signoz
     app.kubernetes.io/managed-by: kustomize
 data:
-  custom-functions.xml: |
+  functions.yaml: |
 {{ index $.Spec.TelemetryStore.Spec.Config.Data "functions.yaml" | indent 4 }}

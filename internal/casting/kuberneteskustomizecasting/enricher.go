@@ -18,6 +18,8 @@ const (
 	signozOpampPort           = 4320
 	signozAPIServerPort       = 8080
 	mcpHTTPPort               = 8000
+	ingesterOTLPGRPCPort      = 4317
+	ingesterOTLPHTTPPort      = 4318
 )
 
 var _ molding.MoldingEnricher = (*kustomizeMoldingEnricher)(nil)
@@ -67,7 +69,26 @@ func (e *kustomizeMoldingEnricher) enrichTelemetryStore(config *installation.Cas
 	if err != nil {
 		return errors.Wrapf(err, errors.TypeInternal, "failed to get telemetrystore service names")
 	}
-	config.Spec.TelemetryStore.Status.Addresses.TCP = []string{domain.MustNewAddress("tcp", string(name), telemetryStorePort).String()}
+	cluster := config.Spec.TelemetryStore.Spec.Cluster
+	shards, replicas := 1, 1
+	if cluster.Shards != nil && *cluster.Shards > 0 {
+		shards = *cluster.Shards
+	}
+	if cluster.Replicas != nil {
+		replicas = *cluster.Replicas + 1
+	}
+
+	addresses := []string{domain.MustNewAddress("tcp", string(name), telemetryStorePort).String()}
+	for s := 0; s < shards; s++ {
+		for r := 0; r < replicas; r++ {
+			if s == 0 && r == 0 {
+				continue
+			}
+			host := fmt.Sprintf("chi-%s-cluster-%d-%d", name, s, r)
+			addresses = append(addresses, domain.MustNewAddress("tcp", host, telemetryStorePort).String())
+		}
+	}
+	config.Spec.TelemetryStore.Status.Addresses.TCP = addresses
 
 	if config.Spec.TelemetryStore.Status.Extras == nil {
 		config.Spec.TelemetryStore.Status.Extras = make(map[string]string)
@@ -83,11 +104,7 @@ func (e *kustomizeMoldingEnricher) enrichTelemetryKeeper(config *installation.Ca
 	if spec.Spec.Cluster.Replicas != nil && *spec.Spec.Cluster.Replicas > 0 {
 		replicas = *spec.Spec.Cluster.Replicas
 	}
-	if replicas < 1 {
-		replicas = 1
-	}
-	// Dummy Variables, To pass validation in molding
-	// TODO: Take the logic out of molding as operator handles it already
+
 	base := config.Metadata.Name + "-clickhouse-keeper"
 	var client, raft []string
 	for i := 0; i < replicas; i++ {
@@ -100,6 +117,10 @@ func (e *kustomizeMoldingEnricher) enrichTelemetryKeeper(config *installation.Ca
 }
 
 func (e *kustomizeMoldingEnricher) enrichMetaStore(config *installation.Casting) error {
+	if config.Spec.MetaStore.Kind == installation.MetaStoreKindSQLite {
+		return nil
+	}
+
 	name, err := e.materials[1].GetBytes("metadata.name")
 	if err != nil {
 		return errors.Wrapf(err, errors.TypeInternal, "failed to get metastore service names")
@@ -122,14 +143,16 @@ func (e *kustomizeMoldingEnricher) enrichMCP(config *installation.Casting) error
 		return nil
 	}
 
-	// Namespace-qualified so the recorded address resolves from any namespace;
-	// the full cluster FQDN would assume a cluster domain foundry cannot know.
 	host := config.Metadata.Name + "-mcp." + config.Metadata.Name
 	config.Spec.MCP.Status.Addresses.HTTP = []string{domain.MustNewAddress("http", host, mcpHTTPPort).String()}
 	return nil
 }
 
 func (e *kustomizeMoldingEnricher) enrichIngester(config *installation.Casting) error {
-	// No-op: ingester molding only writes Status.Config.Data from other status.
+	name := config.Metadata.Name + "-ingester"
+	config.Spec.Ingester.Status.Addresses.OTLP = []string{
+		domain.MustNewAddress("tcp", name, ingesterOTLPHTTPPort).String(),
+		domain.MustNewAddress("tcp", name, ingesterOTLPGRPCPort).String(),
+	}
 	return nil
 }
