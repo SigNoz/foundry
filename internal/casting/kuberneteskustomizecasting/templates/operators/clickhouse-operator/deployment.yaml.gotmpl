@@ -137,7 +137,7 @@ spec:
                   resource: limits.memory
             {{- range $key, $val := $.Spec.TelemetryStore.Spec.Env }}
             - name: {{ $key }}
-              value: {{ $val }}
+              value: {{ $val | quote }}
             {{- end }}
           ports:
             - containerPort: 9999

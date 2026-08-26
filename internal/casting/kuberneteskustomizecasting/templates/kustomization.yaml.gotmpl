@@ -5,25 +5,24 @@ namespace: {{ $.Metadata.Name }}
 
 resources:
 - namespace.yaml
-{{- if $.Spec.TelemetryStore.Spec.Enabled }}
-- clickhouse-operator
+{{- if derefBool $.Spec.TelemetryStore.Spec.Enabled }}
 - telemetrystore/clickhouse
 {{- end }}
-{{- if $.Spec.TelemetryKeeper.Spec.Enabled }}
+{{- if derefBool $.Spec.TelemetryKeeper.Spec.Enabled }}
 - telemetrykeeper/clickhousekeeper
 {{- end }}
-{{- if $.Spec.TelemetryStore.Spec.Enabled }}
+{{- if derefBool $.Spec.TelemetryStore.Spec.Enabled }}
 - telemetrystore-migrator
 {{- end }}
-{{- if $.Spec.MetaStore.Spec.Enabled }}
+{{- if and (derefBool $.Spec.MetaStore.Spec.Enabled) (eq $.Spec.MetaStore.Kind.String "postgres") }}
 - metastore/postgres
 {{- end }}
-{{- if $.Spec.Signoz.Spec.Enabled }}
+{{- if derefBool $.Spec.Signoz.Spec.Enabled }}
 - signoz
 {{- end }}
 {{- if derefBool $.Spec.MCP.Spec.Enabled }}
 - mcp
 {{- end }}
-{{- if $.Spec.Ingester.Spec.Enabled }}
+{{- if derefBool $.Spec.Ingester.Spec.Enabled }}
 - ingester
 {{- end }}

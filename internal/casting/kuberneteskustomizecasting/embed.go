@@ -6,18 +6,19 @@ import (
 	"github.com/signoz/foundry/internal/domain"
 )
 
-//go:embed templates/*/*.gotmpl templates/*/*/*.gotmpl templates/*.gotmpl
+//go:embed templates/*.gotmpl templates/*/*.gotmpl templates/*/*/*.gotmpl
 var templates embed.FS
 
 var (
 	// telemetrystore/clickhouse-operator.
-	clickhouseOperatorClusterrole        = domain.MustNewTemplateFromFS(templates, "templates/clickhouse-operator/clusterrole.yaml.gotmpl", domain.FormatYAML)
-	clickhouseOperatorClusterrolebinding = domain.MustNewTemplateFromFS(templates, "templates/clickhouse-operator/clusterrolebinding.yaml.gotmpl", domain.FormatYAML)
-	clickhouseOperatorConfigmap          = domain.MustNewTemplateFromFS(templates, "templates/clickhouse-operator/configmap.yaml.gotmpl", domain.FormatYAML)
-	clickhouseOperatorDeployment         = domain.MustNewTemplateFromFS(templates, "templates/clickhouse-operator/deployment.yaml.gotmpl", domain.FormatYAML)
-	clickhouseOperatorService            = domain.MustNewTemplateFromFS(templates, "templates/clickhouse-operator/service.yaml.gotmpl", domain.FormatYAML)
-	clickhouseOperatorServiceaccount     = domain.MustNewTemplateFromFS(templates, "templates/clickhouse-operator/serviceaccount.yaml.gotmpl", domain.FormatYAML)
-	clickhouseOperatorKustomization      = domain.MustNewTemplateFromFS(templates, "templates/clickhouse-operator/kustomization.yaml.gotmpl", domain.FormatYAML)
+	clickhouseOperatorClusterrole        = domain.MustNewTemplateFromFS(templates, "templates/operators/clickhouse-operator/clusterrole.yaml.gotmpl", domain.FormatYAML)
+	clickhouseOperatorClusterrolebinding = domain.MustNewTemplateFromFS(templates, "templates/operators/clickhouse-operator/clusterrolebinding.yaml.gotmpl", domain.FormatYAML)
+	clickhouseOperatorConfigmap          = domain.MustNewTemplateFromFS(templates, "templates/operators/clickhouse-operator/configmap.yaml.gotmpl", domain.FormatYAML)
+	clickhouseOperatorDeployment         = domain.MustNewTemplateFromFS(templates, "templates/operators/clickhouse-operator/deployment.yaml.gotmpl", domain.FormatYAML)
+	clickhouseOperatorService            = domain.MustNewTemplateFromFS(templates, "templates/operators/clickhouse-operator/service.yaml.gotmpl", domain.FormatYAML)
+	clickhouseOperatorServiceaccount     = domain.MustNewTemplateFromFS(templates, "templates/operators/clickhouse-operator/serviceaccount.yaml.gotmpl", domain.FormatYAML)
+	clickhouseOperatorKustomization      = domain.MustNewTemplateFromFS(templates, "templates/operators/clickhouse-operator/kustomization.yaml.gotmpl", domain.FormatYAML)
+	clickhouseOperatorNamespace          = domain.MustNewTemplateFromFS(templates, "templates/operators/clickhouse-operator/namespace.yaml.gotmpl", domain.FormatYAML)
 
 	// telemetrystore/clickhouse.
 	clickhouseInstanceInstallation      = domain.MustNewTemplateFromFS(templates, "templates/telemetrystore/clickhouse/clickhouseinstallation.yaml.gotmpl", domain.FormatYAML)
