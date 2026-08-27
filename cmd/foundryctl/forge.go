@@ -37,6 +37,10 @@ func runForge(ctx context.Context, logger *slog.Logger, path string, poursPath s
 		return domain.NewProperties(), err
 	}
 
+	if err := foundry.Config.PruneV1Alpha1Lock(ctx, machineries, path); err != nil {
+		return domain.NewProperties(), err
+	}
+
 	props := domain.NewProperties()
 	for _, machinery := range machineries {
 		if machinery.Kind() == v1alpha1.KindInstallation {
@@ -49,6 +53,11 @@ func runForge(ctx context.Context, logger *slog.Logger, path string, poursPath s
 		return props, err
 	}
 
-	err = foundry.Forge(ctx, machineries, path, &writer.Options{Output: &os.File{}, TargetDirectory: poursAbsPath})
-	return props, err
+	for _, machinery := range machineries {
+		if err := foundry.Forge(ctx, machinery, path, &writer.Options{Output: &os.File{}, TargetDirectory: poursAbsPath}); err != nil {
+			return props, err
+		}
+	}
+
+	return props, nil
 }
