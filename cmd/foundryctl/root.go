@@ -55,13 +55,32 @@ func closeRoot() {
 	}
 }
 
+// reporter records one casting document's outcome, called once per document
+// as it completes; err is nil when the document succeeded.
+type reporter func(props domain.Properties, err error)
+
+// recoverRunE hands the runner a reporter that tracks every reported outcome
+// as one event. An error the runner never reported tracks without document
+// properties; a clean return that reported nothing tracks the lone success.
 func recoverRunE(
 	event domain.Event,
-	runE func(cmd *cobra.Command, args []string) (domain.Properties, error),
+	runE func(cmd *cobra.Command, args []string, report reporter) error,
 ) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) (err error) {
 		ctx := cmd.Context()
-		props := domain.NewProperties()
+		reported, failureReported := false, false
+
+		report := func(props domain.Properties, reportErr error) {
+			reported = true
+
+			if reportErr != nil {
+				failureReported = true
+				rootTracker.Track(ctx, event.Failed(), props.WithError(reportErr))
+				return
+			}
+
+			rootTracker.Track(ctx, event.Succeeded(), props.WithSuccess())
+		}
 
 		defer func() {
 			if r := recover(); r != nil {
@@ -74,7 +93,9 @@ func recoverRunE(
 
 			if err != nil {
 				rootLogger.ErrorContext(ctx, event.String()+" failed", foundryerrors.LogAttr(err))
-				rootTracker.Track(ctx, event.Failed(), props.WithError(err))
+				if !failureReported {
+					rootTracker.Track(ctx, event.Failed(), domain.NewProperties().WithError(err))
+				}
 				if commonCfg.Format == "json" {
 					_ = writer.WriteOutput(os.Stdout, foundryerrors.EnvelopeOf(err))
 					cmd.SilenceErrors = true
@@ -82,10 +103,12 @@ func recoverRunE(
 				return
 			}
 
-			rootTracker.Track(ctx, event.Succeeded(), props.WithSuccess())
+			if !reported {
+				rootTracker.Track(ctx, event.Succeeded(), domain.NewProperties().WithSuccess())
+			}
 		}()
 
-		props, err = runE(cmd, args)
+		err = runE(cmd, args, report)
 		return err
 	}
 }

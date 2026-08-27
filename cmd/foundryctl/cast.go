@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"path/filepath"
 
-	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/foundry"
@@ -17,22 +16,30 @@ func registerCastCmd(rootCmd *cobra.Command) {
 	castCmd := &cobra.Command{
 		Use:   "cast",
 		Short: "Cast to the target environment.",
-		RunE: recoverRunE(domain.EventCast, func(cmd *cobra.Command, args []string) (domain.Properties, error) {
+		RunE: recoverRunE(domain.EventCast, func(cmd *cobra.Command, args []string, report reporter) error {
 			ctx := cmd.Context()
 
+			// A document the inner stages pass is prepared, not cast, so
+			// only their failures report.
+			prepReport := reporter(func(props domain.Properties, err error) {
+				if err != nil {
+					report(props, err)
+				}
+			})
+
 			if !castCfg.NoGauge {
-				if props, err := runGauge(ctx, rootLogger, commonCfg.File); err != nil {
-					return props, err
+				if err := runGauge(ctx, rootLogger, commonCfg.File, prepReport); err != nil {
+					return err
 				}
 			}
 
 			if !castCfg.NoForge {
-				if props, err := runForge(ctx, rootLogger, commonCfg.File, poursCfg.Path); err != nil {
-					return props, err
+				if err := runForge(ctx, rootLogger, commonCfg.File, poursCfg.Path, prepReport); err != nil {
+					return err
 				}
 			}
 
-			return runCast(ctx, rootLogger, poursCfg.Path, commonCfg.File)
+			return runCast(ctx, rootLogger, poursCfg.Path, commonCfg.File, report)
 		}),
 	}
 
@@ -40,34 +47,30 @@ func registerCastCmd(rootCmd *cobra.Command) {
 	castCfg.RegisterFlags(castCmd)
 }
 
-func runCast(ctx context.Context, logger *slog.Logger, poursPath string, configPath string) (domain.Properties, error) {
+func runCast(ctx context.Context, logger *slog.Logger, poursPath string, configPath string, report reporter) error {
 	foundry, err := foundry.New(logger)
 	if err != nil {
-		return domain.NewProperties(), err
+		return err
 	}
 
 	poursPath, err = filepath.Abs(poursPath)
 	if err != nil {
-		return domain.NewProperties(), errors.Wrapf(err, errors.TypeInternal, "failed to resolve pours path")
+		return errors.Wrapf(err, errors.TypeInternal, "failed to resolve pours path")
 	}
 
 	machineries, err := foundry.Config.GetV1Alpha1Lock(ctx, configPath)
 	if err != nil {
-		return domain.NewProperties(), err
-	}
-
-	props := domain.NewProperties()
-	for _, machinery := range machineries {
-		if machinery.Kind() == v1alpha1.KindInstallation {
-			props = machinery.TrackableProperties()
-		}
+		return err
 	}
 
 	for _, machinery := range machineries {
 		if err := foundry.Cast(ctx, machinery, poursPath); err != nil {
-			return props, err
+			report(machinery.TrackableProperties(), err)
+			return err
 		}
+
+		report(machinery.TrackableProperties(), nil)
 	}
 
-	return props, nil
+	return nil
 }
