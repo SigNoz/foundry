@@ -1,6 +1,10 @@
 package main
 
-import "github.com/spf13/cobra"
+import (
+	"os"
+
+	"github.com/spf13/cobra"
+)
 
 var (
 	// Stores common configuration across all commands.
@@ -14,6 +18,9 @@ var (
 
 	// Stores catalog configuration.
 	catalogCfg catalogConfig
+
+	// Stores mechanic configuration.
+	mechanicCfg mechanicConfig
 )
 
 type commonConfig struct {
@@ -56,4 +63,20 @@ type catalogConfig struct {
 
 func (c *catalogConfig) RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVarP(&c.OutPath, "output", "o", "", "Path to write castings.json")
+}
+
+// mechanicConfig holds connection overrides for the mechanic verbs. They take
+// precedence over the resolved casting's status addresses and let mechanic run
+// against a deployment that was not provisioned by foundry. Each flag defaults
+// to its environment variable so secrets need not appear in shell history.
+type mechanicConfig struct {
+	Signoz        string
+	ClickhouseDSN string
+	MetastoreDSN  string
+}
+
+func (c *mechanicConfig) RegisterFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&c.Signoz, "signoz", os.Getenv("FOUNDRY_SIGNOZ"), "Override the SigNoz API address, host:port (default $FOUNDRY_SIGNOZ).")
+	cmd.Flags().StringVar(&c.ClickhouseDSN, "clickhouse-dsn", os.Getenv("FOUNDRY_CLICKHOUSE_DSN"), "Override the ClickHouse DSN, user:pass@host:port (default $FOUNDRY_CLICKHOUSE_DSN).")
+	cmd.Flags().StringVar(&c.MetastoreDSN, "metastore-dsn", os.Getenv("FOUNDRY_METASTORE_DSN"), "Override the metastore DSN (default $FOUNDRY_METASTORE_DSN).")
 }

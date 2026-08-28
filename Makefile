@@ -1,9 +1,10 @@
-.PHONY: clean gauge forge cast test gen-examples gen-schemas gen-docs docs
+.PHONY: clean gauge forge cast mechanic test gen-examples gen-schemas gen-docs docs
 
 FOUNDRYCTL   := go run ./cmd/foundryctl
 GOTMPL       := go run go.opentelemetry.io/build-tools/gotmpl@latest
 CASTINGS_JSON = $$(cat docs/examples/castings.json)
 NO_LEDGER	:= "--no-ledger"
+RESOURCE     ?= signoz/alert/019c8af3-416a-7562-838d-879aec44f566
 
 clean:
 	cd pours/deployment && docker compose down --remove-orphans --volumes
@@ -18,6 +19,12 @@ forge:
 
 cast:
 	$(FOUNDRYCTL) cast --debug $(NO_LEDGER) -f ./tmp/casting.yaml
+
+# Override the resource path with RESOURCE, e.g.
+#   make mechanic RESOURCE="signoz alert <id>"
+#   make mechanic RESOURCE=telemetrystore/table/distributed_samples_v4
+mechanic:
+	$(FOUNDRYCTL) mechanic inspect --debug $(NO_LEDGER) -f ./tmp/casting.yaml $(RESOURCE)
 
 test:
 	make forge

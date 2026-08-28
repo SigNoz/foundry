@@ -29,6 +29,7 @@ func main() {
 	registerGenCmd(rootCmd)
 	registerCatalogCmd(rootCmd)
 	registerVersionCmd(rootCmd)
+	registerMechanicCmd(rootCmd)
 
 	err := rootCmd.Execute()
 
