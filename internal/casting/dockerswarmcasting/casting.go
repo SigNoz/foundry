@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
@@ -31,6 +32,10 @@ func New(logger *slog.Logger) *dockerSwarmCasting {
 			composeYAMLTemplate,
 		},
 	}
+}
+
+func NewDokploy(logger *slog.Logger) *dockerSwarmCasting {
+	return New(logger)
 }
 
 func (casting *dockerSwarmCasting) Enricher(ctx context.Context, config *installation.Casting) (molding.MoldingEnricher, error) {
@@ -96,6 +101,13 @@ func (casting *dockerSwarmCasting) Forge(ctx context.Context, config installatio
 }
 
 func (casting *dockerSwarmCasting) Cast(ctx context.Context, config installation.Casting, outputPath string) error {
+	if config.Spec.Deployment.Platform == v1alpha1.PlatformDokploy {
+		casting.logger.InfoContext(ctx, "Deploy compose.yaml using Dokploy's stack feature",
+			slog.String("pours_path", outputPath),
+			slog.String("docs", "https://docs.dokploy.com/docs/core/docker-compose"))
+		return nil
+	}
+
 	casting.logger.InfoContext(ctx, "Deploying stack to Docker Swarm")
 
 	composeFile := filepath.Join(outputPath, rootcasting.DeploymentDir, "compose.yaml")

@@ -43,6 +43,12 @@
       "example": "coolify/stack"
     },
     {
+      "platform": "dokploy",
+      "mode": "",
+      "flavor": "stack",
+      "example": "dokploy/stack"
+    },
+    {
       "platform": "railway",
       "mode": "",
       "flavor": "template",
