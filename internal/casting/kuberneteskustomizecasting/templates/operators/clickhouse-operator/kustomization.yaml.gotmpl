@@ -7,10 +7,10 @@ namespace: {{ $.Metadata.Name }}
 
 resources:
 - namespace.yaml
-- https://raw.githubusercontent.com/Altinity/clickhouse-operator/0.25.3/deploy/operatorhub/0.25.3/clickhouseinstallations.clickhouse.altinity.com.crd.yaml
-- https://raw.githubusercontent.com/Altinity/clickhouse-operator/0.25.3/deploy/operatorhub/0.25.3/clickhouseinstallationtemplates.clickhouse.altinity.com.crd.yaml
-- https://raw.githubusercontent.com/Altinity/clickhouse-operator/0.25.3/deploy/operatorhub/0.25.3/clickhouseoperatorconfigurations.clickhouse.altinity.com.crd.yaml
-- https://raw.githubusercontent.com/Altinity/clickhouse-operator/0.25.3/deploy/operatorhub/0.25.3/clickhousekeeperinstallations.clickhouse-keeper.altinity.com.crd.yaml
+- clickhouseinstallations.clickhouse.altinity.com.crd.yaml
+- clickhouseinstallationtemplates.clickhouse.altinity.com.crd.yaml
+- clickhouseoperatorconfigurations.clickhouse.altinity.com.crd.yaml
+- clickhousekeeperinstallations.clickhouse-keeper.altinity.com.crd.yaml
 - serviceaccount.yaml
 - configmap.yaml
 - clusterrole.yaml

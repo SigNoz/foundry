@@ -39,6 +39,10 @@ var (
 		clickhouseOperatorServiceaccount,
 		clickhouseOperatorKustomization,
 		clickhouseOperatorNamespace,
+		clickhouseOperatorCHICRD,
+		clickhouseOperatorCHITCRD,
+		clickhouseOperatorConfigCRD,
+		clickhouseOperatorCHKCRD,
 	}
 	telemetryStoreTemplates = []*domain.Template{
 		clickhouseInstanceInstallation,

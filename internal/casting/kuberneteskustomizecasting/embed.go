@@ -20,6 +20,13 @@ var (
 	clickhouseOperatorKustomization      = domain.MustNewTemplateFromFS(templates, "templates/operators/clickhouse-operator/kustomization.yaml.gotmpl", domain.FormatYAML)
 	clickhouseOperatorNamespace          = domain.MustNewTemplateFromFS(templates, "templates/operators/clickhouse-operator/namespace.yaml.gotmpl", domain.FormatYAML)
 
+	// telemetrystore/clickhouse-operator CRDs, vendored from
+	// Altinity/clickhouse-operator 0.25.3 so no render reaches the network.
+	clickhouseOperatorCHICRD    = domain.MustNewTemplateFromFS(templates, "templates/operators/clickhouse-operator/clickhouseinstallations.clickhouse.altinity.com.crd.yaml.gotmpl", domain.FormatYAML)
+	clickhouseOperatorCHITCRD   = domain.MustNewTemplateFromFS(templates, "templates/operators/clickhouse-operator/clickhouseinstallationtemplates.clickhouse.altinity.com.crd.yaml.gotmpl", domain.FormatYAML)
+	clickhouseOperatorConfigCRD = domain.MustNewTemplateFromFS(templates, "templates/operators/clickhouse-operator/clickhouseoperatorconfigurations.clickhouse.altinity.com.crd.yaml.gotmpl", domain.FormatYAML)
+	clickhouseOperatorCHKCRD    = domain.MustNewTemplateFromFS(templates, "templates/operators/clickhouse-operator/clickhousekeeperinstallations.clickhouse-keeper.altinity.com.crd.yaml.gotmpl", domain.FormatYAML)
+
 	// telemetrystore/clickhouse.
 	clickhouseInstanceInstallation      = domain.MustNewTemplateFromFS(templates, "templates/telemetrystore/clickhouse/clickhouseinstallation.yaml.gotmpl", domain.FormatYAML)
 	clickhouseInstanceConfigmap         = domain.MustNewTemplateFromFS(templates, "templates/telemetrystore/clickhouse/configmap.yaml.gotmpl", domain.FormatYAML)
