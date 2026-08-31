@@ -103,9 +103,9 @@ func (c *kubernetesKustomizeCasting) Melt(ctx context.Context, config collection
 // key names the directory.
 func (c *kubernetesKustomizeCasting) release(config collectionagent.Casting, outputPath string, p *pourer.Pourer) kubetooler.Release {
 	return kubetooler.Release{
-		Release:   domain.Release{Name: config.Metadata.Name, Owner: config.Labels()},
-		Namespace: config.Metadata.Name,
-		Dir:       filepath.Join(outputPath, p.Dir(), filepath.Dir(config.Spec.Collector.Kind.ConfigKey())),
+		Release:      domain.Release{Name: config.Metadata.Name, Owner: config.Labels()},
+		Namespace:    config.Metadata.Name,
+		Dir:          filepath.Join(outputPath, p.Dir(), filepath.Dir(config.Spec.Collector.Kind.ConfigKey())),
 		FieldManager: "foundry-" + strings.ToLower(config.Kind().String()),
 	}
 }
