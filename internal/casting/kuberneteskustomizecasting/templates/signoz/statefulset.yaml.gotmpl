@@ -28,7 +28,7 @@ spec:
         - env:
           {{- range $key, $val := $.Spec.Signoz.Spec.Env }}
             - name: {{ $key }}
-              value: {{ $val }}
+              value: {{ $val | quote }}
           {{- end }}
           image: {{ $.Spec.Signoz.Spec.Image }}
           imagePullPolicy: IfNotPresent
@@ -62,4 +62,22 @@ spec:
             requests:
               cpu: 100m
               memory: 200Mi
+          {{- if eq $.Spec.MetaStore.Kind.String "sqlite" }}
+          volumeMounts:
+            - name: data
+              mountPath: {{ dir (index $.Spec.Signoz.Spec.Env "SIGNOZ_SQLSTORE_SQLITE_PATH") }}
+          {{- end }}
       serviceAccountName: {{ $name }}
+  {{- if eq $.Spec.MetaStore.Kind.String "sqlite" }}
+  volumeClaimTemplates:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
+  {{- end }}

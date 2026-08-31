@@ -45,7 +45,7 @@ spec:
               env:
               {{- range $key, $val := $.Spec.TelemetryKeeper.Spec.Env }}
               - name: {{ $key }}
-                value: {{ $val }}
+                value: {{ $val | quote }}
               {{- end }}
               {{ end }}
     volumeClaimTemplates:

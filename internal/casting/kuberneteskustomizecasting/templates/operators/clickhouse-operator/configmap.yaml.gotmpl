@@ -1,14 +1,23 @@
+{{- $name := print $.Metadata.Name "-telemetrystore-" $.Spec.TelemetryStore.Kind "-operator" -}}
 apiVersion: v1
-data: null
 kind: ConfigMap
 metadata:
+  name: {{ $name }}-etc-confd-files
   labels:
-    app.kubernetes.io/instance: signoz-telemetrystore-clickhouse-operator
-    app.kubernetes.io/name: signoz-telemetrystore-clickhouse-operator
-    app.kubernetes.io/version: 0.25.3
-  name: signoz-telemetrystore-clickhouse-operator-etc-confd-files
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $name }}
+    app.kubernetes.io/version: "0.25.3"
+data:
+  null
 ---
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-etc-configd-files
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $name }}
+    app.kubernetes.io/version: "0.25.3"
 data:
   01-clickhouse-01-listen.xml: |
     <clickhouse>
@@ -33,141 +42,29 @@ data:
             <console>1</console>
         </logger>
     </clickhouse>
-  01-clickhouse-03-query_log.xml: |
+{{- /* System-log engine and retention live here; the CHI omits these tables, since engine plus a separate partition_by/ttl is fatal on ClickHouse 25.x. */}}
+{{- $config := index $.Spec.TelemetryStore.Spec.Config.Data "config-0-0.yaml" | fromYaml }}
+{{- range $i, $table := list "query_log" "part_log" "trace_log" "asynchronous_insert_log" "asynchronous_metric_log" "backup_log" "blob_storage_log" "crash_log" "metric_log" "query_thread_log" "query_views_log" "session_log" "zookeeper_log" "processors_profile_log" }}
+{{- $tbl := index $config $table | default dict }}
+  01-clickhouse-{{ printf "%02d" (add $i 3) }}-{{ $table }}.xml: |
     <clickhouse>
-        <query_log replace="1">
+        <{{ $table }} replace="1">
             <database>system</database>
-            <table>query_log</table>
-            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 7 day</engine>
-            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
-        </query_log>
+            <table>{{ $table }}</table>
+            <engine>Engine = MergeTree PARTITION BY {{ index $tbl "partition_by" | default "event_date" }} ORDER BY event_time TTL {{ index $tbl "ttl" | default "event_date + INTERVAL 7 DAY DELETE" }}</engine>
+            <flush_interval_milliseconds>{{ index $tbl "flush_interval_milliseconds" | default 7500 }}</flush_interval_milliseconds>
+        </{{ $table }}>
     </clickhouse>
-  01-clickhouse-04-part_log.xml: |
-    <clickhouse>
-        <part_log replace="1">
-            <database>system</database>
-            <table>part_log</table>
-            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 7 day</engine>
-            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
-        </part_log>
-    </clickhouse>
-  01-clickhouse-05-trace_log.xml: |-
-    <clickhouse>
-        <trace_log replace="1">
-            <database>system</database>
-            <table>trace_log</table>
-            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 3 day</engine>
-            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
-        </trace_log>
-    </clickhouse>
-  01-clickhouse-06-asynchronous_insert_log.xml: |
-    <clickhouse>
-        <asynchronous_insert_log replace="1">
-            <database>system</database>
-            <table>asynchronous_insert_log</table>
-            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 3 day</engine>
-            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
-        </asynchronous_insert_log>
-    </clickhouse>
-  01-clickhouse-07-asynchronous_metric_log.xml: |
-    <clickhouse>
-        <asynchronous_metric_log replace="1">
-            <database>system</database>
-            <table>asynchronous_metric_log</table>
-            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 7 day</engine>
-            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
-        </asynchronous_metric_log>
-    </clickhouse>
-  01-clickhouse-08-backup_log.xml: |
-    <clickhouse>
-        <backup_log replace="1">
-            <database>system</database>
-            <table>backup_log</table>
-            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 3 day</engine>
-            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
-        </backup_log>
-    </clickhouse>
-  01-clickhouse-09-blob_storage_log.xml: |
-    <clickhouse>
-        <blob_storage_log replace="1">
-            <database>system</database>
-            <table>blob_storage_log</table>
-            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 3 day</engine>
-            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
-        </blob_storage_log>
-    </clickhouse>
-  01-clickhouse-10-crash_log.xml: |
-    <clickhouse>
-        <crash_log replace="1">
-            <database>system</database>
-            <table>crash_log</table>
-            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 14 day</engine>
-            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
-        </crash_log>
-    </clickhouse>
-  01-clickhouse-11-metric_log.xml: |
-    <clickhouse>
-        <metric_log replace="1">
-            <database>system</database>
-            <table>metric_log</table>
-            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 7 day</engine>
-            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
-        </metric_log>
-    </clickhouse>
-  01-clickhouse-12-query_thread_log.xml: |
-    <clickhouse>
-        <query_thread_log replace="1">
-            <database>system</database>
-            <table>query_thread_log</table>
-            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 7 day</engine>
-            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
-        </query_thread_log>
-    </clickhouse>
-  01-clickhouse-13-query_views_log.xml: |
-    <clickhouse>
-        <query_views_log replace="1">
-            <database>system</database>
-            <table>query_views_log</table>
-            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 3 day</engine>
-            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
-        </query_views_log>
-    </clickhouse>
-  01-clickhouse-14-session_log.xml: |
-    <clickhouse>
-        <session_log replace="1">
-            <database>system</database>
-            <table>session_log</table>
-            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 3 day</engine>
-            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
-        </session_log>
-    </clickhouse>
-  01-clickhouse-15-zookeeper_log.xml: |
-    <clickhouse>
-        <zookeeper_log replace="1">
-            <database>system</database>
-            <table>zookeeper_log</table>
-            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 3 day</engine>
-            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
-        </zookeeper_log>
-    </clickhouse>
-  01-clickhouse-16-processors_profile_log.xml: |
-    <clickhouse>
-        <processors_profile_log replace="1">
-            <database>system</database>
-            <table>processors_profile_log</table>
-            <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + interval 7 day</engine>
-            <flush_interval_milliseconds>7500</flush_interval_milliseconds>
-        </processors_profile_log>
-    </clickhouse>
-kind: ConfigMap
-metadata:
-  labels:
-    app.kubernetes.io/instance: signoz-telemetrystore-clickhouse-operator
-    app.kubernetes.io/name: signoz-telemetrystore-clickhouse-operator
-    app.kubernetes.io/version: 0.25.3
-  name: signoz-telemetrystore-clickhouse-operator-etc-configd-files
+{{- end }}
 ---
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-etc-files
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $name }}
+    app.kubernetes.io/version: "0.25.3"
 data:
   config.yaml: |-
     annotation:
@@ -182,7 +79,7 @@ data:
         scheme: auto
         secret:
           name: "clickhouse-operator"
-          namespace: "signoz"
+          namespace: "{{ $.Metadata.Name }}"
         timeouts:
           connect: 1
           query: 4
@@ -327,15 +224,15 @@ data:
     watch:
       namespaces:
         - ".*"
-kind: ConfigMap
-metadata:
-  labels:
-    app.kubernetes.io/instance: signoz-telemetrystore-clickhouse-operator
-    app.kubernetes.io/name: signoz-telemetrystore-clickhouse-operator
-    app.kubernetes.io/version: 0.25.3
-  name: signoz-telemetrystore-clickhouse-operator-etc-files
 ---
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-etc-templatesd-files
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $name }}
+    app.kubernetes.io/version: "0.25.3"
 data:
   001-templates.json.example: |
     {
@@ -418,15 +315,15 @@ data:
                 requests:
                   storage: 2Gi
   readme: Templates in this folder are packaged with an operator and available via 'useTemplate'
-kind: ConfigMap
-metadata:
-  labels:
-    app.kubernetes.io/instance: signoz-telemetrystore-clickhouse-operator
-    app.kubernetes.io/name: signoz-telemetrystore-clickhouse-operator
-    app.kubernetes.io/version: 0.25.3
-  name: signoz-telemetrystore-clickhouse-operator-etc-templatesd-files
 ---
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-etc-usersd-files
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $name }}
+    app.kubernetes.io/version: "0.25.3"
 data:
   01-clickhouse-user.xml: |
     <yandex>
@@ -467,25 +364,26 @@ data:
             </default>
         </profiles>
     </yandex>
-kind: ConfigMap
-metadata:
-  labels:
-    app.kubernetes.io/instance: signoz-telemetrystore-clickhouse-operator
-    app.kubernetes.io/name: signoz-telemetrystore-clickhouse-operator
-    app.kubernetes.io/version: 0.25.3
-  name: signoz-telemetrystore-clickhouse-operator-etc-usersd-files
 ---
 apiVersion: v1
-data: null
 kind: ConfigMap
 metadata:
+  name: {{ $name }}-keeper-etc-confd-files
   labels:
-    app.kubernetes.io/instance: signoz-telemetrystore-clickhouse-operator
-    app.kubernetes.io/name: signoz-telemetrystore-clickhouse-operator
-    app.kubernetes.io/version: 0.25.3
-  name: signoz-telemetrystore-clickhouse-operator-keeper-etc-confd-files
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $name }}
+    app.kubernetes.io/version: "0.25.3"
+data:
+  null
 ---
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-keeper-etc-configd-files
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $name }}
+    app.kubernetes.io/version: "0.25.3"
 data:
   01-keeper-01-default-config.xml: |
     <!-- IMPORTANT -->
@@ -546,31 +444,25 @@ data:
             <enable_reconfiguration>false</enable_reconfiguration>
         </keeper_server>
     </clickhouse>
-kind: ConfigMap
-metadata:
-  labels:
-    app.kubernetes.io/instance: signoz-telemetrystore-clickhouse-operator
-    app.kubernetes.io/name: signoz-telemetrystore-clickhouse-operator
-    app.kubernetes.io/version: 0.25.3
-  name: signoz-telemetrystore-clickhouse-operator-keeper-etc-configd-files
 ---
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-keeper-etc-templatesd-files
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $name }}
+    app.kubernetes.io/version: "0.25.3"
 data:
   readme: Templates in this folder are packaged with an operator and available via 'useTemplate'
-kind: ConfigMap
-metadata:
-  labels:
-    app.kubernetes.io/instance: signoz-telemetrystore-clickhouse-operator
-    app.kubernetes.io/name: signoz-telemetrystore-clickhouse-operator
-    app.kubernetes.io/version: 0.25.3
-  name: signoz-telemetrystore-clickhouse-operator-keeper-etc-templatesd-files
 ---
 apiVersion: v1
-data: null
 kind: ConfigMap
 metadata:
+  name: {{ $name }}-keeper-etc-usersd-files
   labels:
-    app.kubernetes.io/instance: signoz-telemetrystore-clickhouse-operator
-    app.kubernetes.io/name: signoz-telemetrystore-clickhouse-operator
-    app.kubernetes.io/version: 0.25.3
-  name: signoz-telemetrystore-clickhouse-operator-keeper-etc-usersd-files
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $name }}
+    app.kubernetes.io/version: "0.25.3"
+data:
+  null

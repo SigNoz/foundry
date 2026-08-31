@@ -18,58 +18,103 @@ import (
 var _ rootcasting.Casting = (*kustomizeCasting)(nil)
 
 type kustomizeCasting struct {
-	logger   *slog.Logger
-	castings []*domain.Template
+	logger *slog.Logger
 }
 
 func New(logger *slog.Logger) *kustomizeCasting {
-	return &kustomizeCasting{
-		logger: logger,
-		castings: []*domain.Template{
-			clickhouseOperatorClusterrole,
-			clickhouseOperatorClusterrolebinding,
-			clickhouseOperatorConfigmap,
-			clickhouseOperatorDeployment,
-			clickhouseOperatorService,
-			clickhouseOperatorServiceaccount,
-			clickhouseInstanceInstallation,
-			clickhouseInstanceConfigmap,
-			clickhouseKeeperInstallation,
-			signozService,
-			signozServiceaccount,
-			signozStatefulset,
-			mcpDeployment,
-			mcpService,
-			ingesterConfigmap,
-			ingesterDeployment,
-			ingesterService,
-			ingesterServiceaccount,
-			metastoreService,
-			metastoreServiceaccount,
-			metastoreStatefulset,
-			telemetrystoreMigratorJob,
-			clickhouseOperatorKustomization,
-			clickhouseInstallationKustomization,
-			clickhouseKeeperKustomization,
-			signozKustomization,
-			mcpKustomization,
-			ingesterKustomization,
-			metastoreKustomization,
-			telemetrystoreMigratorKustomization,
-			deploymentNamespace,
-			deploymentKustomization,
-		},
-	}
+	return &kustomizeCasting{logger: logger}
 }
+
+var (
+	deploymentTemplates = []*domain.Template{
+		deploymentNamespace,
+		deploymentKustomization,
+	}
+	clickhouseOperatorTemplates = []*domain.Template{
+		clickhouseOperatorClusterrole,
+		clickhouseOperatorClusterrolebinding,
+		clickhouseOperatorConfigmap,
+		clickhouseOperatorDeployment,
+		clickhouseOperatorService,
+		clickhouseOperatorServiceaccount,
+		clickhouseOperatorKustomization,
+		clickhouseOperatorNamespace,
+	}
+	telemetryStoreTemplates = []*domain.Template{
+		clickhouseInstanceInstallation,
+		clickhouseInstanceConfigmap,
+		clickhouseInstallationKustomization,
+		telemetrystoreMigratorJob,
+		telemetrystoreMigratorKustomization,
+	}
+	telemetryKeeperTemplates = []*domain.Template{
+		clickhouseKeeperInstallation,
+		clickhouseKeeperKustomization,
+	}
+	metaStoreTemplates = []*domain.Template{
+		metastoreService,
+		metastoreServiceaccount,
+		metastoreStatefulset,
+		metastoreKustomization,
+	}
+	signozTemplates = []*domain.Template{
+		signozService,
+		signozServiceaccount,
+		signozStatefulset,
+		signozKustomization,
+	}
+	mcpTemplates = []*domain.Template{
+		mcpDeployment,
+		mcpService,
+		mcpKustomization,
+	}
+	ingesterTemplates = []*domain.Template{
+		ingesterConfigmap,
+		ingesterDeployment,
+		ingesterService,
+		ingesterServiceaccount,
+		ingesterKustomization,
+	}
+)
 
 func (c *kustomizeCasting) Enricher(ctx context.Context, config *installation.Casting) (molding.MoldingEnricher, error) {
 	return newKustomizeMoldingEnricher(config)
 }
 
 func (c *kustomizeCasting) Forge(ctx context.Context, cfg installation.Casting, poursPath string) ([]domain.Material, error) {
+	templates := append([]*domain.Template{}, deploymentTemplates...)
+
+	if needsClickhouseOperator(&cfg) {
+		templates = append(templates, clickhouseOperatorTemplates...)
+	}
+
+	if cfg.Spec.TelemetryStore.Spec.IsEnabled() {
+		templates = append(templates, telemetryStoreTemplates...)
+	}
+
+	if cfg.Spec.TelemetryKeeper.Spec.IsEnabled() {
+		templates = append(templates, telemetryKeeperTemplates...)
+	}
+
+	if cfg.Spec.MetaStore.Spec.IsEnabled() && cfg.Spec.MetaStore.Kind == installation.MetaStoreKindPostgres {
+		templates = append(templates, metaStoreTemplates...)
+	}
+
+	if cfg.Spec.Signoz.Spec.IsEnabled() {
+		templates = append(templates, signozTemplates...)
+	}
+
+	if cfg.Spec.MCP.Spec.IsEnabled() {
+		templates = append(templates, mcpTemplates...)
+	}
+
+	if cfg.Spec.Ingester.Spec.IsEnabled() {
+		templates = append(templates, ingesterTemplates...)
+	}
+
 	var materials []domain.Material
-	for _, tmpl := range c.castings {
-		m, err := c.forgeCasting(tmpl, &cfg, poursPath)
+	for _, tmpl := range templates {
+		m, err := c.forgeCasting(tmpl, &cfg)
 		if err != nil {
 			return nil, errors.Wrapf(err, errors.TypeInternal, "failed to forge")
 		}
@@ -78,6 +123,8 @@ func (c *kustomizeCasting) Forge(ctx context.Context, cfg installation.Casting, 
 	return materials, nil
 }
 
+// Cast applies the operators tier before the root: one pass would post the
+// ClickHouseInstallation before its kind exists.
 func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting, poursPath string, toolers []tooler.Tooler) error {
 	kube, err := kubetooler.Lookup(toolers)
 	if err != nil {
@@ -88,6 +135,15 @@ func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting
 		slog.String("release", config.Metadata.Name),
 		slog.String("namespace", config.Metadata.Name),
 	)
+
+	if needsClickhouseOperator(&config) {
+		operators := c.release(config, poursPath)
+		operators.Dir = filepath.Join(operators.Dir, "operators", "clickhouse-operator")
+
+		if err := kube.Apply(ctx, operators); err != nil {
+			return err
+		}
+	}
 
 	return kube.Apply(ctx, c.release(config, poursPath))
 }
@@ -115,7 +171,13 @@ func (c *kustomizeCasting) release(config installation.Casting, poursPath string
 	}
 }
 
-func (c *kustomizeCasting) forgeCasting(tmpl *domain.Template, cfg *installation.Casting, poursPath string) ([]domain.Material, error) {
+// The Altinity operator serves both the CHI and the CHK.
+func needsClickhouseOperator(cfg *installation.Casting) bool {
+	return cfg.Spec.TelemetryStore.Spec.IsEnabled() ||
+		(cfg.Spec.TelemetryKeeper.Spec.IsEnabled() && cfg.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindClickhouseKeeper)
+}
+
+func (c *kustomizeCasting) forgeCasting(tmpl *domain.Template, cfg *installation.Casting) ([]domain.Material, error) {
 	templatePath := tmpl.Path()
 	relPath := strings.TrimPrefix(templatePath, "templates/")
 	relPath = strings.TrimSuffix(relPath, filepath.Ext(relPath))

@@ -1,4 +1,3 @@
-{{- $clickhouseOperator := "0.25.3" }}
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
@@ -13,29 +12,24 @@ labels:
 
 resources:
 - namespace.yaml
-{{- if $.Spec.TelemetryStore.Spec.Enabled }}
-- https://raw.githubusercontent.com/Altinity/clickhouse-operator/{{ $clickhouseOperator }}/deploy/operatorhub/{{ $clickhouseOperator }}/clickhouseinstallations.clickhouse.altinity.com.crd.yaml
-- https://raw.githubusercontent.com/Altinity/clickhouse-operator/{{ $clickhouseOperator }}/deploy/operatorhub/{{ $clickhouseOperator }}/clickhouseinstallationtemplates.clickhouse.altinity.com.crd.yaml
-- https://raw.githubusercontent.com/Altinity/clickhouse-operator/{{ $clickhouseOperator }}/deploy/operatorhub/{{ $clickhouseOperator }}/clickhouseoperatorconfigurations.clickhouse.altinity.com.crd.yaml
-- https://raw.githubusercontent.com/Altinity/clickhouse-operator/{{ $clickhouseOperator }}/deploy/operatorhub/{{ $clickhouseOperator }}/clickhousekeeperinstallations.clickhouse-keeper.altinity.com.crd.yaml
-- clickhouse-operator
+{{- if derefBool $.Spec.TelemetryStore.Spec.Enabled }}
 - telemetrystore/clickhouse
 {{- end }}
-{{- if $.Spec.TelemetryKeeper.Spec.Enabled }}
+{{- if derefBool $.Spec.TelemetryKeeper.Spec.Enabled }}
 - telemetrykeeper/clickhousekeeper
 {{- end }}
-{{- if $.Spec.TelemetryStore.Spec.Enabled }}
+{{- if derefBool $.Spec.TelemetryStore.Spec.Enabled }}
 - telemetrystore-migrator
 {{- end }}
-{{- if $.Spec.MetaStore.Spec.Enabled }}
+{{- if and (derefBool $.Spec.MetaStore.Spec.Enabled) (eq $.Spec.MetaStore.Kind.String "postgres") }}
 - metastore/postgres
 {{- end }}
-{{- if $.Spec.Signoz.Spec.Enabled }}
+{{- if derefBool $.Spec.Signoz.Spec.Enabled }}
 - signoz
 {{- end }}
 {{- if derefBool $.Spec.MCP.Spec.Enabled }}
 - mcp
 {{- end }}
-{{- if $.Spec.Ingester.Spec.Enabled }}
+{{- if derefBool $.Spec.Ingester.Spec.Enabled }}
 - ingester
 {{- end }}
