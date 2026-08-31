@@ -20,6 +20,8 @@ var (
 	FlavorCompose   Flavor = Flavor{s: "compose"}
 	FlavorSwarm     Flavor = Flavor{s: "swarm"}
 	FlavorBinary    Flavor = Flavor{s: "binary"}
+	FlavorDeb       Flavor = Flavor{s: "deb"}
+	FlavorRPM       Flavor = Flavor{s: "rpm"}
 	FlavorKustomize Flavor = Flavor{s: "kustomize"}
 	FlavorHelm      Flavor = Flavor{s: "helm"}
 	FlavorBlueprint Flavor = Flavor{s: "blueprint"}
@@ -41,6 +43,8 @@ func Flavors() []Flavor {
 		FlavorCompose,
 		FlavorSwarm,
 		FlavorBinary,
+		FlavorDeb,
+		FlavorRPM,
 		FlavorKustomize,
 		FlavorHelm,
 		FlavorBlueprint,

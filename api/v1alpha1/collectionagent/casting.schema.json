@@ -87,6 +87,8 @@
         "compose",
         "swarm",
         "binary",
+        "deb",
+        "rpm",
         "kustomize",
         "helm",
         "blueprint",
