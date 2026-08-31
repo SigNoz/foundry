@@ -69,6 +69,10 @@ func (r Release) Validate() error {
 
 type Tooler struct {
 	tooler.Tool
+
+	// client is the dialed cluster, memoized by dial: every verb of a run
+	// speaks the one connection the casting states.
+	client *client
 }
 
 func New(logger *slog.Logger) *Tooler {
@@ -93,9 +97,8 @@ func (t *Tooler) Gauge(ctx context.Context) error {
 	return err
 }
 
-// Apply lays the definitions the rest depend on first: a custom resource
-// applied alongside its own definition is refused, because the API server does
-// not know the type yet.
+// Apply writes the objects in the order the render produced: which objects
+// depend on which is the casting's knowledge, stated by its pour structure.
 func (t *Tooler) Apply(ctx context.Context, release Release) error {
 	if err := release.Validate(); err != nil {
 		return err
@@ -106,7 +109,7 @@ func (t *Tooler) Apply(ctx context.Context, release Release) error {
 		return err
 	}
 
-	client, err := t.client(release.Connection)
+	client, err := t.connection(release.Connection)
 	if err != nil {
 		return err
 	}
@@ -117,24 +120,11 @@ func (t *Tooler) Apply(ctx context.Context, release Release) error {
 		return err
 	}
 
-	first, rest := partition(objects)
-
-	if err := t.apply(ctx, release, client, first); err != nil {
-		return err
-	}
-
-	// A definition just applied is not in the mapper's cache, and foundry puts
-	// no clock on the API server establishing it: cast is re-entrant.
-	if len(first) != 0 {
-		client.discovery.Invalidate()
-		client.mapper.Reset()
-	}
-
-	return t.apply(ctx, release, client, rest)
+	return t.apply(ctx, release, client, objects)
 }
 
-// Delete removes what this release declares, less the kinds that carry data or
-// are shared with every other release in the cluster.
+// Delete removes what this release declares, less the kinds that carry data:
+// melt never removes data.
 func (t *Tooler) Delete(ctx context.Context, release Release) error {
 	if err := release.Validate(); err != nil {
 		return err
@@ -145,7 +135,7 @@ func (t *Tooler) Delete(ctx context.Context, release Release) error {
 		return err
 	}
 
-	client, err := t.client(release.Connection)
+	client, err := t.connection(release.Connection)
 	if err != nil {
 		return err
 	}
@@ -195,7 +185,7 @@ func (t *Tooler) Owners(ctx context.Context, release Release) (domain.Ownership,
 		return domain.Ownership{}, err
 	}
 
-	client, err := t.client(release.Connection)
+	client, err := t.connection(release.Connection)
 	if err != nil {
 		return domain.Ownership{}, err
 	}
@@ -290,24 +280,9 @@ func render(dir string) ([]*unstructured.Unstructured, error) {
 	return objects, nil
 }
 
-// partition lays the definitions the rest depend on ahead of the rest, keeping
-// each side in the order the render produced.
-func partition(objects []*unstructured.Unstructured) (first, rest []*unstructured.Unstructured) {
-	for _, object := range objects {
-		switch object.GetKind() {
-		case "Namespace", "CustomResourceDefinition":
-			first = append(first, object)
-		default:
-			rest = append(rest, object)
-		}
-	}
-
-	return first, rest
-}
-
-// undeletable reports a kind melt leaves standing: a CustomResourceDefinition
-// is cluster-shared, and a Namespace or a PersistentVolumeClaim takes the data
-// with it.
+// undeletable reports a kind Delete leaves standing whatever the casting
+// declares: a Namespace or a PersistentVolumeClaim takes the data with it,
+// and a CustomResourceDefinition is shared with every release in the cluster.
 func undeletable(kind string) bool {
 	switch kind {
 	case "CustomResourceDefinition", "Namespace", "PersistentVolumeClaim":
@@ -323,7 +298,13 @@ type client struct {
 	mapper    *restmapper.DeferredDiscoveryRESTMapper
 }
 
-func (t *Tooler) client(connection tooler.Connection) (*client, error) {
+// The memo is unguarded; foundry runs single-threaded, and a lock would claim a
+// concurrency contract toolers do not have.
+func (t *Tooler) connection(connection tooler.Connection) (*client, error) {
+	if t.client != nil {
+		return t.client, nil
+	}
+
 	config, err := t.restConfig(connection)
 	if err != nil {
 		return nil, err
@@ -341,11 +322,13 @@ func (t *Tooler) client(connection tooler.Connection) (*client, error) {
 
 	cached := memory.NewMemCacheClient(discoveryClient)
 
-	return &client{
+	t.client = &client{
 		dynamic:   dynamicClient,
 		discovery: cached,
 		mapper:    restmapper.NewDeferredDiscoveryRESTMapper(cached),
-	}, nil
+	}
+
+	return t.client, nil
 }
 
 // An unstated connection is the ambient kubeconfig; a stated one is built from
@@ -390,7 +373,14 @@ func (c *client) resourceFor(object *unstructured.Unstructured, namespace string
 
 	mapping, err := c.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 	if err != nil {
-		return nil, errors.Wrapf(err, errors.TypeNotFound, "failed to find the kubernetes resource for %s", gvk.Kind)
+		// A definition applied moments ago is not in the caches yet; one
+		// refresh tells staleness apart from a kind the cluster does not serve.
+		c.discovery.Invalidate()
+		c.mapper.Reset()
+
+		if mapping, err = c.mapper.RESTMapping(gvk.GroupKind(), gvk.Version); err != nil {
+			return nil, errors.Wrapf(err, errors.TypeNotFound, "failed to find the kubernetes resource for %s", gvk.Kind)
+		}
 	}
 
 	if mapping.Scope.Name() == meta.RESTScopeNameRoot {
