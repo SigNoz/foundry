@@ -5,7 +5,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/signoz/foundry/internal/errors"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -84,7 +84,7 @@ func TestRunFailureCarriesTheTail(t *testing.T) {
 
 			require.Error(t, err)
 
-			exception := errors.ExceptionOf(err)
+			exception := foundryerrors.ExceptionOf(err)
 			assert.Equal(t, "failed to run sh -c echo the tool said no >&2; exit 3: the tool said no\n", exception.Message)
 
 			require.NotNil(t, exception.Cause)
@@ -129,7 +129,7 @@ func TestRunValidatesTheInvocation(t *testing.T) {
 			_, err := Invoke(context.Background(), Settings{}, tt.invocation)
 
 			require.Error(t, err)
-			assert.Contains(t, errors.ExceptionOf(err).Message, "failed to build invocation")
+			assert.Contains(t, foundryerrors.ExceptionOf(err).Message, "failed to build invocation")
 		})
 	}
 }

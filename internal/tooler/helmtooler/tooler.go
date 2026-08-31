@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/signoz/foundry/internal/domain"
-	"github.com/signoz/foundry/internal/errors"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/tooler"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
@@ -58,7 +58,7 @@ func (r Release) Validate() error {
 	}
 
 	if r.Namespace == "" {
-		return errors.Newf(errors.TypeInvalidInput, "failed to validate release: no namespace is stated")
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "failed to validate release: no namespace is stated")
 	}
 
 	return nil
@@ -79,14 +79,14 @@ func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
 		}
 	}
 
-	return nil, errors.Newf(errors.TypeNotFound, "failed to look up the helm tooler: it is not registered for this casting")
+	return nil, foundryerrors.Newf(foundryerrors.TypeNotFound, "failed to look up the helm tooler: it is not registered for this casting")
 }
 
 // Gauge proves a kubeconfig exists and parses, not that a cluster answers:
 // reach is a per-verb question.
 func (t *Tooler) Gauge(ctx context.Context) error {
 	if _, err := cli.New().RESTClientGetter().ToRESTConfig(); err != nil {
-		return errors.Wrapf(err, errors.TypeNotFound, "failed to reach a cluster: no kubeconfig resolved")
+		return foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "failed to reach a cluster: no kubeconfig resolved")
 	}
 
 	return nil
@@ -100,7 +100,7 @@ func (t *Tooler) Upgrade(ctx context.Context, release Release) error {
 	}
 
 	if release.Chart == "" {
-		return errors.Newf(errors.TypeInvalidInput, "failed to run helm upgrade: no chart is stated")
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "failed to run helm upgrade: no chart is stated")
 	}
 
 	env, config, err := t.configure(release)
@@ -110,7 +110,7 @@ func (t *Tooler) Upgrade(ctx context.Context, release Release) error {
 
 	if release.Repo.Name != "" && release.Repo.URL != "" {
 		if err := addRepo(env, release.Repo); err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to run helm upgrade: could not add repo %q", release.Repo.Name)
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to run helm upgrade: could not add repo %q", release.Repo.Name)
 		}
 	}
 
@@ -134,7 +134,7 @@ func (t *Tooler) Uninstall(ctx context.Context, release Release) error {
 	}
 
 	if err := ctx.Err(); err != nil {
-		return errors.Wrapf(err, errors.TypeInternal, "failed to run helm uninstall")
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to run helm uninstall")
 	}
 
 	_, config, err := t.configure(release)
@@ -150,7 +150,7 @@ func (t *Tooler) Uninstall(ctx context.Context, release Release) error {
 	uninstall.Wait = true
 
 	if _, err := uninstall.Run(release.Name); err != nil {
-		return errors.Wrapf(err, errors.TypeInternal, "failed to run helm uninstall")
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to run helm uninstall")
 	}
 
 	return nil
@@ -170,7 +170,7 @@ func (t *Tooler) install(ctx context.Context, env *cli.EnvSettings, config *acti
 	}
 
 	if _, err := install.RunWithContext(ctx, chart, release.Values); err != nil {
-		return errors.Wrapf(err, errors.TypeInternal, "failed to run helm install")
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to run helm install")
 	}
 
 	return nil
@@ -189,7 +189,7 @@ func (t *Tooler) upgrade(ctx context.Context, env *cli.EnvSettings, config *acti
 	}
 
 	if _, err := upgrade.RunWithContext(ctx, release.Name, chart, release.Values); err != nil {
-		return errors.Wrapf(err, errors.TypeInternal, "failed to run helm upgrade")
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to run helm upgrade")
 	}
 
 	return nil
@@ -222,12 +222,12 @@ func (t *Tooler) verify(ctx context.Context, rel *helmrelease.Release, owner dom
 func loadChart(env *cli.EnvSettings, locate func(string, *cli.EnvSettings) (string, error), ref string) (*chart.Chart, error) {
 	path, err := locate(ref, env)
 	if err != nil {
-		return nil, errors.Wrapf(err, errors.TypeNotFound, "failed to locate chart %q", ref)
+		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "failed to locate chart %q", ref)
 	}
 
 	loaded, err := loader.Load(path)
 	if err != nil {
-		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to load chart %q", ref)
+		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to load chart %q", ref)
 	}
 
 	return loaded, nil
@@ -264,7 +264,7 @@ func (t *Tooler) configure(release Release) (*cli.EnvSettings, *action.Configura
 	if err := config.Init(clientGetter(env, release), release.Namespace, os.Getenv("HELM_DRIVER"), func(format string, v ...any) {
 		_, _ = fmt.Fprintf(t.Settings.Sink(), format+"\n", v...)
 	}); err != nil {
-		return nil, nil, errors.Wrapf(err, errors.TypeInternal, "failed to initialize helm: the cluster is not reachable")
+		return nil, nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to initialize helm: the cluster is not reachable")
 	}
 
 	return env, config, nil
@@ -300,7 +300,7 @@ func (c restGetter) ToRESTConfig() (*rest.Config, error) {
 func (c restGetter) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
 	client, err := discovery.NewDiscoveryClientForConfig(c.config)
 	if err != nil {
-		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to build the kubernetes client")
+		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to build the kubernetes client")
 	}
 
 	return memory.NewMemCacheClient(client), nil

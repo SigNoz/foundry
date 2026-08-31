@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 
 	"github.com/signoz/foundry/internal/domain"
-	"github.com/signoz/foundry/internal/errors"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/tooler"
 )
 
@@ -53,15 +53,15 @@ func (r Release) Validate() error {
 	}
 
 	if r.Namespace == "" {
-		return errors.Newf(errors.TypeInvalidInput, "failed to validate release: no namespace is stated")
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "failed to validate release: no namespace is stated")
 	}
 
 	if r.Dir == "" {
-		return errors.Newf(errors.TypeInvalidInput, "failed to validate release: no directory is stated")
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "failed to validate release: no directory is stated")
 	}
 
 	if r.FieldManager == "" {
-		return errors.Newf(errors.TypeInvalidInput, "failed to validate release: no field manager is stated")
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "failed to validate release: no field manager is stated")
 	}
 
 	return nil
@@ -86,7 +86,7 @@ func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
 		}
 	}
 
-	return nil, errors.Newf(errors.TypeNotFound, "failed to look up the kubernetes tooler: it is not registered for this casting")
+	return nil, foundryerrors.Newf(foundryerrors.TypeNotFound, "failed to look up the kubernetes tooler: it is not registered for this casting")
 }
 
 // Gauge proves a kubeconfig exists and parses, not that a cluster answers:
@@ -166,7 +166,7 @@ func (t *Tooler) Delete(ctx context.Context, release Release) error {
 		)
 
 		if err := resource.Delete(ctx, object.GetName(), metav1.DeleteOptions{PropagationPolicy: &policy}); err != nil && !apierrors.IsNotFound(err) {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to delete %s %q", object.GetKind(), object.GetName())
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to delete %s %q", object.GetKind(), object.GetName())
 		}
 	}
 
@@ -211,7 +211,7 @@ func (t *Tooler) apply(ctx context.Context, release Release, client *client, obj
 		options := metav1.ApplyOptions{FieldManager: release.FieldManager, Force: true}
 
 		if _, err := resource.Apply(ctx, object.GetName(), object, options); err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to apply %s %q", object.GetKind(), object.GetName())
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to apply %s %q", object.GetKind(), object.GetName())
 		}
 	}
 
@@ -236,7 +236,7 @@ func (t *Tooler) read(ctx context.Context, release Release, client *client, obje
 				continue
 			}
 
-			return domain.Ownership{}, errors.Wrapf(err, errors.TypeInternal, "failed to read %s %q", object.GetKind(), object.GetName())
+			return domain.Ownership{}, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to read %s %q", object.GetKind(), object.GetName())
 		}
 
 		owners = append(owners, release.Owner.Read(found.GetLabels()))
@@ -248,12 +248,12 @@ func (t *Tooler) read(ctx context.Context, release Release, client *client, obje
 func render(dir string) ([]*unstructured.Unstructured, error) {
 	resources, err := krusty.MakeKustomizer(krusty.MakeDefaultOptions()).Run(filesys.MakeFsOnDisk(), dir)
 	if err != nil {
-		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "failed to render the kustomization at %q", dir)
+		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInvalidInput, "failed to render the kustomization at %q", dir)
 	}
 
 	rendered, err := resources.AsYaml()
 	if err != nil {
-		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to render the kustomization at %q", dir)
+		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to render the kustomization at %q", dir)
 	}
 
 	decoder := utilyaml.NewYAMLToJSONDecoder(strings.NewReader(string(rendered)))
@@ -267,7 +267,7 @@ func render(dir string) ([]*unstructured.Unstructured, error) {
 				break
 			}
 
-			return nil, errors.Wrapf(err, errors.TypeInternal, "failed to read the rendered kustomization at %q", dir)
+			return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to read the rendered kustomization at %q", dir)
 		}
 
 		if len(object.Object) == 0 {
@@ -312,12 +312,12 @@ func (t *Tooler) connection(connection tooler.Connection) (*client, error) {
 
 	dynamicClient, err := dynamic.NewForConfig(config)
 	if err != nil {
-		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to build the kubernetes client")
+		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to build the kubernetes client")
 	}
 
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
-		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to build the kubernetes client")
+		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to build the kubernetes client")
 	}
 
 	cached := memory.NewMemCacheClient(discoveryClient)
@@ -344,7 +344,7 @@ func (t *Tooler) restConfig(connection tooler.Connection) (*rest.Config, error) 
 			&clientcmd.ConfigOverrides{},
 		).ClientConfig()
 		if err != nil {
-			return nil, errors.Wrapf(err, errors.TypeNotFound, "failed to reach a cluster: no kubeconfig resolved")
+			return nil, foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "failed to reach a cluster: no kubeconfig resolved")
 		}
 
 		config = resolved
@@ -379,7 +379,7 @@ func (c *client) resourceFor(object *unstructured.Unstructured, namespace string
 		c.mapper.Reset()
 
 		if mapping, err = c.mapper.RESTMapping(gvk.GroupKind(), gvk.Version); err != nil {
-			return nil, errors.Wrapf(err, errors.TypeNotFound, "failed to find the kubernetes resource for %s", gvk.Kind)
+			return nil, foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "failed to find the kubernetes resource for %s", gvk.Kind)
 		}
 	}
 

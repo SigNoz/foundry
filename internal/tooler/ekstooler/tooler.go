@@ -16,7 +16,7 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 
 	"github.com/signoz/foundry/internal/domain"
-	"github.com/signoz/foundry/internal/errors"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/tooler"
 )
 
@@ -43,7 +43,7 @@ type Release struct {
 
 func (r Release) Validate() error {
 	if r.Name == "" {
-		return errors.Newf(errors.TypeInvalidInput, "failed to validate release: no cluster is stated")
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "failed to validate release: no cluster is stated")
 	}
 
 	return nil
@@ -71,7 +71,7 @@ func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
 		}
 	}
 
-	return nil, errors.Newf(errors.TypeNotFound, "failed to look up the eks tooler: it is not registered for this casting")
+	return nil, foundryerrors.Newf(foundryerrors.TypeNotFound, "failed to look up the eks tooler: it is not registered for this casting")
 }
 
 // Gauge has no binary to find: reach is whether the credential chain
@@ -83,7 +83,7 @@ func (t *Tooler) Gauge(ctx context.Context) error {
 	}
 
 	if _, err := config.Credentials.Retrieve(ctx); err != nil {
-		return errors.Wrapf(err, errors.TypeNotFound, "failed to find aws credentials: configure them from https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html")
+		return foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "failed to find aws credentials: configure them from https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html")
 	}
 
 	return nil
@@ -108,27 +108,27 @@ func (t *Tooler) DescribeCluster(ctx context.Context, release Release) (Cluster,
 
 	described, err := eks.NewFromConfig(config).DescribeCluster(ctx, &eks.DescribeClusterInput{Name: &release.Name})
 	if err != nil {
-		return Cluster{}, errors.Wrapf(err, errors.TypeNotFound, "failed to describe the eks cluster %q in region %q", release.Name, config.Region)
+		return Cluster{}, foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "failed to describe the eks cluster %q in region %q", release.Name, config.Region)
 	}
 
 	cluster := described.Cluster
 
 	if cluster.Status != ekstypes.ClusterStatusActive {
-		return Cluster{}, errors.Newf(errors.TypeInvalidInput, "failed to describe the eks cluster %q: it is %s, not ACTIVE", release.Name, cluster.Status)
+		return Cluster{}, foundryerrors.Newf(foundryerrors.TypeInvalidInput, "failed to describe the eks cluster %q: it is %s, not ACTIVE", release.Name, cluster.Status)
 	}
 
 	if cluster.Endpoint == nil || cluster.CertificateAuthority == nil || cluster.CertificateAuthority.Data == nil {
-		return Cluster{}, errors.Newf(errors.TypeInternal, "failed to describe the eks cluster %q: it reports no endpoint or certificate authority", release.Name)
+		return Cluster{}, foundryerrors.Newf(foundryerrors.TypeInternal, "failed to describe the eks cluster %q: it reports no endpoint or certificate authority", release.Name)
 	}
 
 	authority, err := base64.StdEncoding.DecodeString(*cluster.CertificateAuthority.Data)
 	if err != nil {
-		return Cluster{}, errors.Wrapf(err, errors.TypeInternal, "failed to read the certificate authority of the eks cluster %q", release.Name)
+		return Cluster{}, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to read the certificate authority of the eks cluster %q", release.Name)
 	}
 
 	endpoint, err := domain.ParseAddress(*cluster.Endpoint)
 	if err != nil {
-		return Cluster{}, errors.Wrapf(err, errors.TypeInternal, "failed to read the endpoint of the eks cluster %q", release.Name)
+		return Cluster{}, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to read the endpoint of the eks cluster %q", release.Name)
 	}
 
 	return Cluster{Endpoint: endpoint, CA: authority}, nil
@@ -155,7 +155,7 @@ func (t *Tooler) GetToken(ctx context.Context, release Release) (string, time.Ti
 
 	presigned, err := presigner.PresignGetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
-		return "", time.Time{}, errors.Wrapf(err, errors.TypeInternal, "failed to mint a token for the eks cluster %q", release.Name)
+		return "", time.Time{}, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to mint a token for the eks cluster %q", release.Name)
 	}
 
 	return tokenPrefix + base64.RawURLEncoding.EncodeToString([]byte(presigned.URL)), time.Now().Add(tokenLifetime), nil
@@ -172,7 +172,7 @@ func (t *Tooler) load(ctx context.Context, region string) (aws.Config, error) {
 
 	config, err := awsconfig.LoadDefaultConfig(ctx, loaded...)
 	if err != nil {
-		return aws.Config{}, errors.Wrapf(err, errors.TypeNotFound, "failed to find aws credentials: configure them from https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html")
+		return aws.Config{}, foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "failed to find aws credentials: configure them from https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html")
 	}
 
 	return config, nil

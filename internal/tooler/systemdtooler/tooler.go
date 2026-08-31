@@ -8,7 +8,7 @@ import (
 	"slices"
 
 	"github.com/signoz/foundry/internal/domain"
-	"github.com/signoz/foundry/internal/errors"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/tooler"
 )
 
@@ -27,7 +27,7 @@ func (r Release) Validate() error {
 	}
 
 	if len(r.Units) == 0 {
-		return errors.Newf(errors.TypeInvalidInput, "failed to validate release: no units are stated")
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "failed to validate release: no units are stated")
 	}
 
 	return nil
@@ -51,7 +51,7 @@ func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
 		}
 	}
 
-	return nil, errors.Newf(errors.TypeNotFound, "failed to look up the systemd tooler: it is not registered for this casting")
+	return nil, foundryerrors.Newf(foundryerrors.TypeNotFound, "failed to look up the systemd tooler: it is not registered for this casting")
 }
 
 func (t *Tooler) Gauge(ctx context.Context) error {
@@ -127,14 +127,14 @@ func (t *Tooler) command(ctx context.Context) ([]string, error) {
 
 	path, err := tooler.Resolve("systemctl")
 	if err != nil {
-		return nil, errors.Wrapf(err, errors.TypeNotFound, "failed to find systemctl: this host is not running systemd")
+		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "failed to find systemctl: this host is not running systemd")
 	}
 
 	if _, err := tooler.Invoke(ctx, t.Settings, tooler.Invocation{
 		Argv: []string{path, "--version"},
 		Mode: tooler.Capture,
 	}); err != nil {
-		return nil, errors.Wrapf(err, errors.TypeNotFound, "failed to find systemctl: this host is not running systemd")
+		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "failed to find systemctl: this host is not running systemd")
 	}
 
 	t.words = []string{path}

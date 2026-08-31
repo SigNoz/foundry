@@ -93,11 +93,11 @@ func (p *Planner) Forge(ctx context.Context, target string) ([]domain.Material, 
 }
 
 func (p *Planner) Cast(ctx context.Context, poursPath string) error {
-	return p.casting.Cast(ctx, *p.config, poursPath, pourer.New(strings.ToLower(p.config.Kind().String())))
+	return p.casting.Cast(ctx, *p.config, poursPath, pourer.New(strings.ToLower(p.config.Kind().String())), p.toolers)
 }
 
 func (p *Planner) Melt(ctx context.Context, poursPath string) error {
-	return foundryerrors.Newf(foundryerrors.TypeUnsupported, "melt is not implemented for the infrastructure kind yet")
+	return p.casting.Melt(ctx, *p.config, poursPath, pourer.New(strings.ToLower(p.config.Kind().String())), p.toolers)
 }
 
 func (p *Planner) Toolers() []tooler.Tooler {

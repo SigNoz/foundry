@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/signoz/foundry/internal/domain"
-	"github.com/signoz/foundry/internal/errors"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/tooler"
 )
 
@@ -29,7 +29,7 @@ func (r Release) Validate() error {
 	}
 
 	if r.File == "" {
-		return errors.Newf(errors.TypeInvalidInput, "failed to validate release: no compose file is stated")
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "failed to validate release: no compose file is stated")
 	}
 
 	return nil
@@ -53,7 +53,7 @@ func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
 		}
 	}
 
-	return nil, errors.Newf(errors.TypeNotFound, "failed to look up the swarm tooler: it is not registered for this casting")
+	return nil, foundryerrors.Newf(foundryerrors.TypeNotFound, "failed to look up the swarm tooler: it is not registered for this casting")
 }
 
 func (t *Tooler) Gauge(ctx context.Context) error {
@@ -112,7 +112,7 @@ func (t *Tooler) run(ctx context.Context, release Release, verb string, args ...
 func (t *Tooler) read(ctx context.Context, release Release) (domain.Ownership, error) {
 	docker, err := tooler.Resolve("docker")
 	if err != nil {
-		return domain.Ownership{}, errors.Newf(errors.TypeNotFound, "failed to run docker ps: docker is not available")
+		return domain.Ownership{}, foundryerrors.Newf(foundryerrors.TypeNotFound, "failed to run docker ps: docker is not available")
 	}
 
 	keys := slices.Sorted(maps.Keys(release.Owner))
@@ -146,14 +146,14 @@ func (t *Tooler) command(ctx context.Context) ([]string, error) {
 
 	path, err := tooler.Resolve("docker")
 	if err != nil {
-		return nil, errors.Wrapf(err, errors.TypeNotFound, "failed to find docker: install it from https://docs.docker.com/engine/install/")
+		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "failed to find docker: install it from https://docs.docker.com/engine/install/")
 	}
 
 	if _, err := tooler.Invoke(ctx, t.Settings, tooler.Invocation{
 		Argv: []string{path, "--version"},
 		Mode: tooler.Capture,
 	}); err != nil {
-		return nil, errors.Wrapf(err, errors.TypeNotFound, "failed to find docker: install it from https://docs.docker.com/engine/install/")
+		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "failed to find docker: install it from https://docs.docker.com/engine/install/")
 	}
 
 	t.words = []string{path, "stack"}
