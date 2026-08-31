@@ -149,6 +149,17 @@ func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting
 		}
 	}
 
+	// A Job's pod template is immutable: the finished migrator run is replaced,
+	// not patched, or a re-cast with a changed image would be rejected.
+	if config.Spec.TelemetryStore.Spec.IsEnabled() {
+		migrator := c.release(config, poursPath)
+		migrator.Dir = filepath.Join(migrator.Dir, "telemetrystore-migrator")
+
+		if err := kube.Delete(ctx, migrator); err != nil {
+			return err
+		}
+	}
+
 	return kube.Apply(ctx, c.release(config, poursPath))
 }
 
