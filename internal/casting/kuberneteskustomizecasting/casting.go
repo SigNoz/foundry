@@ -30,6 +30,13 @@ var (
 		deploymentNamespace,
 		deploymentKustomization,
 	}
+	clickhouseCRDTemplates = []*domain.Template{
+		clickhouseOperatorCHICRD,
+		clickhouseOperatorCHITCRD,
+		clickhouseOperatorConfigCRD,
+		clickhouseOperatorCHKCRD,
+		clickhouseCRDKustomization,
+	}
 	clickhouseOperatorTemplates = []*domain.Template{
 		clickhouseOperatorClusterrole,
 		clickhouseOperatorClusterrolebinding,
@@ -39,10 +46,6 @@ var (
 		clickhouseOperatorServiceaccount,
 		clickhouseOperatorKustomization,
 		clickhouseOperatorNamespace,
-		clickhouseOperatorCHICRD,
-		clickhouseOperatorCHITCRD,
-		clickhouseOperatorConfigCRD,
-		clickhouseOperatorCHKCRD,
 	}
 	telemetryStoreTemplates = []*domain.Template{
 		clickhouseInstanceInstallation,
@@ -89,6 +92,7 @@ func (c *kustomizeCasting) Forge(ctx context.Context, cfg installation.Casting, 
 	templates := append([]*domain.Template{}, deploymentTemplates...)
 
 	if needsClickhouseOperator(&cfg) {
+		templates = append(templates, clickhouseCRDTemplates...)
 		templates = append(templates, clickhouseOperatorTemplates...)
 	}
 
@@ -141,10 +145,11 @@ func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting
 	)
 
 	if needsClickhouseOperator(&config) {
-		operators := c.release(config, poursPath)
-		operators.Dir = filepath.Join(operators.Dir, "operators", "clickhouse-operator")
+		if err := kube.Apply(ctx, c.release(config, poursPath, clickhouseCRDKustomization)); err != nil {
+			return err
+		}
 
-		if err := kube.Apply(ctx, operators); err != nil {
+		if err := kube.Apply(ctx, c.release(config, poursPath, clickhouseOperatorKustomization)); err != nil {
 			return err
 		}
 	}
@@ -152,15 +157,12 @@ func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting
 	// A Job's pod template is immutable: the finished migrator run is replaced,
 	// not patched, or a re-cast with a changed image would be rejected.
 	if config.Spec.TelemetryStore.Spec.IsEnabled() {
-		migrator := c.release(config, poursPath)
-		migrator.Dir = filepath.Join(migrator.Dir, "telemetrystore-migrator")
-
-		if err := kube.Delete(ctx, migrator); err != nil {
+		if err := kube.Delete(ctx, c.release(config, poursPath, telemetrystoreMigratorKustomization)); err != nil {
 			return err
 		}
 	}
 
-	return kube.Apply(ctx, c.release(config, poursPath))
+	return kube.Apply(ctx, c.release(config, poursPath, deploymentKustomization))
 }
 
 // Melt leaves the namespace and the definitions standing: the tooler keeps
@@ -171,14 +173,18 @@ func (c *kustomizeCasting) Melt(ctx context.Context, config installation.Casting
 		return err
 	}
 
-	return kube.Delete(ctx, c.release(config, poursPath))
+	return kube.Delete(ctx, c.release(config, poursPath, deploymentKustomization))
 }
 
-func (c *kustomizeCasting) release(config installation.Casting, poursPath string) kubetooler.Release {
+// release addresses the tier the kustomization template poured: the template's
+// own path names the directory.
+func (c *kustomizeCasting) release(config installation.Casting, poursPath string, kustomization *domain.Template) kubetooler.Release {
+	tier := filepath.Dir(strings.TrimPrefix(kustomization.Path(), "templates/"))
+
 	return kubetooler.Release{
 		Release:   domain.Release{Name: config.Metadata.Name, Owner: config.Labels()},
 		Namespace: config.Metadata.Name,
-		Dir:       filepath.Join(poursPath, rootcasting.DeploymentDir),
+		Dir:       filepath.Join(poursPath, rootcasting.DeploymentDir, tier),
 
 		// The Kind, not the release, so an Installation's apply never contends
 		// with a CollectionAgent's over an object they share.
