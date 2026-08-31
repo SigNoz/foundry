@@ -11,7 +11,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/discovery"
 
 	"github.com/signoz/foundry/internal/domain"
@@ -136,68 +135,15 @@ func TestValidate(t *testing.T) {
 	}
 }
 
-func object(apiVersion, kind, name string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{Object: map[string]any{
-		"apiVersion": apiVersion,
-		"kind":       kind,
-		"metadata":   map[string]any{"name": name},
-	}}
-}
-
-func TestPartition(t *testing.T) {
-	tests := []struct {
-		name          string
-		objects       []*unstructured.Unstructured
-		expectedFirst []string
-		expectedRest  []string
-	}{
-		{name: "Empty_None"},
-		{
-			name: "Mixed_DefinitionsFirst",
-			objects: []*unstructured.Unstructured{
-				object("v1", "ConfigMap", "one"),
-				object("apiextensions.k8s.io/v1", "CustomResourceDefinition", "crd"),
-				object("v1", "Namespace", "ns"),
-				object("apps/v1", "Deployment", "two"),
-			},
-			expectedFirst: []string{"crd", "ns"},
-			expectedRest:  []string{"one", "two"},
-		},
-		{
-			name:         "NoDefinitions_AllRest",
-			objects:      []*unstructured.Unstructured{object("v1", "ConfigMap", "one")},
-			expectedRest: []string{"one"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			first, rest := partition(tt.objects)
-
-			assert.Equal(t, tt.expectedFirst, names(first))
-			assert.Equal(t, tt.expectedRest, names(rest))
-		})
-	}
-}
-
-func names(objects []*unstructured.Unstructured) []string {
-	var found []string
-	for _, object := range objects {
-		found = append(found, object.GetName())
-	}
-
-	return found
-}
-
 func TestUndeletable(t *testing.T) {
 	tests := []struct {
 		name             string
 		kind             string
 		expectedStanding bool
 	}{
-		{name: "CustomResourceDefinition_Standing", kind: "CustomResourceDefinition", expectedStanding: true},
 		{name: "Namespace_Standing", kind: "Namespace", expectedStanding: true},
 		{name: "PersistentVolumeClaim_Standing", kind: "PersistentVolumeClaim", expectedStanding: true},
+		{name: "CustomResourceDefinition_Standing", kind: "CustomResourceDefinition", expectedStanding: true},
 		{name: "ConfigMap_Removed", kind: "ConfigMap"},
 		{name: "Empty_Removed", kind: ""},
 	}
