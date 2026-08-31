@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -14,6 +12,8 @@ import (
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	collectionagentmolding "github.com/signoz/foundry/internal/molding/collectionagent"
 	"github.com/signoz/foundry/internal/pourer"
+	"github.com/signoz/foundry/internal/tooler"
+	"github.com/signoz/foundry/internal/tooler/kubetooler"
 )
 
 type kubernetesKustomizeCasting struct {
@@ -76,22 +76,36 @@ func (c *kubernetesKustomizeCasting) Forge(ctx context.Context, config collectio
 	return nil
 }
 
-func (c *kubernetesKustomizeCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
-	kustomizeDir := filepath.Join(outputPath, p.Dir(), filepath.Dir(config.Spec.Collector.Kind.ConfigKey()))
-
-	if _, err := os.Stat(filepath.Join(kustomizeDir, "kustomization.yaml")); os.IsNotExist(err) {
-		return foundryerrors.Newf(foundryerrors.TypeNotFound, "kustomization.yaml does not exist at path: %s, run 'forge' first", kustomizeDir)
+func (c *kubernetesKustomizeCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer, toolers []tooler.Tooler) error {
+	kube, err := kubetooler.Lookup(toolers)
+	if err != nil {
+		return err
 	}
 
-	c.logger.InfoContext(ctx, "Applying kustomize manifests", slog.String("path", kustomizeDir))
+	c.logger.InfoContext(ctx, "applying kustomize manifests",
+		slog.String("release", config.Metadata.Name),
+		slog.String("namespace", config.Metadata.Name),
+	)
 
-	cmd := exec.CommandContext(ctx, "kubectl", "apply", "-k", kustomizeDir)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	return kube.Apply(ctx, c.release(config, outputPath, p))
+}
 
-	if err := cmd.Run(); err != nil {
-		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "kubectl apply -k failed")
+func (c *kubernetesKustomizeCasting) Melt(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer, toolers []tooler.Tooler) error {
+	kube, err := kubetooler.Lookup(toolers)
+	if err != nil {
+		return err
 	}
 
-	return nil
+	return kube.Delete(ctx, c.release(config, outputPath, p))
+}
+
+// release addresses the collector kind's own kustomize root: the kind's config
+// key names the directory.
+func (c *kubernetesKustomizeCasting) release(config collectionagent.Casting, outputPath string, p *pourer.Pourer) kubetooler.Release {
+	return kubetooler.Release{
+		Release:   domain.Release{Name: config.Metadata.Name, Owner: config.Labels()},
+		Namespace: config.Metadata.Name,
+		Dir:       filepath.Join(outputPath, p.Dir(), filepath.Dir(config.Spec.Collector.Kind.ConfigKey())),
+		FieldManager: "foundry-" + strings.ToLower(config.Kind().String()),
+	}
 }
