@@ -7,7 +7,7 @@ import (
 	"slices"
 
 	"github.com/signoz/foundry/internal/domain"
-	"github.com/signoz/foundry/internal/errors"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/tooler"
 )
 
@@ -25,7 +25,7 @@ func (r Release) Validate() error {
 	}
 
 	if r.Root == "" {
-		return errors.Newf(errors.TypeInvalidInput, "failed to validate release: no root is stated")
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "failed to validate release: no root is stated")
 	}
 
 	return nil
@@ -49,7 +49,7 @@ func Lookup(toolers []tooler.Tooler) (*Tooler, error) {
 		}
 	}
 
-	return nil, errors.Newf(errors.TypeNotFound, "failed to look up the terraform tooler: it is not registered for this casting")
+	return nil, foundryerrors.Newf(foundryerrors.TypeNotFound, "failed to look up the terraform tooler: it is not registered for this casting")
 }
 
 func (t *Tooler) Gauge(ctx context.Context) error {
@@ -62,7 +62,7 @@ func (t *Tooler) Gauge(ctx context.Context) error {
 func (t *Tooler) Apply(ctx context.Context, release Release) error {
 	// terraform prompts before changing infra; foundry re-homes that to --yes.
 	if !tooler.Approved(ctx) {
-		return errors.Newf(errors.TypeInvalidInput, "failed to run terraform apply: no approval is stated; re-run with --yes")
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "failed to run terraform apply: no approval is stated; re-run with --yes")
 	}
 
 	if err := t.run(ctx, release, "init"); err != nil {
@@ -74,7 +74,7 @@ func (t *Tooler) Apply(ctx context.Context, release Release) error {
 
 func (t *Tooler) Destroy(ctx context.Context, release Release) error {
 	if !tooler.Approved(ctx) {
-		return errors.Newf(errors.TypeInvalidInput, "failed to run terraform destroy: no approval is stated; re-run with --yes")
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "failed to run terraform destroy: no approval is stated; re-run with --yes")
 	}
 
 	if err := t.run(ctx, release, "init"); err != nil {
@@ -116,14 +116,14 @@ func (t *Tooler) command(ctx context.Context) ([]string, error) {
 
 	path, err := tooler.Resolve("terraform")
 	if err != nil {
-		return nil, errors.Wrapf(err, errors.TypeNotFound, "failed to find terraform: install it from https://developer.hashicorp.com/terraform/install")
+		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "failed to find terraform: install it from https://developer.hashicorp.com/terraform/install")
 	}
 
 	if _, err := tooler.Invoke(ctx, t.Settings, tooler.Invocation{
 		Argv: []string{path, "version"},
 		Mode: tooler.Capture,
 	}); err != nil {
-		return nil, errors.Wrapf(err, errors.TypeNotFound, "failed to find terraform: install it from https://developer.hashicorp.com/terraform/install")
+		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "failed to find terraform: install it from https://developer.hashicorp.com/terraform/install")
 	}
 
 	t.words = []string{path}

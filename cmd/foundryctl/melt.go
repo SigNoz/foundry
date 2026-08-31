@@ -7,7 +7,7 @@ import (
 	"slices"
 
 	"github.com/signoz/foundry/internal/domain"
-	"github.com/signoz/foundry/internal/errors"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/foundry"
 	"github.com/signoz/foundry/internal/tooler"
 	"github.com/spf13/cobra"
@@ -41,7 +41,7 @@ func runMelt(ctx context.Context, logger *slog.Logger, poursPath string, configP
 
 	poursPath, err = filepath.Abs(poursPath)
 	if err != nil {
-		return errors.Wrapf(err, errors.TypeInternal, "failed to resolve pours path")
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to resolve pours path")
 	}
 
 	machineries, err := foundry.Config.GetV1Alpha1Lock(ctx, configPath)

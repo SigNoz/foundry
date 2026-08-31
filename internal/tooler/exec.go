@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/signoz/foundry/internal/errors"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 )
 
 // waitForOutput bounds the post-exit wait for stream pipes an orphaned
@@ -28,11 +28,11 @@ type Invocation struct {
 // user input.
 func (inv Invocation) Validate() error {
 	if len(inv.Argv) == 0 {
-		return errors.Newf(errors.TypeInternal, "failed to build invocation: no command is stated")
+		return foundryerrors.Newf(foundryerrors.TypeInternal, "failed to build invocation: no command is stated")
 	}
 
 	if inv.Mode.wire == nil {
-		return errors.Newf(errors.TypeInternal, "failed to build invocation for %s: no output mode is stated", inv.Command())
+		return foundryerrors.Newf(foundryerrors.TypeInternal, "failed to build invocation for %s: no output mode is stated", inv.Command())
 	}
 
 	return nil
@@ -49,26 +49,26 @@ func (inv Invocation) Command() string {
 }
 
 type Mode struct {
-	wire func(cmd *exec.Cmd, sink io.Writer, tail *errors.Tail) *bytes.Buffer
+	wire func(cmd *exec.Cmd, sink io.Writer, tail *foundryerrors.Tail) *bytes.Buffer
 }
 
 var (
 	// The shared writer makes os/exec serialize the two streams into one.
-	Stream = Mode{wire: func(cmd *exec.Cmd, sink io.Writer, tail *errors.Tail) *bytes.Buffer {
+	Stream = Mode{wire: func(cmd *exec.Cmd, sink io.Writer, tail *foundryerrors.Tail) *bytes.Buffer {
 		out := io.MultiWriter(sink, tail)
 		cmd.Stdout, cmd.Stderr = out, out
 
 		return nil
 	}}
 
-	Capture = Mode{wire: func(cmd *exec.Cmd, sink io.Writer, tail *errors.Tail) *bytes.Buffer {
+	Capture = Mode{wire: func(cmd *exec.Cmd, sink io.Writer, tail *foundryerrors.Tail) *bytes.Buffer {
 		buf := &bytes.Buffer{}
 		cmd.Stdout, cmd.Stderr = buf, tail
 
 		return buf
 	}}
 
-	Quiet = Mode{wire: func(cmd *exec.Cmd, sink io.Writer, tail *errors.Tail) *bytes.Buffer {
+	Quiet = Mode{wire: func(cmd *exec.Cmd, sink io.Writer, tail *foundryerrors.Tail) *bytes.Buffer {
 		cmd.Stdout, cmd.Stderr = tail, tail
 
 		return nil
@@ -90,15 +90,15 @@ func Invoke(ctx context.Context, settings Settings, inv Invocation) (Result, err
 
 	cmd.WaitDelay = waitForOutput
 
-	tail := &errors.Tail{}
+	tail := &foundryerrors.Tail{}
 	captured := inv.Mode.wire(cmd, settings.Sink(), tail)
 
 	if err := cmd.Run(); err != nil {
 		if words := tail.String(); words != "" {
-			return Result{}, errors.Wrapf(err, errors.TypeInternal, "failed to run %s: %s", inv.Command(), words)
+			return Result{}, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to run %s: %s", inv.Command(), words)
 		}
 
-		return Result{}, errors.Wrapf(err, errors.TypeInternal, "failed to run %s", inv.Command())
+		return Result{}, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to run %s", inv.Command())
 	}
 
 	if captured == nil {
