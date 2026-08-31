@@ -1,0 +1,20 @@
+[Unit]
+Description=SigNoz OpenTelemetry Collector (CollectionAgent)
+Documentation=https://signoz.io/docs
+
+[Service]
+User=otelcol-contrib
+Group=otelcol-contrib
+Type=simple
+Restart=on-failure
+RestartSec=5
+ExecStart={{ index .Metadata.Annotations "foundry.signoz.io/collector-binary-path" }} --config=/etc/otelcol-contrib/config.yaml
+{{- range $key, $value := .Spec.Collector.Spec.Env }}
+Environment={{ $key }}={{ $value }}
+{{- end }}
+
+[Install]
+WantedBy=multi-user.target
+
+[X-Foundry]
+Owner={{ .Labels | ownerString }}

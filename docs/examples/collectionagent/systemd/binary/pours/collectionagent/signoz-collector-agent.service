@@ -1,0 +1,19 @@
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+Environment=OTEL_COLLECTOR_ROLE=agent
+Environment=SIGNOZ_INGESTION_ENDPOINT=http://<signoz-host>:4318
+ExecStart=/usr/local/bin/otelcol-contrib --config=/etc/otelcol-contrib/config.yaml
+Group=otelcol-contrib
+Restart=on-failure
+RestartSec=5
+Type=simple
+User=otelcol-contrib
+
+[Unit]
+Description=SigNoz OpenTelemetry Collector (CollectionAgent)
+Documentation=https://signoz.io/docs
+
+[X-Foundry]
+Owner=foundry.signoz.io/kind=CollectionAgent,foundry.signoz.io/managed-by=foundry,foundry.signoz.io/name=signoz

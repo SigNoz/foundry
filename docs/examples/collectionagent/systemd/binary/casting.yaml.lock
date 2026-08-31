@@ -1,0 +1,197 @@
+apiVersion: v1alpha1
+kind: CollectionAgent
+metadata:
+  annotations:
+    foundry.signoz.io/collector-binary-path: /usr/local/bin/otelcol-contrib
+  name: signoz
+spec:
+  collector:
+    kind: agent
+    spec:
+      cluster:
+        replicas: 1
+      config:
+        data:
+          collector/agent/agent.yaml: |
+            exporters:
+              otlphttp/signoz:
+                endpoint: ${env:SIGNOZ_INGESTION_ENDPOINT}
+            extensions:
+              health_check:
+                endpoint: 0.0.0.0:13133
+                path: /healthz
+            processors:
+              batch:
+                send_batch_max_size: 2048
+                send_batch_size: 1000
+                timeout: 10s
+              memory_limiter:
+                check_interval: 5s
+                limit_mib: 4000
+                spike_limit_mib: 800
+              resourcedetection:
+                detectors:
+                - env
+                - system
+                timeout: 5s
+            receivers:
+              hostmetrics:
+                collection_interval: 60s
+                scrapers:
+                  cpu: {}
+                  disk: {}
+                  filesystem: {}
+                  load: {}
+                  memory: {}
+                  network: {}
+                  nfs: {}
+                  paging: {}
+                  process:
+                    mute_process_exe_error: true
+                    mute_process_io_error: true
+                    mute_process_name_error: true
+                  processes: {}
+                  system: {}
+              otlp/grpc:
+                protocols:
+                  grpc:
+                    endpoint: 0.0.0.0:4317
+                    max_recv_msg_size_mib: 16
+              otlp/http:
+                protocols:
+                  http:
+                    endpoint: 0.0.0.0:4318
+            service:
+              extensions:
+              - health_check
+              pipelines:
+                logs:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+                metrics:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+                  - hostmetrics
+                traces:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+      enabled: true
+      env:
+        OTEL_COLLECTOR_ROLE: agent
+        SIGNOZ_INGESTION_ENDPOINT: http://<signoz-host>:4318
+      image: otel/opentelemetry-collector-contrib:0.139.0
+      version: 0.139.0
+    status:
+      config:
+        data:
+          collector/agent/agent.yaml: |
+            exporters:
+              otlphttp/signoz:
+                endpoint: ${env:SIGNOZ_INGESTION_ENDPOINT}
+            extensions:
+              health_check:
+                endpoint: 0.0.0.0:13133
+                path: /healthz
+            processors:
+              batch:
+                send_batch_max_size: 2048
+                send_batch_size: 1000
+                timeout: 10s
+              memory_limiter:
+                check_interval: 5s
+                limit_mib: 4000
+                spike_limit_mib: 800
+              resourcedetection:
+                detectors:
+                - env
+                - system
+                timeout: 5s
+            receivers:
+              hostmetrics:
+                collection_interval: 60s
+                scrapers:
+                  cpu: {}
+                  disk: {}
+                  filesystem: {}
+                  load: {}
+                  memory: {}
+                  network: {}
+                  nfs: {}
+                  paging: {}
+                  process:
+                    mute_process_exe_error: true
+                    mute_process_io_error: true
+                    mute_process_name_error: true
+                  processes: {}
+                  system: {}
+              otlp/grpc:
+                protocols:
+                  grpc:
+                    endpoint: 0.0.0.0:4317
+                    max_recv_msg_size_mib: 16
+              otlp/http:
+                protocols:
+                  http:
+                    endpoint: 0.0.0.0:4318
+            service:
+              extensions:
+              - health_check
+              pipelines:
+                logs:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+                metrics:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+                  - hostmetrics
+                traces:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+      env:
+        OTEL_COLLECTOR_ROLE: agent
+        SIGNOZ_INGESTION_ENDPOINT: http://<signoz-host>:4318
+  deployment:
+    flavor: binary
+    mode: systemd

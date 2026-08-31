@@ -6,10 +6,14 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockercomposecasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockerswarmcasting"
+	"github.com/signoz/foundry/internal/casting/collectionagent/systemdbinarycasting"
+	"github.com/signoz/foundry/internal/casting/collectionagent/systemddebcasting"
+	"github.com/signoz/foundry/internal/casting/collectionagent/systemdrpmcasting"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/tooler"
 	"github.com/signoz/foundry/internal/tooler/dockercomposetooler"
 	"github.com/signoz/foundry/internal/tooler/dockerswarmtooler"
+	"github.com/signoz/foundry/internal/tooler/systemdtooler"
 )
 
 type CastingItem struct {
@@ -38,6 +42,27 @@ func NewRegistry(logger *slog.Logger) *Registry {
 			}: {
 				Casting: dockerswarmcasting.New(logger),
 				Toolers: []tooler.Tooler{dockerswarmtooler.New(logger)},
+			},
+			{
+				Mode:   v1alpha1.ModeSystemd,
+				Flavor: v1alpha1.FlavorBinary,
+			}: {
+				Casting: systemdbinarycasting.New(logger),
+				Toolers: []tooler.Tooler{systemdtooler.New(logger)},
+			},
+			{
+				Mode:   v1alpha1.ModeSystemd,
+				Flavor: v1alpha1.FlavorDeb,
+			}: {
+				Casting: systemddebcasting.New(logger),
+				Toolers: []tooler.Tooler{systemdtooler.New(logger)},
+			},
+			{
+				Mode:   v1alpha1.ModeSystemd,
+				Flavor: v1alpha1.FlavorRPM,
+			}: {
+				Casting: systemdrpmcasting.New(logger),
+				Toolers: []tooler.Tooler{systemdtooler.New(logger)},
 			},
 		},
 	}
