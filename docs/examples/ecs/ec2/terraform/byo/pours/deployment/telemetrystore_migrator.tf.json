@@ -19,7 +19,7 @@
         "family": "signoz-telemetrystore-migrator",
         "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"},
         "network_mode": "awsvpc",
-        "requires_compatibilities": ["EC2"],
+        "requires_compatibilities": ["FARGATE"],
         "cpu": 256,
         "memory": 512,
         "task_role_arn": "${local.task_role_arn}",
@@ -34,13 +34,17 @@
         "cluster": "${local.cluster_arn}",
         "task_definition": "${aws_ecs_task_definition.telemetrystore_migrator.arn}",
         "desired_count": 1,
-        "launch_type": "EC2",
+        "launch_type": "FARGATE",
         "network_configuration": {
           "subnets": "${local.subnet_ids}",
           "security_groups": "${local.security_group_ids}",
           "assign_public_ip": false
         },
-        "depends_on": ["aws_ecs_task_definition.telemetrystore_migrator"]
+        "depends_on": [
+          "aws_ecs_task_definition.telemetrystore_migrator",
+          "aws_iam_role_policy_attachment.exec",
+          "aws_iam_role_policy.task_appconfig_read"
+        ]
       }
     }
   }
