@@ -6,7 +6,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
-	"github.com/signoz/foundry/internal/errors"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 )
 
@@ -21,56 +21,67 @@ const (
 	metaStorePort             = 5432
 	signozAPIServerPort       = 8080
 	signozOpampPort           = 4320
+	ingesterOTLPGRPCPort      = 4317
+	ingesterOTLPHTTPPort      = 4318
 	mcpHTTPPort               = 8000
 )
 
 const (
-	// sdNamesPath selects every Cloud Map service name a module renders, in the
-	// order the template emits them. The enricher reads names back rather than
-	// recomputing them, so the template stays the single source of node names
-	// and ordering (no drift).
+	// Names are read back from the rendered template rather than recomputed, so
+	// the template stays the single source of node names and their order.
 	sdNamesPath   = "resource.aws_service_discovery_service.@values.#.name"
 	namespacePath = "resource.aws_service_discovery_private_dns_namespace.main.name"
 )
 
 type ecsMoldingEnricher struct {
-	materials []domain.StructuredMaterial
+	namespace string
+	materials map[v1alpha1.MoldingKind]domain.StructuredMaterial
 }
 
 func newEcsMoldingEnricher(data templateData) (*ecsMoldingEnricher, error) {
-	materials, err := getMaterials(data)
+	m, err := mainTF.Render(data, mainTF.Path())
 	if err != nil {
-		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to render materials")
+		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to render material")
 	}
 
-	return &ecsMoldingEnricher{materials: materials}, nil
+	main, ok := m.(domain.StructuredMaterial)
+	if !ok {
+		return nil, foundryerrors.Newf(foundryerrors.TypeInternal, "template %q does not produce a structured material", mainTF.Path())
+	}
+
+	namespace, err := main.GetBytes(namespacePath)
+	if err != nil {
+		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to read service discovery namespace")
+	}
+
+	materials, err := getMaterials(data)
+	if err != nil {
+		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to render materials")
+	}
+
+	return &ecsMoldingEnricher{namespace: string(namespace), materials: materials}, nil
 }
 
 func (e *ecsMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *installation.Casting) error {
-	ns, err := e.materials[0].GetBytes(namespacePath)
-	if err != nil {
-		return errors.Wrapf(err, errors.TypeInternal, "failed to read service discovery namespace")
-	}
-
 	switch kind {
 	case v1alpha1.MoldingKindTelemetryStore:
-		names, err := e.materials[1].GetStringSlice(sdNamesPath)
+		names, err := e.materials[v1alpha1.MoldingKindTelemetryStore].GetStringSlice(sdNamesPath)
 		if err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to read telemetrystore service names")
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to read telemetrystore service names")
 		}
 
 		addresses := make([]string, 0, len(names))
 		for _, name := range names {
-			host := name + "." + string(ns)
+			host := name + "." + e.namespace
 			addresses = append(addresses, domain.MustNewAddress("tcp", host, telemetryStorePort).String())
 		}
 
 		config.Spec.TelemetryStore.Status.Addresses.TCP = addresses
 
 	case v1alpha1.MoldingKindTelemetryKeeper:
-		names, err := e.materials[2].GetStringSlice(sdNamesPath)
+		names, err := e.materials[v1alpha1.MoldingKindTelemetryKeeper].GetStringSlice(sdNamesPath)
 		if err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to read telemetrykeeper service names")
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to read telemetrykeeper service names")
 		}
 
 		clientPort, raftPort := telemetryKeeperClientPort, telemetryKeeperRaftPort
@@ -81,7 +92,7 @@ func (e *ecsMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.Mol
 		clientAddresses := make([]string, 0, len(names))
 		raftAddresses := make([]string, 0, len(names))
 		for _, name := range names {
-			host := name + "." + string(ns)
+			host := name + "." + e.namespace
 			clientAddresses = append(clientAddresses, domain.MustNewAddress("tcp", host, clientPort).String())
 			raftAddresses = append(raftAddresses, domain.MustNewAddress("tcp", host, raftPort).String())
 		}
@@ -94,26 +105,40 @@ func (e *ecsMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.Mol
 			return nil
 		}
 
-		names, err := e.materials[3].GetStringSlice(sdNamesPath)
+		names, err := e.materials[v1alpha1.MoldingKindMetaStore].GetStringSlice(sdNamesPath)
 		if err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to read metastore service names")
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to read metastore service names")
 		}
 
 		if len(names) > 0 {
-			host := names[0] + "." + string(ns)
+			host := names[0] + "." + e.namespace
 			config.Spec.MetaStore.Status.Addresses.DSN = []string{domain.MustNewAddress("tcp", host, metaStorePort).String()}
 		}
 
 	case v1alpha1.MoldingKindSignoz:
-		names, err := e.materials[4].GetStringSlice(sdNamesPath)
+		names, err := e.materials[v1alpha1.MoldingKindSignoz].GetStringSlice(sdNamesPath)
 		if err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to read signoz service names")
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to read signoz service names")
 		}
 
 		if len(names) > 0 {
-			host := names[0] + "." + string(ns)
+			host := names[0] + "." + e.namespace
 			config.Spec.Signoz.Status.Addresses.APIServer = []string{domain.MustNewAddress("tcp", host, signozAPIServerPort).String()}
 			config.Spec.Signoz.Status.Addresses.Opamp = []string{domain.MustNewAddress("ws", host, signozOpampPort).String()}
+		}
+
+	case v1alpha1.MoldingKindIngester:
+		names, err := e.materials[v1alpha1.MoldingKindIngester].GetStringSlice(sdNamesPath)
+		if err != nil {
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to read ingester service names")
+		}
+
+		if len(names) > 0 {
+			host := names[0] + "." + e.namespace
+			config.Spec.Ingester.Status.Addresses.OTLP = []string{
+				domain.MustNewAddress("tcp", host, ingesterOTLPHTTPPort).String(),
+				domain.MustNewAddress("tcp", host, ingesterOTLPGRPCPort).String(),
+			}
 		}
 
 	case v1alpha1.MoldingKindMCP:
@@ -121,13 +146,13 @@ func (e *ecsMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.Mol
 			return nil
 		}
 
-		names, err := e.materials[6].GetStringSlice(sdNamesPath)
+		names, err := e.materials[v1alpha1.MoldingKindMCP].GetStringSlice(sdNamesPath)
 		if err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to read mcp service names")
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to read mcp service names")
 		}
 
 		if len(names) > 0 {
-			host := names[0] + "." + string(ns)
+			host := names[0] + "." + e.namespace
 			config.Spec.MCP.Status.Addresses.HTTP = []string{domain.MustNewAddress("http", host, mcpHTTPPort).String()}
 		}
 	}

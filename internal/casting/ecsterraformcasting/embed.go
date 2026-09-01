@@ -9,10 +9,8 @@ import (
 //go:embed templates/*.gotmpl
 var templates embed.FS
 
-// The pour is a composition: one root Terraform module holding concrete
-// values and its own state. Components are files within it, not child
-// modules, because a module with a single generated caller is indirection
-// without reuse.
+// Components are files in the one root module, never child modules: a module
+// with a single generated caller is indirection without reuse.
 var (
 	versionsTF  = domain.MustNewTemplateFromFS(templates, "templates/versions.tf.json.gotmpl", domain.FormatJSON)
 	providersTF = domain.MustNewTemplateFromFS(templates, "templates/providers.tf.json.gotmpl", domain.FormatJSON)
@@ -22,7 +20,6 @@ var (
 	tfarsTF     = domain.MustNewTemplateFromFS(templates, "templates/terraform.tfvars.json.gotmpl", domain.FormatJSON)
 )
 
-// One file per component.
 var (
 	telemetryKeeperTF = domain.MustNewTemplateFromFS(templates, "templates/telemetrykeeper.tf.json.gotmpl", domain.FormatJSON)
 	telemetryStoreTF  = domain.MustNewTemplateFromFS(templates, "templates/telemetrystore.tf.json.gotmpl", domain.FormatJSON)

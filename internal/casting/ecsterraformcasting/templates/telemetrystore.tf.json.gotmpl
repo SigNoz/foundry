@@ -238,13 +238,13 @@
         },
         "service_registries": {
           "registry_arn": "${aws_service_discovery_service.telemetrystore_{{ $n.key }}.arn}"
-        },
+        }{{ if $.Substrate }},
         "placement_constraints": [
           {
             "type": "memberOf",
             "expression": "ec2InstanceId == '${local.seats[\"telemetrystore-{{ $n.id }}\"]}' and {{ $.PersistentPlacement }}"
           }
-        ]
+        ]{{ end }}
       }
       {{- end }}
     }

@@ -1,11 +1,4 @@
 {{- $name := $.Metadata.Name -}}
-{{- $annotations := default (dict) $.Metadata.Annotations -}}
-{{- $clusterARN := index $annotations "foundry.signoz.io/ecs-cluster-arn" -}}
-{{- $subnetIDs := index $annotations "foundry.signoz.io/ecs-subnet-ids" -}}
-{{- $securityGroupIDs := index $annotations "foundry.signoz.io/ecs-security-group-ids" -}}
-{{- $vpcID := index $annotations "foundry.signoz.io/ecs-vpc-id" -}}
-{{- $taskRoleARN := index $annotations "foundry.signoz.io/ecs-task-role-arn" -}}
-{{- $executionRoleARN := index $annotations "foundry.signoz.io/ecs-task-execution-role-arn" -}}
 {{- /* The claim controller. An identity claims the VOLUME, not the instance.
        The volume outlives an instance, and the pairing survives replacement.
        The claim is a tag on the volume; plans re-read it, existing claims
@@ -33,34 +26,35 @@
 {{- end -}}
 {
   "data": {
-    {{- if not $clusterARN }}
+    {{- if not $.Cluster.IsStated }}
     "aws_ecs_cluster": {
       "main": {
         "cluster_name": "${var.cluster_name}"
       }
     },
     {{- end }}
-    {{- if not $subnetIDs }}
+    {{- if not $.Subnets.IsStated }}
     "aws_subnets": {
       "private": {
         "tags": "${var.subnet_tags}"
       }
     },
     {{- end }}
-    {{- if not $securityGroupIDs }}
+    {{- if not $.SecurityGroup.IsStated }}
     "aws_security_group": {
       "tasks": {
         "name": "${var.security_group_name}"
       }
     },
     {{- end }}
-    {{- if not $vpcID }}
+    {{- if not $.VPC.IsStated }}
     "aws_vpc": {
       "main": {
         "tags": "${var.vpc_tags}"
       }
     },
     {{- end }}
+    {{- if $.Substrate }}
     "aws_instances": {
       "persistent": {
         "instance_tags": "${var.node_tags}",
@@ -89,14 +83,15 @@
         ]
       }
     }
+    {{- end }}
   },
   "locals": {
-    "cluster_arn": "{{ if $clusterARN }}${var.cluster_arn}{{ else }}${data.aws_ecs_cluster.main.arn}{{ end }}",
-    "subnet_ids": "{{ if $subnetIDs }}${var.subnet_ids}{{ else }}${data.aws_subnets.private.ids}{{ end }}",
-    "security_group_ids": "{{ if $securityGroupIDs }}${var.security_group_ids}{{ else }}${[data.aws_security_group.tasks.id]}{{ end }}",
-    "vpc_id": "{{ if $vpcID }}${var.vpc_id}{{ else }}${data.aws_vpc.main.id}{{ end }}",
-    "task_role_arn": "{{ if $taskRoleARN }}${var.task_role_arn}{{ else }}${aws_iam_role.task.arn}{{ end }}",
-    "execution_role_arn": "{{ if $executionRoleARN }}${var.execution_role_arn}{{ else }}${aws_iam_role.exec.arn}{{ end }}",
+    "cluster_arn": "{{ if $.Cluster.IsStated }}${var.cluster_arn}{{ else }}${data.aws_ecs_cluster.main.arn}{{ end }}",
+    "subnet_ids": "{{ if $.Subnets.IsStated }}${var.subnet_ids}{{ else }}${data.aws_subnets.private.ids}{{ end }}",
+    "security_group_ids": "{{ if $.SecurityGroup.IsStated }}${var.security_group_ids}{{ else }}${[data.aws_security_group.tasks.id]}{{ end }}",
+    "vpc_id": "{{ if $.VPC.IsStated }}${var.vpc_id}{{ else }}${data.aws_vpc.main.id}{{ end }}",
+    "task_role_arn": "{{ if $.TaskRole.IsStated }}${var.task_role_arn}{{ else }}${aws_iam_role.task.arn}{{ end }}",
+    "execution_role_arn": "{{ if $.ExecutionRole.IsStated }}${var.execution_role_arn}{{ else }}${aws_iam_role.exec.arn}{{ end }}"{{ if $.Substrate }},
     "identities": [{{ range $i, $identity := $identities }}{{ if $i }}, {{ end }}"{{ $identity }}"{{ end }}],
     "volume_instance": "${ merge([ for id, instance in data.aws_instance.persistent : { for device in instance.ebs_block_device : device.volume_id => id } ]...) }",
     "instance_volume": "${ { for volume, instance in local.volume_instance : instance => volume } }",
@@ -109,23 +104,23 @@
     "assignment_pool": "${ concat(local.unclaimed_volume_ids, local.claimed_volume_ids) }",
     "new_identities": "${ [ for identity in local.identities : identity if !contains(keys(local.claims), identity) ] }",
     "volumes": "${ { for identity in local.identities : identity => contains(keys(local.claims), identity) ? local.claims[identity] : element(local.assignment_pool, index(local.new_identities, identity)) } }",
-    "seats": "${ { for identity, volume in local.volumes : identity => lookup(local.volume_instance, volume, \"unattached\") } }"
+    "seats": "${ { for identity, volume in local.volumes : identity => lookup(local.volume_instance, volume, \"unattached\") } }"{{ end }}
   },
   "resource": {
     {{- /* Workload identity is the workload's own. A role holds no data and
            dies with this stack. An operator states an ARN instead and nothing
            is created. */}}
-    {{- if or (not $taskRoleARN) (not $executionRoleARN) }}
+    {{- if or (not $.TaskRole.IsStated) (not $.ExecutionRole.IsStated) }}
     "aws_iam_role": {
       {{- $first := true }}
-      {{- if not $taskRoleARN }}{{ if not $first }},{{ end }}{{ $first = false }}
+      {{- if not $.TaskRole.IsStated }}{{ if not $first }},{{ end }}{{ $first = false }}
       "task": {
         "name": "${var.task_role_name}",
         "assume_role_policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Action\" = \"sts:AssumeRole\", \"Effect\" = \"Allow\", \"Principal\" = {\"Service\" = \"ecs-tasks.amazonaws.com\"}}]})}",
         "tags": {{ toJson $.Labels }}
       }
       {{- end }}
-      {{- if not $executionRoleARN }}{{ if not $first }},{{ end }}{{ $first = false }}
+      {{- if not $.ExecutionRole.IsStated }}{{ if not $first }},{{ end }}{{ $first = false }}
       "exec": {
         "name": "${var.execution_role_name}",
         "assume_role_policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Action\" = \"sts:AssumeRole\", \"Effect\" = \"Allow\", \"Principal\" = {\"Service\" = \"ecs-tasks.amazonaws.com\"}}]})}",
@@ -134,7 +129,7 @@
       {{- end }}
     },
     {{- end }}
-    {{- if not $executionRoleARN }}
+    {{- if not $.ExecutionRole.IsStated }}
     "aws_iam_role_policy_attachment": {
       "exec": {
         "policy_arn": "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
@@ -142,7 +137,7 @@
       }
     },
     {{- end }}
-    {{- if not $taskRoleARN }}
+    {{- if not $.TaskRole.IsStated }}
     {{- /* Scoped to the application this stack creates. GetLatestConfiguration
            acts on a session token and cannot be scoped. */}}
     "aws_iam_role_policy": {

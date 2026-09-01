@@ -8,12 +8,13 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/contract"
 	awscontract "github.com/signoz/foundry/internal/contract/aws"
 	"github.com/signoz/foundry/internal/domain"
-	"github.com/signoz/foundry/internal/errors"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 	"github.com/signoz/foundry/internal/tooler"
 	"github.com/signoz/foundry/internal/tooler/terraformtooler"
@@ -66,8 +67,7 @@ func (c *ecsCasting) Forge(ctx context.Context, config installation.Casting, pou
 		materials = append(materials, m)
 	}
 
-	// One file per component, beside the molding config that component fetches
-	// at task start. A component configured only through env has no configDir.
+	// A component configured only through env has no configDir.
 	components := []struct {
 		enabled   bool
 		filename  string
@@ -118,9 +118,8 @@ func (c *ecsCasting) Cast(ctx context.Context, config installation.Casting, outp
 	return terraform.Apply(ctx, c.release(config, outputPath))
 }
 
-// Melt destroys everything this root's state records: the services, the task
-// definitions and the config they read. What the substrate holds is another
-// root's, and stays.
+// Melt destroys what this root's state records: the services, the task
+// definitions and their config. What the substrate holds is another root's.
 func (c *ecsCasting) Melt(ctx context.Context, config installation.Casting, outputPath string, toolers []tooler.Tooler) error {
 	terraform, err := terraformtooler.Lookup(toolers)
 	if err != nil {
@@ -137,18 +136,65 @@ func (c *ecsCasting) release(config installation.Casting, outputPath string) ter
 	}
 }
 
-// templateData binds the casting to the substrate it runs on. Forge and the
-// enricher each render from their own config; both come through here.
+// Forge and the enricher each render from their own config, both through here.
 func (c *ecsCasting) templateData(config installation.Casting) (templateData, error) {
-	name := config.Spec.Infrastructure.Name
+	annotations := config.Metadata.Annotations
 
-	if name == "" {
-		return templateData{}, errors.Newf(errors.TypeInvalidInput, "spec.infrastructure.name is not set: this casting finds its cluster, its subnets and its nodes by the substrate's own tags, so it has to be told which substrate it runs on")
+	region := installation.ECSRegion.Resolve(annotations)
+	if region == "" {
+		return templateData{}, foundryerrors.Newf(foundryerrors.TypeInvalidInput, "no region is stated: state the %q annotation", installation.ECSRegion.Key)
 	}
 
-	substrate, err := contract.NewSubstrate(name)
+	data := templateData{
+		Casting:   config,
+		Substrate: config.Spec.Infrastructure.Name,
+		Region:    region,
+
+		Cluster:       Reference{Stated: installation.ECSClusterARN.Resolve(annotations)},
+		VPC:           Reference{Stated: installation.ECSVPCID.Resolve(annotations)},
+		TaskRole:      Reference{Stated: installation.ECSTaskRoleARN.Resolve(annotations)},
+		ExecutionRole: Reference{Stated: installation.ECSTaskExecutionRoleARN.Resolve(annotations)},
+	}
+
+	subnets, err := statedIDs(installation.ECSSubnetIDs, annotations)
 	if err != nil {
-		return templateData{}, errors.Wrapf(err, errors.TypeInvalidInput, "failed to resolve the substrate this installation runs on")
+		return templateData{}, err
+	}
+	data.Subnets = Reference{StatedIDs: subnets}
+
+	securityGroups, err := statedIDs(installation.ECSSecurityGroupIDs, annotations)
+	if err != nil {
+		return templateData{}, err
+	}
+	data.SecurityGroup = Reference{StatedIDs: securityGroups}
+
+	// The roles hold no data and die with this stack, so the workload names
+	// them itself. Several workloads share one substrate, and a
+	// substrate-derived name collides on the second apply.
+	workload := config.Metadata.Name + "-" + strings.ToLower(config.Kind().String())
+	data.TaskRole.Name = workload + "-task"
+	data.ExecutionRole.Name = workload + "-exec"
+
+	// Without a substrate the four axes below have no derived side, so each one
+	// has to be stated, and no seat or placement is rendered at all.
+	if data.Substrate == "" {
+		for annotation, reference := range map[v1alpha1.Annotation]Reference{
+			installation.ECSClusterARN:       data.Cluster,
+			installation.ECSVPCID:            data.VPC,
+			installation.ECSSubnetIDs:        data.Subnets,
+			installation.ECSSecurityGroupIDs: data.SecurityGroup,
+		} {
+			if !reference.IsStated() {
+				return templateData{}, foundryerrors.Newf(foundryerrors.TypeInvalidInput, "no infrastructure is stated, so %q is required: without a substrate there is nothing to find it by", annotation.Key)
+			}
+		}
+
+		return data, nil
+	}
+
+	substrate, err := contract.NewSubstrate(data.Substrate)
+	if err != nil {
+		return templateData{}, foundryerrors.Wrapf(err, foundryerrors.TypeInvalidInput, "failed to resolve the substrate this installation runs on")
 	}
 
 	persistent := substrate.Select().WithStorage(contract.StorageClassPersistent)
@@ -157,43 +203,79 @@ func (c *ecsCasting) templateData(config installation.Casting) (templateData, er
 	// Every service uses awsvpc. A task needs a subnet, and never a public one.
 	private := substrate.Select().WithSubnetType(contract.SubnetTypePrivate)
 
-	return templateData{
-		Casting: config,
+	data.Cluster.Name = awscontract.Cluster(substrate).Name()
+	data.SecurityGroup.Name = awscontract.SecurityGroup(substrate, awscontract.RoleTask).Name()
+	data.VPC.Tags = awscontract.Filter(substrate.Select())
+	data.Subnets.Tags = awscontract.Filter(private)
 
-		ClusterName:       awscontract.Cluster(substrate).Name(),
-		SecurityGroupName: awscontract.SecurityGroup(substrate, awscontract.RoleTask).Name(),
+	data.NodeTags = awscontract.Filter(persistent)
+	data.ClaimTag = awscontract.Tag(contract.TagKeyIdentities)
+	data.PersistentPlacement = placement(persistent)
+	data.EphemeralPlacement = placement(ephemeral)
 
-		// Named after the workload. Several workloads share one substrate, and a
-		// substrate-derived name collides on the second apply.
-		TaskRoleName:      config.Metadata.Name + "-" + strings.ToLower(config.Kind().String()) + "-task",
-		ExecutionRoleName: config.Metadata.Name + "-" + strings.ToLower(config.Kind().String()) + "-exec",
-
-		VPCTags:    awscontract.Filter(substrate.Select()),
-		SubnetTags: awscontract.Filter(private),
-		NodeTags:   awscontract.Filter(persistent),
-
-		ClaimTag:            awscontract.Tag(contract.TagKeyIdentities),
-		PersistentPlacement: placement(persistent),
-		EphemeralPlacement:  placement(ephemeral),
-	}, nil
+	return data, nil
 }
 
-// templateData is what every template renders against. The casting is embedded,
-// leaving `.Spec` and `.Metadata` as they were. The rest is derived from the
-// substrate this installation is bound to.
+// statedIDs reads a comma-separated annotation. An annotation that is set but
+// names nothing is a mistake, not an omission.
+func statedIDs(annotation v1alpha1.Annotation, annotations map[string]string) ([]string, error) {
+	value := annotation.Resolve(annotations)
+	if value == "" {
+		return nil, nil
+	}
+
+	ids := make([]string, 0, 1)
+	for id := range strings.SplitSeq(value, ",") {
+		if id = strings.TrimSpace(id); id != "" {
+			ids = append(ids, id)
+		}
+	}
+
+	if len(ids) == 0 {
+		return nil, foundryerrors.Newf(foundryerrors.TypeInvalidInput, "failed to parse the %q annotation: no ids found in %q", annotation.Key, value)
+	}
+
+	return ids, nil
+}
+
+// Reference is one rendezvous axis, resolved. An operator states the object and
+// it is referenced as-is; otherwise it is derived, which means found by the
+// substrate's tags for the cluster, vpc, subnets and security group, and
+// created under the workload's own name for the two roles. Exactly one side is
+// populated. Axes that name a list state through StatedIDs, the rest through
+// Stated.
+type Reference struct {
+	Stated    string
+	StatedIDs []string
+	Name      string
+	Tags      map[string]string
+}
+
+func (r Reference) IsStated() bool {
+	return r.Stated != "" || len(r.StatedIDs) > 0
+}
+
+// templateData embeds the casting, so `.Spec` and `.Metadata` stay as they
+// were; the rest resolves each axis to a stated or a derived side.
 type templateData struct {
 	installation.Casting
 
-	ClusterName       string
-	SecurityGroupName string
+	// Substrate is the name this installation is bound to, empty when the
+	// operator brought their own cluster. What only a substrate can derive is
+	// empty with it.
+	Substrate string
 
-	// TaskRoleName and ExecutionRoleName are this workload's own identity,
-	// created and destroyed with this stack.
-	TaskRoleName      string
-	ExecutionRoleName string
+	Region string
 
-	VPCTags    map[string]string
-	SubnetTags map[string]string
+	Cluster       Reference
+	VPC           Reference
+	Subnets       Reference
+	SecurityGroup Reference
+
+	// The roles are the workload's own identity, created and destroyed with
+	// this stack, so they derive from the casting and never the substrate.
+	TaskRole      Reference
+	ExecutionRole Reference
 
 	// NodeTags finds the substrate's persistent instances and the volumes
 	// attached to them. The claim controller reads both.
@@ -203,14 +285,11 @@ type templateData struct {
 	// provisioning, and the Infrastructure casting does not reconcile it.
 	ClaimTag string
 
-	// Placement expressions in ECS' own syntax, matching the attributes a
-	// container instance advertises.
 	PersistentPlacement string
 	EphemeralPlacement  string
 }
 
-// placement renders a selection as an ECS placement constraint. A container
-// instance advertises exactly these attributes.
+// placement renders a selection as the attributes a container instance advertises.
 func placement(selection contract.Selection) string {
 	filter := awscontract.Filter(selection)
 
@@ -223,29 +302,31 @@ func placement(selection contract.Selection) string {
 	return strings.Join(parts, " and ")
 }
 
-// getMaterials renders the component templates for the enricher to read service
-// names back from. The template is the single source of node names.
-func getMaterials(data templateData) ([]domain.StructuredMaterial, error) {
-	var materials []domain.StructuredMaterial
+// getMaterials renders the component templates; they are the source of node
+// names. Keyed by molding kind, so the enricher reaches a component by the
+// same value it switches on.
+func getMaterials(data templateData) (map[v1alpha1.MoldingKind]domain.StructuredMaterial, error) {
+	materials := map[v1alpha1.MoldingKind]domain.StructuredMaterial{}
 
-	for _, tmpl := range []*domain.Template{
-		mainTF,
-		telemetryStoreTF,
-		telemetryKeeperTF,
-		metaStoreTF,
-		signozTF,
-		ingesterTF,
-		mcpTF,
+	for kind, tmpl := range map[v1alpha1.MoldingKind]*domain.Template{
+		v1alpha1.MoldingKindTelemetryStore:  telemetryStoreTF,
+		v1alpha1.MoldingKindTelemetryKeeper: telemetryKeeperTF,
+		v1alpha1.MoldingKindMetaStore:       metaStoreTF,
+		v1alpha1.MoldingKindSignoz:          signozTF,
+		v1alpha1.MoldingKindIngester:        ingesterTF,
+		v1alpha1.MoldingKindMCP:             mcpTF,
 	} {
 		m, err := tmpl.Render(data, tmpl.Path())
 		if err != nil {
-			return nil, errors.Wrapf(err, errors.TypeInternal, "failed to render material")
+			return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to render material")
 		}
+
 		sm, ok := m.(domain.StructuredMaterial)
 		if !ok {
-			return nil, errors.Newf(errors.TypeInternal, "template %s does not produce a structured material", tmpl.Path())
+			return nil, foundryerrors.Newf(foundryerrors.TypeInternal, "template %q does not produce a structured material", tmpl.Path())
 		}
-		materials = append(materials, sm)
+
+		materials[kind] = sm
 	}
 
 	return materials, nil

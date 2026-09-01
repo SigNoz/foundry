@@ -89,13 +89,13 @@
         },
         "service_registries": {
           "registry_arn": "${aws_service_discovery_service.signoz.arn}"
-        },
+        }{{ if $.Substrate }},
         "placement_constraints": [
           {
             "type": "memberOf",
             "expression": "{{ if eq $.Spec.MetaStore.Kind.String "sqlite" }}ec2InstanceId == '${local.seats[\"signoz-0\"]}' and {{ $.PersistentPlacement }}{{ else }}{{ $.EphemeralPlacement }}{{ end }}"
           }
-        ]
+        ]{{ end }}
       }
     }
   }

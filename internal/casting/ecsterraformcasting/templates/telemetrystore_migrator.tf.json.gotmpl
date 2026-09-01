@@ -27,7 +27,7 @@
         "family": "{{ $name }}-telemetrystore-migrator",
         "tags": {{ toJson $.Labels }},
         "network_mode": "awsvpc",
-        "requires_compatibilities": ["FARGATE"],
+        "requires_compatibilities": ["EC2"],
         "cpu": 256,
         "memory": 512,
         "task_role_arn": "${local.task_role_arn}",
@@ -42,12 +42,22 @@
         "cluster": "${local.cluster_arn}",
         "task_definition": "${aws_ecs_task_definition.telemetrystore_migrator.arn}",
         "desired_count": 1,
-        "launch_type": "FARGATE",
+        "launch_type": "EC2",
         "network_configuration": {
           "subnets": "${local.subnet_ids}",
           "security_groups": "${local.security_group_ids}",
           "assign_public_ip": false
-        }
+        }{{ if $.Substrate }},
+        "placement_constraints": [
+          {
+            "type": "memberOf",
+            "expression": "{{ $.EphemeralPlacement }}"
+          }
+        ]{{ end }},
+        {{- /* A data source is read during plan, and this one calls RunTask on
+               every read. depends_on defers it to apply, so a plan never
+               migrates. It still does not wait for the task to finish. */}}
+        "depends_on": ["aws_ecs_task_definition.telemetrystore_migrator"]
       }
     }
   }

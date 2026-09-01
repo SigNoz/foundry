@@ -29,8 +29,8 @@ type systemdMoldingEnricher struct {
 func newSystemdMoldingEnricher(config *installation.Casting) *systemdMoldingEnricher {
 	// Record each annotation's resolved value so the lock captures the full
 	// resolved config: user-set values win, absent ones fall back to the default.
-	// Only this mode's annotations are stamped; the catalog holds every mode's,
-	// and the rest would land in the lock as empty keys that mean nothing here.
+	// The catalog holds every mode's; the rest would land in the lock as empty
+	// keys that mean nothing here.
 	if config.Metadata.Annotations == nil {
 		config.Metadata.Annotations = map[string]string{}
 	}

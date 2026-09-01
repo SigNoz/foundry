@@ -82,13 +82,13 @@
         },
         "service_registries": {
           "registry_arn": "${aws_service_discovery_service.metastore.arn}"
-        },
+        }{{ if $.Substrate }},
         "placement_constraints": [
           {
             "type": "memberOf",
             "expression": "ec2InstanceId == '${local.seats[\"metastore-0\"]}' and {{ $.PersistentPlacement }}"
           }
-        ]
+        ]{{ end }}
       }
     }
   }

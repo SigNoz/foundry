@@ -1,13 +1,6 @@
 {{- /* Every identifier arrives as a variable defaulted to what the casting
        resolved. Stating one on the casting replaces its lookup variable with
-       the value itself, and main.tf emits no data source for it. */}}
-{{- $annotations := default (dict) $.Metadata.Annotations -}}
-{{- $clusterARN := index $annotations "foundry.signoz.io/ecs-cluster-arn" -}}
-{{- $subnetIDs := index $annotations "foundry.signoz.io/ecs-subnet-ids" -}}
-{{- $securityGroupIDs := index $annotations "foundry.signoz.io/ecs-security-group-ids" -}}
-{{- $vpcID := index $annotations "foundry.signoz.io/ecs-vpc-id" -}}
-{{- $taskRoleARN := index $annotations "foundry.signoz.io/ecs-task-role-arn" -}}
-{{- $executionRoleARN := index $annotations "foundry.signoz.io/ecs-task-execution-role-arn" -}}
+       the value itself, and main.tf emits no data source for it. */ -}}
 {
   "variable": {
     "aws_region": {
@@ -19,96 +12,97 @@
       "description": "AWS region holding the cluster",
       "type": "string"
     },
-    {{- if $clusterARN }}
+    {{- if $.Cluster.IsStated }}
     "cluster_arn": {
       "nullable": false,
       "description": "ARN of the ECS cluster to deploy into",
       "type": "string",
-      "default": "{{ $clusterARN }}"
+      "default": "{{ $.Cluster.Stated }}"
     },
     {{- else }}
     "cluster_name": {
       "nullable": false,
       "description": "Name of the ECS cluster to deploy into",
       "type": "string",
-      "default": "{{ $.ClusterName }}"
+      "default": "{{ $.Cluster.Name }}"
     },
     {{- end }}
-    {{- if $subnetIDs }}
+    {{- if $.Subnets.IsStated }}
     "subnet_ids": {
       "nullable": false,
       "description": "IDs of the subnets tasks are placed in",
       "type": "list(string)",
-      "default": {{ $ids := list }}{{ range splitList "," $subnetIDs }}{{ $ids = append $ids (trim .) }}{{ end }}{{ toJson (compact $ids) }}
+      "default": {{ toJson $.Subnets.StatedIDs }}
     },
     {{- else }}
     "subnet_tags": {
       "nullable": false,
       "description": "Tags that find the subnets tasks are placed in",
       "type": "map(string)",
-      "default": {{ toJson $.SubnetTags }}
+      "default": {{ toJson $.Subnets.Tags }}
     },
     {{- end }}
-    {{- if $securityGroupIDs }}
+    {{- if $.SecurityGroup.IsStated }}
     "security_group_ids": {
       "nullable": false,
       "description": "IDs of the security groups tasks join",
       "type": "list(string)",
-      "default": {{ $ids := list }}{{ range splitList "," $securityGroupIDs }}{{ $ids = append $ids (trim .) }}{{ end }}{{ toJson (compact $ids) }}
+      "default": {{ toJson $.SecurityGroup.StatedIDs }}
     },
     {{- else }}
     "security_group_name": {
       "nullable": false,
       "description": "Name of the security group tasks join",
       "type": "string",
-      "default": "{{ $.SecurityGroupName }}"
+      "default": "{{ $.SecurityGroup.Name }}"
     },
     {{- end }}
-    {{- if $vpcID }}
+    {{- if $.VPC.IsStated }}
     "vpc_id": {
       "nullable": false,
       "description": "ID of the VPC the Cloud Map namespace is created in",
       "type": "string",
-      "default": "{{ $vpcID }}"
+      "default": "{{ $.VPC.Stated }}"
     },
     {{- else }}
     "vpc_tags": {
       "nullable": false,
       "description": "Tags that find the VPC the Cloud Map namespace is created in",
       "type": "map(string)",
-      "default": {{ toJson $.VPCTags }}
+      "default": {{ toJson $.VPC.Tags }}
     },
     {{- end }}
-    {{- if $taskRoleARN }}
+    {{- if $.TaskRole.IsStated }}
     "task_role_arn": {
       "nullable": false,
       "description": "ARN of the IAM role tasks assume",
       "type": "string",
-      "default": "{{ $taskRoleARN }}"
+      "default": "{{ $.TaskRole.Stated }}"
     },
     {{- else }}
     "task_role_name": {
       "nullable": false,
       "description": "Name of the IAM role this stack creates for its tasks",
       "type": "string",
-      "default": "{{ $.TaskRoleName }}"
+      "default": "{{ $.TaskRole.Name }}"
     },
     {{- end }}
-    {{- if $executionRoleARN }}
+    {{- if $.ExecutionRole.IsStated }}
     "execution_role_arn": {
       "nullable": false,
       "description": "ARN of the IAM role the ECS agent assumes",
       "type": "string",
-      "default": "{{ $executionRoleARN }}"
-    },
+      "default": "{{ $.ExecutionRole.Stated }}"
+    }
     {{- else }}
     "execution_role_name": {
       "nullable": false,
       "description": "Name of the IAM role this stack creates for the ECS agent to pull images and write logs",
       "type": "string",
-      "default": "{{ $.ExecutionRoleName }}"
-    },
+      "default": "{{ $.ExecutionRole.Name }}"
+    }
     {{- end }}
+    {{- if $.Substrate }},
     "node_tags": {
       "nullable": false,
       "description": "Tags that find the persistent instances and the volumes attached to them",
@@ -121,5 +115,6 @@
       "type": "string",
       "default": "{{ $.ClaimTag }}"
     }
+    {{- end }}
   }
 }

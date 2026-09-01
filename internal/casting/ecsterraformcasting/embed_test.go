@@ -3,6 +3,7 @@ package ecsterraformcasting
 import (
 	"bytes"
 	"log/slog"
+	"maps"
 	"testing"
 
 	"github.com/signoz/foundry/api/v1alpha1"
@@ -12,18 +13,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// boundCasting returns a fully-defaulted Installation bound to a substrate. The
-// binding is what lets the casting derive the tags it looks resources up by, so
-// nothing renders without it.
+// The binding is what the casting derives its lookup tags from, so nothing
+// renders without it.
 func boundCasting(declared *installation.Casting) *installation.Casting {
 	c := installation.Default(declared)
 	c.Spec.Infrastructure.Name = "signoz"
+	c.Metadata.Annotations = map[string]string{installation.ECSRegion.Key: "us-east-1"}
 
 	return c
 }
 
-// clusteredCasting returns a bound Installation with the telemetry store and
-// keeper cluster sizes overridden.
 func clusteredCasting(keeperKind installation.TelemetryKeeperKind, shards, replicas int) *installation.Casting {
 	declared := &installation.Casting{}
 	declared.Spec.TelemetryKeeper.Kind = keeperKind
@@ -61,23 +60,21 @@ func TestNotEmptyAndValid(t *testing.T) {
 	}
 }
 
-// The region is the one input that is neither declared nor discoverable, so it
-// is all that is left in the tfvars.
+// The region is neither declared nor discoverable, so it is all the tfvars hold.
 func TestTfvarsTemplateCarriesTheRegion(t *testing.T) {
 	casting := boundCasting(&installation.Casting{})
 	casting.Metadata.Annotations = map[string]string{installation.ECSRegion.Key: "us-east-1"}
 
 	buf := bytes.NewBuffer(nil)
-	require.NoError(t, tfarsTF.Execute(buf, render(t, casting)))
+	require.NoError(t, tfarsTF.Execute(buf, templateDataFor(t, casting)))
 
 	assert.JSONEq(t, `{"aws_region": "us-east-1"}`, buf.String())
 }
 
-// Nothing the substrate provisioned is named twice: the variables carry the
-// names and tags the other casting derived from the same substrate name, and
-// main.tf looks the objects up by them.
+// Nothing the substrate provisioned is named twice: the variables carry what
+// the other casting derived, and main.tf looks the objects up by them.
 func TestSubstrateIsLookedUpThroughVariables(t *testing.T) {
-	data := render(t, boundCasting(&installation.Casting{}))
+	data := templateDataFor(t, boundCasting(&installation.Casting{}))
 
 	variables := bytes.NewBuffer(nil)
 	require.NoError(t, variablesTF.Execute(variables, data))
@@ -112,12 +109,10 @@ func TestSubstrateIsLookedUpThroughVariables(t *testing.T) {
 // identifiers, and no lookup is emitted for them.
 func TestStatedIdentifiersReplaceTheirLookup(t *testing.T) {
 	casting := boundCasting(&installation.Casting{})
-	casting.Metadata.Annotations = map[string]string{
-		installation.ECSClusterARN.Key: "arn:aws:ecs:us-east-1:123456789012:cluster/test",
-		installation.ECSSubnetIDs.Key:  "subnet-abc123, subnet-def456",
-	}
+	casting.Metadata.Annotations[installation.ECSClusterARN.Key] = "arn:aws:ecs:us-east-1:123456789012:cluster/test"
+	casting.Metadata.Annotations[installation.ECSSubnetIDs.Key] = "subnet-abc123, subnet-def456"
 
-	data := render(t, casting)
+	data := templateDataFor(t, casting)
 
 	variables := bytes.NewBuffer(nil)
 	require.NoError(t, variablesTF.Execute(variables, data))
@@ -139,7 +134,7 @@ func TestStatedIdentifiersReplaceTheirLookup(t *testing.T) {
 	assert.Contains(t, variables.String(), `"default": "signoz-installation-task"`)
 }
 
-func render(t *testing.T, casting *installation.Casting) templateData {
+func templateDataFor(t *testing.T, casting *installation.Casting) templateData {
 	t.Helper()
 
 	data, err := New(slog.New(slog.DiscardHandler)).templateData(*casting)
@@ -154,17 +149,15 @@ func TestModulePlacement(t *testing.T) {
 	sqlite := boundCasting(&installation.Casting{})
 	sqlite.Spec.MetaStore.Kind = installation.MetaStoreKindSQLite
 
-	// The attribute clauses are the same match the substrate stamps on its
-	// nodes, so a component reaches only the nodes of the substrate it is
-	// bound to.
+	// The attribute clauses match what the substrate stamps on its nodes, so a
+	// component reaches only the nodes of the substrate it is bound to.
 	seat := func(identity string) string {
 		return `ec2InstanceId == '${local.seats[\"` + identity + `\"]}' and attribute:foundry.signoz.io/name == signoz and attribute:foundry.signoz.io/storage == persistent`
 	}
 	ephemeral := "attribute:foundry.signoz.io/name == signoz and attribute:foundry.signoz.io/storage == ephemeral"
 
-	// Each stateful identity pins to the instance its claim resolved
-	// (ec2InstanceId), with the storage attribute kept as a bootstrap
-	// integrity check. Stateless services place onto the ephemeral pool.
+	// A stateful identity pins to the instance its claim resolved; the storage
+	// attribute stays as a bootstrap integrity check.
 	testCases := []struct {
 		name                string
 		template            *domain.Template
@@ -220,7 +213,7 @@ func TestModulePlacement(t *testing.T) {
 			t.Parallel()
 
 			buf := bytes.NewBuffer(nil)
-			require.NoError(t, tc.template.Execute(buf, render(t, tc.casting)))
+			require.NoError(t, tc.template.Execute(buf, templateDataFor(t, tc.casting)))
 			out := buf.String()
 
 			assert.Contains(t, out, `"launch_type": "EC2"`)
@@ -230,4 +223,80 @@ func TestModulePlacement(t *testing.T) {
 			assert.NotContains(t, out, "capacity_provider")
 		})
 	}
+}
+
+func TestReferenceIsStated(t *testing.T) {
+	tests := []struct {
+		name      string
+		reference Reference
+		pass      bool
+	}{
+		{name: "Stated_Valid", reference: Reference{Stated: "arn:aws:ecs:us-east-1:1:cluster/x"}, pass: true},
+		{name: "StatedIDs_Valid", reference: Reference{StatedIDs: []string{"subnet-a"}}, pass: true},
+		{name: "Derived_Invalid", reference: Reference{Name: "signoz-cls", Tags: map[string]string{"a": "b"}}, pass: false},
+		{name: "Empty_Invalid", reference: Reference{}, pass: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.pass, tt.reference.IsStated())
+		})
+	}
+}
+
+func TestTemplateDataResolution(t *testing.T) {
+	stated := map[string]string{
+		installation.ECSClusterARN.Key:       "arn:aws:ecs:us-east-1:1:cluster/mine",
+		installation.ECSVPCID.Key:            "vpc-abc",
+		installation.ECSSubnetIDs.Key:        "subnet-a, subnet-b",
+		installation.ECSSecurityGroupIDs.Key: "sg-a",
+	}
+
+	tests := []struct {
+		name        string
+		substrate   string
+		annotations map[string]string
+		pass        bool
+		expectedAll bool
+	}{
+		{name: "AllDerived_Valid", substrate: "signoz", pass: true},
+		{name: "AllStated_Valid", substrate: "signoz", annotations: stated, pass: true, expectedAll: true},
+		{name: "BYOAllStated_Valid", annotations: stated, pass: true, expectedAll: true},
+		{name: "BYOClusterUnstated_Invalid", annotations: map[string]string{installation.ECSVPCID.Key: "vpc-abc"}},
+		{name: "SubnetIDsMalformed_Invalid", substrate: "signoz", annotations: map[string]string{installation.ECSSubnetIDs.Key: " , ,"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			casting := installation.Default(&installation.Casting{})
+			casting.Spec.Infrastructure.Name = tt.substrate
+			casting.Metadata.Annotations = map[string]string{installation.ECSRegion.Key: "us-east-1"}
+			maps.Copy(casting.Metadata.Annotations, tt.annotations)
+
+			data, err := New(slog.New(slog.DiscardHandler)).templateData(*casting)
+			if !tt.pass {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, "us-east-1", data.Region)
+
+			for _, reference := range []Reference{data.Cluster, data.VPC, data.Subnets, data.SecurityGroup} {
+				assert.Equal(t, tt.expectedAll, reference.IsStated())
+			}
+
+			// The roles never come from the substrate, so they derive either way.
+			assert.False(t, data.TaskRole.IsStated())
+			assert.NotEmpty(t, data.TaskRole.Name)
+		})
+	}
+}
+
+func TestRegionUnstated_Invalid(t *testing.T) {
+	casting := installation.Default(&installation.Casting{})
+	casting.Spec.Infrastructure.Name = "signoz"
+
+	_, err := New(slog.New(slog.DiscardHandler)).templateData(*casting)
+	assert.Error(t, err)
 }

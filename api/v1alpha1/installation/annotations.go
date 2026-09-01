@@ -51,10 +51,10 @@ var (
 	}
 )
 
-// Cluster annotations for the ECS/EC2 deployment of the Installation Kind. The
-// casting places tasks onto a cluster it does not provision, so each of these
-// names an existing AWS object it must be handed. They have no defaults: an
-// absent value is a missing cluster, not a fallback.
+// Cluster annotations for the ECS/EC2 deployment of the Installation Kind.
+// Each names an existing AWS object, and an absent one falls back to what the
+// substrate in spec.infrastructure.name derives. The region has no substrate
+// to fall back to and is always stated.
 var (
 	ECSRegion = v1alpha1.Annotation{
 		Key:         "foundry.signoz.io/ecs-region",
