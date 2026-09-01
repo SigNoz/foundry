@@ -98,7 +98,7 @@ func TestOwnerGuardsTheProject(t *testing.T) {
 	assert.NoError(t, r.Up(context.Background(), installation))
 	t.Cleanup(func() { _ = r.Down(context.Background(), installation) })
 
-	assert.Error(t, r.Up(context.Background(), agent))
-	assert.Error(t, r.Down(context.Background(), agent))
+	assert.ErrorContains(t, r.Up(context.Background(), agent), "already belongs to")
+	assert.ErrorContains(t, r.Down(context.Background(), agent), "already belongs to")
 	assert.NoError(t, r.Down(context.Background(), installation))
 }

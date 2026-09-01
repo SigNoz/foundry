@@ -117,7 +117,7 @@ func TestOwnerGuardsTheStack(t *testing.T) {
 	t.Cleanup(func() { _ = r.Down(context.Background(), installation) })
 	waitForStack(t, stack)
 
-	assert.Error(t, r.Up(context.Background(), agent))
-	assert.Error(t, r.Down(context.Background(), agent))
+	assert.ErrorContains(t, r.Up(context.Background(), agent), "already belongs to")
+	assert.ErrorContains(t, r.Down(context.Background(), agent), "already belongs to")
 	assert.NoError(t, r.Down(context.Background(), installation))
 }

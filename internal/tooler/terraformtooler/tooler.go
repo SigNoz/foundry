@@ -58,18 +58,26 @@ func (t *Tooler) Gauge(ctx context.Context) error {
 	return err
 }
 
-// Apply runs init first (idempotent) so a never-initialised root still applies.
+// PlanFile is the plan terraform writes in the root, read with terraform show.
+const PlanFile = "tfplan"
+
+// Apply acts on a written plan: planning and applying in one step prints the
+// whole diff, and a plan is a document about a change, not a log of one.
 func (t *Tooler) Apply(ctx context.Context, release Release) error {
 	// terraform prompts before changing infra; foundry re-homes that to --yes.
 	if !tooler.Approved(ctx) {
 		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "failed to run terraform apply: no approval is stated; re-run with --yes")
 	}
 
-	if err := t.run(ctx, release, "init"); err != nil {
+	if err := t.query(ctx, release, "init"); err != nil {
 		return err
 	}
 
-	return t.run(ctx, release, "apply", "-auto-approve")
+	if err := t.query(ctx, release, "plan", "-out="+PlanFile); err != nil {
+		return err
+	}
+
+	return t.run(ctx, release, "apply", PlanFile)
 }
 
 func (t *Tooler) Destroy(ctx context.Context, release Release) error {
@@ -77,14 +85,27 @@ func (t *Tooler) Destroy(ctx context.Context, release Release) error {
 		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "failed to run terraform destroy: no approval is stated; re-run with --yes")
 	}
 
-	if err := t.run(ctx, release, "init"); err != nil {
+	if err := t.query(ctx, release, "init"); err != nil {
 		return err
 	}
 
-	return t.run(ctx, release, "destroy", "-auto-approve")
+	if err := t.query(ctx, release, "plan", "-destroy", "-out="+PlanFile); err != nil {
+		return err
+	}
+
+	return t.run(ctx, release, "apply", PlanFile)
 }
 
 func (t *Tooler) run(ctx context.Context, release Release, verb string, args ...string) error {
+	return t.invoke(ctx, release, tooler.Stream, verb, args...)
+}
+
+// query reads the world, so it keeps only enough output to explain a failure.
+func (t *Tooler) query(ctx context.Context, release Release, verb string, args ...string) error {
+	return t.invoke(ctx, release, tooler.Quiet, verb, args...)
+}
+
+func (t *Tooler) invoke(ctx context.Context, release Release, mode tooler.Mode, verb string, args ...string) error {
 	if err := release.Validate(); err != nil {
 		return err
 	}
@@ -98,7 +119,7 @@ func (t *Tooler) run(ctx context.Context, release Release, verb string, args ...
 	argv := append(slices.Clone(words), "-chdir="+release.Root, verb)
 	argv = append(argv, args...)
 
-	inv := tooler.Invocation{Argv: argv, Mode: tooler.Stream}
+	inv := tooler.Invocation{Argv: argv, Mode: mode}
 
 	t.Logger.DebugContext(ctx, "running command", slog.String("command", inv.Command()))
 
