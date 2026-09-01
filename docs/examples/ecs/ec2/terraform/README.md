@@ -119,6 +119,7 @@ terraform apply
 pours/deployment/
   versions.tf.json
   providers.tf.json
+  backend.tf.json
   main.tf.json
   variables.tf.json
   outputs.tf.json
@@ -137,6 +138,25 @@ pours/deployment/
 ```
 
 One root module, one file per component. There are no child modules: a module with a single generated caller is indirection without reuse, and module paths rewrite state addresses.
+
+State lives beside the configuration that declares it, which is terraform's own default. `backend.tf.json` states it anyway, so moving to a remote backend is a patch rather than an edit to a generated file:
+
+```yaml
+spec:
+  patches:
+  - target: "deployment/backend.tf.json"
+    type: jsonpatch
+    operations:
+      - op: replace
+        path: /terraform/backend
+        value:
+          s3:
+            bucket: foundry-tfstate
+            key: signoz/deployment.tfstate
+            region: us-east-1
+```
+
+The infrastructure casting pours its own root with its own state, so melting the installation leaves the substrate alone.
 
 ## After deployment
 

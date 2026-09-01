@@ -53,6 +53,7 @@ func (c *ecsCasting) Forge(ctx context.Context, config installation.Casting, pou
 
 	for filename, tmpl := range map[string]*domain.Template{
 		"versions.tf.json":      versionsTF,
+		"backend.tf.json":       backendTF,
 		"providers.tf.json":     providersTF,
 		"main.tf.json":          mainTF,
 		"variables.tf.json":     variablesTF,
