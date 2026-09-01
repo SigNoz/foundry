@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../../api/v1alpha1/casting.schema.json
+# yaml-language-server: $schema=../../../../../../api/v1alpha1/casting.schema.json
 apiVersion: v1alpha1
 kind: Installation
 metadata:

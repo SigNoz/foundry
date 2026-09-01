@@ -159,7 +159,9 @@ spec:
       version: latest
     status:
       addresses:
-        otlp: null
+        otlp:
+        - tcp://ingester.foundry.local:4318
+        - tcp://ingester.foundry.local:4317
       config:
         data:
           ingester.yaml: |

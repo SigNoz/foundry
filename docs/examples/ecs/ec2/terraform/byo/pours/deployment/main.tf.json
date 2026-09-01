@@ -1,0 +1,78 @@
+{
+  "data": {
+  },
+  "locals": {
+    "cluster_arn": "${var.cluster_arn}",
+    "subnet_ids": "${var.subnet_ids}",
+    "security_group_ids": "${var.security_group_ids}",
+    "vpc_id": "${var.vpc_id}",
+    "task_role_arn": "${aws_iam_role.task.arn}",
+    "execution_role_arn": "${aws_iam_role.exec.arn}"
+  },
+  "resource": {
+    "aws_iam_role": {
+      "task": {
+        "name": "${var.task_role_name}",
+        "assume_role_policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Action\" = \"sts:AssumeRole\", \"Effect\" = \"Allow\", \"Principal\" = {\"Service\" = \"ecs-tasks.amazonaws.com\"}}]})}",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"}
+      },
+      "exec": {
+        "name": "${var.execution_role_name}",
+        "assume_role_policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Action\" = \"sts:AssumeRole\", \"Effect\" = \"Allow\", \"Principal\" = {\"Service\" = \"ecs-tasks.amazonaws.com\"}}]})}",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"}
+      }
+    },
+    "aws_iam_role_policy_attachment": {
+      "exec": {
+        "policy_arn": "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+        "role": "${aws_iam_role.exec.name}"
+      }
+    },
+    "aws_iam_role_policy": {
+      "task_appconfig_read": {
+        "name": "${var.task_role_name}-appconfig-read",
+        "role": "${aws_iam_role.task.id}",
+        "policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Effect\" = \"Allow\", \"Action\" = [\"appconfig:StartConfigurationSession\"], \"Resource\" = [aws_appconfig_application.main.arn]}, {\"Effect\" = \"Allow\", \"Action\" = [\"appconfig:GetLatestConfiguration\"], \"Resource\" = \"*\"}]})}"
+      }
+    },
+    "aws_service_discovery_private_dns_namespace": {
+      "main": {
+        "name": "signoz.local",
+        "vpc": "${local.vpc_id}",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"}
+      }
+    },
+    "aws_ec2_tag": {
+      "claims": {
+        "for_each": "${ toset(values(local.volumes)) }",
+        "resource_id": "${each.value}",
+        "key": "${var.claim_tag}",
+        "value": "${ join(\",\", sort([ for identity, volume in local.volumes : identity if volume == each.value ])) }"
+      }
+    },
+    "aws_appconfig_application": {
+      "main": {
+        "name": "signoz",
+        "description": "SigNoz component configuration",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"}
+      }
+    },
+    "aws_appconfig_environment": {
+      "main": {
+        "name": "default",
+        "application_id": "${aws_appconfig_application.main.id}",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"}
+      }
+    },
+    "aws_appconfig_deployment_strategy": {
+      "main": {
+        "name": "signoz-config",
+        "deployment_duration_in_minutes": 0,
+        "final_bake_time_in_minutes": 0,
+        "growth_factor": 100,
+        "replicate_to": "NONE",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"}
+      }
+    }
+  }
+}

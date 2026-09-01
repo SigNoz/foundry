@@ -1,0 +1,84 @@
+{
+  "locals": {
+    "containers_metastore": [
+      {
+        "name": "signoz-metastore-postgres-0",
+        "image": "postgres:16",
+        "essential": true,
+        "environment": [{"name":"POSTGRES_DB","value":"signoz"},{"name":"POSTGRES_PASSWORD","value":"signoz"},{"name":"POSTGRES_USER","value":"signoz"}],
+        "portMappings": [
+          {"name": "postgres", "containerPort": 5432, "protocol": "tcp"}
+        ],
+        "mountPoints": [
+          {
+            "sourceVolume": "metastore-data",
+            "containerPath": "/var/lib/postgresql/data"
+          }
+        ],
+        "cpu": 256,
+        "memoryReservation": 256,
+        "healthCheck": {
+          "command": ["CMD-SHELL", "pg_isready -U signoz -d signoz || exit 1"],
+          "interval": 30,
+          "timeout": 5,
+          "retries": 3,
+          "startPeriod": 30
+        }
+      }
+    ]
+  },
+  "resource": {
+    "aws_ecs_task_definition": {
+      "metastore": {
+        "family": "signoz-metastore-postgres-0",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"},
+        "network_mode": "awsvpc",
+        "requires_compatibilities": ["EC2"],
+        "task_role_arn": "${local.task_role_arn}",
+        "execution_role_arn": "${local.execution_role_arn}",
+        "container_definitions": "${jsonencode(local.containers_metastore)}",
+        "volume": [
+          {
+            "name": "metastore-data",
+            "host_path": "/var/lib/foundry/signoz/metastore/0"
+          }
+        ]
+      }
+    },
+    "aws_service_discovery_service": {
+      "metastore": {
+        "name": "metastore-postgres-0",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"},
+        "dns_config": {
+          "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
+          "dns_records": [
+            {
+              "ttl": 10,
+              "type": "A"
+            }
+          ],
+          "routing_policy": "MULTIVALUE"
+        }
+      }
+    },
+    "aws_ecs_service": {
+      "metastore": {
+        "name": "signoz-metastore-postgres-0",
+        "cluster": "${local.cluster_arn}",
+        "task_definition": "${aws_ecs_task_definition.metastore.arn}",
+        "desired_count": 1,
+        "deployment_minimum_healthy_percent": 0,
+        "deployment_maximum_percent": 100,
+        "launch_type": "EC2",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"},
+        "network_configuration": {
+          "subnets": "${local.subnet_ids}",
+          "security_groups": "${local.security_group_ids}"
+        },
+        "service_registries": {
+          "registry_arn": "${aws_service_discovery_service.metastore.arn}"
+        }
+      }
+    }
+  }
+}
