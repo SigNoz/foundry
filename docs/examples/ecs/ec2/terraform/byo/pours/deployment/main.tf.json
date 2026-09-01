@@ -32,7 +32,7 @@
       "task_appconfig_read": {
         "name": "${var.task_role_name}-appconfig-read",
         "role": "${aws_iam_role.task.id}",
-        "policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Effect\" = \"Allow\", \"Action\" = [\"appconfig:StartConfigurationSession\"], \"Resource\" = [aws_appconfig_application.main.arn]}, {\"Effect\" = \"Allow\", \"Action\" = [\"appconfig:GetLatestConfiguration\"], \"Resource\" = \"*\"}]})}"
+        "policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Effect\" = \"Allow\", \"Action\" = [\"appconfig:StartConfigurationSession\"], \"Resource\" = [format(\"%s/environment/*/configuration/*\", aws_appconfig_application.main.arn)]}, {\"Effect\" = \"Allow\", \"Action\" = [\"appconfig:GetLatestConfiguration\"], \"Resource\" = \"*\"}]})}"
       }
     },
     "aws_service_discovery_private_dns_namespace": {
