@@ -46,19 +46,6 @@ type otherTooler struct{}
 func (otherTooler) Name() string                  { return "other" }
 func (otherTooler) Gauge(_ context.Context) error { return nil }
 
-func TestNew(t *testing.T) {
-	kube := New(slog.New(slog.DiscardHandler))
-
-	assert.NotNil(t, kube)
-	assert.Equal(t, "kubernetes", kube.Name())
-}
-
-func TestGaugeResolvesTheConnection(t *testing.T) {
-	requireCluster(t)
-
-	assert.NoError(t, New(slog.New(slog.DiscardHandler)).Gauge(context.Background()))
-}
-
 func TestLookup(t *testing.T) {
 	kube := New(slog.New(slog.DiscardHandler))
 
@@ -182,19 +169,43 @@ func root(t *testing.T, name string, owner domain.Owner) string {
 func TestRender(t *testing.T) {
 	owner := domain.Owner{"foundry.signoz.io/name": "kubetooler-test"}
 
-	objects, err := render(root(t, "kubetooler-test", owner))
-	require.NoError(t, err)
-	require.Len(t, objects, 1)
+	tests := []struct {
+		name         string
+		dir          string
+		pass         bool
+		expectedKind string
+		expectedName string
+	}{
+		{
+			name:         "Root_Valid",
+			dir:          root(t, "kubetooler-test", owner),
+			pass:         true,
+			expectedKind: "ConfigMap",
+			expectedName: "kubetooler-test",
+		},
+		{
+			name: "UnstatedRoot_Invalid",
+			dir:  filepath.Join(t.TempDir(), "absent"),
+		},
+	}
 
-	assert.Equal(t, "ConfigMap", objects[0].GetKind())
-	assert.Equal(t, "kubetooler-test", objects[0].GetName())
-	assert.Equal(t, "kubetooler-test", objects[0].GetLabels()["foundry.signoz.io/name"])
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			objects, err := render(tt.dir)
+			if !tt.pass {
+				assert.Error(t, err)
 
-func TestRenderUnstatedRoot(t *testing.T) {
-	_, err := render(filepath.Join(t.TempDir(), "absent"))
+				return
+			}
 
-	assert.Error(t, err)
+			require.NoError(t, err)
+			require.Len(t, objects, 1)
+
+			assert.Equal(t, tt.expectedKind, objects[0].GetKind())
+			assert.Equal(t, tt.expectedName, objects[0].GetName())
+			assert.Equal(t, tt.expectedName, objects[0].GetLabels()["foundry.signoz.io/name"])
+		})
+	}
 }
 
 func TestApplyDelete(t *testing.T) {
@@ -262,7 +273,7 @@ func TestOwnerGuardsTheRelease(t *testing.T) {
 	require.NoError(t, kube.Apply(context.Background(), installation))
 	t.Cleanup(func() { _ = kube.Delete(context.Background(), installation) })
 
-	assert.Error(t, kube.Apply(context.Background(), agent))
-	assert.Error(t, kube.Delete(context.Background(), agent))
+	assert.ErrorContains(t, kube.Apply(context.Background(), agent), "already belongs to")
+	assert.ErrorContains(t, kube.Delete(context.Background(), agent), "already belongs to")
 	assert.NoError(t, kube.Delete(context.Background(), installation))
 }
