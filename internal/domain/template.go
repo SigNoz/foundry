@@ -110,6 +110,8 @@ func (t *Template) Format() Format {
 //   - toYaml / fromYaml: round-trip a value through YAML inside templates.
 //   - flattenKeys: flatten a nested map into "/"-joined leaf keys (used to
 //     project hierarchical config into flat env-var-style maps).
+//   - ownerString: render a labels map in Owner.String's wire form, for
+//     stamping ownership into a single directive (e.g. a systemd Owner=).
 func templateFuncMap() template.FuncMap {
 	fm := template.FuncMap(sprig.FuncMap())
 	fm["derefInt"] = func(p *int) int {
@@ -146,6 +148,9 @@ func templateFuncMap() template.FuncMap {
 		result := make(map[string]any)
 		flattenMapKeys("", m, result)
 		return result
+	}
+	fm["ownerString"] = func(labels map[string]string) string {
+		return Owner(labels).String()
 	}
 	return fm
 }

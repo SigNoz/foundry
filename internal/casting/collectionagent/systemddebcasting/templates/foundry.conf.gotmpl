@@ -1,0 +1,7 @@
+[Service]
+{{- range $key, $value := .Spec.Collector.Spec.Env }}
+Environment={{ $key }}={{ $value }}
+{{- end }}
+
+[X-Foundry]
+Owner={{ .Labels | ownerString }}
