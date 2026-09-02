@@ -1,0 +1,159 @@
+{{- $name := $.Metadata.Name -}}
+{{- $kind := $.Spec.Collector.Kind -}}
+{{- $service := printf "%s-collector-%s" $name $kind.String -}}
+{{- $sidecar := printf "%s-collector-appconfig-agent" $name -}}
+{{- $profile := printf "%s:%s:%s" $.Application $.Environment $.Profile -}}
+{
+  "locals": {
+    "containers_collector": [
+      {{- /* The agent's own uid writes 0600 and writeTo has no mode setting.
+             The collector runs as root for the docker socket and the host
+             filesystem, so it reads those files and no chown hop is needed. */}}
+      {
+        "name": "{{ $sidecar }}",
+        "image": "public.ecr.aws/aws-appconfig/aws-appconfig-agent:2.x",
+        "essential": true,
+        "user": "0",
+        "environment": [
+          {"name": "PREFETCH_LIST", "value": "{{ $profile }}"},
+          {"name": "POLL_INTERVAL", "value": "45s"},
+          {"name": "MANIFEST", "value": "{\"{{ $profile }}\":{\"writeTo\":{\"path\":\"{{ $.Target }}\"}}}"}
+        ],
+        "mountPoints": [
+          {
+            "sourceVolume": "collector-config",
+            "containerPath": "{{ $.ConfigMount }}"
+          }
+        ],
+        "healthCheck": {
+          "command": ["CMD-SHELL", "test -s {{ $.Target }}"],
+          "interval": 5,
+          "timeout": 3,
+          "retries": 10,
+          "startPeriod": 30
+        },
+        "memoryReservation": 102
+      },
+      {
+        "name": "{{ $service }}",
+        "image": "{{ $.Spec.Collector.Spec.Image }}",
+        "essential": true,
+        "user": "0",
+        "command": ["--config={{ $.Target }}"],
+        {{- $env := list (dict "name" "FOUNDRY_CONFIG_DIGEST" "value" $.Digest) }}
+        {{- range $key, $value := $.Spec.Collector.Spec.Env }}
+        {{- $env = append $env (dict "name" $key "value" $value) }}
+        {{- end }}
+        "environment": {{ toJson $env }},
+        "portMappings": [
+          {"containerPort": 4317, "hostPort": 4317, "protocol": "tcp"},
+          {"containerPort": 4318, "hostPort": 4318, "protocol": "tcp"}
+        ],
+        "mountPoints": [
+          {
+            "sourceVolume": "collector-config",
+            "containerPath": "{{ $.ConfigMount }}",
+            "readOnly": true
+          },
+          {
+            "sourceVolume": "docker-socket",
+            "containerPath": "/var/run/docker.sock",
+            "readOnly": true
+          },
+          {
+            "sourceVolume": "docker-containers",
+            "containerPath": "/var/lib/docker/containers",
+            "readOnly": true
+          },
+          {
+            "sourceVolume": "hostfs",
+            "containerPath": "/hostfs",
+            "readOnly": true
+          }
+        ],
+        "dependsOn": [
+          {"containerName": "{{ $sidecar }}", "condition": "HEALTHY"}
+        ],
+        "cpu": 256,
+        "memoryReservation": 512
+      }
+    ]
+  },
+  "resource": {
+    "aws_appconfig_configuration_profile": {
+      "collector": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "name": "{{ $.Profile }}",
+        "location_uri": "hosted",
+        "type": "AWS.Freeform",
+        "tags": {{ toJson $.Labels }}
+      }
+    },
+    "aws_appconfig_hosted_configuration_version": {
+      "collector": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.collector.configuration_profile_id}",
+        "content_type": "application/x-yaml",
+        "content": "${file(\"${path.module}/{{ $.Source }}\")}"
+      }
+    },
+    "aws_appconfig_deployment": {
+      "collector": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "environment_id": "${aws_appconfig_environment.main.environment_id}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.collector.configuration_profile_id}",
+        "configuration_version": "${aws_appconfig_hosted_configuration_version.collector.version_number}",
+        "deployment_strategy_id": "${aws_appconfig_deployment_strategy.main.id}",
+        "tags": {{ toJson $.Labels }}
+      }
+    },
+    "aws_ecs_task_definition": {
+      "collector": {
+        "family": "{{ $service }}",
+        "tags": {{ toJson $.Labels }},
+        {{- /* Host networking, so the OTLP ports are the instance's own and a
+               task on it reaches the agent on localhost. It also gives the
+               AppConfig agent the instance's route to the AppConfig API. */}}
+        "network_mode": "host",
+        "requires_compatibilities": ["EC2"],
+        "task_role_arn": "${local.task_role_arn}",
+        "execution_role_arn": "${local.execution_role_arn}",
+        "container_definitions": "${jsonencode(local.containers_collector)}",
+        "volume": [
+          {
+            "name": "collector-config",
+            "docker_volume_configuration": {
+              "scope": "task",
+              "driver": "local"
+            }
+          },
+          {
+            "name": "docker-socket",
+            "host_path": "/var/run/docker.sock"
+          },
+          {
+            "name": "docker-containers",
+            "host_path": "/var/lib/docker/containers"
+          },
+          {
+            "name": "hostfs",
+            "host_path": "/"
+          }
+        ],
+        "depends_on": ["aws_appconfig_deployment.collector"]
+      }
+    },
+    "aws_ecs_service": {
+      "collector": {
+        "name": "{{ $service }}",
+        "cluster": "${var.cluster_arn}",
+        "task_definition": "${aws_ecs_task_definition.collector.arn}",
+        {{- /* One task per container instance. A daemon takes no desired count
+               and no maximum percent. */}}
+        "scheduling_strategy": "DAEMON",
+        "launch_type": "EC2",
+        "tags": {{ toJson $.Labels }}
+      }
+    }
+  }
+}

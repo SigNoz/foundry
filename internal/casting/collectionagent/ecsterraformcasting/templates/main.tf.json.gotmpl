@@ -1,0 +1,79 @@
+{
+  "locals": {
+    "task_role_arn": "{{ if $.TaskRole.IsStated }}${var.task_role_arn}{{ else }}${aws_iam_role.task.arn}{{ end }}",
+    "execution_role_arn": "{{ if $.ExecutionRole.IsStated }}${var.execution_role_arn}{{ else }}${aws_iam_role.exec.arn}{{ end }}"
+  },
+  "resource": {
+    {{- /* Workload identity is the workload's own. A role holds no data and
+           dies with this stack. An operator states an ARN instead and nothing
+           is created. */}}
+    {{- if or (not $.TaskRole.IsStated) (not $.ExecutionRole.IsStated) }}
+    "aws_iam_role": {
+      {{- $first := true }}
+      {{- if not $.TaskRole.IsStated }}{{ if not $first }},{{ end }}{{ $first = false }}
+      "task": {
+        "name": "${var.task_role_name}",
+        "assume_role_policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Action\" = \"sts:AssumeRole\", \"Effect\" = \"Allow\", \"Principal\" = {\"Service\" = \"ecs-tasks.amazonaws.com\"}}]})}",
+        "tags": {{ toJson $.Labels }}
+      }
+      {{- end }}
+      {{- if not $.ExecutionRole.IsStated }}{{ if not $first }},{{ end }}{{ $first = false }}
+      "exec": {
+        "name": "${var.execution_role_name}",
+        "assume_role_policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Action\" = \"sts:AssumeRole\", \"Effect\" = \"Allow\", \"Principal\" = {\"Service\" = \"ecs-tasks.amazonaws.com\"}}]})}",
+        "tags": {{ toJson $.Labels }}
+      }
+      {{- end }}
+    },
+    {{- end }}
+    {{- if not $.ExecutionRole.IsStated }}
+    "aws_iam_role_policy_attachment": {
+      "exec": {
+        "policy_arn": "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+        "role": "${aws_iam_role.exec.name}"
+      }
+    },
+    {{- end }}
+    {{- if not $.TaskRole.IsStated }}
+    {{- /* Scoped to the application this stack creates. GetLatestConfiguration
+           acts on a session token and cannot be scoped. */}}
+    "aws_iam_role_policy": {
+      "task_appconfig_read": {
+        "name": "${var.task_role_name}-appconfig-read",
+        "role": "${aws_iam_role.task.id}",
+        "policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Effect\" = \"Allow\", \"Action\" = [\"appconfig:StartConfigurationSession\"], \"Resource\" = [format(\"%s/environment/*/configuration/*\", aws_appconfig_application.main.arn)]}, {\"Effect\" = \"Allow\", \"Action\" = [\"appconfig:GetLatestConfiguration\"], \"Resource\" = \"*\"}]})}"
+      }
+    },
+    {{- end }}
+    {{- /* AppConfig is the ECS analog of a ConfigMap. The application carries
+           the Kind, so an Installation of the same name on the same account
+           holds its own. */}}
+    "aws_appconfig_application": {
+      "main": {
+        "name": "{{ $.Application }}",
+        "description": "SigNoz collection agent configuration",
+        "tags": {{ toJson $.Labels }}
+      }
+    },
+    "aws_appconfig_environment": {
+      "main": {
+        "name": "{{ $.Environment }}",
+        "application_id": "${aws_appconfig_application.main.id}",
+        "tags": {{ toJson $.Labels }}
+      }
+    },
+    {{- /* No bake. AppConfig serializes deployments per environment, paying
+           bake time once per component on every apply. Add it back with
+           CloudWatch monitors that can trigger a rollback. */}}
+    "aws_appconfig_deployment_strategy": {
+      "main": {
+        "name": "{{ $.Application }}-config",
+        "deployment_duration_in_minutes": 0,
+        "final_bake_time_in_minutes": 0,
+        "growth_factor": 100,
+        "replicate_to": "NONE",
+        "tags": {{ toJson $.Labels }}
+      }
+    }
+  }
+}

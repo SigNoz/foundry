@@ -6,10 +6,12 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockercomposecasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockerswarmcasting"
+	"github.com/signoz/foundry/internal/casting/collectionagent/ecsterraformcasting"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/tooler"
 	"github.com/signoz/foundry/internal/tooler/dockercomposetooler"
 	"github.com/signoz/foundry/internal/tooler/dockerswarmtooler"
+	"github.com/signoz/foundry/internal/tooler/terraformtooler"
 )
 
 type CastingItem struct {
@@ -38,6 +40,14 @@ func NewRegistry(logger *slog.Logger) *Registry {
 			}: {
 				Casting: dockerswarmcasting.New(logger),
 				Toolers: []tooler.Tooler{dockerswarmtooler.New(logger)},
+			},
+			{
+				Platform: v1alpha1.PlatformECS,
+				Mode:     v1alpha1.ModeEC2,
+				Flavor:   v1alpha1.FlavorTerraform,
+			}: {
+				Casting: ecsterraformcasting.New(logger),
+				Toolers: []tooler.Tooler{terraformtooler.New(logger)},
 			},
 		},
 	}
