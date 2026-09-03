@@ -80,6 +80,9 @@ type Result struct {
 	Output []byte
 }
 
+// Invoke owns every process spawn in foundry, and castings never reach it. A
+// tool runs as the user would run it at their shell: same environment, same
+// working directory, no clock on its work.
 func Invoke(ctx context.Context, settings Settings, inv Invocation) (Result, error) {
 	if err := inv.Validate(); err != nil {
 		return Result{}, err
