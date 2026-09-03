@@ -6,10 +6,12 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockercomposecasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockerswarmcasting"
+	"github.com/signoz/foundry/internal/casting/collectionagent/kuberneteskustomizecasting"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/tooler"
 	"github.com/signoz/foundry/internal/tooler/dockercomposetooler"
 	"github.com/signoz/foundry/internal/tooler/dockerswarmtooler"
+	"github.com/signoz/foundry/internal/tooler/kubetooler"
 )
 
 type CastingItem struct {
@@ -38,6 +40,13 @@ func NewRegistry(logger *slog.Logger) *Registry {
 			}: {
 				Casting: dockerswarmcasting.New(logger),
 				Toolers: []tooler.Tooler{dockerswarmtooler.New(logger)},
+			},
+			{
+				Mode:   v1alpha1.ModeKubernetes,
+				Flavor: v1alpha1.FlavorKustomize,
+			}: {
+				Casting: kuberneteskustomizecasting.New(logger),
+				Toolers: []tooler.Tooler{kubetooler.New(logger)},
 			},
 		},
 	}
