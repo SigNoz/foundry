@@ -6,7 +6,7 @@ import (
 	"github.com/signoz/foundry/internal/domain"
 )
 
-//go:embed templates/*.gotmpl templates/*/*.gotmpl templates/*/*/*.gotmpl
+//go:embed templates/*.gotmpl templates/*/*.gotmpl templates/*/*/*.gotmpl templates/*/*/*/*.gotmpl
 var templates embed.FS
 
 var (
@@ -19,6 +19,13 @@ var (
 	clickhouseOperatorServiceaccount     = domain.MustNewTemplateFromFS(templates, "templates/operators/clickhouse-operator/serviceaccount.yaml.gotmpl", domain.FormatYAML)
 	clickhouseOperatorKustomization      = domain.MustNewTemplateFromFS(templates, "templates/operators/clickhouse-operator/kustomization.yaml.gotmpl", domain.FormatYAML)
 	clickhouseOperatorNamespace          = domain.MustNewTemplateFromFS(templates, "templates/operators/clickhouse-operator/namespace.yaml.gotmpl", domain.FormatYAML)
+
+	// crds/clickhouse-operator, vendored so no render reaches the network.
+	clickhouseOperatorCHICRD    = domain.MustNewTemplateFromFS(templates, "templates/crds/clickhouse-operator/v0.25.3/clickhouseinstallations.clickhouse.altinity.com.crd.yaml.gotmpl", domain.FormatYAML)
+	clickhouseOperatorCHITCRD   = domain.MustNewTemplateFromFS(templates, "templates/crds/clickhouse-operator/v0.25.3/clickhouseinstallationtemplates.clickhouse.altinity.com.crd.yaml.gotmpl", domain.FormatYAML)
+	clickhouseOperatorConfigCRD = domain.MustNewTemplateFromFS(templates, "templates/crds/clickhouse-operator/v0.25.3/clickhouseoperatorconfigurations.clickhouse.altinity.com.crd.yaml.gotmpl", domain.FormatYAML)
+	clickhouseOperatorCHKCRD    = domain.MustNewTemplateFromFS(templates, "templates/crds/clickhouse-operator/v0.25.3/clickhousekeeperinstallations.clickhouse-keeper.altinity.com.crd.yaml.gotmpl", domain.FormatYAML)
+	clickhouseCRDKustomization  = domain.MustNewTemplateFromFS(templates, "templates/crds/clickhouse-operator/v0.25.3/kustomization.yaml.gotmpl", domain.FormatYAML)
 
 	// telemetrystore/clickhouse.
 	clickhouseInstanceInstallation      = domain.MustNewTemplateFromFS(templates, "templates/telemetrystore/clickhouse/clickhouseinstallation.yaml.gotmpl", domain.FormatYAML)
