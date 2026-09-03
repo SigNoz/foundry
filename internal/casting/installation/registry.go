@@ -18,9 +18,8 @@ import (
 	"github.com/signoz/foundry/internal/tooler"
 	"github.com/signoz/foundry/internal/tooler/dockercomposetooler"
 	"github.com/signoz/foundry/internal/tooler/dockerswarmtooler"
-	"github.com/signoz/foundry/internal/tooler/dockertooler"
 	"github.com/signoz/foundry/internal/tooler/helmtooler"
-	"github.com/signoz/foundry/internal/tooler/kubectltooler"
+	"github.com/signoz/foundry/internal/tooler/kubetooler"
 	"github.com/signoz/foundry/internal/tooler/systemdtooler"
 	"github.com/signoz/foundry/internal/tooler/terraformtooler"
 )
@@ -47,28 +46,28 @@ func NewRegistry(logger *slog.Logger) *Registry {
 				Flavor: v1alpha1.FlavorCompose,
 			}: {
 				Casting: dockercomposecasting.New(logger),
-				Toolers: []tooler.Tooler{dockertooler.New(), dockercomposetooler.New()},
+				Toolers: []tooler.Tooler{dockercomposetooler.New(logger)},
 			},
 			{
 				Mode:   v1alpha1.ModeSystemd,
 				Flavor: v1alpha1.FlavorBinary,
 			}: {
 				Casting: systemdcasting.New(logger),
-				Toolers: []tooler.Tooler{systemdtooler.New()},
+				Toolers: []tooler.Tooler{systemdtooler.New(logger)},
 			},
 			{
 				Mode:   v1alpha1.ModeDocker,
 				Flavor: v1alpha1.FlavorSwarm,
 			}: {
 				Casting: dockerswarmcasting.New(logger),
-				Toolers: []tooler.Tooler{dockertooler.New(), dockerswarmtooler.New()},
+				Toolers: []tooler.Tooler{dockerswarmtooler.New(logger)},
 			},
 			{
 				Mode:   v1alpha1.ModeKubernetes,
 				Flavor: v1alpha1.FlavorKustomize,
 			}: {
 				Casting: kuberneteskustomizecasting.New(logger),
-				Toolers: []tooler.Tooler{kubectltooler.New()},
+				Toolers: []tooler.Tooler{kubetooler.New(logger)},
 			},
 			{
 				Platform: v1alpha1.PlatformRender,
@@ -94,14 +93,14 @@ func NewRegistry(logger *slog.Logger) *Registry {
 				Mode:     v1alpha1.ModeEC2,
 			}: {
 				Casting: ecsterraformcasting.New(logger),
-				Toolers: []tooler.Tooler{terraformtooler.New()},
+				Toolers: []tooler.Tooler{terraformtooler.New(logger)},
 			},
 			{
 				Mode:   v1alpha1.ModeKubernetes,
 				Flavor: v1alpha1.FlavorHelm,
 			}: {
 				Casting: kuberneteshelmcasting.New(logger),
-				Toolers: []tooler.Tooler{helmtooler.New()},
+				Toolers: []tooler.Tooler{helmtooler.New(logger)},
 			},
 		},
 	}

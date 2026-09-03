@@ -112,7 +112,6 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 		config.Spec.Ingester.Status.Addresses.OTLP = []string{
 			domain.MustNewAddress("tcp", config.Metadata.Name+"-ingester", 4318).String(),
 			domain.MustNewAddress("tcp", config.Metadata.Name+"-ingester", 4317).String(),
-
 		}
 	case v1alpha1.MoldingKindMCP:
 		if !config.Spec.MCP.Spec.IsEnabled() {

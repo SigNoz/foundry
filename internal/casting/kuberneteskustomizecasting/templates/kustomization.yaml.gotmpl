@@ -3,6 +3,13 @@ kind: Kustomization
 
 namespace: {{ $.Metadata.Name }}
 
+labels:
+- includeSelectors: false
+  pairs:
+{{- range $key, $value := $.Labels }}
+    {{ $key }}: {{ $value }}
+{{- end }}
+
 resources:
 - namespace.yaml
 {{- if derefBool $.Spec.TelemetryStore.Spec.Enabled }}

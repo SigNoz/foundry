@@ -3,10 +3,7 @@ package dockercomposecasting
 import (
 	"bytes"
 	"context"
-	"errors"
 	"log/slog"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -15,6 +12,8 @@ import (
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
+	"github.com/signoz/foundry/internal/tooler"
+	"github.com/signoz/foundry/internal/tooler/dockercomposetooler"
 )
 
 var _ rootcasting.Casting = (*dockerComposeCasting)(nil)
@@ -99,39 +98,33 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config installat
 	return materials, nil
 }
 
-func (casting *dockerComposeCasting) Cast(ctx context.Context, config installation.Casting, outputPath string) error {
-	casting.logger.InfoContext(ctx, "Executing commands for platform")
-
-	// Check if compose file exists
-	composeFile := filepath.Join(outputPath, rootcasting.DeploymentDir, "compose.yaml")
-	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
-		return foundryerrors.Newf(foundryerrors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
+func (casting *dockerComposeCasting) Cast(ctx context.Context, config installation.Casting, outputPath string, toolers []tooler.Tooler) error {
+	compose, err := dockercomposetooler.Lookup(toolers)
+	if err != nil {
+		return err
+	}
+	release := dockercomposetooler.Release{
+		Release: domain.Release{Name: config.Metadata.Name, Owner: config.Labels()},
+		File:    filepath.Join(outputPath, rootcasting.DeploymentDir, strings.TrimSuffix(composeYAMLTemplate.Name(), ".gotmpl")),
 	}
 
-	// Get the available docker compose command
-	composeCmd, err := getComposeCommand(ctx)
+	return compose.Up(ctx, release)
+}
+
+// Melt removes the containers and networks; the volumes holding component
+// data stay.
+func (casting *dockerComposeCasting) Melt(ctx context.Context, config installation.Casting, outputPath string, toolers []tooler.Tooler) error {
+	compose, err := dockercomposetooler.Lookup(toolers)
 	if err != nil {
-		casting.logger.ErrorContext(ctx, "Docker compose not available", slog.String("error", err.Error()))
-		return foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "docker compose not available")
-	}
-
-	args := append(composeCmd[1:], "-f", composeFile, "up", "-d")
-
-	casting.logger.DebugContext(ctx, "Running command", slog.String("command", strings.Join(append([]string{composeCmd[0]}, args...), " ")))
-
-	cmd := exec.CommandContext(ctx, composeCmd[0], args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	err = cmd.Run()
-	if err != nil {
-		casting.logger.ErrorContext(ctx, "Command execution failed", slog.String("error", err.Error()))
 		return err
 	}
 
-	casting.logger.InfoContext(ctx, "Command executed successfully")
+	release := dockercomposetooler.Release{
+		Release: domain.Release{Name: config.Metadata.Name, Owner: config.Labels()},
+		File:    filepath.Join(outputPath, rootcasting.DeploymentDir, strings.TrimSuffix(composeYAMLTemplate.Name(), ".gotmpl")),
+	}
 
-	return nil
+	return compose.Down(ctx, release)
 }
 
 func getComposeMaterial(config *installation.Casting, path string) (domain.StructuredMaterial, error) {
@@ -142,23 +135,4 @@ func getComposeMaterial(config *installation.Casting, path string) (domain.Struc
 	}
 
 	return domain.NewYAMLMaterial(buf.Bytes(), path)
-}
-
-// getComposeCommand detects the available docker compose command.
-// It checks for "docker compose" (newer, preferred) first, then falls back to "docker-compose" (legacy).
-func getComposeCommand(ctx context.Context) ([]string, error) {
-	// Check "docker compose" first (newer, preferred)
-	if _, err := exec.LookPath("docker"); err == nil {
-		cmd := exec.CommandContext(ctx, "docker", "compose", "version")
-		if err := cmd.Run(); err == nil {
-			return []string{"docker", "compose"}, nil
-		}
-	}
-
-	// Fallback to "docker-compose" (legacy)
-	if _, err := exec.LookPath("docker-compose"); err == nil {
-		return []string{"docker-compose"}, nil
-	}
-
-	return nil, errors.New("neither 'docker compose' nor 'docker-compose' is available")
 }
