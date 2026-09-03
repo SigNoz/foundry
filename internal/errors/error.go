@@ -50,7 +50,7 @@ func Newf(t typ, info string, args ...any) *base {
 	}
 }
 
-func Wrapf(cause error, t typ, format string, args ...any) error {
+func Wrapf(cause error, t typ, format string, args ...any) *base {
 	return &base{
 		t:          t,
 		info:       fmt.Sprintf(format, args...),

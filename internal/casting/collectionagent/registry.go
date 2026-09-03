@@ -10,11 +10,11 @@ import (
 	"github.com/signoz/foundry/internal/tooler"
 	"github.com/signoz/foundry/internal/tooler/dockercomposetooler"
 	"github.com/signoz/foundry/internal/tooler/dockerswarmtooler"
-	"github.com/signoz/foundry/internal/tooler/dockertooler"
 )
 
 type CastingItem struct {
 	Casting Casting
+
 	Toolers []tooler.Tooler
 }
 
@@ -30,14 +30,14 @@ func NewRegistry(logger *slog.Logger) *Registry {
 				Flavor: v1alpha1.FlavorCompose,
 			}: {
 				Casting: dockercomposecasting.New(logger),
-				Toolers: []tooler.Tooler{dockertooler.New(), dockercomposetooler.New()},
+				Toolers: []tooler.Tooler{dockercomposetooler.New(logger)},
 			},
 			{
 				Mode:   v1alpha1.ModeDocker,
 				Flavor: v1alpha1.FlavorSwarm,
 			}: {
 				Casting: dockerswarmcasting.New(logger),
-				Toolers: []tooler.Tooler{dockertooler.New(), dockerswarmtooler.New()},
+				Toolers: []tooler.Tooler{dockerswarmtooler.New(logger)},
 			},
 		},
 	}

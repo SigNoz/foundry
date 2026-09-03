@@ -10,6 +10,7 @@ import (
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/foundry"
+	"github.com/signoz/foundry/internal/tooler"
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +20,10 @@ func registerCastCmd(rootCmd *cobra.Command) {
 		Short: "Cast to the target environment.",
 		RunE: recoverRunE(domain.EventCast, func(cmd *cobra.Command, args []string) (domain.Properties, error) {
 			ctx := cmd.Context()
+
+			if castCfg.Yes {
+				ctx = tooler.WithApproval(ctx)
+			}
 
 			if !castCfg.NoGauge {
 				if props, err := runGauge(ctx, rootLogger, commonCfg.File); err != nil {

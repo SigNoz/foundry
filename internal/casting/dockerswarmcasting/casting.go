@@ -4,17 +4,16 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
+	"github.com/signoz/foundry/internal/tooler"
+	"github.com/signoz/foundry/internal/tooler/dockerswarmtooler"
 )
 
 var _ rootcasting.Casting = (*dockerSwarmCasting)(nil)
@@ -95,36 +94,34 @@ func (casting *dockerSwarmCasting) Forge(ctx context.Context, config installatio
 	return materials, nil
 }
 
-func (casting *dockerSwarmCasting) Cast(ctx context.Context, config installation.Casting, outputPath string) error {
-	casting.logger.InfoContext(ctx, "Deploying stack to Docker Swarm")
-
-	composeFile := filepath.Join(outputPath, rootcasting.DeploymentDir, "compose.yaml")
-	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
-		return errors.Newf(errors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
-	}
-
-	runctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-	defer cancel()
-
-	args := []string{"stack", "deploy", "-d", "-c", composeFile}
-
-	args = append(args, config.Metadata.Name)
-
-	casting.logger.DebugContext(runctx, "Running command", slog.String("command", strings.Join(append([]string{"docker"}, args...), " ")))
-
-	cmd := exec.CommandContext(runctx, "docker", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	err := cmd.Run()
+func (casting *dockerSwarmCasting) Cast(ctx context.Context, config installation.Casting, outputPath string, toolers []tooler.Tooler) error {
+	swarm, err := dockerswarmtooler.Lookup(toolers)
 	if err != nil {
-		casting.logger.ErrorContext(runctx, "Stack deploy failed", slog.String("error", err.Error()))
 		return err
 	}
 
-	casting.logger.InfoContext(runctx, "Stack deployed successfully")
+	release := dockerswarmtooler.Release{
+		Release: domain.Release{Name: config.Metadata.Name, Owner: config.Labels()},
+		File:    filepath.Join(outputPath, rootcasting.DeploymentDir, strings.TrimSuffix(composeYAMLTemplate.Name(), ".gotmpl")),
+	}
 
-	return nil
+	return swarm.Up(ctx, release)
+}
+
+// Melt removes the stack's services and networks; the volumes holding
+// component data stay.
+func (casting *dockerSwarmCasting) Melt(ctx context.Context, config installation.Casting, outputPath string, toolers []tooler.Tooler) error {
+	swarm, err := dockerswarmtooler.Lookup(toolers)
+	if err != nil {
+		return err
+	}
+
+	release := dockerswarmtooler.Release{
+		Release: domain.Release{Name: config.Metadata.Name, Owner: config.Labels()},
+		File:    filepath.Join(outputPath, rootcasting.DeploymentDir, strings.TrimSuffix(composeYAMLTemplate.Name(), ".gotmpl")),
+	}
+
+	return swarm.Down(ctx, release)
 }
 
 func getComposeMaterial(config *installation.Casting, path string) (domain.StructuredMaterial, error) {

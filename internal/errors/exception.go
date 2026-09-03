@@ -65,6 +65,7 @@ func exceptionAttrs(e *Exception) []slog.Attr {
 	}
 
 	attrs = append(attrs, slog.String("message", e.Message))
+
 	if e.Cause != nil {
 		attrs = append(attrs, slog.GroupAttrs("cause", exceptionAttrs(e.Cause)...))
 	}

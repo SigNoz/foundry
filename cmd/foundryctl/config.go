@@ -12,6 +12,9 @@ var (
 	// Stores cast configuration.
 	castCfg castConfig
 
+	// Stores melt configuration.
+	meltCfg meltConfig
+
 	// Stores catalog configuration.
 	catalogCfg catalogConfig
 )
@@ -43,11 +46,21 @@ func (c *poursConfig) RegisterFlags(cmd *cobra.Command) {
 type castConfig struct {
 	NoGauge bool
 	NoForge bool
+	Yes     bool
+}
+
+type meltConfig struct {
+	Yes bool
+}
+
+func (c *meltConfig) RegisterFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().BoolVar(&c.Yes, "yes", false, "Confirm the verbs that change infrastructure.")
 }
 
 func (c *castConfig) RegisterFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().BoolVar(&c.NoGauge, "no-gauge", false, "Do not run gauge before forge and cast.")
 	cmd.PersistentFlags().BoolVar(&c.NoForge, "no-forge", false, "Do not run forge before cast.")
+	cmd.PersistentFlags().BoolVar(&c.Yes, "yes", false, "Confirm the verbs that change infrastructure.")
 }
 
 type catalogConfig struct {

@@ -14,6 +14,7 @@ type CastingItem struct {
 }
 
 type Registry struct {
+	// Castings for the different deployments.
 	castings map[v1alpha1.TypeDeployment]CastingItem
 }
 
@@ -41,7 +42,7 @@ func (registry *Registry) Casting(deployment v1alpha1.TypeDeployment) (Casting, 
 func (registry *Registry) Toolers(deployment v1alpha1.TypeDeployment) ([]tooler.Tooler, error) {
 	item, ok := registry.lookup(deployment)
 	if !ok {
-		return nil, foundryerrors.Newf(foundryerrors.TypeUnsupported, "infrastructure deployment '%+v' is not supported", deployment)
+		return nil, foundryerrors.Newf(foundryerrors.TypeUnsupported, "infrastructure deployment '%+v' is not supported, raise an issue at https://github.com/signoz/foundry/issues to request support for this deployment", deployment)
 	}
 	return item.Toolers, nil
 }

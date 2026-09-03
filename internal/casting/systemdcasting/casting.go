@@ -9,7 +9,7 @@ import (
 	"github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 	"github.com/signoz/foundry/internal/tooler"
-	"github.com/signoz/foundry/internal/tooler/binarytooler"
+	"github.com/signoz/foundry/internal/tooler/systemdtooler"
 
 	"os"
 	"os/exec"
@@ -62,7 +62,7 @@ func (c *systemdCasting) Forge(ctx context.Context, cfg installation.Casting, po
 	return materials, nil
 }
 
-func (c *systemdCasting) Cast(ctx context.Context, config installation.Casting, poursPath string) error {
+func (c *systemdCasting) Cast(ctx context.Context, config installation.Casting, poursPath string, toolers []tooler.Tooler) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
@@ -73,6 +73,11 @@ func (c *systemdCasting) Cast(ctx context.Context, config installation.Casting, 
 	if len(units) == 0 {
 		c.logger.WarnContext(ctx, "no service units found in pours directory", slog.String("pours_path", poursPath))
 		return nil
+	}
+
+	systemd, err := systemdtooler.Lookup(toolers)
+	if err != nil {
+		return err
 	}
 
 	if err := c.provision(ctx, &config, poursPath); err != nil {
@@ -87,12 +92,39 @@ func (c *systemdCasting) Cast(ctx context.Context, config installation.Casting, 
 	if err := c.initializeTelemetryStore(ctx, &config); err != nil {
 		return err
 	}
-	if err := c.startUnits(ctx, units); err != nil {
+
+	release := systemdtooler.Release{
+		Release: domain.Release{Name: config.Metadata.Name, Owner: config.Labels()},
+		Units:   units,
+	}
+	if err := systemd.Up(ctx, release); err != nil {
 		return err
 	}
 
 	c.logger.InfoContext(ctx, "installed systemd services", slog.Int("count", len(units)))
 	return nil
+}
+
+func (c *systemdCasting) Melt(ctx context.Context, config installation.Casting, poursPath string, toolers []tooler.Tooler) error {
+	units, err := c.discoverUnits(poursPath)
+	if err != nil {
+		return err
+	}
+	if len(units) == 0 {
+		return nil
+	}
+
+	systemd, err := systemdtooler.Lookup(toolers)
+	if err != nil {
+		return err
+	}
+
+	release := systemdtooler.Release{
+		Release: domain.Release{Name: config.Metadata.Name, Owner: config.Labels()},
+		Units:   units,
+	}
+
+	return systemd.Down(ctx, release)
 }
 
 func (c *systemdCasting) forgeTelemetryKeeper(cfg *installation.Casting) ([]domain.Material, error) {
@@ -346,7 +378,7 @@ func (c *systemdCasting) provision(ctx context.Context, config *installation.Cas
 		}
 	}
 
-	return c.validateBinaries(ctx, config)
+	return c.validateBinaries(config)
 }
 
 // copyDir copies all files from srcDir to dstDir.
@@ -375,39 +407,42 @@ func (c *systemdCasting) copyDir(srcDir, dstDir string) error {
 
 // validateBinaries checks that every component binary the casting will exec
 // exists at its resolved path: the annotation override if set, otherwise the
-// default. Each binary is verified through a binary tooler and all misses are
-// aggregated into a single error.
-func (c *systemdCasting) validateBinaries(ctx context.Context, config *installation.Casting) error {
-	var missing []string
-	var binaries []tooler.Tooler
+// default. All misses are aggregated into a single error.
+func (c *systemdCasting) validateBinaries(config *installation.Casting) error {
+	type binary struct {
+		name string
+		path string
+	}
 
 	annotations := config.Metadata.Annotations
 
+	var binaries []binary
 	if config.Spec.TelemetryKeeper.Spec.IsEnabled() && config.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindClickhouseKeeper {
-		binaries = append(binaries, binarytooler.New("clickhouse-keeper", installation.TelemetryKeeperClickHouseKeeperBinaryPath.Resolve(annotations)))
+		binaries = append(binaries, binary{"clickhouse-keeper", installation.TelemetryKeeperClickHouseKeeperBinaryPath.Resolve(annotations)})
 	}
 	if config.Spec.TelemetryKeeper.Spec.IsEnabled() && config.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindZookeeper {
-		binaries = append(binaries, binarytooler.New("zookeeper", installation.TelemetryKeeperZookeeperBinaryPath.Resolve(annotations)))
+		binaries = append(binaries, binary{"zookeeper", installation.TelemetryKeeperZookeeperBinaryPath.Resolve(annotations)})
 	}
 	if config.Spec.TelemetryStore.Spec.IsEnabled() {
-		binaries = append(binaries, binarytooler.New("clickhouse", installation.TelemetryStoreClickHouseBinaryPath.Resolve(annotations)))
+		binaries = append(binaries, binary{"clickhouse", installation.TelemetryStoreClickHouseBinaryPath.Resolve(annotations)})
 	}
 	if config.Spec.MetaStore.Spec.IsEnabled() && config.Spec.MetaStore.Kind == installation.MetaStoreKindPostgres {
-		binaries = append(binaries, binarytooler.New("postgres", installation.MetaStorePostgresBinaryPath.Resolve(annotations)))
+		binaries = append(binaries, binary{"postgres", installation.MetaStorePostgresBinaryPath.Resolve(annotations)})
 	}
 	if config.Spec.Signoz.Spec.IsEnabled() {
-		binaries = append(binaries, binarytooler.New("signoz", installation.SignozBinaryPath.Resolve(annotations)))
+		binaries = append(binaries, binary{"signoz", installation.SignozBinaryPath.Resolve(annotations)})
 	}
 	if config.Spec.Ingester.Spec.IsEnabled() {
-		binaries = append(binaries, binarytooler.New("ingester", installation.IngesterBinaryPath.Resolve(annotations)))
+		binaries = append(binaries, binary{"ingester", installation.IngesterBinaryPath.Resolve(annotations)})
 	}
 	if config.Spec.MCP.Spec.IsEnabled() {
-		binaries = append(binaries, binarytooler.New("mcp", installation.MCPBinaryPath.Resolve(annotations)))
+		binaries = append(binaries, binary{"mcp", installation.MCPBinaryPath.Resolve(annotations)})
 	}
 
-	for _, t := range binaries {
-		if err := t.Gauge(ctx); err != nil {
-			missing = append(missing, err.Error())
+	var missing []string
+	for _, b := range binaries {
+		if !binaryExists(b.path) {
+			missing = append(missing, fmt.Sprintf("%s binary not found at %q", b.name, b.path))
 		}
 	}
 
@@ -415,6 +450,12 @@ func (c *systemdCasting) validateBinaries(ctx context.Context, config *installat
 		return errors.Newf(errors.TypeNotFound, "missing binaries: %s - please install before running cast", strings.Join(missing, "; "))
 	}
 	return nil
+}
+
+// binaryExists reports whether a component binary is present at path.
+func binaryExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // initializeMetaStore prepares the metastore's on-disk state before its unit
@@ -585,42 +626,10 @@ func (c *systemdCasting) cleanupPostgresInit(ctx context.Context, pgDataDir, pwf
 	}
 }
 
-// startUnits enables every unit (so dependency references resolve), reloads
-// systemd to pick up the new unit files, then starts them. Ordering between
-// units is handled by systemd via After=/Requires=.
-func (c *systemdCasting) startUnits(ctx context.Context, units []string) error {
-	for _, unit := range units {
-		name := filepath.Base(unit)
-		c.logger.DebugContext(ctx, "enabling unit", slog.String("unit", name))
-		if err := c.systemctl(ctx, "enable", unit); err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to enable unit %s", name)
-		}
-	}
-
-	if err := c.systemctl(ctx, "daemon-reload"); err != nil {
-		return errors.Wrapf(err, errors.TypeInternal, "systemd daemon-reload failed")
-	}
-
-	for _, unit := range units {
-		name := filepath.Base(unit)
-		c.logger.InfoContext(ctx, "starting unit", slog.String("unit", name))
-		if err := c.systemctl(ctx, "start", "--no-block", name); err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to start unit %s", name)
-		}
-	}
-
-	return nil
-}
-
 // execCommand runs a command, streaming its output, and returns an error if it fails.
 func (c *systemdCasting) execCommand(ctx context.Context, name string, args ...string) error {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
-}
-
-// systemctl runs a systemctl subcommand.
-func (c *systemdCasting) systemctl(ctx context.Context, args ...string) error {
-	return c.execCommand(ctx, "systemctl", args...)
 }
