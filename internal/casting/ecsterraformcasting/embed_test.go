@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"log/slog"
 	"maps"
+	"strings"
 	"testing"
 
 	"github.com/signoz/foundry/api/v1alpha1"
@@ -82,8 +83,8 @@ func TestSubstrateIsLookedUpThroughVariables(t *testing.T) {
 	for _, expected := range []string{
 		`"default": "signoz-cls"`,
 		`"default": "signoz-sg-task"`,
-		`"default": "signoz-installation-task"`,
-		`"default": "signoz-installation-exec"`,
+		`"default": "signoz-installation-iam-task"`,
+		`"default": "signoz-installation-iam-exec"`,
 		`"foundry.signoz.io/subnet-type":"private"`,
 		`"foundry.signoz.io/storage":"persistent"`,
 	} {
@@ -131,7 +132,7 @@ func TestStatedIdentifiersReplaceTheirLookup(t *testing.T) {
 
 	// The ones they did not state are still discovered.
 	assert.Contains(t, out, `"name": "${var.task_role_name}"`)
-	assert.Contains(t, variables.String(), `"default": "signoz-installation-task"`)
+	assert.Contains(t, variables.String(), `"default": "signoz-installation-iam-task"`)
 }
 
 func templateDataFor(t *testing.T, casting *installation.Casting) templateData {
@@ -286,9 +287,9 @@ func TestTemplateDataResolution(t *testing.T) {
 				assert.Equal(t, tt.expectedAll, reference.IsStated())
 			}
 
-			// The roles never come from the substrate, so they derive either way.
+			// The roles never come from the substrate, so the template names
+			// them either way.
 			assert.False(t, data.TaskRole.IsStated())
-			assert.NotEmpty(t, data.TaskRole.Name)
 		})
 	}
 }
@@ -299,4 +300,93 @@ func TestRegionUnstated_Invalid(t *testing.T) {
 
 	_, err := New(slog.New(slog.DiscardHandler)).templateData(*casting)
 	assert.Error(t, err)
+}
+
+// The agent attributes a log line by the labels docker copies into it, so a
+// container that writes through another driver, or through json-file without
+// the labels, reaches SigNoz carrying only a container id. Fargate refuses
+// json-file, so the migrator is the one task that carries no block.
+func TestEveryEC2ContainerLogsWithLabels(t *testing.T) {
+	data := templateDataFor(t, clusteredCasting(installation.TelemetryKeeperKindClickhouseKeeper, 1, 1))
+
+	for name, tmpl := range map[string]*domain.Template{
+		"signozTF":          signozTF,
+		"ingesterTF":        ingesterTF,
+		"metaStoreTF":       metaStoreTF,
+		"mcpTF":             mcpTF,
+		"telemetryStoreTF":  telemetryStoreTF,
+		"telemetryKeeperTF": telemetryKeeperTF,
+	} {
+		buf := bytes.NewBuffer(nil)
+		require.NoError(t, tmpl.Execute(buf, data), name)
+
+		rendered := buf.String()
+
+		assert.Equal(t, strings.Count(rendered, `"image":`), strings.Count(rendered, `"logConfiguration":`),
+			"%s: every container logs, or none of them is attributed", name)
+		assert.Contains(t, rendered, "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster", name)
+
+		// Without rotation docker fills the instance disk.
+		assert.Contains(t, rendered, `"max-size": "10m"`, name)
+	}
+
+	migrator := bytes.NewBuffer(nil)
+	require.NoError(t, migratorTF.Execute(migrator, data))
+
+	assert.NotContains(t, migrator.String(), "logConfiguration")
+}
+
+// A revision that never becomes healthy would otherwise sit there, because
+// nothing else puts the previous one back.
+func TestEveryServiceRollsBackABadRevision(t *testing.T) {
+	data := templateDataFor(t, clusteredCasting(installation.TelemetryKeeperKindClickhouseKeeper, 2, 2))
+
+	for name, tmpl := range map[string]*domain.Template{
+		"signozTF":          signozTF,
+		"ingesterTF":        ingesterTF,
+		"metaStoreTF":       metaStoreTF,
+		"mcpTF":             mcpTF,
+		"telemetryStoreTF":  telemetryStoreTF,
+		"telemetryKeeperTF": telemetryKeeperTF,
+	} {
+		buf := bytes.NewBuffer(nil)
+		require.NoError(t, tmpl.Execute(buf, data), name)
+
+		rendered := buf.String()
+
+		assert.Equal(t, strings.Count(rendered, `"launch_type": "EC2"`), strings.Count(rendered, `"deployment_circuit_breaker"`), name)
+	}
+}
+
+// The application carries the Kind, so a CollectionAgent of the same name on
+// the same account holds its own.
+func TestAppConfigApplicationCarriesTheKind(t *testing.T) {
+	data := templateDataFor(t, boundCasting(&installation.Casting{}))
+
+	main := bytes.NewBuffer(nil)
+	require.NoError(t, mainTF.Execute(main, data))
+
+	material, err := domain.NewJSONMaterial(main.Bytes(), "main.tf.json")
+	require.NoError(t, err)
+
+	for path, expected := range map[string]string{
+		"resource.aws_appconfig_application.main.name":         "signoz-installation-appconfig",
+		"resource.aws_appconfig_deployment_strategy.main.name": "signoz-installation-appconfig-strategy",
+
+		// The namespace is a DNS name components resolve each other by, not a
+		// resource name, so it does not follow.
+		"resource.aws_service_discovery_private_dns_namespace.main.name": "signoz.local",
+	} {
+		value, err := material.GetBytes(path)
+
+		assert.NoError(t, err, "reading %s", path)
+		assert.Equal(t, expected, string(value), "at %s", path)
+	}
+
+	// The sidecar prefetches by the application name, so a rename that misses
+	// the triple leaves it fetching a profile that does not exist.
+	ingester := bytes.NewBuffer(nil)
+	require.NoError(t, ingesterTF.Execute(ingester, data))
+
+	assert.Contains(t, ingester.String(), "signoz-installation-appconfig:default:ingester")
 }

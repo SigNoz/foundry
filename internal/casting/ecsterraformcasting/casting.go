@@ -169,13 +169,6 @@ func (c *ecsCasting) templateData(config installation.Casting) (templateData, er
 	}
 	data.SecurityGroup = Reference{StatedIDs: securityGroups}
 
-	// The roles hold no data and die with this stack, so the workload names
-	// them itself. Several workloads share one substrate, and a
-	// substrate-derived name collides on the second apply.
-	workload := config.Metadata.Name + "-" + strings.ToLower(config.Kind().String())
-	data.TaskRole.Name = workload + "-task"
-	data.ExecutionRole.Name = workload + "-exec"
-
 	// Without a substrate the four axes below have no derived side, so each one
 	// has to be stated, and no seat or placement is rendered at all.
 	if data.Substrate == "" {
@@ -240,11 +233,9 @@ func statedIDs(annotation v1alpha1.Annotation, annotations map[string]string) ([
 }
 
 // Reference is one rendezvous axis, resolved. An operator states the object and
-// it is referenced as-is; otherwise it is derived, which means found by the
-// substrate's tags for the cluster, vpc, subnets and security group, and
-// created under the workload's own name for the two roles. Exactly one side is
-// populated. Axes that name a list state through StatedIDs, the rest through
-// Stated.
+// it is referenced as-is; otherwise it is found by the substrate's tags, and
+// the templates name what this stack creates. Axes that name a list state
+// through StatedIDs, the rest through Stated.
 type Reference struct {
 	Stated    string
 	StatedIDs []string

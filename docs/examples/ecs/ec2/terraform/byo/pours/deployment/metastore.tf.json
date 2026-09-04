@@ -4,6 +4,14 @@
       {
         "name": "signoz-metastore-postgres-0",
         "image": "postgres:16",
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
         "essential": true,
         "environment": [{"name":"POSTGRES_DB","value":"signoz"},{"name":"POSTGRES_PASSWORD","value":"signoz"},{"name":"POSTGRES_USER","value":"signoz"}],
         "portMappings": [
@@ -70,6 +78,10 @@
         "deployment_minimum_healthy_percent": 0,
         "deployment_maximum_percent": 100,
         "launch_type": "EC2",
+        "deployment_circuit_breaker": {
+          "enable": true,
+          "rollback": true
+        },
         "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"},
         "network_configuration": {
           "subnets": "${local.subnet_ids}",

@@ -16,6 +16,14 @@
       {
         "name": "{{ $name }}-telemetrystore-user-scripts",
         "image": "{{ $.Spec.TelemetryStore.Spec.Image }}",
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
         "essential": false,
         "entryPoint": ["/bin/sh", "-c"],
         "command": ["node_os=$(uname -s | tr '[:upper:]' '[:lower:]') && node_arch=$(uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/) && cd /tmp && wget -O histogram-quantile.tar.gz https://github.com/SigNoz/signoz/releases/download/histogram-quantile%2Fv0.0.1/histogram-quantile_$${node_os}_$${node_arch}.tar.gz && tar -xzf histogram-quantile.tar.gz && mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile && chown clickhouse:clickhouse /etc/clickhouse-server/config.d"],
@@ -39,6 +47,14 @@
       {
         "name": "{{ $name }}-telemetrystore-appconfig-agent",
         "image": "public.ecr.aws/aws-appconfig/aws-appconfig-agent:2.x",
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
         "essential": true,
         {{- /* writeTo has no mode or owner setting and the agent writes 0600
                as whichever uid it runs as. ClickHouse drops to uid 101, so the
@@ -48,9 +64,9 @@
           {"containerName": "{{ $name }}-telemetrystore-user-scripts", "condition": "SUCCESS"}
         ],
         "environment": [
-          {"name": "PREFETCH_LIST", "value": "{{ $name }}:default:{{ $cfgProfile }},{{ $name }}:default:{{ $fnProfile }}"},
+          {"name": "PREFETCH_LIST", "value": "{{ $name }}-installation-appconfig:default:{{ $cfgProfile }},{{ $name }}-installation-appconfig:default:{{ $fnProfile }}"},
           {"name": "POLL_INTERVAL", "value": "45s"},
-          {"name": "MANIFEST", "value": "{\"{{ $name }}:default:{{ $cfgProfile }}\":{\"writeTo\":{\"path\":\"/etc/clickhouse-server/config.d/config-{{ $n.id }}.yaml\"}},\"{{ $name }}:default:{{ $fnProfile }}\":{\"writeTo\":{\"path\":\"/etc/clickhouse-server/config.d/functions.yaml\"}}}"}
+          {"name": "MANIFEST", "value": "{\"{{ $name }}-installation-appconfig:default:{{ $cfgProfile }}\":{\"writeTo\":{\"path\":\"/etc/clickhouse-server/config.d/config-{{ $n.id }}.yaml\"}},\"{{ $name }}-installation-appconfig:default:{{ $fnProfile }}\":{\"writeTo\":{\"path\":\"/etc/clickhouse-server/config.d/functions.yaml\"}}}"}
         ],
         "mountPoints": [
           {
@@ -70,6 +86,14 @@
       {
         "name": "{{ $name }}-telemetrystore-{{ $kind }}-{{ $n.id }}",
         "image": "{{ $.Spec.TelemetryStore.Spec.Image }}",
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
         "essential": true,
         {{- $env := list (dict "name" "CLICKHOUSE_SKIP_USER_SETUP" "value" "1") }}
         {{- $env = append $env (dict "name" "CLICKHOUSE_CONFIG" "value" (printf "/etc/clickhouse-server/config.d/config-%s.yaml" $n.id)) }}
@@ -231,6 +255,10 @@
         "deployment_minimum_healthy_percent": 0,
         "deployment_maximum_percent": 100,
         "launch_type": "EC2",
+        "deployment_circuit_breaker": {
+          "enable": true,
+          "rollback": true
+        },
         "tags": {{ toJson $.Labels }},
         "network_configuration": {
           "subnets": "${local.subnet_ids}",

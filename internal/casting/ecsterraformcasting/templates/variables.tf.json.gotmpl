@@ -1,6 +1,7 @@
 {{- /* Every identifier arrives as a variable defaulted to what the casting
        resolved. Stating one on the casting replaces its lookup variable with
        the value itself, and main.tf emits no data source for it. */ -}}
+{{- $name := $.Metadata.Name -}}
 {
   "variable": {
     "aws_region": {
@@ -84,7 +85,7 @@
       "nullable": false,
       "description": "Name of the IAM role this stack creates for its tasks",
       "type": "string",
-      "default": "{{ $.TaskRole.Name }}"
+      "default": "{{ $name }}-installation-iam-task"
     },
     {{- end }}
     {{- if $.ExecutionRole.IsStated }}
@@ -99,7 +100,7 @@
       "nullable": false,
       "description": "Name of the IAM role this stack creates for the ECS agent to pull images and write logs",
       "type": "string",
-      "default": "{{ $.ExecutionRole.Name }}"
+      "default": "{{ $name }}-installation-iam-exec"
     }
     {{- end }}
     {{- if $.Substrate }},

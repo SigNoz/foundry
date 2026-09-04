@@ -37,13 +37,13 @@
       "nullable": false,
       "description": "Name of the IAM role this stack creates for its tasks",
       "type": "string",
-      "default": "foundry-installation-task"
+      "default": "foundry-installation-iam-task"
     },
     "execution_role_name": {
       "nullable": false,
       "description": "Name of the IAM role this stack creates for the ECS agent to pull images and write logs",
       "type": "string",
-      "default": "foundry-installation-exec"
+      "default": "foundry-installation-iam-exec"
     },
     "node_tags": {
       "nullable": false,

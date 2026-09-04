@@ -11,6 +11,14 @@
       {
         "name": "{{ $name }}-telemetrykeeper-{{ $kind }}-{{ $i }}",
         "image": "{{ $.Spec.TelemetryKeeper.Spec.Image }}",
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
         "essential": true,
         {{- $env := list }}
         {{- $env = append $env (dict "name" "ZOO_SERVER_ID" "value" (printf "%d" (add $i 1))) }}
@@ -101,6 +109,10 @@
         "deployment_minimum_healthy_percent": 0,
         "deployment_maximum_percent": 100,
         "launch_type": "EC2",
+        "deployment_circuit_breaker": {
+          "enable": true,
+          "rollback": true
+        },
         "tags": {{ toJson $.Labels }},
         "network_configuration": {
           "subnets": "${local.subnet_ids}",
@@ -133,11 +145,19 @@
       {
         "name": "{{ $name }}-telemetrykeeper-appconfig-agent",
         "image": "public.ecr.aws/aws-appconfig/aws-appconfig-agent:2.x",
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
         "essential": true,
         "environment": [
-          {"name": "PREFETCH_LIST", "value": "{{ $name }}:default:{{ $profile }}"},
+          {"name": "PREFETCH_LIST", "value": "{{ $name }}-installation-appconfig:default:{{ $profile }}"},
           {"name": "POLL_INTERVAL", "value": "45s"},
-          {"name": "MANIFEST", "value": "{\"{{ $name }}:default:{{ $profile }}\":{\"writeTo\":{\"path\":\"/etc/clickhouse-keeper/keeper.yaml\"}}}"}
+          {"name": "MANIFEST", "value": "{\"{{ $name }}-installation-appconfig:default:{{ $profile }}\":{\"writeTo\":{\"path\":\"/etc/clickhouse-keeper/keeper.yaml\"}}}"}
         ],
         "mountPoints": [
           {
@@ -159,6 +179,14 @@
       {
         "name": "{{ $name }}-telemetrykeeper-{{ $kind }}-{{ $i }}",
         "image": "{{ $.Spec.TelemetryKeeper.Spec.Image }}",
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
         "essential": true,
         "entryPoint": ["/usr/bin/clickhouse-keeper", "--config-file=/etc/clickhouse-keeper/keeper.yaml"],
         {{- $env := list }}
@@ -290,6 +318,10 @@
         "deployment_minimum_healthy_percent": 0,
         "deployment_maximum_percent": 100,
         "launch_type": "EC2",
+        "deployment_circuit_breaker": {
+          "enable": true,
+          "rollback": true
+        },
         "tags": {{ toJson $.Labels }},
         "network_configuration": {
           "subnets": "${local.subnet_ids}",

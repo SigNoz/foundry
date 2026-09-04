@@ -8,6 +8,14 @@
       {
         "name": "{{ $name }}-ingester-config-init",
         "image": "{{ $.Spec.Ingester.Spec.Image }}",
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
         "essential": false,
         "user": "0",
         "entryPoint": ["/bin/sh", "-c"],
@@ -23,6 +31,14 @@
       {
         "name": "{{ $name }}-ingester-appconfig-agent",
         "image": "public.ecr.aws/aws-appconfig/aws-appconfig-agent:2.x",
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
         "essential": true,
         {{- /* writeTo has no mode or owner setting; the agent writes 0600 as
                its own uid, so it runs as the collector's. */}}
@@ -31,9 +47,9 @@
           {"containerName": "{{ $name }}-ingester-config-init", "condition": "SUCCESS"}
         ],
         "environment": [
-          {"name": "PREFETCH_LIST", "value": "{{ $name }}:default:ingester,{{ $name }}:default:ingester-opamp"},
+          {"name": "PREFETCH_LIST", "value": "{{ $name }}-installation-appconfig:default:ingester,{{ $name }}-installation-appconfig:default:ingester-opamp"},
           {"name": "POLL_INTERVAL", "value": "45s"},
-          {"name": "MANIFEST", "value": "{\"{{ $name }}:default:ingester\":{\"writeTo\":{\"path\":\"/conf/ingester.yaml\"}},\"{{ $name }}:default:ingester-opamp\":{\"writeTo\":{\"path\":\"/conf/opamp.yaml\"}}}"}
+          {"name": "MANIFEST", "value": "{\"{{ $name }}-installation-appconfig:default:ingester\":{\"writeTo\":{\"path\":\"/conf/ingester.yaml\"}},\"{{ $name }}-installation-appconfig:default:ingester-opamp\":{\"writeTo\":{\"path\":\"/conf/opamp.yaml\"}}}"}
         ],
         "mountPoints": [
           {
@@ -53,6 +69,14 @@
       {
         "name": "{{ $name }}-ingester",
         "image": "{{ $.Spec.Ingester.Spec.Image }}",
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
         "essential": true,
         "entryPoint": ["/bin/sh", "-c"],
         "command": ["/signoz-otel-collector migrate sync check && /signoz-otel-collector --config=/conf/ingester.yaml --manager-config=/conf/opamp.yaml --copy-path=/var/tmp/collector-config.yaml"],
@@ -185,6 +209,10 @@
         "deployment_minimum_healthy_percent": 0,
         "deployment_maximum_percent": 100,
         "launch_type": "EC2",
+        "deployment_circuit_breaker": {
+          "enable": true,
+          "rollback": true
+        },
         "tags": {{ toJson $.Labels }},
         "network_configuration": {
           "subnets": "${local.subnet_ids}",

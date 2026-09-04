@@ -37,13 +37,13 @@
       "nullable": false,
       "description": "Name of the IAM role this stack creates for its tasks",
       "type": "string",
-      "default": "signoz-installation-task"
+      "default": "signoz-installation-iam-task"
     },
     "execution_role_name": {
       "nullable": false,
       "description": "Name of the IAM role this stack creates for the ECS agent to pull images and write logs",
       "type": "string",
-      "default": "signoz-installation-exec"
+      "default": "signoz-installation-iam-exec"
     }
   }
 }

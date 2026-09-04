@@ -52,7 +52,7 @@
     },
     "aws_appconfig_application": {
       "main": {
-        "name": "signoz",
+        "name": "signoz-installation-appconfig",
         "description": "SigNoz component configuration",
         "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"}
       }
@@ -66,7 +66,7 @@
     },
     "aws_appconfig_deployment_strategy": {
       "main": {
-        "name": "signoz-config",
+        "name": "signoz-installation-appconfig-strategy",
         "deployment_duration_in_minutes": 0,
         "final_bake_time_in_minutes": 0,
         "growth_factor": 100,

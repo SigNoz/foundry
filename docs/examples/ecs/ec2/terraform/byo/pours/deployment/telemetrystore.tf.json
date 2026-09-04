@@ -4,6 +4,14 @@
       {
         "name": "signoz-telemetrystore-user-scripts",
         "image": "clickhouse/clickhouse-server:25.12.5",
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
         "essential": false,
         "entryPoint": ["/bin/sh", "-c"],
         "command": ["node_os=$(uname -s | tr '[:upper:]' '[:lower:]') && node_arch=$(uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/) && cd /tmp && wget -O histogram-quantile.tar.gz https://github.com/SigNoz/signoz/releases/download/histogram-quantile%2Fv0.0.1/histogram-quantile_$${node_os}_$${node_arch}.tar.gz && tar -xzf histogram-quantile.tar.gz && mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile && chown clickhouse:clickhouse /etc/clickhouse-server/config.d"],
@@ -22,15 +30,23 @@
       {
         "name": "signoz-telemetrystore-appconfig-agent",
         "image": "public.ecr.aws/aws-appconfig/aws-appconfig-agent:2.x",
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
         "essential": true,
         "user": "101:101",
         "dependsOn": [
           {"containerName": "signoz-telemetrystore-user-scripts", "condition": "SUCCESS"}
         ],
         "environment": [
-          {"name": "PREFETCH_LIST", "value": "signoz:default:telemetrystore-clickhouse-0-0,signoz:default:telemetrystore-clickhouse-functions"},
+          {"name": "PREFETCH_LIST", "value": "signoz-installation-appconfig:default:telemetrystore-clickhouse-0-0,signoz-installation-appconfig:default:telemetrystore-clickhouse-functions"},
           {"name": "POLL_INTERVAL", "value": "45s"},
-          {"name": "MANIFEST", "value": "{\"signoz:default:telemetrystore-clickhouse-0-0\":{\"writeTo\":{\"path\":\"/etc/clickhouse-server/config.d/config-0-0.yaml\"}},\"signoz:default:telemetrystore-clickhouse-functions\":{\"writeTo\":{\"path\":\"/etc/clickhouse-server/config.d/functions.yaml\"}}}"}
+          {"name": "MANIFEST", "value": "{\"signoz-installation-appconfig:default:telemetrystore-clickhouse-0-0\":{\"writeTo\":{\"path\":\"/etc/clickhouse-server/config.d/config-0-0.yaml\"}},\"signoz-installation-appconfig:default:telemetrystore-clickhouse-functions\":{\"writeTo\":{\"path\":\"/etc/clickhouse-server/config.d/functions.yaml\"}}}"}
         ],
         "mountPoints": [
           {
@@ -50,6 +66,14 @@
       {
         "name": "signoz-telemetrystore-clickhouse-0-0",
         "image": "clickhouse/clickhouse-server:25.12.5",
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
         "essential": true,
         "environment": [{"name":"CLICKHOUSE_SKIP_USER_SETUP","value":"1"},{"name":"CLICKHOUSE_CONFIG","value":"/etc/clickhouse-server/config.d/config-0-0.yaml"}],
         "portMappings": [
@@ -193,6 +217,10 @@
         "deployment_minimum_healthy_percent": 0,
         "deployment_maximum_percent": 100,
         "launch_type": "EC2",
+        "deployment_circuit_breaker": {
+          "enable": true,
+          "rollback": true
+        },
         "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"},
         "network_configuration": {
           "subnets": "${local.subnet_ids}",
