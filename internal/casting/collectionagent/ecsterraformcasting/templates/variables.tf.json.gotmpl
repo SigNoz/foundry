@@ -1,0 +1,51 @@
+{{- /* Every identifier is a variable defaulted to what the casting resolved.
+       A stated role swaps its name variable for the ARN itself. */ -}}
+{
+  "variable": {
+    "aws_region": {
+      "nullable": false,
+      "validation": {
+        "condition": "${can(regex(\"^[a-z]{2}(-gov)?-[a-z]+-[0-9]$\", var.aws_region))}",
+        "error_message": "aws_region must be a region identifier such as us-east-1."
+      },
+      "description": "AWS region holding the cluster",
+      "type": "string"
+    },
+    "cluster_arn": {
+      "nullable": false,
+      "description": "ARN of the ECS cluster the agent runs a task on every instance of",
+      "type": "string",
+      "default": "{{ $.Cluster.Stated }}"
+    },
+    {{- if $.TaskRole.IsStated }}
+    "task_role_arn": {
+      "nullable": false,
+      "description": "ARN of the IAM role the agent task assumes",
+      "type": "string",
+      "default": "{{ $.TaskRole.Stated }}"
+    },
+    {{- else }}
+    "task_role_name": {
+      "nullable": false,
+      "description": "Name of the IAM role this stack creates for its task",
+      "type": "string",
+      "default": "{{ $.TaskRole.Name }}"
+    },
+    {{- end }}
+    {{- if $.ExecutionRole.IsStated }}
+    "execution_role_arn": {
+      "nullable": false,
+      "description": "ARN of the IAM role the ECS agent assumes",
+      "type": "string",
+      "default": "{{ $.ExecutionRole.Stated }}"
+    }
+    {{- else }}
+    "execution_role_name": {
+      "nullable": false,
+      "description": "Name of the IAM role this stack creates for the ECS agent to pull images and write logs",
+      "type": "string",
+      "default": "{{ $.ExecutionRole.Name }}"
+    }
+    {{- end }}
+  }
+}

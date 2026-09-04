@@ -1,0 +1,149 @@
+{
+  "locals": {
+    "containers_collector": [
+      {
+        "name": "signoz-collector-appconfig-agent",
+        "image": "public.ecr.aws/aws-appconfig/aws-appconfig-agent:2.x",
+        "essential": true,
+        "user": "0",
+        "environment": [
+          {"name": "PREFETCH_LIST", "value": "signoz-collectionagent-appconfig:default:collector-agent"},
+          {"name": "POLL_INTERVAL", "value": "45s"},
+          {"name": "MANIFEST", "value": "{\"signoz-collectionagent-appconfig:default:collector-agent\":{\"writeTo\":{\"path\":\"/conf/agent.yaml\"}}}"}
+        ],
+        "mountPoints": [
+          {
+            "sourceVolume": "collector-config",
+            "containerPath": "/conf"
+          }
+        ],
+        "healthCheck": {
+          "command": ["CMD-SHELL", "test -s /conf/agent.yaml"],
+          "interval": 5,
+          "timeout": 3,
+          "retries": 10,
+          "startPeriod": 30
+        },
+        "logConfiguration": {"logDriver": "none"},
+        "memoryReservation": 102
+      },
+      {
+        "name": "signoz-collector-agent",
+        "image": "otel/opentelemetry-collector-contrib:0.139.0",
+        "essential": true,
+        "user": "0",
+        "command": ["--config=/conf/agent.yaml"],
+        "environment": [{"name":"FOUNDRY_CONFIG_DIGEST","value":"19e7f29008b5eceb0379c293cb5b46481879df97ad66be91de2c34364e3efcc6"},{"name":"OTEL_COLLECTOR_ROLE","value":"agent"},{"name":"SIGNOZ_INGESTION_ENDPOINT","value":"https://ingest.us.signoz.cloud:443"}],
+        "portMappings": [
+          {"containerPort": 4317, "hostPort": 4317, "protocol": "tcp"},
+          {"containerPort": 4318, "hostPort": 4318, "protocol": "tcp"}
+        ],
+        "mountPoints": [
+          {
+            "sourceVolume": "collector-config",
+            "containerPath": "/conf",
+            "readOnly": true
+          },
+          {
+            "sourceVolume": "docker-socket",
+            "containerPath": "/var/run/docker.sock",
+            "readOnly": true
+          },
+          {
+            "sourceVolume": "docker-containers",
+            "containerPath": "/var/lib/docker/containers",
+            "readOnly": true
+          },
+          {
+            "sourceVolume": "hostfs",
+            "containerPath": "/hostfs",
+            "readOnly": true
+          }
+        ],
+        "dependsOn": [
+          {"containerName": "signoz-collector-appconfig-agent", "condition": "HEALTHY"}
+        ],
+        "logConfiguration": {"logDriver": "none"},
+        "cpu": 256,
+        "memoryReservation": 512
+      }
+    ]
+  },
+  "resource": {
+    "aws_appconfig_configuration_profile": {
+      "collector": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "name": "collector-agent",
+        "location_uri": "hosted",
+        "type": "AWS.Freeform",
+        "tags": {"foundry.signoz.io/kind":"CollectionAgent","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"}
+      }
+    },
+    "aws_appconfig_hosted_configuration_version": {
+      "collector": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.collector.configuration_profile_id}",
+        "content_type": "application/x-yaml",
+        "content": "${file(\"${path.module}/collector/agent/agent.yaml\")}"
+      }
+    },
+    "aws_appconfig_deployment": {
+      "collector": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "environment_id": "${aws_appconfig_environment.main.environment_id}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.collector.configuration_profile_id}",
+        "configuration_version": "${aws_appconfig_hosted_configuration_version.collector.version_number}",
+        "deployment_strategy_id": "${aws_appconfig_deployment_strategy.main.id}",
+        "tags": {"foundry.signoz.io/kind":"CollectionAgent","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"}
+      }
+    },
+    "aws_ecs_task_definition": {
+      "collector": {
+        "family": "signoz-collector-agent",
+        "tags": {"foundry.signoz.io/kind":"CollectionAgent","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"},
+        "network_mode": "host",
+        "requires_compatibilities": ["EC2"],
+        "task_role_arn": "${local.task_role_arn}",
+        "execution_role_arn": "${local.execution_role_arn}",
+        "container_definitions": "${jsonencode(local.containers_collector)}",
+        "volume": [
+          {
+            "name": "collector-config",
+            "docker_volume_configuration": {
+              "scope": "task",
+              "driver": "local"
+            }
+          },
+          {
+            "name": "docker-socket",
+            "host_path": "/var/run/docker.sock"
+          },
+          {
+            "name": "docker-containers",
+            "host_path": "/var/lib/docker/containers"
+          },
+          {
+            "name": "hostfs",
+            "host_path": "/"
+          }
+        ],
+        "depends_on": ["aws_appconfig_deployment.collector"]
+      }
+    },
+    "aws_ecs_service": {
+      "collector": {
+        "name": "signoz-collector-agent",
+        "cluster": "${var.cluster_arn}",
+        "task_definition": "${aws_ecs_task_definition.collector.arn}",
+        "scheduling_strategy": "DAEMON",
+        "deployment_minimum_healthy_percent": 0,
+        "launch_type": "EC2",
+        "deployment_circuit_breaker": {
+          "enable": true,
+          "rollback": true
+        },
+        "tags": {"foundry.signoz.io/kind":"CollectionAgent","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"}
+      }
+    }
+  }
+}

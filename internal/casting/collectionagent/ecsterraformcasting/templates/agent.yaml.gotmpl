@@ -1,0 +1,173 @@
+receivers:
+  docker_stats:
+    endpoint: unix:///var/run/docker.sock
+    api_version: "1.44"
+    collection_interval: 60s
+    timeout: 20s
+    container_labels_to_metric_labels:
+      com.amazonaws.ecs.cluster: aws.ecs.cluster.name
+      com.amazonaws.ecs.task-arn: aws.ecs.task.arn
+      com.amazonaws.ecs.task-definition-family: aws.ecs.task.family
+      com.amazonaws.ecs.task-definition-version: aws.ecs.task.revision
+    metrics:
+      container.cpu.utilization:
+        enabled: true
+      container.memory.percent:
+        enabled: true
+      container.memory.usage.limit:
+        enabled: true
+      container.memory.usage.total:
+        enabled: true
+      container.network.io.usage.rx_bytes:
+        enabled: true
+      container.network.io.usage.tx_bytes:
+        enabled: true
+      container.network.io.usage.rx_dropped:
+        enabled: true
+      container.network.io.usage.tx_dropped:
+        enabled: true
+      container.blockio.io_service_bytes_recursive:
+        enabled: true
+  hostmetrics:
+    collection_interval: 60s
+    root_path: /hostfs
+    scrapers:
+      cpu: {}
+      memory: {}
+      disk: {}
+      filesystem:
+        exclude_fs_types:
+          match_type: strict
+          fs_types:
+            - autofs
+            - binfmt_misc
+            - bpf
+            - cgroup2
+            - configfs
+            - debugfs
+            - devpts
+            - devtmpfs
+            - fusectl
+            - hugetlbfs
+            - iso9660
+            - mqueue
+            - nsfs
+            - overlay
+            - proc
+            - procfs
+            - pstore
+            - rpc_pipefs
+            - securityfs
+            - selinuxfs
+            - squashfs
+            - sysfs
+            - tracefs
+        exclude_mount_points:
+          match_type: regexp
+          mount_points:
+            - /dev/*
+            - /proc/*
+            - /sys/*
+            - /run/*
+            - /var/lib/docker/*
+      network: {}
+      load: {}
+      paging: {}
+      process:
+        mute_process_name_error: true
+        mute_process_exe_error: true
+        mute_process_io_error: true
+        mute_process_user_error: true
+      processes: {}
+      system: {}
+  filelog:
+    include:
+      - /var/lib/docker/containers/*/*-json.log
+    start_at: end
+    include_file_name: false
+    include_file_path: true
+    operators:
+      # json-file's shape is always present, so a failure means the input changed.
+      # Without the timestamp the record carries the collector's read time.
+      - type: json_parser
+        parse_to: body
+        on_error: send
+        timestamp:
+          parse_from: body.time
+          layout_type: gotime
+          layout: '2006-01-02T15:04:05.999999999Z07:00'
+      - type: recombine
+        combine_field: body.log
+        combine_with: ""
+        is_last_entry: body.log endsWith "\n"
+        source_identifier: attributes["log.file.path"]
+        force_flush_period: 5s
+        on_error: send
+      # Anything foundry did not generate carries no labels and so no attrs;
+      # send_quiet keeps the record instead of logging per operator per line.
+      - type: move
+        from: body.attrs["com.amazonaws.ecs.task-definition-family"]
+        to: resource["service.name"]
+        on_error: send_quiet
+      - type: move
+        from: body.attrs["com.amazonaws.ecs.container-name"]
+        to: resource["aws.ecs.container.name"]
+        on_error: send_quiet
+      - type: move
+        from: body.attrs["com.amazonaws.ecs.task-arn"]
+        to: resource["aws.ecs.task.arn"]
+        on_error: send_quiet
+      - type: move
+        from: body.attrs["com.amazonaws.ecs.cluster"]
+        to: resource["aws.ecs.cluster.name"]
+        on_error: send_quiet
+      - type: remove
+        field: body.attrs
+        on_error: send_quiet
+      - type: regex_parser
+        parse_from: attributes["log.file.path"]
+        regex: '/var/lib/docker/containers/(?P<container_id>[a-f0-9]{64})/'
+        on_error: send
+      - type: move
+        from: attributes.container_id
+        to: resource["container.id"]
+        on_error: send_quiet
+      - type: move
+        from: attributes["log.file.path"]
+        to: resource["log.file.path"]
+      - type: move
+        from: body.stream
+        to: attributes["log.iostream"]
+      - type: remove
+        field: body.time
+      - type: move
+        from: body.log
+        to: body
+
+  # The task already mounts / at /hostfs, so these paths need no second mount.
+  filelog/host:
+    include:
+      - /hostfs/var/log/messages
+      - /hostfs/var/log/secure
+      - /hostfs/var/log/ecs/*.log
+    start_at: end
+    include_file_path: true
+    # All three sources share one service.name, so the file name separates them.
+    include_file_name: true
+    resource:
+      service.name: ecs-host
+
+processors:
+  # Never ecs or docker: on a DAEMON both answer for the collector's own task.
+  resourcedetection:
+    detectors:
+      - env
+      - ec2
+    timeout: 5s
+
+service:
+  pipelines:
+    metrics:
+      receivers: [docker_stats, hostmetrics]
+    logs:
+      receivers: [filelog, filelog/host]

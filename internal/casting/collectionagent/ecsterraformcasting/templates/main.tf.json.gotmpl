@@ -1,0 +1,76 @@
+{
+  "locals": {
+    "task_role_arn": "{{ if $.TaskRole.IsStated }}${var.task_role_arn}{{ else }}${aws_iam_role.task.arn}{{ end }}",
+    "execution_role_arn": "{{ if $.ExecutionRole.IsStated }}${var.execution_role_arn}{{ else }}${aws_iam_role.exec.arn}{{ end }}"
+  },
+  "resource": {
+    {{- /* A role holds no data and dies with this stack. A stated ARN
+           creates none. */}}
+    {{- if or (not $.TaskRole.IsStated) (not $.ExecutionRole.IsStated) }}
+    "aws_iam_role": {
+      {{- $first := true }}
+      {{- if not $.TaskRole.IsStated }}{{ if not $first }},{{ end }}{{ $first = false }}
+      "task": {
+        "name": "${var.task_role_name}",
+        "assume_role_policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Action\" = \"sts:AssumeRole\", \"Effect\" = \"Allow\", \"Principal\" = {\"Service\" = \"ecs-tasks.amazonaws.com\"}}]})}",
+        "tags": {{ toJson $.Labels }}
+      }
+      {{- end }}
+      {{- if not $.ExecutionRole.IsStated }}{{ if not $first }},{{ end }}{{ $first = false }}
+      "exec": {
+        "name": "${var.execution_role_name}",
+        "assume_role_policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Action\" = \"sts:AssumeRole\", \"Effect\" = \"Allow\", \"Principal\" = {\"Service\" = \"ecs-tasks.amazonaws.com\"}}]})}",
+        "tags": {{ toJson $.Labels }}
+      }
+      {{- end }}
+    },
+    {{- end }}
+    {{- if not $.ExecutionRole.IsStated }}
+    "aws_iam_role_policy_attachment": {
+      "exec": {
+        "policy_arn": "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+        "role": "${aws_iam_role.exec.name}"
+      }
+    },
+    {{- end }}
+    {{- if not $.TaskRole.IsStated }}
+    {{- /* GetLatestConfiguration acts on a session token and cannot be
+           scoped to the application. */}}
+    "aws_iam_role_policy": {
+      "task_appconfig_read": {
+        "name": "${var.task_role_name}-appconfig-read",
+        "role": "${aws_iam_role.task.id}",
+        "policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Effect\" = \"Allow\", \"Action\" = [\"appconfig:StartConfigurationSession\"], \"Resource\" = [format(\"%s/environment/*/configuration/*\", aws_appconfig_application.main.arn)]}, {\"Effect\" = \"Allow\", \"Action\" = [\"appconfig:GetLatestConfiguration\"], \"Resource\" = \"*\"}]})}"
+      }
+    },
+    {{- end }}
+    {{- /* The application name carries the Kind, so an Installation of the
+           same name on the same account holds its own. */}}
+    "aws_appconfig_application": {
+      "main": {
+        "name": "{{ $.Application }}",
+        "description": "SigNoz collection agent configuration",
+        "tags": {{ toJson $.Labels }}
+      }
+    },
+    "aws_appconfig_environment": {
+      "main": {
+        "name": "{{ $.Environment }}",
+        "application_id": "${aws_appconfig_application.main.id}",
+        "tags": {{ toJson $.Labels }}
+      }
+    },
+    {{- /* AppConfig serializes deployments per environment, so bake time is
+           paid once per component on every apply. */}}
+    "aws_appconfig_deployment_strategy": {
+      "main": {
+        "name": "{{ $.Application }}-strategy",
+        "deployment_duration_in_minutes": 0,
+        "final_bake_time_in_minutes": 0,
+        "growth_factor": 100,
+        "replicate_to": "NONE",
+        "tags": {{ toJson $.Labels }}
+      }
+    }
+  }
+}
