@@ -1,0 +1,90 @@
+{{- $name := $.Metadata.Name -}}
+{
+  "locals": {
+    "containers_mcp": [
+      {
+        "name": "{{ $name }}-mcp",
+        "image": "{{ $.Spec.MCP.Spec.Image }}",
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
+        "essential": true,
+        {{- $env := list }}
+        {{- range $key, $value := $.Spec.MCP.Spec.Env }}
+        {{- $env = append $env (dict "name" $key "value" $value) }}
+        {{- end }}
+        {{- if $env }}
+        "environment": {{ toJson $env }},
+        {{- end }}
+        "portMappings": [
+          {"name": "http", "containerPort": 8000, "protocol": "tcp", "appProtocol": "http"}
+        ],
+        "cpu": 256,
+        "memoryReservation": 512
+      }
+    ]
+  },
+  "resource": {
+    "aws_ecs_task_definition": {
+      "mcp": {
+        "family": "{{ $name }}-mcp",
+        "tags": {{ toJson $.Labels }},
+        "network_mode": "awsvpc",
+        "requires_compatibilities": ["EC2"],
+        "task_role_arn": "${local.task_role_arn}",
+        "execution_role_arn": "${local.execution_role_arn}",
+        "container_definitions": "${jsonencode(local.containers_mcp)}"
+      }
+    },
+    "aws_service_discovery_service": {
+      "mcp": {
+        "name": "mcp",
+        "tags": {{ toJson $.Labels }},
+        "dns_config": {
+          "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
+          "dns_records": [
+            {
+              "ttl": 10,
+              "type": "A"
+            }
+          ],
+          "routing_policy": "MULTIVALUE"
+        }
+      }
+    },
+    "aws_ecs_service": {
+      "mcp": {
+        "name": "{{ $name }}-mcp",
+        "cluster": "${local.cluster_arn}",
+        "task_definition": "${aws_ecs_task_definition.mcp.arn}",
+        "desired_count": {{ derefIntDefault $.Spec.MCP.Spec.Cluster.Replicas 1 }},
+        "deployment_minimum_healthy_percent": 0,
+        "deployment_maximum_percent": 100,
+        "launch_type": "EC2",
+        "deployment_circuit_breaker": {
+          "enable": true,
+          "rollback": true
+        },
+        "tags": {{ toJson $.Labels }},
+        "network_configuration": {
+          "subnets": "${local.subnet_ids}",
+          "security_groups": "${local.security_group_ids}"
+        },
+        "service_registries": {
+          "registry_arn": "${aws_service_discovery_service.mcp.arn}"
+        }{{ if $.Substrate }},
+        "placement_constraints": [
+          {
+            "type": "memberOf",
+            "expression": "{{ $.EphemeralPlacement }}"
+          }
+        ]{{ end }}
+      }
+    }
+  }
+}

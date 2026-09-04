@@ -1,0 +1,241 @@
+{
+  "locals": {
+    "containers_telemetrystore_0_0": [
+      {
+        "name": "foundry-telemetrystore-user-scripts",
+        "image": "clickhouse/clickhouse-server:25.12.5",
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
+        "essential": false,
+        "entryPoint": ["/bin/sh", "-c"],
+        "command": ["node_os=$(uname -s | tr '[:upper:]' '[:lower:]') && node_arch=$(uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/) && cd /tmp && wget -O histogram-quantile.tar.gz https://github.com/SigNoz/signoz/releases/download/histogram-quantile%2Fv0.0.1/histogram-quantile_$${node_os}_$${node_arch}.tar.gz && tar -xzf histogram-quantile.tar.gz && mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile && chown clickhouse:clickhouse /etc/clickhouse-server/config.d"],
+        "mountPoints": [
+          {
+            "sourceVolume": "telemetrystore-user-scripts",
+            "containerPath": "/var/lib/clickhouse/user_scripts"
+          },
+          {
+            "sourceVolume": "telemetrystore-config",
+            "containerPath": "/etc/clickhouse-server/config.d"
+          }
+        ],
+        "memoryReservation": 256
+      },
+      {
+        "name": "foundry-telemetrystore-appconfig-agent",
+        "image": "public.ecr.aws/aws-appconfig/aws-appconfig-agent:2.x",
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
+        "essential": true,
+        "user": "101:101",
+        "dependsOn": [
+          {"containerName": "foundry-telemetrystore-user-scripts", "condition": "SUCCESS"}
+        ],
+        "environment": [
+          {"name": "PREFETCH_LIST", "value": "foundry-installation-appconfig:default:telemetrystore-clickhouse-0-0,foundry-installation-appconfig:default:telemetrystore-clickhouse-functions"},
+          {"name": "POLL_INTERVAL", "value": "45s"},
+          {"name": "MANIFEST", "value": "{\"foundry-installation-appconfig:default:telemetrystore-clickhouse-0-0\":{\"writeTo\":{\"path\":\"/etc/clickhouse-server/config.d/config-0-0.yaml\"}},\"foundry-installation-appconfig:default:telemetrystore-clickhouse-functions\":{\"writeTo\":{\"path\":\"/etc/clickhouse-server/config.d/functions.yaml\"}}}"}
+        ],
+        "mountPoints": [
+          {
+            "sourceVolume": "telemetrystore-config",
+            "containerPath": "/etc/clickhouse-server/config.d"
+          }
+        ],
+        "healthCheck": {
+          "command": ["CMD-SHELL", "test -s /etc/clickhouse-server/config.d/config-0-0.yaml && test -s /etc/clickhouse-server/config.d/functions.yaml"],
+          "interval": 5,
+          "timeout": 3,
+          "retries": 10,
+          "startPeriod": 30
+        },
+        "memoryReservation": 102
+      },
+      {
+        "name": "foundry-telemetrystore-clickhouse-0-0",
+        "image": "clickhouse/clickhouse-server:25.12.5",
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
+        "essential": true,
+        "environment": [{"name":"CLICKHOUSE_SKIP_USER_SETUP","value":"1"},{"name":"CLICKHOUSE_CONFIG","value":"/etc/clickhouse-server/config.d/config-0-0.yaml"}],
+        "portMappings": [
+          {"name": "native", "containerPort": 9000, "protocol": "tcp"},
+          {"name": "http", "containerPort": 8123, "protocol": "tcp", "appProtocol": "http"},
+          {"name": "prometheus", "containerPort": 9363, "protocol": "tcp", "appProtocol": "http"}
+        ],
+        "mountPoints": [
+          {
+            "sourceVolume": "telemetrystore-user-scripts",
+            "containerPath": "/var/lib/clickhouse/user_scripts"
+          },
+          {
+            "sourceVolume": "telemetrystore-config",
+            "containerPath": "/etc/clickhouse-server/config.d"
+          },
+          {
+            "sourceVolume": "telemetrystore-data",
+            "containerPath": "/var/lib/clickhouse"
+          }
+        ],
+        "dependsOn": [
+          {"containerName": "foundry-telemetrystore-user-scripts", "condition": "SUCCESS"},
+          {"containerName": "foundry-telemetrystore-appconfig-agent", "condition": "HEALTHY"}
+        ],
+        "cpu": 1024,
+        "memoryReservation": 512,
+        "healthCheck": {
+          "command": ["CMD-SHELL", "wget --spider -q http://localhost:8123/ping || exit 1"],
+          "interval": 30,
+          "timeout": 5,
+          "retries": 3,
+          "startPeriod": 30
+        }
+      }
+    ]
+  },
+  "resource": {
+    "aws_appconfig_configuration_profile": {
+      "telemetrystore_functions": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "name": "telemetrystore-clickhouse-functions",
+        "location_uri": "hosted",
+        "type": "AWS.Freeform",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"}
+      },
+      "telemetrystore_0_0": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "name": "telemetrystore-clickhouse-0-0",
+        "location_uri": "hosted",
+        "type": "AWS.Freeform",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"}
+      }
+    },
+    "aws_appconfig_hosted_configuration_version": {
+      "telemetrystore_functions": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.telemetrystore_functions.configuration_profile_id}",
+        "content_type": "application/x-yaml",
+        "content": "${file(\"${path.module}/telemetrystore/clickhouse/functions.yaml\")}"
+      },
+      "telemetrystore_0_0": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.telemetrystore_0_0.configuration_profile_id}",
+        "content_type": "application/x-yaml",
+        "content": "${file(\"${path.module}/telemetrystore/clickhouse/config-0-0.yaml\")}"
+      }
+    },
+    "aws_appconfig_deployment": {
+      "telemetrystore_functions": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "environment_id": "${aws_appconfig_environment.main.environment_id}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.telemetrystore_functions.configuration_profile_id}",
+        "configuration_version": "${aws_appconfig_hosted_configuration_version.telemetrystore_functions.version_number}",
+        "deployment_strategy_id": "${aws_appconfig_deployment_strategy.main.id}",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"}
+      },
+      "telemetrystore_0_0": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "environment_id": "${aws_appconfig_environment.main.environment_id}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.telemetrystore_0_0.configuration_profile_id}",
+        "configuration_version": "${aws_appconfig_hosted_configuration_version.telemetrystore_0_0.version_number}",
+        "deployment_strategy_id": "${aws_appconfig_deployment_strategy.main.id}",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"}
+      }
+    },
+    "aws_ecs_task_definition": {
+      "telemetrystore_0_0": {
+        "family": "foundry-telemetrystore-clickhouse-0-0",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"},
+        "network_mode": "awsvpc",
+        "requires_compatibilities": ["EC2"],
+        "task_role_arn": "${local.task_role_arn}",
+        "execution_role_arn": "${local.execution_role_arn}",
+        "container_definitions": "${jsonencode(local.containers_telemetrystore_0_0)}",
+        "volume": [
+          {
+            "name": "telemetrystore-user-scripts",
+            "docker_volume_configuration": {
+              "scope": "task",
+              "driver": "local"
+            }
+          },
+          {
+            "name": "telemetrystore-config",
+            "docker_volume_configuration": {
+              "scope": "task",
+              "driver": "local"
+            }
+          },
+          {
+            "name": "telemetrystore-data",
+            "host_path": "/var/lib/foundry/foundry/telemetrystore/0-0"
+          }
+        ],
+        "depends_on": ["aws_appconfig_deployment.telemetrystore_0_0", "aws_appconfig_deployment.telemetrystore_functions"]
+      }
+    },
+    "aws_service_discovery_service": {
+      "telemetrystore_0_0": {
+        "name": "telemetrystore-clickhouse-0-0",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"},
+        "dns_config": {
+          "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
+          "dns_records": [
+            {
+              "ttl": 10,
+              "type": "A"
+            }
+          ],
+          "routing_policy": "MULTIVALUE"
+        }
+      }
+    },
+    "aws_ecs_service": {
+      "telemetrystore_0_0": {
+        "name": "foundry-telemetrystore-clickhouse-0-0",
+        "cluster": "${local.cluster_arn}",
+        "task_definition": "${aws_ecs_task_definition.telemetrystore_0_0.arn}",
+        "desired_count": 1,
+        "deployment_minimum_healthy_percent": 0,
+        "deployment_maximum_percent": 100,
+        "launch_type": "EC2",
+        "deployment_circuit_breaker": {
+          "enable": true,
+          "rollback": true
+        },
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"},
+        "network_configuration": {
+          "subnets": "${local.subnet_ids}",
+          "security_groups": "${local.security_group_ids}"
+        },
+        "service_registries": {
+          "registry_arn": "${aws_service_discovery_service.telemetrystore_0_0.arn}"
+        },
+        "placement_constraints": [
+          {
+            "type": "memberOf",
+            "expression": "ec2InstanceId == '${local.seats[\"telemetrystore-0-0\"]}' and attribute:foundry.signoz.io/name == foundry and attribute:foundry.signoz.io/storage == persistent"
+          }
+        ]
+      }
+    }
+  }
+}

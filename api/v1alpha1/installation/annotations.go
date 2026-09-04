@@ -51,6 +51,48 @@ var (
 	}
 )
 
+// Cluster annotations for the ECS/EC2 deployment of the Installation Kind.
+// Each names an existing AWS object, and an absent one falls back to what the
+// substrate in spec.infrastructure.name derives. The region has no substrate
+// to fall back to and is always stated.
+var (
+	ECSRegion = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/ecs-region",
+		Mode:        v1alpha1.ModeEC2,
+		Description: "AWS region holding the cluster.",
+	}
+	ECSClusterARN = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/ecs-cluster-arn",
+		Mode:        v1alpha1.ModeEC2,
+		Description: "ARN of the ECS cluster to deploy services into.",
+	}
+	ECSSubnetIDs = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/ecs-subnet-ids",
+		Mode:        v1alpha1.ModeEC2,
+		Description: "Comma-separated subnet IDs for task networking (awsvpc).",
+	}
+	ECSSecurityGroupIDs = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/ecs-security-group-ids",
+		Mode:        v1alpha1.ModeEC2,
+		Description: "Comma-separated security group IDs for task networking (awsvpc); must permit intra-cluster traffic.",
+	}
+	ECSVPCID = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/ecs-vpc-id",
+		Mode:        v1alpha1.ModeEC2,
+		Description: "VPC ID the Cloud Map private DNS namespace is created in.",
+	}
+	ECSTaskRoleARN = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/ecs-task-role-arn",
+		Mode:        v1alpha1.ModeEC2,
+		Description: "IAM role ARN assumed by the tasks; needs read access to AWS AppConfig.",
+	}
+	ECSTaskExecutionRoleARN = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/ecs-task-execution-role-arn",
+		Mode:        v1alpha1.ModeEC2,
+		Description: "IAM role ARN the ECS agent assumes to pull images and start tasks.",
+	}
+)
+
 // Annotations returns the Installation annotation catalog.
 func Annotations() []v1alpha1.Annotation {
 	return []v1alpha1.Annotation{
@@ -59,6 +101,13 @@ func Annotations() []v1alpha1.Annotation {
 		MetaStorePostgresBinaryPath,
 		TelemetryStoreClickHouseBinaryPath,
 		TelemetryKeeperClickHouseKeeperBinaryPath,
+		ECSRegion,
+		ECSClusterARN,
+		ECSSubnetIDs,
+		ECSSecurityGroupIDs,
+		ECSVPCID,
+		ECSTaskRoleARN,
+		ECSTaskExecutionRoleARN,
 		TelemetryKeeperZookeeperBinaryPath,
 		MCPBinaryPath,
 	}

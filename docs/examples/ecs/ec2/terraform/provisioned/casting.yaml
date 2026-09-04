@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../../../../../../api/v1alpha1/casting.schema.json
+apiVersion: v1alpha1
+kind: Installation
+metadata:
+  name: foundry
+  annotations:
+    # The region is the one thing neither the casting nor a tag can carry.
+    # Everything else about the cluster is found by the tags the Infrastructure
+    # casting named below stamped on it.
+    foundry.signoz.io/ecs-region: us-east-1
+spec:
+  deployment:
+    platform: ecs
+    mode: ec2
+    flavor: terraform
+  infrastructure:
+    name: foundry

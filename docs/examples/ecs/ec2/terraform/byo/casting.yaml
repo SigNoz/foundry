@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../../../../../../api/v1alpha1/casting.schema.json
+apiVersion: v1alpha1
+kind: Installation
+metadata:
+  name: signoz
+  annotations:
+    # No substrate is named below, so nothing can be found by foundry's tags.
+    # Every object the cluster is made of is stated here instead, and the pour
+    # references each one as-is rather than emitting a lookup for it.
+    foundry.signoz.io/ecs-region: us-east-1
+    foundry.signoz.io/ecs-cluster-arn: arn:aws:ecs:us-east-1:111122223333:cluster/observability
+    foundry.signoz.io/ecs-vpc-id: vpc-0a1b2c3d4e5f67890
+    foundry.signoz.io/ecs-subnet-ids: subnet-0a1b2c3d4e5f67890,subnet-0f9e8d7c6b5a43210
+    foundry.signoz.io/ecs-security-group-ids: sg-0a1b2c3d4e5f67890
+spec:
+  deployment:
+    platform: ecs
+    mode: ec2
+    flavor: terraform

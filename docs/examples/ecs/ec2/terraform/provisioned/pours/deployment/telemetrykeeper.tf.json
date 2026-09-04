@@ -1,0 +1,178 @@
+{
+  "locals": {
+    "containers_telemetrykeeper_0": [
+      {
+        "name": "foundry-telemetrykeeper-appconfig-agent",
+        "image": "public.ecr.aws/aws-appconfig/aws-appconfig-agent:2.x",
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
+        "essential": true,
+        "environment": [
+          {"name": "PREFETCH_LIST", "value": "foundry-installation-appconfig:default:telemetrykeeper-clickhousekeeper-0"},
+          {"name": "POLL_INTERVAL", "value": "45s"},
+          {"name": "MANIFEST", "value": "{\"foundry-installation-appconfig:default:telemetrykeeper-clickhousekeeper-0\":{\"writeTo\":{\"path\":\"/etc/clickhouse-keeper/keeper.yaml\"}}}"}
+        ],
+        "mountPoints": [
+          {
+            "sourceVolume": "telemetrykeeper-config",
+            "containerPath": "/etc/clickhouse-keeper"
+          }
+        ],
+        "healthCheck": {
+          "command": ["CMD-SHELL", "test -s /etc/clickhouse-keeper/keeper.yaml"],
+          "interval": 5,
+          "timeout": 3,
+          "retries": 10,
+          "startPeriod": 30
+        },
+        "memoryReservation": 102
+      },
+      {
+        "name": "foundry-telemetrykeeper-clickhousekeeper-0",
+        "image": "clickhouse/clickhouse-keeper:25.12.5",
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
+        "essential": true,
+        "entryPoint": ["/usr/bin/clickhouse-keeper", "--config-file=/etc/clickhouse-keeper/keeper.yaml"],
+        "environment": [],
+        "portMappings": [
+          {"name": "client", "containerPort": 9181, "protocol": "tcp"},
+          {"name": "raft", "containerPort": 9234, "protocol": "tcp"}
+        ],
+        "mountPoints": [
+          {
+            "sourceVolume": "telemetrykeeper-data",
+            "containerPath": "/var/lib/clickhouse-keeper"
+          },
+          {
+            "sourceVolume": "telemetrykeeper-config",
+            "containerPath": "/etc/clickhouse-keeper"
+          }
+        ],
+        "dependsOn": [
+          {"containerName": "foundry-telemetrykeeper-appconfig-agent", "condition": "HEALTHY"}
+        ],
+        "cpu": 256,
+        "memoryReservation": 512,
+        "healthCheck": {
+          "command": ["CMD-SHELL", "clickhouse-keeper-client -h localhost -p 9181 -q ls || exit 1"],
+          "interval": 30,
+          "timeout": 5,
+          "retries": 3,
+          "startPeriod": 30
+        }
+      }
+    ]
+  },
+  "resource": {
+    "aws_appconfig_configuration_profile": {
+      "telemetrykeeper_0": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "name": "telemetrykeeper-clickhousekeeper-0",
+        "location_uri": "hosted",
+        "type": "AWS.Freeform",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"}
+      }
+    },
+    "aws_appconfig_hosted_configuration_version": {
+      "telemetrykeeper_0": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.telemetrykeeper_0.configuration_profile_id}",
+        "content_type": "application/x-yaml",
+        "content": "${file(\"${path.module}/telemetrykeeper/clickhousekeeper/keeper-0.yaml\")}"
+      }
+    },
+    "aws_appconfig_deployment": {
+      "telemetrykeeper_0": {
+        "application_id": "${aws_appconfig_application.main.id}",
+        "environment_id": "${aws_appconfig_environment.main.environment_id}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.telemetrykeeper_0.configuration_profile_id}",
+        "configuration_version": "${aws_appconfig_hosted_configuration_version.telemetrykeeper_0.version_number}",
+        "deployment_strategy_id": "${aws_appconfig_deployment_strategy.main.id}",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"}
+      }
+    },
+    "aws_ecs_task_definition": {
+      "telemetrykeeper_0": {
+        "family": "foundry-telemetrykeeper-clickhousekeeper-0",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"},
+        "network_mode": "awsvpc",
+        "requires_compatibilities": ["EC2"],
+        "task_role_arn": "${local.task_role_arn}",
+        "execution_role_arn": "${local.execution_role_arn}",
+        "container_definitions": "${jsonencode(local.containers_telemetrykeeper_0)}",
+        "volume": [
+          {
+            "name": "telemetrykeeper-config",
+            "docker_volume_configuration": {
+              "scope": "task",
+              "driver": "local"
+            }
+          },
+          {
+            "name": "telemetrykeeper-data",
+            "host_path": "/var/lib/foundry/foundry/telemetrykeeper/0"
+          }
+        ],
+        "depends_on": ["aws_appconfig_deployment.telemetrykeeper_0"]
+      }
+    },
+    "aws_service_discovery_service": {
+      "telemetrykeeper_0": {
+        "name": "telemetrykeeper-clickhousekeeper-0",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"},
+        "dns_config": {
+          "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
+          "dns_records": [
+            {
+              "ttl": 10,
+              "type": "A"
+            }
+          ],
+          "routing_policy": "MULTIVALUE"
+        }
+      }
+    },
+    "aws_ecs_service": {
+      "telemetrykeeper_0": {
+        "name": "foundry-telemetrykeeper-clickhousekeeper-0",
+        "cluster": "${local.cluster_arn}",
+        "task_definition": "${aws_ecs_task_definition.telemetrykeeper_0.arn}",
+        "desired_count": 1,
+        "deployment_minimum_healthy_percent": 0,
+        "deployment_maximum_percent": 100,
+        "launch_type": "EC2",
+        "deployment_circuit_breaker": {
+          "enable": true,
+          "rollback": true
+        },
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"},
+        "network_configuration": {
+          "subnets": "${local.subnet_ids}",
+          "security_groups": "${local.security_group_ids}"
+        },
+        "service_registries": {
+          "registry_arn": "${aws_service_discovery_service.telemetrykeeper_0.arn}"
+        },
+        "placement_constraints": [
+          {
+            "type": "memberOf",
+            "expression": "ec2InstanceId == '${local.seats[\"telemetrykeeper-0\"]}' and attribute:foundry.signoz.io/name == foundry and attribute:foundry.signoz.io/storage == persistent"
+          }
+        ]
+      }
+    }
+  }
+}

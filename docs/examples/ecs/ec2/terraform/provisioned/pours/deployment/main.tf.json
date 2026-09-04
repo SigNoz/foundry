@@ -1,60 +1,25 @@
-{{- $name := $.Metadata.Name -}}
-{{- /* The claim controller. An identity claims the VOLUME, not the instance.
-       The volume outlives an instance, and the pairing survives replacement.
-       The claim is a tag on the volume; plans re-read it, existing claims
-       resolve first, new identities take unclaimed volumes then wrap. ECS pins
-       only by ec2InstanceId, so each plan looks up whichever instance holds
-       the claimed volume. */}}
-{{- $keeperReplicas := derefIntDefault $.Spec.TelemetryKeeper.Spec.Cluster.Replicas 1 -}}
-{{- if lt $keeperReplicas 1 }}{{- $keeperReplicas = 1 -}}{{- end -}}
-{{- $shards := derefIntDefault $.Spec.TelemetryStore.Spec.Cluster.Shards 1 -}}
-{{- if lt $shards 1 }}{{- $shards = 1 -}}{{- end -}}
-{{- $nodesPerShard := int (add (derefIntDefault $.Spec.TelemetryStore.Spec.Cluster.Replicas 0) 1) -}}
-{{- $identities := list -}}
-{{- range $i := until $keeperReplicas -}}
-{{- $identities = append $identities (printf "telemetrykeeper-%d" $i) -}}
-{{- end -}}
-{{- if eq $.Spec.MetaStore.Kind.String "sqlite" -}}
-{{- $identities = append $identities "signoz-0" -}}
-{{- else -}}
-{{- $identities = append $identities "metastore-0" -}}
-{{- end -}}
-{{- range $s := until $shards -}}
-{{- range $r := until $nodesPerShard -}}
-{{- $identities = append $identities (printf "telemetrystore-%d-%d" $s $r) -}}
-{{- end -}}
-{{- end -}}
 {
   "data": {
-    {{- if not $.Cluster.IsStated }}
     "aws_ecs_cluster": {
       "main": {
         "cluster_name": "${var.cluster_name}"
       }
     },
-    {{- end }}
-    {{- if not $.Subnets.IsStated }}
     "aws_subnets": {
       "private": {
         "tags": "${var.subnet_tags}"
       }
     },
-    {{- end }}
-    {{- if not $.SecurityGroup.IsStated }}
     "aws_security_group": {
       "tasks": {
         "name": "${var.security_group_name}"
       }
     },
-    {{- end }}
-    {{- if not $.VPC.IsStated }}
     "aws_vpc": {
       "main": {
         "tags": "${var.vpc_tags}"
       }
     },
-    {{- end }}
-    {{- if $.Substrate }}
     "aws_instances": {
       "persistent": {
         "instance_tags": "${var.node_tags}",
@@ -83,16 +48,15 @@
         ]
       }
     }
-    {{- end }}
   },
   "locals": {
-    "cluster_arn": "{{ if $.Cluster.IsStated }}${var.cluster_arn}{{ else }}${data.aws_ecs_cluster.main.arn}{{ end }}",
-    "subnet_ids": "{{ if $.Subnets.IsStated }}${var.subnet_ids}{{ else }}${data.aws_subnets.private.ids}{{ end }}",
-    "security_group_ids": "{{ if $.SecurityGroup.IsStated }}${var.security_group_ids}{{ else }}${[data.aws_security_group.tasks.id]}{{ end }}",
-    "vpc_id": "{{ if $.VPC.IsStated }}${var.vpc_id}{{ else }}${data.aws_vpc.main.id}{{ end }}",
-    "task_role_arn": "{{ if $.TaskRole.IsStated }}${var.task_role_arn}{{ else }}${aws_iam_role.task.arn}{{ end }}",
-    "execution_role_arn": "{{ if $.ExecutionRole.IsStated }}${var.execution_role_arn}{{ else }}${aws_iam_role.exec.arn}{{ end }}"{{ if $.Substrate }},
-    "identities": [{{ range $i, $identity := $identities }}{{ if $i }}, {{ end }}"{{ $identity }}"{{ end }}],
+    "cluster_arn": "${data.aws_ecs_cluster.main.arn}",
+    "subnet_ids": "${data.aws_subnets.private.ids}",
+    "security_group_ids": "${[data.aws_security_group.tasks.id]}",
+    "vpc_id": "${data.aws_vpc.main.id}",
+    "task_role_arn": "${aws_iam_role.task.arn}",
+    "execution_role_arn": "${aws_iam_role.exec.arn}",
+    "identities": ["telemetrykeeper-0", "metastore-0", "telemetrystore-0-0"],
     "volume_instance": "${ merge([ for id, instance in data.aws_instance.persistent : { for device in instance.ebs_block_device : device.volume_id => id } ]...) }",
     "instance_volume": "${ { for volume, instance in local.volume_instance : instance => volume } }",
     "volume_claims": "${ merge([ for id, volume in data.aws_ebs_volume.persistent : { for identity in split(\",\", volume.tags[var.claim_tag]) : identity => id } if contains(keys(volume.tags), var.claim_tag) ]...) }",
@@ -104,42 +68,27 @@
     "assignment_pool": "${ concat(local.unclaimed_volume_ids, local.claimed_volume_ids) }",
     "new_identities": "${ [ for identity in local.identities : identity if !contains(keys(local.claims), identity) ] }",
     "volumes": "${ { for identity in local.identities : identity => contains(keys(local.claims), identity) ? local.claims[identity] : element(local.assignment_pool, index(local.new_identities, identity)) } }",
-    "seats": "${ { for identity, volume in local.volumes : identity => lookup(local.volume_instance, volume, \"unattached\") } }"{{ end }}
+    "seats": "${ { for identity, volume in local.volumes : identity => lookup(local.volume_instance, volume, \"unattached\") } }"
   },
   "resource": {
-    {{- /* Workload identity is the workload's own. A role holds no data and
-           dies with this stack. An operator states an ARN instead and nothing
-           is created. */}}
-    {{- if or (not $.TaskRole.IsStated) (not $.ExecutionRole.IsStated) }}
     "aws_iam_role": {
-      {{- $first := true }}
-      {{- if not $.TaskRole.IsStated }}{{ if not $first }},{{ end }}{{ $first = false }}
       "task": {
         "name": "${var.task_role_name}",
         "assume_role_policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Action\" = \"sts:AssumeRole\", \"Effect\" = \"Allow\", \"Principal\" = {\"Service\" = \"ecs-tasks.amazonaws.com\"}}]})}",
-        "tags": {{ toJson $.Labels }}
-      }
-      {{- end }}
-      {{- if not $.ExecutionRole.IsStated }}{{ if not $first }},{{ end }}{{ $first = false }}
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"}
+      },
       "exec": {
         "name": "${var.execution_role_name}",
         "assume_role_policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Action\" = \"sts:AssumeRole\", \"Effect\" = \"Allow\", \"Principal\" = {\"Service\" = \"ecs-tasks.amazonaws.com\"}}]})}",
-        "tags": {{ toJson $.Labels }}
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"}
       }
-      {{- end }}
     },
-    {{- end }}
-    {{- if not $.ExecutionRole.IsStated }}
     "aws_iam_role_policy_attachment": {
       "exec": {
         "policy_arn": "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
         "role": "${aws_iam_role.exec.name}"
       }
     },
-    {{- end }}
-    {{- if not $.TaskRole.IsStated }}
-    {{- /* Scoped to the application this stack creates. GetLatestConfiguration
-           acts on a session token and cannot be scoped. */}}
     "aws_iam_role_policy": {
       "task_appconfig_read": {
         "name": "${var.task_role_name}-appconfig-read",
@@ -147,12 +96,11 @@
         "policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Effect\" = \"Allow\", \"Action\" = [\"appconfig:StartConfigurationSession\"], \"Resource\" = [format(\"%s/environment/*/configuration/*\", aws_appconfig_application.main.arn)]}, {\"Effect\" = \"Allow\", \"Action\" = [\"appconfig:GetLatestConfiguration\"], \"Resource\" = \"*\"}]})}"
       }
     },
-    {{- end }}
     "aws_service_discovery_private_dns_namespace": {
       "main": {
-        "name": "{{ $name }}.local",
+        "name": "foundry.local",
         "vpc": "${local.vpc_id}",
-        "tags": {{ toJson $.Labels }}
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"}
       }
     },
     "aws_ec2_tag": {
@@ -163,35 +111,28 @@
         "value": "${ join(\",\", sort([ for identity, volume in local.volumes : identity if volume == each.value ])) }"
       }
     },
-    {{- /* AppConfig is the ECS analog of a ConfigMap. The sidecar rewrites the
-           config in place, reloading the process instead of replacing the
-           task. Load-bearing for quorum members. Verified against keeper
-           25.12.5. */}}
     "aws_appconfig_application": {
       "main": {
-        "name": "{{ $name }}-installation-appconfig",
+        "name": "foundry-installation-appconfig",
         "description": "SigNoz component configuration",
-        "tags": {{ toJson $.Labels }}
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"}
       }
     },
     "aws_appconfig_environment": {
       "main": {
         "name": "default",
         "application_id": "${aws_appconfig_application.main.id}",
-        "tags": {{ toJson $.Labels }}
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"}
       }
     },
-    {{- /* No bake. AppConfig serializes deployments per environment, paying
-           bake time once per component on every apply. Add it back with
-           CloudWatch monitors that can trigger a rollback. */}}
     "aws_appconfig_deployment_strategy": {
       "main": {
-        "name": "{{ $name }}-installation-appconfig-strategy",
+        "name": "foundry-installation-appconfig-strategy",
         "deployment_duration_in_minutes": 0,
         "final_bake_time_in_minutes": 0,
         "growth_factor": 100,
         "replicate_to": "NONE",
-        "tags": {{ toJson $.Labels }}
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry"}
       }
     }
   }

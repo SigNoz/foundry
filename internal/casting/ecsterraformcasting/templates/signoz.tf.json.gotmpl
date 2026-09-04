@@ -1,0 +1,114 @@
+{{- $name := $.Metadata.Name -}}
+{
+  "locals": {
+    "containers_signoz": [
+      {
+        "name": "{{ $name }}-signoz",
+        "image": "{{ $.Spec.Signoz.Spec.Image }}",
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
+        "essential": true,
+        {{- $env := list }}
+        {{- range $key, $value := $.Spec.Signoz.Spec.Env }}
+        {{- $env = append $env (dict "name" $key "value" $value) }}
+        {{- end }}
+        {{- if $env }}
+        "environment": {{ toJson $env }},
+        {{- end }}
+        "portMappings": [
+          {"name": "http", "containerPort": 8080, "protocol": "tcp", "appProtocol": "http"},
+          {"name": "opamp", "containerPort": 4320, "protocol": "tcp"}
+        ],
+        {{- if eq $.Spec.MetaStore.Kind.String "sqlite" }}
+        "mountPoints": [
+          {
+            "sourceVolume": "signoz-data",
+            "containerPath": "/var/lib/signoz"
+          }
+        ],
+        {{- end }}
+        "cpu": 512,
+        "memoryReservation": 512,
+        "healthCheck": {
+          "command": ["CMD-SHELL", "wget --spider -q http://localhost:8080/api/v1/health || exit 1"],
+          "interval": 30,
+          "timeout": 5,
+          "retries": 3,
+          "startPeriod": 30
+        }
+      }
+    ]
+  },
+  "resource": {
+    "aws_ecs_task_definition": {
+      "signoz": {
+        "family": "{{ $name }}-signoz",
+        "tags": {{ toJson $.Labels }},
+        "network_mode": "awsvpc",
+        "requires_compatibilities": ["EC2"],
+        "task_role_arn": "${local.task_role_arn}",
+        "execution_role_arn": "${local.execution_role_arn}",
+        "container_definitions": "${jsonencode(local.containers_signoz)}"
+        {{- if eq $.Spec.MetaStore.Kind.String "sqlite" }},
+        "volume": [
+          {
+            "name": "signoz-data",
+            "host_path": "/var/lib/foundry/{{ $name }}/signoz/0"
+          }
+        ]
+        {{- end }}
+      }
+    },
+    "aws_service_discovery_service": {
+      "signoz": {
+        "name": "signoz",
+        "tags": {{ toJson $.Labels }},
+        "dns_config": {
+          "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
+          "dns_records": [
+            {
+              "ttl": 10,
+              "type": "A"
+            }
+          ],
+          "routing_policy": "MULTIVALUE"
+        }
+      }
+    },
+    "aws_ecs_service": {
+      "signoz": {
+        "name": "{{ $name }}-signoz",
+        "cluster": "${local.cluster_arn}",
+        "task_definition": "${aws_ecs_task_definition.signoz.arn}",
+        "desired_count": {{ if eq $.Spec.MetaStore.Kind.String "sqlite" }}1{{ else }}{{ derefIntDefault $.Spec.Signoz.Spec.Cluster.Replicas 1 }}{{ end }},
+        "deployment_minimum_healthy_percent": 0,
+        "deployment_maximum_percent": 100,
+        "launch_type": "EC2",
+        "deployment_circuit_breaker": {
+          "enable": true,
+          "rollback": true
+        },
+        "tags": {{ toJson $.Labels }},
+        "network_configuration": {
+          "subnets": "${local.subnet_ids}",
+          "security_groups": "${local.security_group_ids}"
+        },
+        "service_registries": {
+          "registry_arn": "${aws_service_discovery_service.signoz.arn}"
+        }{{ if $.Substrate }},
+        "placement_constraints": [
+          {
+            "type": "memberOf",
+            "expression": "{{ if eq $.Spec.MetaStore.Kind.String "sqlite" }}ec2InstanceId == '${local.seats[\"signoz-0\"]}' and {{ $.PersistentPlacement }}{{ else }}{{ $.EphemeralPlacement }}{{ end }}"
+          }
+        ]{{ end }}
+      }
+    }
+  }
+}

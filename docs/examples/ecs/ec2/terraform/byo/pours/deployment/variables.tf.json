@@ -1,0 +1,49 @@
+{
+  "variable": {
+    "aws_region": {
+      "nullable": false,
+      "validation": {
+        "condition": "${can(regex(\"^[a-z]{2}(-gov)?-[a-z]+-[0-9]$\", var.aws_region))}",
+        "error_message": "aws_region must be a region identifier such as us-east-1."
+      },
+      "description": "AWS region holding the cluster",
+      "type": "string"
+    },
+    "cluster_arn": {
+      "nullable": false,
+      "description": "ARN of the ECS cluster to deploy into",
+      "type": "string",
+      "default": "arn:aws:ecs:us-east-1:111122223333:cluster/observability"
+    },
+    "subnet_ids": {
+      "nullable": false,
+      "description": "IDs of the subnets tasks are placed in",
+      "type": "list(string)",
+      "default": ["subnet-0a1b2c3d4e5f67890","subnet-0f9e8d7c6b5a43210"]
+    },
+    "security_group_ids": {
+      "nullable": false,
+      "description": "IDs of the security groups tasks join",
+      "type": "list(string)",
+      "default": ["sg-0a1b2c3d4e5f67890"]
+    },
+    "vpc_id": {
+      "nullable": false,
+      "description": "ID of the VPC the Cloud Map namespace is created in",
+      "type": "string",
+      "default": "vpc-0a1b2c3d4e5f67890"
+    },
+    "task_role_name": {
+      "nullable": false,
+      "description": "Name of the IAM role this stack creates for its tasks",
+      "type": "string",
+      "default": "signoz-installation-iam-task"
+    },
+    "execution_role_name": {
+      "nullable": false,
+      "description": "Name of the IAM role this stack creates for the ECS agent to pull images and write logs",
+      "type": "string",
+      "default": "signoz-installation-iam-exec"
+    }
+  }
+}

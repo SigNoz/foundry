@@ -6,26 +6,27 @@ import (
 	"github.com/signoz/foundry/internal/domain"
 )
 
-//go:embed templates/*.gotmpl templates/module/*.gotmpl
+//go:embed templates/*.gotmpl
 var templates embed.FS
 
-// Root Terraform templates.
+// Components are files in the one root module, never child modules: a module
+// with a single generated caller is indirection without reuse.
 var (
+	versionsTF  = domain.MustNewTemplateFromFS(templates, "templates/versions.tf.json.gotmpl", domain.FormatJSON)
+	backendTF   = domain.MustNewTemplateFromFS(templates, "templates/backend.tf.json.gotmpl", domain.FormatJSON)
+	providersTF = domain.MustNewTemplateFromFS(templates, "templates/providers.tf.json.gotmpl", domain.FormatJSON)
 	mainTF      = domain.MustNewTemplateFromFS(templates, "templates/main.tf.json.gotmpl", domain.FormatJSON)
 	variablesTF = domain.MustNewTemplateFromFS(templates, "templates/variables.tf.json.gotmpl", domain.FormatJSON)
+	outputsTF   = domain.MustNewTemplateFromFS(templates, "templates/outputs.tf.json.gotmpl", domain.FormatJSON)
 	tfarsTF     = domain.MustNewTemplateFromFS(templates, "templates/terraform.tfvars.json.gotmpl", domain.FormatJSON)
 )
 
-// Module Terraform templates.
 var (
-	moduleMainTF      = domain.MustNewTemplateFromFS(templates, "templates/module/main.tf.json.gotmpl", domain.FormatJSON)
-	moduleVariablesTF = domain.MustNewTemplateFromFS(templates, "templates/module/variables.tf.json.gotmpl", domain.FormatJSON)
-	moduleOutputsTF   = domain.MustNewTemplateFromFS(templates, "templates/module/outputs.tf.json.gotmpl", domain.FormatJSON)
-
-	moduleTelemetryKeeperTF = domain.MustNewTemplateFromFS(templates, "templates/module/telemetrykeeper.tf.json.gotmpl", domain.FormatJSON)
-	moduleTelemetryStoreTF  = domain.MustNewTemplateFromFS(templates, "templates/module/telemetrystore.tf.json.gotmpl", domain.FormatJSON)
-	moduleMigratorTF        = domain.MustNewTemplateFromFS(templates, "templates/module/telemetrystore_migrator.tf.json.gotmpl", domain.FormatJSON)
-	moduleMetaStoreTF       = domain.MustNewTemplateFromFS(templates, "templates/module/metastore.tf.json.gotmpl", domain.FormatJSON)
-	moduleSignozTF          = domain.MustNewTemplateFromFS(templates, "templates/module/signoz.tf.json.gotmpl", domain.FormatJSON)
-	moduleIngesterTF        = domain.MustNewTemplateFromFS(templates, "templates/module/ingester.tf.json.gotmpl", domain.FormatJSON)
+	telemetryKeeperTF = domain.MustNewTemplateFromFS(templates, "templates/telemetrykeeper.tf.json.gotmpl", domain.FormatJSON)
+	telemetryStoreTF  = domain.MustNewTemplateFromFS(templates, "templates/telemetrystore.tf.json.gotmpl", domain.FormatJSON)
+	migratorTF        = domain.MustNewTemplateFromFS(templates, "templates/telemetrystore_migrator.tf.json.gotmpl", domain.FormatJSON)
+	metaStoreTF       = domain.MustNewTemplateFromFS(templates, "templates/metastore.tf.json.gotmpl", domain.FormatJSON)
+	signozTF          = domain.MustNewTemplateFromFS(templates, "templates/signoz.tf.json.gotmpl", domain.FormatJSON)
+	ingesterTF        = domain.MustNewTemplateFromFS(templates, "templates/ingester.tf.json.gotmpl", domain.FormatJSON)
+	mcpTF             = domain.MustNewTemplateFromFS(templates, "templates/mcp.tf.json.gotmpl", domain.FormatJSON)
 )
