@@ -2,6 +2,8 @@ package ecsterraformcasting
 
 import (
 	"bytes"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/signoz/foundry/api/v1alpha1"
@@ -26,8 +28,7 @@ func statedCasting(t *testing.T) *collectionagent.Casting {
 	return config
 }
 
-// derivedCasting states only what has nothing to derive it, so the roles are
-// created by the stack.
+// derivedCasting states only what has nothing to derive it, so roles are created.
 func derivedCasting(t *testing.T) *collectionagent.Casting {
 	t.Helper()
 
@@ -136,17 +137,32 @@ func TestCollectorTemplateAppConfigDelivery(t *testing.T) {
 	require.NoError(t, err)
 
 	for path, expected := range map[string]string{
-		"resource.aws_ecs_service.collector.scheduling_strategy":                     "DAEMON",
+		"resource.aws_ecs_service.collector.scheduling_strategy": "DAEMON",
+
+		// A daemon rolls a revision only if it may drop to zero healthy on an
+		// instance, and a bad revision has to roll itself back.
+		"resource.aws_ecs_service.collector.deployment_minimum_healthy_percent":  "0",
+		"resource.aws_ecs_service.collector.deployment_circuit_breaker.enable":   "true",
+		"resource.aws_ecs_service.collector.deployment_circuit_breaker.rollback": "true",
+
 		"resource.aws_ecs_task_definition.collector.network_mode":                    "host",
 		"resource.aws_appconfig_configuration_profile.collector.name":                "collector-agent",
 		"resource.aws_appconfig_configuration_profile.collector.location_uri":        "hosted",
 		"resource.aws_appconfig_hosted_configuration_version.collector.content_type": "application/x-yaml",
+
+		// json-file on either container makes the collector tail its own log.
+		"locals.containers_collector.0.logConfiguration.logDriver": "none",
+		"locals.containers_collector.1.logConfiguration.logDriver": "none",
 	} {
 		value, err := material.GetBytes(path)
 
 		assert.NoError(t, err, "reading %s", path)
 		assert.Equal(t, expected, string(value), "at %s", path)
 	}
+
+	// The provider refuses deployment_maximum_percent on a DAEMON service.
+	_, err = material.GetBytes("resource.aws_ecs_service.collector.deployment_maximum_percent")
+	assert.Error(t, err, "deployment_maximum_percent is not valid with DAEMON")
 
 	// The config reaches the task through the AppConfig agent, never a bucket.
 	assert.Contains(t, buf.String(), "aws-appconfig-agent")
@@ -181,4 +197,85 @@ func TestMainTemplateRoleOwnership(t *testing.T) {
 	assert.NotContains(t, stated.String(), "aws_iam_role")
 	assert.NotContains(t, stated.String(), "appconfig:StartConfigurationSession")
 	assert.Contains(t, stated.String(), "aws_appconfig_application")
+
+	material, err := domain.NewJSONMaterial(stated.Bytes(), "main.tf.json")
+	require.NoError(t, err)
+
+	for path, expected := range map[string]string{
+		"resource.aws_appconfig_application.main.name":         "signoz-collectionagent-appconfig",
+		"resource.aws_appconfig_deployment_strategy.main.name": "signoz-collectionagent-appconfig-strategy",
+	} {
+		value, err := material.GetBytes(path)
+
+		assert.NoError(t, err, "reading %s", path)
+		assert.Equal(t, expected, string(value), "at %s", path)
+	}
+}
+
+// The ecs and docker detectors answer for the collector's own task, so on a
+// DAEMON they stamp every container's telemetry with it.
+func TestAgentConfigDetectors(t *testing.T) {
+	material, err := agentYAMLTemplate.Render(nil, "agent.yaml")
+	require.NoError(t, err)
+
+	structured, ok := material.(domain.StructuredMaterial)
+	require.True(t, ok)
+
+	for path, expected := range map[string]string{
+		"processors.resourcedetection.detectors.0": "env",
+		"processors.resourcedetection.detectors.1": "ec2",
+	} {
+		value, err := structured.GetBytes(path)
+
+		assert.NoError(t, err, "reading %s", path)
+		assert.Equal(t, expected, string(value), "at %s", path)
+	}
+
+	_, err = structured.GetBytes("processors.resourcedetection.detectors.2")
+	assert.Error(t, err, "detectors must hold exactly env and ec2")
+}
+
+// A task without the labels option writes no attrs. Those records must still
+// arrive with container.id, and the miss must not be logged.
+func TestAgentConfigMoveOperatorsTolerateMissingLabels(t *testing.T) {
+	material, err := agentYAMLTemplate.Render(nil, "agent.yaml")
+	require.NoError(t, err)
+
+	structured, ok := material.(domain.StructuredMaterial)
+	require.True(t, ok)
+
+	guarded := 0
+
+	for i := range 32 {
+		kind, err := structured.GetBytes(fmt.Sprintf("receivers.filelog.operators.%d.type", i))
+		if err != nil {
+			break
+		}
+
+		if string(kind) != "move" {
+			continue
+		}
+
+		from, err := structured.GetBytes(fmt.Sprintf("receivers.filelog.operators.%d.from", i))
+		require.NoError(t, err, "operator %d is a move with no from", i)
+
+		// body.stream, body.log and log.file.path are always present on a
+		// docker json line; only the label lifts and the carved id can miss.
+		source := string(from)
+		if !strings.HasPrefix(source, "body.attrs") && source != "attributes.container_id" {
+			continue
+		}
+
+		guarded++
+
+		onError, err := structured.GetBytes(fmt.Sprintf("receivers.filelog.operators.%d.on_error", i))
+		if !assert.NoError(t, err, "%q must tolerate a miss", source) {
+			continue
+		}
+
+		// send would log one error per operator per line for every unlabelled task.
+		assert.Equal(t, "send_quiet", string(onError), "at %q", source)
+	}
+
+	assert.Equal(t, 5, guarded, "four ecs label lifts plus the carved container id")
 }

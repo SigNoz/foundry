@@ -17,12 +17,7 @@ processors:
   resourcedetection:
     detectors:
     - env
-    - ecs
     - ec2
-    - system
-    system:
-      hostname_sources:
-      - os
     timeout: 5s
 receivers:
   docker_stats:
@@ -60,10 +55,68 @@ receivers:
     include_file_name: false
     include_file_path: true
     operators:
-    - add_metadata_from_filepath: false
-      format: docker
-      id: container-parser
-      type: container
+    - on_error: send
+      parse_to: body
+      timestamp:
+        layout: 2006-01-02T15:04:05.999999999Z07:00
+        layout_type: gotime
+        parse_from: body.time
+      type: json_parser
+    - combine_field: body.log
+      combine_with: ""
+      force_flush_period: 5s
+      is_last_entry: body.log endsWith "\n"
+      on_error: send
+      source_identifier: attributes["log.file.path"]
+      type: recombine
+    - from: body.attrs["com.amazonaws.ecs.task-definition-family"]
+      on_error: send_quiet
+      to: resource["service.name"]
+      type: move
+    - from: body.attrs["com.amazonaws.ecs.container-name"]
+      on_error: send_quiet
+      to: resource["aws.ecs.container.name"]
+      type: move
+    - from: body.attrs["com.amazonaws.ecs.task-arn"]
+      on_error: send_quiet
+      to: resource["aws.ecs.task.arn"]
+      type: move
+    - from: body.attrs["com.amazonaws.ecs.cluster"]
+      on_error: send_quiet
+      to: resource["aws.ecs.cluster.name"]
+      type: move
+    - field: body.attrs
+      on_error: send_quiet
+      type: remove
+    - on_error: send
+      parse_from: attributes["log.file.path"]
+      regex: /var/lib/docker/containers/(?P<container_id>[a-f0-9]{64})/
+      type: regex_parser
+    - from: attributes.container_id
+      on_error: send_quiet
+      to: resource["container.id"]
+      type: move
+    - from: attributes["log.file.path"]
+      to: resource["log.file.path"]
+      type: move
+    - from: body.stream
+      to: attributes["log.iostream"]
+      type: move
+    - field: body.time
+      type: remove
+    - from: body.log
+      to: body
+      type: move
+    start_at: end
+  filelog/host:
+    include:
+    - /hostfs/var/log/messages
+    - /hostfs/var/log/secure
+    - /hostfs/var/log/ecs/*.log
+    include_file_name: true
+    include_file_path: true
+    resource:
+      service.name: ecs-host
     start_at: end
   hostmetrics:
     collection_interval: 60s
@@ -141,6 +194,7 @@ service:
       - otlp/http
       - otlp/grpc
       - filelog
+      - filelog/host
     metrics:
       exporters:
       - otlphttp/signoz

@@ -60,7 +60,12 @@ spec:
 | `foundry.signoz.io/ecs-task-role-arn` | IAM role the agent task assumes. Created when absent. |
 | `foundry.signoz.io/ecs-task-execution-role-arn` | IAM role the ECS agent assumes to pull images. Created when absent. |
 
-The two roles hold no data and die with the stack, so an absent one is created under the workload's own name (`signoz-collectionagent-task`, `signoz-collectionagent-exec`) rather than looked up. State an ARN instead and nothing is created; that role then needs `appconfig:StartConfigurationSession` and `appconfig:GetLatestConfiguration`, which the created role gets automatically.
+The two roles hold no data and die with the stack, so an absent one is created under the workload's own name (`signoz-collectionagent-iam-task`, `signoz-collectionagent-iam-exec`) rather than looked up. State an ARN instead and nothing is created; that role then needs `appconfig:StartConfigurationSession` and `appconfig:GetLatestConfiguration`, which the created role gets automatically.
+
+`metadata.name` feeds every derived name, and AWS caps them: above 29
+characters the AppConfig deployment strategy name overflows its 64-character
+limit, and above 39 the IAM role names overflow theirs. Nothing refuses this at
+forge yet, so terraform is where it surfaces.
 
 ### Point the agent at your SigNoz
 
@@ -89,11 +94,80 @@ Set the endpoint and environment through `spec.collector.spec.env`, which become
 
 The collector config travels through [AWS AppConfig](https://docs.aws.amazon.com/appconfig/), the ECS analog of a ConfigMap, not through a bucket:
 
-1. Terraform creates an AppConfig application (`signoz-collectionagent`), a `default` environment, and a configuration profile (`collector-agent`) holding the generated `agent.yaml` as a hosted configuration version.
+1. Terraform creates an AppConfig application (`signoz-collectionagent-appconfig`), a `default` environment, and a configuration profile (`collector-agent`) holding the generated `agent.yaml` as a hosted configuration version.
 2. An [AppConfig agent](https://docs.aws.amazon.com/appconfig/latest/userguide/appconfig-integration-containers-agent.html) sidecar in the task fetches that profile and writes it to `/conf/agent.yaml` on a task volume. The collector container waits for the sidecar to report healthy before it starts.
 3. The task definition carries a `FOUNDRY_CONFIG_DIGEST` of the config. The collector reads its config once at start, so a changed config has to replace the task; the digest is what makes the revision change.
 
 The AppConfig application carries the Kind in its name, so a CollectionAgent and an Installation of the same `metadata.name` hold their own configuration on one account.
+
+## Giving your logs a service name
+
+The agent reads container logs off the instance's disk, where the only identity
+is a 64-character container ID. For a log line to carry the service that
+produced it, **the producing task definition** has to ask Docker to write the
+ECS labels into every line:
+
+```json
+"logConfiguration": {
+  "logDriver": "json-file",
+  "options": {
+    "max-size": "10m",
+    "max-file": "3",
+    "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+  }
+}
+```
+
+ECS already stamps those four labels on every container. The `labels` option
+copies their values into an `attrs` object on each line, and the agent lifts
+them onto the record:
+
+| Label | Becomes |
+| --- | --- |
+| `…task-definition-family` | `service.name` |
+| `…container-name` | `aws.ecs.container.name` |
+| `…task-arn` | `aws.ecs.task.arn` |
+| `…cluster` | `aws.ecs.cluster.name` |
+| container ID from the file path | `container.id` |
+
+Two things follow from this.
+
+- **A task without that block still reports**, but with only `container.id`. It
+  is not dropped.
+- **Containers using the `awslogs` driver are invisible to the agent.** That
+  driver sends straight to CloudWatch and writes nothing to the instance, so
+  there is no file to read and no error to see. Reading those back requires the
+  CloudWatch receiver and the CloudWatch cost, which is outside this agent.
+
+SigNoz's own components deployed by the ECS installation casting do not carry
+the block yet, so their logs arrive with only a container ID for now.
+
+## Reading the agent's own logs
+
+Both agent containers run with `logDriver: none` by default. That is deliberate:
+the agent tails `/var/lib/docker/containers`, so anything it wrote there it
+would read back and re-export, and every log line it emitted would produce
+another one.
+
+To read them while testing, patch the driver to `awslogs`:
+
+```yaml
+spec:
+  patches:
+    - target: "collectionagent/collector.tf.json"
+      operations:
+        - op: replace
+          path: /locals/containers_collector/1/logConfiguration
+          value:
+            logDriver: awslogs
+            options:
+              awslogs-group: /signoz/collectionagent/collector/agent
+              awslogs-region: us-east-1
+              awslogs-stream-prefix: ecs
+```
+
+The log group has to exist first, and the execution role already carries
+`AmazonECSTaskExecutionRolePolicy`, which grants the writes.
 
 ## Deploy
 

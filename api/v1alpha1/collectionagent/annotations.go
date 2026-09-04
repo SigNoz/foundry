@@ -3,10 +3,7 @@ package collectionagent
 import "github.com/signoz/foundry/api/v1alpha1"
 
 // Cluster annotations for the ECS/EC2 deployment of the CollectionAgent Kind.
-// The agent is node-scoped and binds the instance's own network, so it names
-// only the region and the cluster it runs a task on every instance of. The two
-// roles hold no data and die with the stack, so an absent one is created rather
-// than looked up.
+// The two roles die with the stack, so an absent one is created, not looked up.
 var (
 	ECSRegion = v1alpha1.Annotation{
 		Key:         "foundry.signoz.io/ecs-region",
@@ -30,7 +27,6 @@ var (
 	}
 )
 
-// Annotations returns the CollectionAgent annotation catalog.
 func Annotations() []v1alpha1.Annotation {
 	return []v1alpha1.Annotation{
 		ECSRegion,

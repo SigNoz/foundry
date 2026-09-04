@@ -7,9 +7,9 @@
         "essential": true,
         "user": "0",
         "environment": [
-          {"name": "PREFETCH_LIST", "value": "signoz-collectionagent:default:collector-agent"},
+          {"name": "PREFETCH_LIST", "value": "signoz-collectionagent-appconfig:default:collector-agent"},
           {"name": "POLL_INTERVAL", "value": "45s"},
-          {"name": "MANIFEST", "value": "{\"signoz-collectionagent:default:collector-agent\":{\"writeTo\":{\"path\":\"/conf/agent.yaml\"}}}"}
+          {"name": "MANIFEST", "value": "{\"signoz-collectionagent-appconfig:default:collector-agent\":{\"writeTo\":{\"path\":\"/conf/agent.yaml\"}}}"}
         ],
         "mountPoints": [
           {
@@ -24,6 +24,7 @@
           "retries": 10,
           "startPeriod": 30
         },
+        "logConfiguration": {"logDriver": "none"},
         "memoryReservation": 102
       },
       {
@@ -32,7 +33,7 @@
         "essential": true,
         "user": "0",
         "command": ["--config=/conf/agent.yaml"],
-        "environment": [{"name":"FOUNDRY_CONFIG_DIGEST","value":"98dfbf80802376be59552776d0c228dc7de7cd11c8a56ffeda60cd49e44fb132"},{"name":"OTEL_COLLECTOR_ROLE","value":"agent"},{"name":"SIGNOZ_INGESTION_ENDPOINT","value":"https://ingest.us.signoz.cloud:443"}],
+        "environment": [{"name":"FOUNDRY_CONFIG_DIGEST","value":"19e7f29008b5eceb0379c293cb5b46481879df97ad66be91de2c34364e3efcc6"},{"name":"OTEL_COLLECTOR_ROLE","value":"agent"},{"name":"SIGNOZ_INGESTION_ENDPOINT","value":"https://ingest.us.signoz.cloud:443"}],
         "portMappings": [
           {"containerPort": 4317, "hostPort": 4317, "protocol": "tcp"},
           {"containerPort": 4318, "hostPort": 4318, "protocol": "tcp"}
@@ -62,6 +63,7 @@
         "dependsOn": [
           {"containerName": "signoz-collector-appconfig-agent", "condition": "HEALTHY"}
         ],
+        "logConfiguration": {"logDriver": "none"},
         "cpu": 256,
         "memoryReservation": 512
       }
@@ -134,7 +136,12 @@
         "cluster": "${var.cluster_arn}",
         "task_definition": "${aws_ecs_task_definition.collector.arn}",
         "scheduling_strategy": "DAEMON",
+        "deployment_minimum_healthy_percent": 0,
         "launch_type": "EC2",
+        "deployment_circuit_breaker": {
+          "enable": true,
+          "rollback": true
+        },
         "tags": {"foundry.signoz.io/kind":"CollectionAgent","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"}
       }
     }

@@ -87,26 +87,87 @@ receivers:
     include_file_name: false
     include_file_path: true
     operators:
-      - id: container-parser
-        type: container
-        format: docker
-        add_metadata_from_filepath: false
+      # json-file's shape is always present, so a failure means the input changed.
+      # Without the timestamp the record carries the collector's read time.
+      - type: json_parser
+        parse_to: body
+        on_error: send
+        timestamp:
+          parse_from: body.time
+          layout_type: gotime
+          layout: '2006-01-02T15:04:05.999999999Z07:00'
+      - type: recombine
+        combine_field: body.log
+        combine_with: ""
+        is_last_entry: body.log endsWith "\n"
+        source_identifier: attributes["log.file.path"]
+        force_flush_period: 5s
+        on_error: send
+      # Anything foundry did not generate carries no labels and so no attrs;
+      # send_quiet keeps the record instead of logging per operator per line.
+      - type: move
+        from: body.attrs["com.amazonaws.ecs.task-definition-family"]
+        to: resource["service.name"]
+        on_error: send_quiet
+      - type: move
+        from: body.attrs["com.amazonaws.ecs.container-name"]
+        to: resource["aws.ecs.container.name"]
+        on_error: send_quiet
+      - type: move
+        from: body.attrs["com.amazonaws.ecs.task-arn"]
+        to: resource["aws.ecs.task.arn"]
+        on_error: send_quiet
+      - type: move
+        from: body.attrs["com.amazonaws.ecs.cluster"]
+        to: resource["aws.ecs.cluster.name"]
+        on_error: send_quiet
+      - type: remove
+        field: body.attrs
+        on_error: send_quiet
+      - type: regex_parser
+        parse_from: attributes["log.file.path"]
+        regex: '/var/lib/docker/containers/(?P<container_id>[a-f0-9]{64})/'
+        on_error: send
+      - type: move
+        from: attributes.container_id
+        to: resource["container.id"]
+        on_error: send_quiet
+      - type: move
+        from: attributes["log.file.path"]
+        to: resource["log.file.path"]
+      - type: move
+        from: body.stream
+        to: attributes["log.iostream"]
+      - type: remove
+        field: body.time
+      - type: move
+        from: body.log
+        to: body
+
+  # The task already mounts / at /hostfs, so these paths need no second mount.
+  filelog/host:
+    include:
+      - /hostfs/var/log/messages
+      - /hostfs/var/log/secure
+      - /hostfs/var/log/ecs/*.log
+    start_at: end
+    include_file_path: true
+    # All three sources share one service.name, so the file name separates them.
+    include_file_name: true
+    resource:
+      service.name: ecs-host
 
 processors:
+  # Never ecs or docker: on a DAEMON both answer for the collector's own task.
   resourcedetection:
     detectors:
       - env
-      - ecs
       - ec2
-      - system
     timeout: 5s
-    system:
-      hostname_sources:
-        - os
 
 service:
   pipelines:
     metrics:
       receivers: [docker_stats, hostmetrics]
     logs:
-      receivers: [filelog]
+      receivers: [filelog, filelog/host]

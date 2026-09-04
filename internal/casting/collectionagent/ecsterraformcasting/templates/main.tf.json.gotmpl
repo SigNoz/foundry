@@ -4,9 +4,8 @@
     "execution_role_arn": "{{ if $.ExecutionRole.IsStated }}${var.execution_role_arn}{{ else }}${aws_iam_role.exec.arn}{{ end }}"
   },
   "resource": {
-    {{- /* Workload identity is the workload's own. A role holds no data and
-           dies with this stack. An operator states an ARN instead and nothing
-           is created. */}}
+    {{- /* A role holds no data and dies with this stack. A stated ARN
+           creates none. */}}
     {{- if or (not $.TaskRole.IsStated) (not $.ExecutionRole.IsStated) }}
     "aws_iam_role": {
       {{- $first := true }}
@@ -35,8 +34,8 @@
     },
     {{- end }}
     {{- if not $.TaskRole.IsStated }}
-    {{- /* Scoped to the application this stack creates. GetLatestConfiguration
-           acts on a session token and cannot be scoped. */}}
+    {{- /* GetLatestConfiguration acts on a session token and cannot be
+           scoped to the application. */}}
     "aws_iam_role_policy": {
       "task_appconfig_read": {
         "name": "${var.task_role_name}-appconfig-read",
@@ -45,9 +44,8 @@
       }
     },
     {{- end }}
-    {{- /* AppConfig is the ECS analog of a ConfigMap. The application carries
-           the Kind, so an Installation of the same name on the same account
-           holds its own. */}}
+    {{- /* The application name carries the Kind, so an Installation of the
+           same name on the same account holds its own. */}}
     "aws_appconfig_application": {
       "main": {
         "name": "{{ $.Application }}",
@@ -62,12 +60,11 @@
         "tags": {{ toJson $.Labels }}
       }
     },
-    {{- /* No bake. AppConfig serializes deployments per environment, paying
-           bake time once per component on every apply. Add it back with
-           CloudWatch monitors that can trigger a rollback. */}}
+    {{- /* AppConfig serializes deployments per environment, so bake time is
+           paid once per component on every apply. */}}
     "aws_appconfig_deployment_strategy": {
       "main": {
-        "name": "{{ $.Application }}-config",
+        "name": "{{ $.Application }}-strategy",
         "deployment_duration_in_minutes": 0,
         "final_bake_time_in_minutes": 0,
         "growth_factor": 100,

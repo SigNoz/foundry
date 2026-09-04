@@ -6,9 +6,8 @@
 {
   "locals": {
     "containers_collector": [
-      {{- /* The agent's own uid writes 0600 and writeTo has no mode setting.
-             The collector runs as root for the docker socket and the host
-             filesystem, so it reads those files and no chown hop is needed. */}}
+      {{- /* The agent writes 0600 and writeTo has no mode setting, so only
+             root reads what it wrote. */}}
       {
         "name": "{{ $sidecar }}",
         "image": "public.ecr.aws/aws-appconfig/aws-appconfig-agent:2.x",
@@ -32,6 +31,9 @@
           "retries": 10,
           "startPeriod": 30
         },
+        {{- /* Without this ECS falls back to json-file and the collector
+               tails its own log through the docker-containers mount. */}}
+        "logConfiguration": {"logDriver": "none"},
         "memoryReservation": 102
       },
       {
@@ -74,6 +76,7 @@
         "dependsOn": [
           {"containerName": "{{ $sidecar }}", "condition": "HEALTHY"}
         ],
+        "logConfiguration": {"logDriver": "none"},
         "cpu": 256,
         "memoryReservation": 512
       }
@@ -111,9 +114,8 @@
       "collector": {
         "family": "{{ $service }}",
         "tags": {{ toJson $.Labels }},
-        {{- /* Host networking, so the OTLP ports are the instance's own and a
-               task on it reaches the agent on localhost. It also gives the
-               AppConfig agent the instance's route to the AppConfig API. */}}
+        {{- /* The OTLP ports are the instance's own, so a task on it reaches
+               the agent on localhost. */}}
         "network_mode": "host",
         "requires_compatibilities": ["EC2"],
         "task_role_arn": "${local.task_role_arn}",
@@ -148,10 +150,17 @@
         "name": "{{ $service }}",
         "cluster": "${var.cluster_arn}",
         "task_definition": "${aws_ecs_task_definition.collector.arn}",
-        {{- /* One task per container instance. A daemon takes no desired count
-               and no maximum percent. */}}
+        {{- /* A daemon takes no desired count and no maximum percent; the
+               minimum is what lets ECS replace the task on an instance. */}}
         "scheduling_strategy": "DAEMON",
+        "deployment_minimum_healthy_percent": 0,
         "launch_type": "EC2",
+        {{- /* The digest replaces the task on every config change, so a bad
+               revision would otherwise reach every instance and stay. */}}
+        "deployment_circuit_breaker": {
+          "enable": true,
+          "rollback": true
+        },
         "tags": {{ toJson $.Labels }}
       }
     }

@@ -17,8 +17,7 @@ import (
 	"github.com/signoz/foundry/internal/tooler/terraformtooler"
 )
 
-// The AppConfig agent writes the config into a task volume mounted here, and
-// the collector reads it from the same place.
+// The sidecar writes the config here and the collector reads it.
 const configMount = "/conf"
 
 type ecsCasting struct {
@@ -66,8 +65,8 @@ func (c *ecsCasting) Cast(ctx context.Context, config collectionagent.Casting, o
 	return terraform.Apply(ctx, release(config, outputPath, p))
 }
 
-// Melt destroys what this root's state records: the daemon service, its task
-// definition and the AppConfig application holding its config.
+// Melt destroys the daemon service, its task definition and its AppConfig
+// application.
 func (c *ecsCasting) Melt(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer, toolers []tooler.Tooler) error {
 	terraform, err := terraformtooler.Lookup(toolers)
 	if err != nil {
@@ -84,8 +83,7 @@ func release(config collectionagent.Casting, outputPath string, p *pourer.Pourer
 	}
 }
 
-// templateData resolves every identifier the templates render, so a template
-// never reaches into the annotations itself.
+// Resolves the annotation-derived identifiers the templates render.
 func (c *ecsCasting) templateData(config collectionagent.Casting) (templateData, error) {
 	annotations := config.Metadata.Annotations
 
@@ -99,9 +97,8 @@ func (c *ecsCasting) templateData(config collectionagent.Casting) (templateData,
 		return templateData{}, foundryerrors.Newf(foundryerrors.TypeInvalidInput, "no cluster is stated: state the %q annotation", collectionagent.ECSClusterARN.Key)
 	}
 
-	// The roles die with this stack, so the workload names them itself. Several
-	// workloads share one cluster, and a cluster-derived name collides on the
-	// second apply.
+	// Several workloads share one cluster, so a cluster-derived name collides on
+	// the second apply.
 	workload := config.Metadata.Name + "-" + strings.ToLower(config.Kind().String())
 
 	configKey := config.Spec.Collector.Kind.ConfigKey()
@@ -112,13 +109,13 @@ func (c *ecsCasting) templateData(config collectionagent.Casting) (templateData,
 		Cluster: cluster,
 		TaskRole: Reference{
 			Stated: collectionagent.ECSTaskRoleARN.Resolve(annotations),
-			Name:   workload + "-task",
+			Name:   workload + "-iam-task",
 		},
 		ExecutionRole: Reference{
 			Stated: collectionagent.ECSTaskExecutionRoleARN.Resolve(annotations),
-			Name:   workload + "-exec",
+			Name:   workload + "-iam-exec",
 		},
-		Application: workload,
+		Application: workload + "-appconfig",
 		Environment: "default",
 		Profile:     strings.ReplaceAll(filepath.Dir(configKey), "/", "-"),
 		Source:      configKey,
@@ -134,9 +131,8 @@ func digest(content string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// Reference is one identifier, resolved. An operator states the object and it
-// is referenced as-is; otherwise the two roles are created under the workload's
-// own name. Exactly one side is populated.
+// Reference is one identifier, stated by an operator or created under the
+// workload's own name. Exactly one side is populated.
 type Reference struct {
 	Stated string
 	Name   string
@@ -146,8 +142,7 @@ func (r Reference) IsStated() bool {
 	return r.Stated != ""
 }
 
-// templateData embeds the casting, so `.Spec` and `.Metadata` stay as they
-// were; the rest is what the templates would otherwise have to derive.
+// Embeds the casting so .Spec and .Metadata stay reachable from templates.
 type templateData struct {
 	collectionagent.Casting
 
@@ -165,16 +160,14 @@ type templateData struct {
 	Application string
 	Environment string
 
-	// Profile is the AppConfig configuration profile holding the collector
-	// config. Source is where the pour keeps it, relative to the root; Target
-	// is where the AppConfig agent writes it inside the task.
+	// Source is where the pour keeps the config, relative to the root; Target is
+	// where the sidecar writes it in the task.
 	Profile string
 	Source  string
 	Target  string
 
-	// Digest changes with the config, and a task definition that changes
-	// replaces the task. The collector reads its config once at start, so an
-	// in-place rewrite would not reach it.
+	// The collector reads its config once at start, so a changed config has to
+	// replace the task.
 	Digest string
 
 	ConfigMount string

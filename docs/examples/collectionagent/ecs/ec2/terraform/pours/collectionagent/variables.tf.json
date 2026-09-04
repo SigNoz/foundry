@@ -19,13 +19,13 @@
       "nullable": false,
       "description": "Name of the IAM role this stack creates for its task",
       "type": "string",
-      "default": "signoz-collectionagent-task"
+      "default": "signoz-collectionagent-iam-task"
     },
     "execution_role_name": {
       "nullable": false,
       "description": "Name of the IAM role this stack creates for the ECS agent to pull images and write logs",
       "type": "string",
-      "default": "signoz-collectionagent-exec"
+      "default": "signoz-collectionagent-iam-exec"
     }
   }
 }

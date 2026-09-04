@@ -1,6 +1,5 @@
-{{- /* Every identifier arrives as a variable defaulted to what the casting
-       resolved. Stating a role on the casting replaces its name variable with
-       the ARN itself, and main.tf creates no role for it. */ -}}
+{{- /* Every identifier is a variable defaulted to what the casting resolved.
+       A stated role swaps its name variable for the ARN itself. */ -}}
 {
   "variable": {
     "aws_region": {
