@@ -1,0 +1,12 @@
+{{- /* A volume's claim is stamped by whoever claims it, long after this
+       applies. Reconciling it reverts a live claim on every apply. */ -}}
+{
+  "provider": {
+    "aws": {
+      "region": "${var.aws_region}",
+      "ignore_tags": {
+        "keys": {{ toJson $.IgnoredTags }}
+      }
+    }
+  }
+}
