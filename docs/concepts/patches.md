@@ -30,6 +30,8 @@ This gives you full coverage over the generated output without Foundry needing t
 | `copy` | Copy a value from one path to another. | `op`, `from`, `path` |
 | `test` | Assert a value equals the given value. Fails if not. | `op`, `path`, `value` |
 
+`add` creates any missing intermediate objects along its path, so a value can be added under a section the generated file does not carry. `remove` and `replace` do not: they fail when the path is absent, which usually means the generated file no longer has that key and the patch is stale.
+
 ## Target matching
 
 Targets are matched against each generated file's path relative to `pours/`, so every path begins with `deployment/`.

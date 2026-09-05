@@ -68,7 +68,11 @@ func applyToMaterial(mat domain.StructuredMaterial, patchDoc []byte) (domain.Str
 		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "failed to decode json patch")
 	}
 
-	patched, err := decoded.Apply(mat.JSONContents())
+	// Only add creates missing parents; a strict remove is how a patch learns the file moved under it.
+	options := jsonpatchv5.NewApplyOptions()
+	options.EnsurePathExistsOnAdd = true
+
+	patched, err := decoded.ApplyWithOptions(mat.JSONContents(), options)
 	if err != nil {
 		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to apply json patch")
 	}

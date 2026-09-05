@@ -217,3 +217,44 @@ spec:
 	assert.Contains(t, string(contents), "dedicated")
 	assert.Contains(t, string(contents), "NoSchedule")
 }
+
+func TestApply_AddMissingParentCreatesIt(t *testing.T) {
+	p := New()
+	mat := newYAMLMaterial(t, `
+signoz:
+  replicaCount: 1
+`, "values.yaml")
+
+	pe := v1alpha1.PatchEntry{
+		Target: "values.yaml",
+		Operations: []v1alpha1.PatchOperation{
+			{Op: "add", Path: "/signoz/service/type", Value: "LoadBalancer"},
+		},
+	}
+
+	result, err := p.Apply(context.Background(), []domain.Material{mat}, pe)
+	require.NoError(t, err)
+
+	value, err := structuredMaterial(t, result[0]).GetBytes("signoz.service.type")
+	require.NoError(t, err)
+	assert.Equal(t, "LoadBalancer", string(value))
+}
+
+func TestApply_RemoveMissingPathReturnsError(t *testing.T) {
+	p := New()
+	mat := newYAMLMaterial(t, `
+services:
+  signoz:
+    restart: unless-stopped
+`, "compose.yaml")
+
+	pe := v1alpha1.PatchEntry{
+		Target: "compose.yaml",
+		Operations: []v1alpha1.PatchOperation{
+			{Op: "remove", Path: "/services/signoz/deploy"},
+		},
+	}
+
+	_, err := p.Apply(context.Background(), []domain.Material{mat}, pe)
+	require.Error(t, err)
+}
