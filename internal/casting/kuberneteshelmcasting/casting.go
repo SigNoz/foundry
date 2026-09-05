@@ -17,29 +17,14 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-const (
-	helmChartRepoUrl  = "https://charts.signoz.io"
-	helmChartRepoName = "signoz"
-	helmChart         = "signoz/signoz"
-
-	annotationChart      = "foundry.signoz.io/kubernetes-helm-casting-chart"
-	annotationRepoURL    = "foundry.signoz.io/kubernetes-helm-casting-repo-url"
-	annotationRepoName   = "foundry.signoz.io/kubernetes-helm-casting-repo-name"
-	annotationForgeChart = "foundry.signoz.io/kubernetes-helm-casting-forge-chart"
-)
-
 var _ rootcasting.Casting = (*helmCasting)(nil)
 
 type helmCasting struct {
-	logger  *slog.Logger
-	casting *domain.Template
+	logger *slog.Logger
 }
 
 func New(logger *slog.Logger) *helmCasting {
-	return &helmCasting{
-		logger:  logger,
-		casting: valuesYAMLTemplate,
-	}
+	return &helmCasting{logger: logger}
 }
 
 func (c *helmCasting) Enricher(ctx context.Context, config *installation.Casting) (molding.MoldingEnricher, error) {
@@ -48,19 +33,16 @@ func (c *helmCasting) Enricher(ctx context.Context, config *installation.Casting
 
 func (c *helmCasting) Forge(ctx context.Context, config installation.Casting, poursPath string) ([]domain.Material, error) {
 	buf := bytes.NewBuffer(nil)
-	err := valuesYAMLTemplate.Execute(buf, config)
-	if err != nil {
+	if err := valuesYAMLTemplate.Execute(buf, config); err != nil {
 		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to execute values yaml template")
 	}
 
-	valuesBytes := buf.Bytes()
-
-	valuesMaterial, err := domain.NewYAMLMaterial(valuesBytes, filepath.Join(rootcasting.DeploymentDir, "values.yaml"))
+	material, err := domain.NewYAMLMaterial(buf.Bytes(), filepath.Join(rootcasting.DeploymentDir, "values.yaml"))
 	if err != nil {
 		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to create values yaml material")
 	}
 
-	return []domain.Material{valuesMaterial}, nil
+	return []domain.Material{material}, nil
 }
 
 func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, poursPath string, toolers []tooler.Tooler) error {
@@ -89,19 +71,23 @@ func (c *helmCasting) Melt(ctx context.Context, config installation.Casting, pou
 		return err
 	}
 
+	release := c.identity(config)
+
 	c.logger.InfoContext(ctx, "removing helm release",
-		slog.String("release", config.Metadata.Name),
-		slog.String("namespace", config.Metadata.Name),
+		slog.String("release", release.Name),
+		slog.String("namespace", release.Namespace),
 	)
 
-	return helm.Uninstall(ctx, helmtooler.Release{
-		Release:   domain.Release{Name: config.Metadata.Name, Owner: config.Labels()},
-		Namespace: config.Metadata.Name,
-	})
+	return helm.Uninstall(ctx, release)
 }
 
-// release resolves the forged values and the chart the deploy uses: a local
-// chart when the casting forged one, the signoz repo otherwise.
+func (c *helmCasting) identity(config installation.Casting) helmtooler.Release {
+	return helmtooler.Release{
+		Release:   domain.Release{Name: config.Metadata.Name, Owner: config.Labels()},
+		Namespace: config.Metadata.Name,
+	}
+}
+
 func (c *helmCasting) release(config installation.Casting, poursPath string) (helmtooler.Release, error) {
 	valuesFile := filepath.Join(poursPath, rootcasting.DeploymentDir, "values.yaml")
 	if _, err := os.Stat(valuesFile); os.IsNotExist(err) {
@@ -113,52 +99,19 @@ func (c *helmCasting) release(config installation.Casting, poursPath string) (he
 		return helmtooler.Release{}, errors.Wrapf(err, errors.TypeInternal, "failed to read values file")
 	}
 
-	vals := map[string]any{}
-	if err := yaml.Unmarshal(valuesBytes, &vals); err != nil {
+	values := map[string]any{}
+	if err := yaml.Unmarshal(valuesBytes, &values); err != nil {
 		return helmtooler.Release{}, errors.Wrapf(err, errors.TypeInvalidInput, "failed to parse values")
 	}
 
-	release := helmtooler.Release{
-		Release:   domain.Release{Name: config.Metadata.Name, Owner: config.Labels()},
-		Namespace: config.Metadata.Name,
-		Values:    vals,
-	}
-
-	if c.shouldForgeChart(&config) {
-		chartPath := filepath.Join(poursPath, rootcasting.DeploymentDir, "chart", "signoz")
-		if _, err := os.Stat(chartPath); os.IsNotExist(err) {
-			return helmtooler.Release{}, errors.Newf(errors.TypeNotFound, "local chart not found at %s, run 'forge' first with %s annotation set to 'true'", chartPath, annotationForgeChart)
-		}
-
-		release.Chart = chartPath
-
-		return release, nil
-	}
-
-	release.Chart = helmChart
-	release.Repo = helmtooler.Repo{Name: helmChartRepoName, URL: helmChartRepoUrl}
-
-	if config.Metadata.Annotations != nil {
-		if url := config.Metadata.Annotations[annotationRepoURL]; url != "" {
-			release.Repo.URL = url
-		}
-
-		if chart := config.Metadata.Annotations[annotationChart]; chart != "" {
-			release.Chart = chart
-		}
-
-		if name := config.Metadata.Annotations[annotationRepoName]; name != "" {
-			release.Repo.Name = name
-		}
+	release := c.identity(config)
+	release.Values = values
+	release.Chart = installation.HelmChart.Resolve(config.Metadata.Annotations)
+	release.Version = installation.HelmChartVersion.Resolve(config.Metadata.Annotations)
+	release.Repo = helmtooler.Repo{
+		Name: installation.HelmChartRepoName.Resolve(config.Metadata.Annotations),
+		URL:  installation.HelmChartRepoURL.Resolve(config.Metadata.Annotations),
 	}
 
 	return release, nil
-}
-
-func (c *helmCasting) shouldForgeChart(config *installation.Casting) bool {
-	if config.Metadata.Annotations == nil {
-		return false
-	}
-
-	return config.Metadata.Annotations[annotationForgeChart] == "true"
 }
