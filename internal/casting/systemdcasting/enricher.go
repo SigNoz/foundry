@@ -33,6 +33,10 @@ func newSystemdMoldingEnricher(config *installation.Casting) *systemdMoldingEnri
 		config.Metadata.Annotations = map[string]string{}
 	}
 	for _, a := range installation.Annotations() {
+		if a.Mode != v1alpha1.ModeSystemd {
+			continue
+		}
+
 		config.Metadata.Annotations[a.Key] = a.Resolve(config.Metadata.Annotations)
 	}
 

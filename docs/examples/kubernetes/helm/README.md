@@ -79,10 +79,9 @@ Optional annotations to override the default Helm chart source. These are not re
 
 | Annotation | Default | Description |
 | --- | --- | --- |
-| `foundry.signoz.io/kubernetes-helm-casting-chart` | `signoz/signoz` | Helm chart reference |
-| `foundry.signoz.io/kubernetes-helm-casting-repo-url` | `https://charts.signoz.io` | Helm chart repository URL |
-| `foundry.signoz.io/kubernetes-helm-casting-repo-name` | `signoz` | Helm chart repository name |
-| `foundry.signoz.io/kubernetes-helm-casting-forge-chart` | - | Set to `true` to download and bundle the chart locally during forge |
+| `foundry.signoz.io/kubernetes-helm-casting-chart` | `signoz` | Chart name in the repository, a URL to a chart archive, or a local chart path |
+| `foundry.signoz.io/kubernetes-helm-casting-repo-url` | `https://charts.signoz.io` | Chart repository the chart name is resolved against |
+| `foundry.signoz.io/kubernetes-helm-casting-chart-version` | - | Helm chart version to install; empty installs the latest chart in the repository |
 
 Example with a custom chart repo:
 
@@ -92,7 +91,7 @@ metadata:
   name: signoz
   annotations:
     foundry.signoz.io/kubernetes-helm-casting-repo-url: https://my-registry.example.com/charts
-    foundry.signoz.io/kubernetes-helm-casting-chart: my-registry/signoz
+    foundry.signoz.io/kubernetes-helm-casting-chart: signoz
 spec:
   deployment:
     flavor: helm
