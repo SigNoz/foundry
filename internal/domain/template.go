@@ -107,6 +107,8 @@ func (t *Template) Format() Format {
 //   - derefBool: nil-safe bool pointer access; needed to gate on *bool fields
 //     like MoldingSpec.Enabled, since a non-nil pointer is always truthy in a
 //     template's {{ if }}.
+//   - parseImage: split an image reference into registry, repository and tag,
+//     for platforms that take them as separate values.
 //   - toYaml / fromYaml: round-trip a value through YAML inside templates.
 //   - flattenKeys: flatten a nested map into "/"-joined leaf keys (used to
 //     project hierarchical config into flat env-var-style maps).
@@ -130,6 +132,7 @@ func templateFuncMap() template.FuncMap {
 		}
 		return *p
 	}
+	fm["parseImage"] = ParseImage
 	fm["toYaml"] = func(v any) (string, error) {
 		if v == nil {
 			return "", nil

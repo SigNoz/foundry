@@ -1,18 +1,16 @@
 package domain
 
 import (
-	"strings"
-
+	"github.com/distribution/reference"
 	"github.com/signoz/foundry/internal/errors"
 )
 
-// Image is a container image reference split into its repository and tag.
+// Image is a tagged reference normalized the way docker does (docker.io,
+// library/); digest references are refused since foundry pins by tag.
 type Image struct {
-	repository string
-	tag        string
+	named reference.NamedTagged
 }
 
-// NewImage requires a non-empty repository and tag.
 func NewImage(repository, tag string) (Image, error) {
 	if repository == "" {
 		return Image{}, errors.Newf(errors.TypeInvalidInput, "failed to create image: repository is empty")
@@ -22,10 +20,19 @@ func NewImage(repository, tag string) (Image, error) {
 		return Image{}, errors.Newf(errors.TypeInvalidInput, "failed to create image: tag is empty")
 	}
 
-	return Image{repository: repository, tag: tag}, nil
+	named, err := reference.ParseNormalizedNamed(repository)
+	if err != nil {
+		return Image{}, errors.Wrapf(err, errors.TypeInvalidInput, "failed to create image from %q", repository)
+	}
+
+	tagged, err := reference.WithTag(named, tag)
+	if err != nil {
+		return Image{}, errors.Wrapf(err, errors.TypeInvalidInput, "failed to create image from %q: tag %q", repository, tag)
+	}
+
+	return Image{named: tagged}, nil
 }
 
-// MustNewImage is NewImage for known-good literals; it panics on error.
 func MustNewImage(repository, tag string) Image {
 	image, err := NewImage(repository, tag)
 	if err != nil {
@@ -35,39 +42,51 @@ func MustNewImage(repository, tag string) Image {
 	return image
 }
 
-// ParseImage accepts "repository[:tag]". The tag is the segment after the final
-// colon, but only when that colon follows the final slash, so a registry port
-// (e.g. "host:5000/repo") is not mistaken for a tag. A missing tag is "latest".
+// ParseImage accepts "[registry/]repository[:tag]"; a missing tag is "latest".
 func ParseImage(raw string) (Image, error) {
 	if raw == "" {
 		return Image{}, errors.Newf(errors.TypeInvalidInput, "failed to create image from %q: reference is empty", raw)
 	}
 
-	repository, tag := raw, "latest"
-	if i := strings.LastIndexByte(raw, ':'); i >= 0 && !strings.ContainsRune(raw[i+1:], '/') {
-		repository, tag = raw[:i], raw[i+1:]
+	named, err := reference.ParseNormalizedNamed(raw)
+	if err != nil {
+		return Image{}, errors.Wrapf(err, errors.TypeInvalidInput, "failed to create image from %q", raw)
 	}
 
-	return NewImage(repository, tag)
+	if _, ok := named.(reference.Canonical); ok {
+		return Image{}, errors.Newf(errors.TypeUnsupported, "failed to create image from %q: digest references are not supported", raw)
+	}
+
+	tagged, ok := reference.TagNameOnly(named).(reference.NamedTagged)
+	if !ok {
+		return Image{}, errors.Newf(errors.TypeInternal, "failed to create image from %q: no tag resolved", raw)
+	}
+
+	return Image{named: tagged}, nil
 }
 
+// Registry is always named: docker.io for an unqualified reference.
+func (i Image) Registry() string {
+	return reference.Domain(i.named)
+}
+
+// Repository is the path within the registry: library/postgres for a bare name.
 func (i Image) Repository() string {
-	return i.repository
+	return reference.Path(i.named)
 }
 
 func (i Image) Tag() string {
-	return i.tag
+	return i.named.Tag()
 }
 
-// WithTag returns a copy of the image with its tag replaced.
 func (i Image) WithTag(tag string) Image {
-	return Image{repository: i.repository, tag: tag}
+	return MustNewImage(reference.FamiliarName(i.named), tag)
 }
 
 // Version parses the tag as a semantic version. ok is false for non-semver tags
 // such as "latest".
 func (i Image) Version() (Version, bool) {
-	version, err := ParseVersion(i.tag)
+	version, err := ParseVersion(i.named.Tag())
 	if err != nil {
 		return Version{}, false
 	}
@@ -75,7 +94,7 @@ func (i Image) Version() (Version, bool) {
 	return version, true
 }
 
-// String renders the reference as "repository:tag".
+// String is the familiar form: docker.io and library/ elided.
 func (i Image) String() string {
-	return i.repository + ":" + i.tag
+	return reference.FamiliarString(i.named)
 }
