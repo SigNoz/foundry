@@ -293,8 +293,8 @@ services:
       test:
       - CMD
       - wget
-      - --spider
       - -q
+      - -O-
       - 0.0.0.0:8123/ping
       timeout: 5s
     image: clickhouse/clickhouse-server:25.12.5
