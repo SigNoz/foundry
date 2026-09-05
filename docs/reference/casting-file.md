@@ -175,7 +175,7 @@ Optional. Override the default Helm chart source when using `mode: kubernetes`, 
 | `foundry.signoz.io/kubernetes-helm-casting-chart` | `signoz/signoz` | Helm chart reference |
 | `foundry.signoz.io/kubernetes-helm-casting-repo-url` | `https://charts.signoz.io` | Helm chart repository URL |
 | `foundry.signoz.io/kubernetes-helm-casting-repo-name` | `signoz` | Helm chart repository name |
-| `foundry.signoz.io/kubernetes-helm-casting-forge-chart` | - | Set to `true` to download and bundle the chart locally during forge |
+| `foundry.signoz.io/kubernetes-helm-casting-chart-version` | - | Helm chart version to install; empty installs the latest chart in the repository |
 
 ### ECS annotations
 

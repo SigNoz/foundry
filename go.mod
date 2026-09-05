@@ -6,6 +6,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/denisbrodbeck/machineid v1.0.1
+	github.com/distribution/reference v0.6.0
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/google/jsonschema-go v0.4.3
 	github.com/olekukonko/tablewriter v1.1.4
