@@ -43,6 +43,9 @@ type Release struct {
 	// Chart is a local chart path or a repo-qualified name ("signoz/signoz").
 	Chart string
 
+	// Version is the chart version; empty resolves to the repository's latest.
+	Version string
+
 	Repo Repo
 
 	Values map[string]any
@@ -93,7 +96,9 @@ func (t *Tooler) Gauge(ctx context.Context) error {
 }
 
 // Upgrade is helm's own upgrade --install: action.Upgrade.Install is
-// informative only, so the caller dispatches install-vs-upgrade.
+// informative only, so the caller dispatches install-vs-upgrade. Neither path
+// waits for readiness: the platform owns it, and the SDK's waiter treats a zero
+// timeout as already expired.
 func (t *Tooler) Upgrade(ctx context.Context, release Release) error {
 	if err := release.Validate(); err != nil {
 		return err
@@ -147,7 +152,6 @@ func (t *Tooler) Uninstall(ctx context.Context, release Release) error {
 	}
 
 	uninstall := action.NewUninstall(config)
-	uninstall.Wait = true
 
 	if _, err := uninstall.Run(release.Name); err != nil {
 		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to run helm uninstall")
@@ -161,10 +165,10 @@ func (t *Tooler) install(ctx context.Context, env *cli.EnvSettings, config *acti
 	install.ReleaseName = release.Name
 	install.Namespace = release.Namespace
 	install.CreateNamespace = true
-	install.Wait = true
 	install.Labels = release.Owner
+	install.Version = release.Version
 
-	chart, err := loadChart(env, install.LocateChart, release.Chart)
+	chart, err := t.loadChart(ctx, env, install.LocateChart, release.Chart)
 	if err != nil {
 		return err
 	}
@@ -180,10 +184,10 @@ func (t *Tooler) upgrade(ctx context.Context, env *cli.EnvSettings, config *acti
 	upgrade := action.NewUpgrade(config)
 	upgrade.Install = true
 	upgrade.Namespace = release.Namespace
-	upgrade.Wait = true
 	upgrade.Labels = release.Owner
+	upgrade.Version = release.Version
 
-	chart, err := loadChart(env, upgrade.LocateChart, release.Chart)
+	chart, err := t.loadChart(ctx, env, upgrade.LocateChart, release.Chart)
 	if err != nil {
 		return err
 	}
@@ -219,7 +223,8 @@ func (t *Tooler) verify(ctx context.Context, rel *helmrelease.Release, owner dom
 	})
 }
 
-func loadChart(env *cli.EnvSettings, locate func(string, *cli.EnvSettings) (string, error), ref string) (*chart.Chart, error) {
+// Logs the resolved version: with no pin, the cast is the only record of it.
+func (t *Tooler) loadChart(ctx context.Context, env *cli.EnvSettings, locate func(string, *cli.EnvSettings) (string, error), ref string) (*chart.Chart, error) {
 	path, err := locate(ref, env)
 	if err != nil {
 		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "failed to locate chart %q", ref)
@@ -229,6 +234,12 @@ func loadChart(env *cli.EnvSettings, locate func(string, *cli.EnvSettings) (stri
 	if err != nil {
 		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to load chart %q", ref)
 	}
+
+	t.Logger.InfoContext(ctx, "resolved chart",
+		slog.String("chart", ref),
+		slog.String("version", loaded.Metadata.Version),
+		slog.String("app_version", loaded.Metadata.AppVersion),
+	)
 
 	return loaded, nil
 }
