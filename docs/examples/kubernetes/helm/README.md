@@ -20,13 +20,18 @@ Generates a `values.yaml` for the SigNoz Helm chart. Foundry translates the cast
 
 ```yaml
 apiVersion: v1alpha1
+kind: Installation
 metadata:
   name: signoz
 spec:
   deployment:
     flavor: helm
     mode: kubernetes
+  telemetrykeeper:
+    kind: zookeeper
 ```
+
+`telemetrykeeper.kind: zookeeper` is required. The chart ships ZooKeeper as its only coordination service, and an unstated kind resolves to `clickhousekeeper`, which Foundry refuses rather than deploying ZooKeeper in its place.
 
 ## Deploy
 
