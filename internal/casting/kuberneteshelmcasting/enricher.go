@@ -36,10 +36,6 @@ func (e *helmMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.Mo
 
 	switch kind {
 	case v1alpha1.MoldingKindTelemetryStore:
-		if !config.Spec.TelemetryStore.Spec.IsEnabled() {
-			return errors.Newf(errors.TypeUnsupported, "deployment '%s/%s' does not support telemetrystore.spec.enabled: false, the chart then requires externalClickhouse which foundry does not translate, raise an issue at https://github.com/signoz/foundry/issues", deployment.Mode, deployment.Flavor)
-		}
-
 		name := fmt.Sprintf("%s-telemetrystore-%s", config.Metadata.Name, config.Spec.TelemetryStore.Kind)
 		config.Spec.TelemetryStore.Status.Addresses.TCP = []string{domain.MustNewAddress("tcp", name, telemetryStorePort).String()}
 
@@ -74,6 +70,10 @@ func (e *helmMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.Mo
 		config.Spec.MetaStore.Status.Addresses.DSN = []string{fmt.Sprintf("postgres://%s:%d", name, metaStorePort)}
 
 	case v1alpha1.MoldingKindSignoz:
+		if !config.Spec.Signoz.Spec.IsEnabled() {
+			return errors.Newf(errors.TypeUnsupported, "deployment '%s/%s' cannot turn off signoz: the helm chart does not allow it, raise an issue at https://github.com/signoz/foundry/issues", deployment.Mode, deployment.Flavor)
+		}
+
 		// signoz.fullname is the fullnameOverride verbatim: no component suffix.
 		name := config.Metadata.Name
 		config.Spec.Signoz.Status.Addresses.APIServer = []string{domain.MustNewAddress("tcp", name, signozAPIServerPort).String()}
@@ -81,7 +81,7 @@ func (e *helmMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.Mo
 
 	case v1alpha1.MoldingKindIngester:
 		if !config.Spec.Ingester.Spec.IsEnabled() {
-			return errors.Newf(errors.TypeUnsupported, "deployment '%s/%s' does not support ingester.spec.enabled: false, the chart renders the collector unconditionally, raise an issue at https://github.com/signoz/foundry/issues", deployment.Mode, deployment.Flavor)
+			return errors.Newf(errors.TypeUnsupported, "deployment '%s/%s' cannot turn off the ingester: the helm chart does not allow it, raise an issue at https://github.com/signoz/foundry/issues", deployment.Mode, deployment.Flavor)
 		}
 
 		name := config.Metadata.Name + "-ingester"

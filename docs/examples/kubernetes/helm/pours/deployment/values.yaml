@@ -1,4 +1,5 @@
 clickhouse:
+  enabled: true
   fullnameOverride: signoz-telemetrystore-clickhouse
   image:
     repository: clickhouse/clickhouse-server
@@ -44,3 +45,4 @@ signoz:
   replicaCount: 1
 telemetryStoreMigrator:
   name: signoz-telemetrystore-migrator
+  timeout: 10m

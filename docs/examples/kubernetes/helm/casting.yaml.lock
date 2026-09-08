@@ -146,7 +146,7 @@ spec:
                   exporters:
                     - signozclickhousemeter
           opamp.yaml: |
-            server_endpoint: tcp://signoz:4320/v1/opamp
+            server_endpoint: ws://signoz:4320/v1/opamp
       enabled: true
       env:
         SIGNOZ_OTEL_COLLECTOR_TIMEOUT: 10m
@@ -154,7 +154,9 @@ spec:
       version: latest
     status:
       addresses:
-        otlp: null
+        otlp:
+        - tcp://signoz-ingester:4318
+        - tcp://signoz-ingester:4317
       config:
         data:
           ingester.yaml: |
@@ -291,7 +293,7 @@ spec:
                   exporters:
                     - signozclickhousemeter
           opamp.yaml: |
-            server_endpoint: tcp://signoz:4320/v1/opamp
+            server_endpoint: ws://signoz:4320/v1/opamp
       env:
         SIGNOZ_OTEL_COLLECTOR_TIMEOUT: 10m
   mcp:
@@ -343,9 +345,10 @@ spec:
       version: latest
     status:
       addresses:
-        apiserver: null
+        apiserver:
+        - tcp://signoz:8080
         opamp:
-        - tcp://signoz:4320
+        - ws://signoz:4320
       config: {}
       env:
         SIGNOZ_SQLSTORE_POSTGRES_DSN: postgres://signoz:signoz@signoz-metastore-postgres:5432/signoz?sslmode=disable
@@ -353,69 +356,53 @@ spec:
         SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN: tcp://signoz-telemetrystore-clickhouse:9000
         SIGNOZ_TELEMETRYSTORE_PROVIDER: clickhouse
   telemetrykeeper:
-    kind: clickhousekeeper
+    kind: zookeeper
     spec:
       cluster:
         replicas: 1
-      config:
-        data:
-          keeper-0.yaml: |
-            listen_host: 0.0.0.0
-            logger:
-              level: information
-              console: true
-            keeper_server:
-              four_letter_word_white_list: "*"
-              coordination_settings:
-                operation_timeout_ms: 10000
-                raft_logs_level: warning
-                session_timeout_ms: 30000
-                force_sync: false
-                snapshot_distance: 100000
-                snapshots_to_keep: 3
-              log_storage_path: /var/lib/clickhouse-keeper/coordination/log
-              raft_configuration:
-                server:
-                - hostname: signoz-telemetrykeeper-zookeeper-0
-                  port: 9234
-                  id: 0
-              server_id: 0
-              snapshot_storage_path: /var/lib/clickhouse-keeper/coordination/snapshots
-              tcp_port: 9181
+      config: {}
       enabled: true
-      image: clickhouse/clickhouse-keeper:25.12.5
-      version: 25.12.5
+      env:
+        ALLOW_ANONYMOUS_LOGIN: "yes"
+        ZOO_4LW_COMMANDS_WHITELIST: srvr, mntr, ruok
+        ZOO_AUTOPURGE_INTERVAL: "1"
+        ZOO_AUTOPURGE_RETAIN_COUNT: "3"
+        ZOO_ENABLE_PROMETHEUS_METRICS: "yes"
+        ZOO_HEAP_SIZE: "1024"
+        ZOO_INIT_LIMIT: "10"
+        ZOO_LOG_LEVEL: INFO
+        ZOO_MAX_CLIENT_CNXNS: "60"
+        ZOO_MAX_SESSION_TIMEOUT: "40000"
+        ZOO_PRE_ALLOC_SIZE: "65536"
+        ZOO_PROMETHEUS_METRICS_PORT_NUMBER: "9141"
+        ZOO_SNAPCOUNT: "100000"
+        ZOO_SYNC_LIMIT: "5"
+        ZOO_TICK_TIME: "2000"
+      image: signoz/zookeeper:3.7.1
+      version: 3.7.1
     status:
       addresses:
         client:
-        - tcp://signoz-telemetrykeeper-zookeeper-0:9181
+        - tcp://signoz-telemetrykeeper-zookeeper-0:2181
         raft:
-        - tcp://signoz-telemetrykeeper-zookeeper-0:9234
-      config:
-        data:
-          keeper-0.yaml: |
-            listen_host: 0.0.0.0
-            logger:
-              level: information
-              console: true
-            keeper_server:
-              four_letter_word_white_list: "*"
-              coordination_settings:
-                operation_timeout_ms: 10000
-                raft_logs_level: warning
-                session_timeout_ms: 30000
-                force_sync: false
-                snapshot_distance: 100000
-                snapshots_to_keep: 3
-              log_storage_path: /var/lib/clickhouse-keeper/coordination/log
-              raft_configuration:
-                server:
-                - hostname: signoz-telemetrykeeper-zookeeper-0
-                  port: 9234
-                  id: 0
-              server_id: 0
-              snapshot_storage_path: /var/lib/clickhouse-keeper/coordination/snapshots
-              tcp_port: 9181
+        - tcp://signoz-telemetrykeeper-zookeeper-0:2888
+      config: {}
+      env:
+        ALLOW_ANONYMOUS_LOGIN: "yes"
+        ZOO_4LW_COMMANDS_WHITELIST: srvr, mntr, ruok
+        ZOO_AUTOPURGE_INTERVAL: "1"
+        ZOO_AUTOPURGE_RETAIN_COUNT: "3"
+        ZOO_ENABLE_PROMETHEUS_METRICS: "yes"
+        ZOO_HEAP_SIZE: "1024"
+        ZOO_INIT_LIMIT: "10"
+        ZOO_LOG_LEVEL: INFO
+        ZOO_MAX_CLIENT_CNXNS: "60"
+        ZOO_MAX_SESSION_TIMEOUT: "40000"
+        ZOO_PRE_ALLOC_SIZE: "65536"
+        ZOO_PROMETHEUS_METRICS_PORT_NUMBER: "9141"
+        ZOO_SNAPCOUNT: "100000"
+        ZOO_SYNC_LIMIT: "5"
+        ZOO_TICK_TIME: "2000"
   telemetrystore:
     kind: clickhouse
     spec:
@@ -472,7 +459,7 @@ spec:
             zookeeper:
               node:
                 - host: signoz-telemetrykeeper-zookeeper-0
-                  port: 9181
+                  port: 2181
             query_log:
                 flush_interval_milliseconds: 30000
                 partition_by: toYYYYMM(event_date)
@@ -592,7 +579,7 @@ spec:
             zookeeper:
               node:
                 - host: signoz-telemetrykeeper-zookeeper-0
-                  port: 9181
+                  port: 2181
             query_log:
                 flush_interval_milliseconds: 30000
                 partition_by: toYYYYMM(event_date)

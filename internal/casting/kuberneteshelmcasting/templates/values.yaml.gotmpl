@@ -1,5 +1,8 @@
+{{- $store := derefBool $.Spec.TelemetryStore.Spec.Enabled }}
 fullnameOverride: {{ $.Metadata.Name }}
 clickhouse:
+  enabled: {{ $store }}
+  {{- if $store }}
   fullnameOverride: {{ $.Metadata.Name }}-telemetrystore-clickhouse
   {{- with $.Spec.TelemetryStore.Spec.Image }}
   {{- $parts := splitn ":" 2 . }}
@@ -20,6 +23,7 @@ clickhouse:
       tag: {{ $parts._1 | default "latest" | quote }}
     {{- end }}
     replicaCount: {{ derefIntDefault $.Spec.TelemetryKeeper.Spec.Cluster.Replicas 1 }}
+  {{- end }}
 signoz:
   {{- with $.Spec.Signoz.Spec.Image }}
   {{- $parts := splitn ":" 2 . }}
@@ -72,4 +76,7 @@ telemetryStoreMigrator:
   name: {{ $.Metadata.Name }}-telemetrystore-migrator
   {{- with index $.Spec.Ingester.Spec.Env "SIGNOZ_OTEL_COLLECTOR_TIMEOUT" }}
   timeout: {{ . | quote }}
+  {{- end }}
+  {{- with index $.Spec.Ingester.Spec.Env "SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION" }}
+  enableReplication: {{ . }}
   {{- end }}
