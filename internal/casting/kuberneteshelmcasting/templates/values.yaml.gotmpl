@@ -1,64 +1,78 @@
 {{- $store := derefBool $.Spec.TelemetryStore.Spec.Enabled }}
+{{- $postgres := and (derefBool $.Spec.MetaStore.Spec.Enabled) (eq $.Spec.MetaStore.Kind.String "postgres") }}
 fullnameOverride: {{ $.Metadata.Name }}
 clickhouse:
   enabled: {{ $store }}
   {{- if $store }}
-  fullnameOverride: {{ $.Metadata.Name }}-telemetrystore-clickhouse
-  {{- with $.Spec.TelemetryStore.Spec.Image }}
-  {{- $parts := splitn ":" 2 . }}
+  fullnameOverride: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}
   image:
-    repository: {{ $parts._0 }}
-    tag: {{ $parts._1 | default "latest" | quote }}
-  {{- end }}
+    {{- with parseImage $.Spec.TelemetryStore.Spec.Image }}
+    {{- with .Registry }}
+    registry: {{ . }}
+    {{- end }}
+    repository: {{ .Repository }}
+    tag: {{ .Tag | quote }}
+    {{- end }}
   layout:
     shardsCount: {{ derefIntDefault $.Spec.TelemetryStore.Spec.Cluster.Shards 1 }}
     replicasCount: {{ add (derefInt $.Spec.TelemetryStore.Spec.Cluster.Replicas) 1 }}
   zookeeper:
     enabled: {{ derefBool $.Spec.TelemetryKeeper.Spec.Enabled }}
     fullnameOverride: {{ $.Metadata.Name }}-telemetrykeeper-zookeeper
-    {{- with $.Spec.TelemetryKeeper.Spec.Image }}
-    {{- $parts := splitn ":" 2 . }}
     image:
-      repository: {{ $parts._0 }}
-      tag: {{ $parts._1 | default "latest" | quote }}
-    {{- end }}
+      {{- with parseImage $.Spec.TelemetryKeeper.Spec.Image }}
+      {{- with .Registry }}
+      registry: {{ . }}
+      {{- end }}
+      repository: {{ .Repository }}
+      tag: {{ .Tag | quote }}
+      {{- end }}
     replicaCount: {{ derefIntDefault $.Spec.TelemetryKeeper.Spec.Cluster.Replicas 1 }}
   {{- end }}
 signoz:
-  {{- with $.Spec.Signoz.Spec.Image }}
-  {{- $parts := splitn ":" 2 . }}
   image:
-    repository: {{ $parts._0 }}
-    tag: {{ $parts._1 | default "latest" | quote }}
-  {{- end }}
+    {{- with parseImage $.Spec.Signoz.Spec.Image }}
+    {{- with .Registry }}
+    registry: {{ . }}
+    {{- end }}
+    repository: {{ .Repository }}
+    tag: {{ .Tag | quote }}
+    {{- end }}
   replicaCount: {{ derefIntDefault $.Spec.Signoz.Spec.Cluster.Replicas 1 }}
-  {{- with $.Spec.Signoz.Spec.Env }}
+  {{- $env := fromYaml (toYaml $.Spec.Signoz.Spec.Env) }}
+  {{- if $store }}{{ $env = omit $env "SIGNOZ_TELEMETRYSTORE_PROVIDER" "SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN" }}{{ end }}
+  {{- if $postgres }}{{ $env = omit $env "SIGNOZ_SQLSTORE_PROVIDER" "SIGNOZ_SQLSTORE_POSTGRES_DSN" }}{{ end }}
+  {{- with $env }}
   env:
 {{ toYaml . | indent 4 }}
   {{- end }}
 otelCollector:
   name: ingester
-  {{- with $.Spec.Ingester.Spec.Image }}
-  {{- $parts := splitn ":" 2 . }}
   image:
-    repository: {{ $parts._0 }}
-    tag: {{ $parts._1 | default "latest" | quote }}
-  {{- end }}
+    {{- with parseImage $.Spec.Ingester.Spec.Image }}
+    {{- with .Registry }}
+    registry: {{ . }}
+    {{- end }}
+    repository: {{ .Repository }}
+    tag: {{ .Tag | quote }}
+    {{- end }}
   replicaCount: {{ derefIntDefault $.Spec.Ingester.Spec.Cluster.Replicas 1 }}
   {{- with $.Spec.Ingester.Spec.Env }}
   additionalEnvs:
 {{ toYaml . | indent 4 }}
   {{- end }}
 postgresql:
-  enabled: {{ and (derefBool $.Spec.MetaStore.Spec.Enabled) (eq $.Spec.MetaStore.Kind.String "postgres") }}
-  {{- if and (derefBool $.Spec.MetaStore.Spec.Enabled) (eq $.Spec.MetaStore.Kind.String "postgres") }}
+  enabled: {{ $postgres }}
+  {{- if $postgres }}
   fullnameOverride: {{ $.Metadata.Name }}-metastore-postgres
-  {{- with $.Spec.MetaStore.Spec.Image }}
-  {{- $parts := splitn ":" 2 . }}
   image:
-    repository: {{ $parts._0 }}
-    tag: {{ $parts._1 | default "latest" | quote }}
-  {{- end }}
+    {{- with parseImage $.Spec.MetaStore.Spec.Image }}
+    {{- with .Registry }}
+    registry: {{ . }}
+    {{- end }}
+    repository: {{ .Repository }}
+    tag: {{ .Tag | quote }}
+    {{- end }}
   {{- with $.Spec.MetaStore.Spec.Env }}
   auth:
     {{- with index . "POSTGRES_DB" }}
