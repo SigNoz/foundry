@@ -37,7 +37,30 @@ func (e *helmMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.Mo
 	switch kind {
 	case v1alpha1.MoldingKindTelemetryStore:
 		name := fmt.Sprintf("%s-telemetrystore-%s", config.Metadata.Name, config.Spec.TelemetryStore.Kind)
-		config.Spec.TelemetryStore.Status.Addresses.TCP = []string{domain.MustNewAddress("tcp", name, telemetryStorePort).String()}
+		cluster := config.Spec.TelemetryStore.Spec.Cluster
+
+		shards, replicas := 1, 1
+		if cluster.Shards != nil && *cluster.Shards > 0 {
+			shards = *cluster.Shards
+		}
+
+		if cluster.Replicas != nil {
+			replicas = *cluster.Replicas + 1
+		}
+
+		addresses := []string{domain.MustNewAddress("tcp", name, telemetryStorePort).String()}
+		for shard := 0; shard < shards; shard++ {
+			for replica := 0; replica < replicas; replica++ {
+				if shard == 0 && replica == 0 {
+					continue
+				}
+
+				host := fmt.Sprintf("chi-%s-%s-%d-%d", name, "cluster", shard, replica)
+				addresses = append(addresses, domain.MustNewAddress("tcp", host, telemetryStorePort).String())
+			}
+		}
+
+		config.Spec.TelemetryStore.Status.Addresses.TCP = addresses
 
 	case v1alpha1.MoldingKindTelemetryKeeper:
 		spec := &config.Spec.TelemetryKeeper
