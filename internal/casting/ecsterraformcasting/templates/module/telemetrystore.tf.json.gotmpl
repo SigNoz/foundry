@@ -71,7 +71,7 @@
         "memory": 512,
         "memoryReservation": 512,
         "healthCheck": {
-          "command": ["CMD-SHELL", "wget --spider -q 0.0.0.0:8123/ping || exit 1"],
+          "command": ["CMD-SHELL", "wget -q -O- 0.0.0.0:8123/ping || exit 1"],
           "interval": 30,
           "timeout": 5,
           "retries": 3,
