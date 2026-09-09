@@ -5,20 +5,14 @@ services:
     - |
       /signoz-otel-collector migrate sync check &&
       /signoz-otel-collector --config=/etc/otel-collector-config.yaml --manager-config=/etc/opamp-config.yaml --copy-path=/var/tmp/collector-config.yaml
-    depends_on:
-      signoz-signoz-0:
-        condition: service_started
-      signoz-telemetrystore-clickhouse-0-0:
-        condition: service_healthy
-      signoz-telemetrystore-migrator:
-        condition: service_completed_successfully
     deploy:
       replicas: 1
     entrypoint:
     - /bin/sh
     environment:
+    - SERVICE_URL_INGESTER_4318
     - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
-    - LOW_CARDINAL_EXCEPTION_GROUPING=false
+    - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://signoz-telemetrystore-clickhouse-0-0:9000
     - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
     image: signoz/signoz-otel-collector:latest
     logging:
@@ -29,6 +23,7 @@ services:
       default:
         aliases:
         - signoz-ingester
+    restart: unless-stopped
     volumes:
     - content: |
         connectors:
@@ -179,29 +174,24 @@ services:
     healthcheck:
       interval: 30s
       retries: 3
+      start_period: 30s
       test:
       - CMD-SHELL
       - pg_isready -U signoz -d signoz
-      timeout: 5s
+      timeout: 10s
     image: postgres:16
     logging:
       options:
         max-file: "3"
         max-size: 50m
+    restart: unless-stopped
     volumes:
-    - source: signoz-metastore-0-data
+    - source: signoz-metastore-postgres-0-data
       target: /var/lib/postgresql/data
       type: volume
   signoz-signoz-0:
-    container_name: signoz-signoz-0
-    depends_on:
-      signoz-metastore-postgres-0:
-        condition: service_healthy
-      signoz-telemetrystore-clickhouse-0-0:
-        condition: service_healthy
-      signoz-telemetrystore-migrator:
-        condition: service_completed_successfully
     environment:
+    - SERVICE_URL_SIGNOZ0_8080
     - SIGNOZ_SQLSTORE_POSTGRES_DSN=postgres://signoz:signoz@signoz-metastore-postgres-0:5432/signoz?sslmode=disable
     - SIGNOZ_SQLSTORE_PROVIDER=postgres
     - SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN=tcp://signoz-telemetrystore-clickhouse-0-0:9000
@@ -209,22 +199,20 @@ services:
     healthcheck:
       interval: 30s
       retries: 3
+      start_period: 60s
       test:
       - CMD
       - wget
       - --spider
       - -q
-      - localhost:8080/api/v1/health
-      timeout: 5s
+      - http://localhost:8080/api/v1/health
+      timeout: 10s
     image: signoz/signoz:latest
     logging:
       options:
         max-file: "3"
         max-size: 50m
-    volumes:
-    - source: signoz-signoz-0-data
-      target: /var/lib/signoz/
-      type: volume
+    restart: unless-stopped
   signoz-telemetrykeeper-clickhousekeeper-0:
     entrypoint:
     - /usr/bin/clickhouse-keeper
@@ -248,6 +236,7 @@ services:
       options:
         max-file: "3"
         max-size: 50m
+    restart: unless-stopped
     volumes:
     - source: signoz-telemetrykeeper-0-data
       target: /var/lib/clickhouse-keeper
@@ -290,18 +279,20 @@ services:
     healthcheck:
       interval: 30s
       retries: 3
+      start_period: 40s
       test:
       - CMD
       - wget
-      - --spider
       - -q
+      - -O-
       - 0.0.0.0:8123/ping
-      timeout: 5s
+      timeout: 10s
     image: clickhouse/clickhouse-server:25.12.5
     logging:
       options:
         max-file: "3"
         max-size: 50m
+    restart: unless-stopped
     volumes:
     - source: signoz-telemetrystore-0-0-data
       target: /var/lib/clickhouse/
@@ -446,23 +437,23 @@ services:
       options:
         max-file: "3"
         max-size: 50m
-    restart: "no"
+    restart: on-failure
     volumes:
     - source: signoz-telemetrystore-user-scripts
       target: /var/lib/clickhouse/user_scripts
       type: volume
   signoz-telemetrystore-migrator:
     command:
-    - /signoz-otel-collector migrate bootstrap --clickhouse-dsn tcp://signoz-telemetrystore-clickhouse-0-0:9000
-    - /signoz-otel-collector migrate sync up --clickhouse-dsn tcp://signoz-telemetrystore-clickhouse-0-0:9000
-    - /signoz-otel-collector migrate async up --clickhouse-dsn tcp://signoz-telemetrystore-clickhouse-0-0:9000
-    depends_on:
-      signoz-telemetrystore-clickhouse-0-0:
-        condition: service_healthy
+    - -c
+    - |
+      /signoz-otel-collector migrate ready &&
+      /signoz-otel-collector migrate bootstrap &&
+      /signoz-otel-collector migrate sync up &&
+      /signoz-otel-collector migrate async up
     entrypoint:
     - /bin/sh
-    - -c
     environment:
+    - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://signoz-telemetrystore-clickhouse-0-0:9000
     - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
     exclude_from_hc: true
     image: signoz/signoz-otel-collector:latest
@@ -472,10 +463,8 @@ services:
         max-size: 50m
     restart: on-failure
 volumes:
-  signoz-metastore-0-data:
-    name: signoz-metastore-0-data
-  signoz-signoz-0-data:
-    name: signoz-signoz-0-data
+  signoz-metastore-postgres-0-data:
+    name: signoz-metastore-postgres-0-data
   signoz-telemetrykeeper-0-data:
     name: signoz-telemetrykeeper-0-data
   signoz-telemetrystore-0-0-data:

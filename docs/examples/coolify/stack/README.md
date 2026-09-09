@@ -21,6 +21,7 @@ Generates a `coolify.yaml` stack definition for deploying SigNoz on a Coolify-ma
 
 ```yaml
 apiVersion: v1alpha1
+kind: Installation
 metadata:
   name: signoz
 spec:
@@ -37,6 +38,8 @@ foundryctl forge -f casting.yaml
 ```
 
 After forging, deploy the generated `coolify.yaml` using the [Coolify stack feature](https://coolify.io/docs/knowledge-base/docker/compose).
+
+Nothing is published on host ports. Coolify routes each endpoint through a magic environment key, and you assign its domain in the Coolify dashboard: `SERVICE_URL_SIGNOZ0_8080` for the UI, `SERVICE_URL_INGESTER_4318` for OTLP HTTP, and `SERVICE_URL_MCP_8000` for the MCP server. OTLP gRPC on port `4317` is reachable only inside the stack unless a [patch](../../../concepts/patches.md) adds a host port.
 
 ## Generated output
 
@@ -63,7 +66,7 @@ spec:
       enabled: true
 ```
 
-This adds a `signoz-mcp` service to the stack listening on port `8000`. Expose that port from the Coolify dashboard to reach it from AI clients; the MCP endpoint is the exposed URL plus `/mcp`.
+This adds an `mcp` service to the stack listening on port `8000`, carrying the `SERVICE_URL_MCP_8000` key. Assign a domain for it in the Coolify dashboard to reach it from AI clients; the MCP endpoint is that URL plus `/mcp`.
 
 To connect an AI client (mint an API key, configure Claude Code or Claude Desktop), see [MCP server](../../../concepts/mcp-server.md).
 
