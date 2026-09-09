@@ -51,6 +51,28 @@ var (
 	}
 )
 
+// Chart source for kubernetes/helm; an empty chart version resolves to the repository's latest.
+var (
+	HelmChart = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/kubernetes-helm-casting-chart",
+		Default:     "signoz",
+		Mode:        v1alpha1.ModeKubernetes,
+		Description: "Chart to install: a name in the chart repository, a URL to a chart archive, or a local chart path.",
+	}
+	HelmChartRepoURL = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/kubernetes-helm-casting-repo-url",
+		Default:     "https://charts.signoz.io",
+		Mode:        v1alpha1.ModeKubernetes,
+		Description: "Chart repository URL the chart name is resolved against; unused when the chart states its own location.",
+	}
+	HelmChartVersion = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/kubernetes-helm-casting-chart-version",
+		Default:     "",
+		Mode:        v1alpha1.ModeKubernetes,
+		Description: "Helm chart version to install; empty installs the repository's latest.",
+	}
+)
+
 // Annotations returns the Installation annotation catalog.
 func Annotations() []v1alpha1.Annotation {
 	return []v1alpha1.Annotation{
@@ -61,5 +83,8 @@ func Annotations() []v1alpha1.Annotation {
 		TelemetryKeeperClickHouseKeeperBinaryPath,
 		TelemetryKeeperZookeeperBinaryPath,
 		MCPBinaryPath,
+		HelmChart,
+		HelmChartRepoURL,
+		HelmChartVersion,
 	}
 }
