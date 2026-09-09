@@ -119,9 +119,6 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 			return nil
 		}
 
-		// The ingester is scaled via `deploy.replicas` and reached through the
-		// `<metadata.name>-ingester` network alias on the default network,
-		// which compose load-balances across all replicas.
 		config.Spec.Ingester.Status.Addresses.OTLP = []string{
 			domain.MustNewAddress("tcp", config.Metadata.Name+"-ingester", 4318).String(),
 			domain.MustNewAddress("tcp", config.Metadata.Name+"-ingester", 4317).String(),
@@ -131,9 +128,6 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 			return nil
 		}
 
-		// The mcp server is scaled via `deploy.replicas` and reached through the
-		// `<metadata.name>-mcp` network alias on the default network,
-		// which compose load-balances across all replicas.
 		config.Spec.MCP.Status.Addresses.HTTP = []string{
 			domain.MustNewAddress("http", config.Metadata.Name+"-mcp", 8000).String(),
 		}

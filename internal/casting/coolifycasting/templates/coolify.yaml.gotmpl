@@ -224,8 +224,8 @@ services:
   {{- end }}
   {{- end }}
   {{- if derefBool $.Spec.MCP.Spec.Enabled }}
-  {{- $mcpReplicas := int $.Spec.MCP.Spec.Cluster.Replicas }}
-  mcp:
+  {{- range $replicaIdx := until (int $.Spec.MCP.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-mcp-{{ $replicaIdx }}:
     image: {{ $.Spec.MCP.Spec.Image }}
     restart: unless-stopped
     networks:
@@ -233,7 +233,7 @@ services:
         aliases:
           - {{ $.Metadata.Name }}-mcp
     environment:
-      - SERVICE_URL_MCP_8000
+      - SERVICE_URL_MCP{{ $replicaIdx }}_8000
       {{- range $key, $value := $.Spec.MCP.Spec.Env }}
       - {{ $key }}={{ $value }}
       {{- end }}
@@ -241,14 +241,13 @@ services:
       options:
         max-size: 50m
         max-file: "3"
-    deploy:
-      replicas: {{ $mcpReplicas }}
+  {{- end }}
   {{- end }}
   {{- if derefBool $.Spec.Ingester.Spec.Enabled }}
-  {{- $ingesterReplicas := int $.Spec.Ingester.Spec.Cluster.Replicas }}
   {{- $ingesterConfig := index $.Spec.Ingester.Spec.Config.Data "ingester.yaml" }}
   {{- $opampConfig := index $.Spec.Ingester.Spec.Config.Data "opamp.yaml" }}
-  ingester:
+  {{- range $replicaIdx := until (int $.Spec.Ingester.Spec.Cluster.Replicas) }}
+  {{ $.Metadata.Name }}-ingester-{{ $replicaIdx }}:
     image: {{ $.Spec.Ingester.Spec.Image }}
     restart: unless-stopped
     networks:
@@ -256,7 +255,7 @@ services:
         aliases:
           - {{ $.Metadata.Name }}-ingester
     environment:
-      - SERVICE_URL_INGESTER_4318
+      - SERVICE_URL_INGESTER{{ $replicaIdx }}_4318
       - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
       {{- if and (derefBool $.Spec.TelemetryStore.Spec.Enabled) $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
       - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN={{ index $.Spec.TelemetryStore.Status.Addresses.TCP 0 }}
@@ -286,8 +285,7 @@ services:
       options:
         max-size: 50m
         max-file: "3"
-    deploy:
-      replicas: {{ $ingesterReplicas }}
+  {{- end }}
   {{- end }}
   {{- if derefBool $.Spec.TelemetryStore.Spec.Enabled }}
   {{ $.Metadata.Name }}-telemetrystore-migrator:
