@@ -13,13 +13,13 @@ import (
 // Gauge checks the tools the whole casting file needs. Documents that share a
 // tool gauge it once, so a machine is neither probed nor reported twice.
 func (foundry *Foundry) Gauge(ctx context.Context, machineries []v1alpha1.Machinery) error {
-	planners, err := foundry.Plan(ctx, machineries)
-	if err != nil {
-		return err
-	}
-
 	toolers := []tooler.Tooler{}
-	for _, p := range planners {
+	for _, machinery := range machineries {
+		p, err := foundry.Plan(ctx, machinery)
+		if err != nil {
+			return err
+		}
+
 		toolers = append(toolers, p.Toolers()...)
 	}
 

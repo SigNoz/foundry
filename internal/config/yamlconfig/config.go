@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/signoz/foundry/api/v1alpha1"
@@ -24,105 +25,6 @@ const lockFileName = "casting.yaml.lock"
 
 type yamlConfig struct {
 	loaders map[v1alpha1.Kind]loader
-}
-
-// loader is one Kind's entry in the table. Supporting a new Kind is one entry
-// here and its place in v1alpha1.Kinds().
-type loader struct {
-	kind v1alpha1.Kind
-
-	new func() v1alpha1.Machinery
-
-	// defaults returns the Kind's baseline. It reads the declaration because a
-	// Kind may default one component from another's declared kind.
-	defaults func(declared v1alpha1.Machinery) v1alpha1.Machinery
-
-	schema func() *jsonschema.Resolved
-
-	// check is the Kind's compatibility gate; nil when it has none.
-	check func(casting v1alpha1.Machinery) error
-
-	// discriminator tells the Kind's documents apart; nil for a Kind that
-	// holds one document per file.
-	discriminator *discriminator
-}
-
-// discriminator tells two documents of a Kind apart, so a casting file may
-// hold one document per value; name is the property errors call it by.
-type discriminator struct {
-	name string
-	of   func(casting v1alpha1.Machinery) string
-}
-
-// reader turns one document into its casting: loader.resolve for the casting
-// file, loader.read for the lock.
-type reader func(loader, []byte) (v1alpha1.Machinery, error)
-
-// resolve lays the Kind's defaults under the declaration, merges the
-// declaration over them, validates the result against the Kind's schema, and
-// runs the Kind's compatibility check.
-func (l loader) resolve(document []byte) (v1alpha1.Machinery, error) {
-	declared := l.new()
-	if err := domain.UnmarshalYAML(document, declared); err != nil {
-		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "failed to unmarshal %s casting", l.kind)
-	}
-
-	casting := l.defaults(declared)
-	if err := v1alpha1.Merge(casting, declared); err != nil {
-		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to merge %s casting over its defaults", l.kind)
-	}
-
-	// The schema describes the JSON shape, so the casting validates as JSON.
-	contents, err := json.Marshal(casting)
-	if err != nil {
-		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to marshal %s casting", l.kind)
-	}
-
-	toValidate := map[string]any{}
-	if err := json.Unmarshal(contents, &toValidate); err != nil {
-		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to unmarshal %s casting for validation", l.kind)
-	}
-
-	if err := l.schema().Validate(toValidate); err != nil {
-		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "failed to validate %s casting against its schema", l.kind)
-	}
-
-	if l.check != nil {
-		if err := l.check(casting); err != nil {
-			return nil, err
-		}
-	}
-
-	return casting, nil
-}
-
-// read unmarshals an already-resolved casting; the lock's documents take
-// neither defaults nor validation.
-func (l loader) read(document []byte) (v1alpha1.Machinery, error) {
-	casting := l.new()
-	if err := domain.UnmarshalYAML(document, casting); err != nil {
-		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "failed to unmarshal %s casting", l.kind)
-	}
-
-	return casting, nil
-}
-
-// collide rejects a casting whose pours would overwrite an already-declared
-// one's: a second document of a Kind without a discriminator, or one with the
-// same discriminator value. Values are compared after defaults are merged, so
-// an omitted value collides with an explicitly declared default.
-func (l loader) collide(casting v1alpha1.Machinery, declared []v1alpha1.Machinery) error {
-	for _, existing := range declared {
-		if l.discriminator == nil {
-			return errors.Newf(errors.TypeInvalidInput, "%s is already declared as %q: a casting file holds one %s", l.kind, existing.Name(), l.kind)
-		}
-
-		if value := l.discriminator.of(casting); value == l.discriminator.of(existing) {
-			return errors.Newf(errors.TypeInvalidInput, "%s is already declared as %q: a casting file holds one %s per %s and both declare %q", l.kind, existing.Name(), l.kind, l.discriminator.name, value)
-		}
-	}
-
-	return nil
 }
 
 func New(logger *slog.Logger) *yamlConfig {
@@ -166,8 +68,6 @@ func New(logger *slog.Logger) *yamlConfig {
 	return &yamlConfig{loaders: byKind}
 }
 
-// GetV1Alpha1 reads, dispatches, and validates every casting document the file
-// holds, and returns the resolved castings in cast order.
 func (config *yamlConfig) GetV1Alpha1(ctx context.Context, path string) ([]v1alpha1.Machinery, error) {
 	contents, err := os.ReadFile(path)
 	if err != nil {
@@ -177,10 +77,48 @@ func (config *yamlConfig) GetV1Alpha1(ctx context.Context, path string) ([]v1alp
 	return config.castings(contents, path, loader.resolve)
 }
 
-// GetV1Alpha1Lock reads the lock beside the casting file; its documents are
-// already resolved, so they take neither defaults nor validation.
+func (config *yamlConfig) CreateOrUpdateV1Alpha1Lock(ctx context.Context, machinery v1alpha1.Machinery, path string) error {
+	lockPath := lockPathFor(path)
+
+	locked, err := config.readLock(lockPath)
+	if err != nil {
+		return err
+	}
+
+	locked[config.identityOf(machinery)] = machinery
+
+	return config.writeLock(lockPath, locked)
+}
+
+func (config *yamlConfig) PruneV1Alpha1Lock(ctx context.Context, declared []v1alpha1.Machinery, path string) error {
+	lockPath := lockPathFor(path)
+
+	locked, err := config.readLock(lockPath)
+	if err != nil {
+		return err
+	}
+
+	identities := make(map[string]struct{}, len(declared))
+	for _, m := range declared {
+		identities[config.identityOf(m)] = struct{}{}
+	}
+
+	before := len(locked)
+	for identity := range locked {
+		if _, ok := identities[identity]; !ok {
+			delete(locked, identity)
+		}
+	}
+
+	if len(locked) == before {
+		return nil
+	}
+
+	return config.writeLock(lockPath, locked)
+}
+
 func (config *yamlConfig) GetV1Alpha1Lock(ctx context.Context, path string) ([]v1alpha1.Machinery, error) {
-	lockPath := filepath.Join(filepath.Dir(path), lockFileName)
+	lockPath := lockPathFor(path)
 
 	contents, err := os.ReadFile(lockPath)
 	if err != nil {
@@ -188,27 +126,6 @@ func (config *yamlConfig) GetV1Alpha1Lock(ctx context.Context, path string) ([]v
 	}
 
 	return config.castings(contents, lockPath, loader.read)
-}
-
-// CreateV1Alpha1Lock writes the resolved castings beside the casting file, one
-// document each, in the order they were resolved.
-func (*yamlConfig) CreateV1Alpha1Lock(ctx context.Context, machineries []v1alpha1.Machinery, path string) error {
-	documents := make([][]byte, 0, len(machineries))
-
-	for _, machinery := range machineries {
-		contents, err := domain.MarshalYAML(machinery)
-		if err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to marshal %s casting %q", machinery.Kind(), machinery.Name())
-		}
-
-		documents = append(documents, contents)
-	}
-
-	if err := os.WriteFile(filepath.Join(filepath.Dir(path), lockFileName), domain.NewYAMLStream(documents), 0644); err != nil {
-		return errors.Wrapf(err, errors.TypeInternal, "failed to write lock file")
-	}
-
-	return nil
 }
 
 // castings reads every casting document in the stream and returns them in cast
@@ -271,4 +188,197 @@ func peekKind(document []byte) (v1alpha1.Kind, error) {
 	}
 
 	return probe.Kind, nil
+}
+
+func (config *yamlConfig) identityOf(machinery v1alpha1.Machinery) string {
+	return config.loaders[machinery.Kind()].identity(machinery)
+}
+
+// lockPathFor is the lock's path beside the casting file.
+func lockPathFor(path string) string {
+	return filepath.Join(filepath.Dir(path), lockFileName)
+}
+
+// readLock maps the locked castings by identity; a missing or empty lock is
+// empty.
+func (config *yamlConfig) readLock(lockPath string) (map[string]v1alpha1.Machinery, error) {
+	locked := map[string]v1alpha1.Machinery{}
+
+	contents, err := os.ReadFile(lockPath)
+	switch {
+	case os.IsNotExist(err):
+		return locked, nil
+	case err != nil:
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to read lock file")
+	}
+
+	if len(contents) == 0 {
+		return locked, nil
+	}
+
+	machineries, err := config.castings(contents, lockPath, loader.read)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, m := range machineries {
+		locked[config.identityOf(m)] = m
+	}
+
+	return locked, nil
+}
+
+// writeLock writes the entries in cast order, a kind's own entries sorted by
+// identity, through a temporary file so a crash never truncates the lock. Zero
+// entries remove the lock: nothing locked and no lock are the same state.
+func (config *yamlConfig) writeLock(lockPath string, locked map[string]v1alpha1.Machinery) error {
+	if len(locked) == 0 {
+		if err := os.Remove(lockPath); err != nil && !os.IsNotExist(err) {
+			return errors.Wrapf(err, errors.TypeInternal, "failed to remove lock file")
+		}
+
+		return nil
+	}
+
+	byKind := make(map[v1alpha1.Kind][]string, len(locked))
+	for identity, m := range locked {
+		byKind[m.Kind()] = append(byKind[m.Kind()], identity)
+	}
+
+	documents := make([][]byte, 0, len(locked))
+	for _, kind := range v1alpha1.Kinds() {
+		identities := byKind[kind]
+		sort.Strings(identities)
+
+		for _, identity := range identities {
+			m := locked[identity]
+
+			contents, err := domain.MarshalYAML(m)
+			if err != nil {
+				return errors.Wrapf(err, errors.TypeInternal, "failed to marshal %s casting %q", m.Kind(), m.Name())
+			}
+
+			documents = append(documents, contents)
+		}
+	}
+
+	tmpPath := lockPath + ".tmp"
+	if err := os.WriteFile(tmpPath, domain.NewYAMLStream(documents), 0644); err != nil {
+		return errors.Wrapf(err, errors.TypeInternal, "failed to write lock file")
+	}
+
+	if err := os.Rename(tmpPath, lockPath); err != nil {
+		return errors.Wrapf(err, errors.TypeInternal, "failed to write lock file")
+	}
+
+	return nil
+}
+
+// loader is one Kind's entry in the table. Supporting a new Kind is one entry
+// here and its place in v1alpha1.Kinds().
+type loader struct {
+	kind v1alpha1.Kind
+
+	new func() v1alpha1.Machinery
+
+	// defaults reads the declaration because a Kind may default one component
+	// from another's declared kind.
+	defaults func(declared v1alpha1.Machinery) v1alpha1.Machinery
+
+	schema func() *jsonschema.Resolved
+
+	// check is the Kind's compatibility gate; nil when it has none.
+	check func(casting v1alpha1.Machinery) error
+
+	// discriminator tells the Kind's documents apart; nil for a Kind that
+	// holds one document per file.
+	discriminator *discriminator
+}
+
+type discriminator struct {
+	// name is the property errors call the discriminator by.
+	name string
+	of   func(casting v1alpha1.Machinery) string
+}
+
+// reader turns one document into its casting: loader.resolve for the casting
+// file, loader.read for the lock.
+type reader func(loader, []byte) (v1alpha1.Machinery, error)
+
+// resolve lays the Kind's defaults under the declaration, merges the
+// declaration over them, validates the result against the Kind's schema, and
+// runs the Kind's compatibility check.
+func (l loader) resolve(document []byte) (v1alpha1.Machinery, error) {
+	declared := l.new()
+	if err := domain.UnmarshalYAML(document, declared); err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "failed to unmarshal %s casting", l.kind)
+	}
+
+	casting := l.defaults(declared)
+	if err := v1alpha1.Merge(casting, declared); err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to merge %s casting over its defaults", l.kind)
+	}
+
+	// The schema describes the JSON shape, so the casting validates as JSON.
+	contents, err := json.Marshal(casting)
+	if err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to marshal %s casting", l.kind)
+	}
+
+	toValidate := map[string]any{}
+	if err := json.Unmarshal(contents, &toValidate); err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to unmarshal %s casting for validation", l.kind)
+	}
+
+	if err := l.schema().Validate(toValidate); err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "failed to validate %s casting against its schema", l.kind)
+	}
+
+	if l.check != nil {
+		if err := l.check(casting); err != nil {
+			return nil, err
+		}
+	}
+
+	return casting, nil
+}
+
+// read unmarshals an already-resolved casting; the lock's documents take
+// neither defaults nor validation.
+func (l loader) read(document []byte) (v1alpha1.Machinery, error) {
+	casting := l.new()
+	if err := domain.UnmarshalYAML(document, casting); err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInvalidInput, "failed to unmarshal %s casting", l.kind)
+	}
+
+	return casting, nil
+}
+
+// identity is the casting's collision identity: its kind, qualified by the
+// Kind's discriminator value when the loader declares one.
+func (l loader) identity(casting v1alpha1.Machinery) string {
+	if l.discriminator == nil {
+		return casting.Kind().String()
+	}
+
+	return casting.Kind().String() + "/" + l.discriminator.of(casting)
+}
+
+// collide rejects a casting whose pours would overwrite an already-declared
+// one's: one sharing its identity. Identities compare after defaults merge, so
+// an omitted discriminator value collides with a declared default.
+func (l loader) collide(casting v1alpha1.Machinery, declared []v1alpha1.Machinery) error {
+	for _, existing := range declared {
+		if l.identity(casting) != l.identity(existing) {
+			continue
+		}
+
+		if l.discriminator == nil {
+			return errors.Newf(errors.TypeInvalidInput, "%s is already declared as %q: a casting file holds one %s", l.kind, existing.Name(), l.kind)
+		}
+
+		return errors.Newf(errors.TypeInvalidInput, "%s is already declared as %q: a casting file holds one %s per %s and both declare %q", l.kind, existing.Name(), l.kind, l.discriminator.name, l.discriminator.of(casting))
+	}
+
+	return nil
 }
