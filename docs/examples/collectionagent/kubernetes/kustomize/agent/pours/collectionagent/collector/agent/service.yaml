@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: collector-agent
+    app.kubernetes.io/instance: signoz
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-collector-agent
+  name: signoz-collector-agent
+spec:
+  internalTrafficPolicy: Local
+  ports:
+  - name: otlp-grpc
+    port: 4317
+    protocol: TCP
+    targetPort: otlp-grpc
+  - name: otlp-http
+    port: 4318
+    protocol: TCP
+    targetPort: otlp-http
+  selector:
+    app.kubernetes.io/component: collector-agent
+    app.kubernetes.io/instance: signoz
+    app.kubernetes.io/name: signoz-collector-agent
+  type: ClusterIP

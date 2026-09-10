@@ -1,0 +1,28 @@
+{{- $name := print $.Metadata.Name "-collector-agent" -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $.Metadata.Name }}
+    app.kubernetes.io/component: collector-agent
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  type: ClusterIP
+  # Traffic to the agent's ClusterIP stays on the caller's own node, so the
+  # service name is a stable node-local endpoint.
+  internalTrafficPolicy: Local
+  selector:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $.Metadata.Name }}
+    app.kubernetes.io/component: collector-agent
+  ports:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: otlp-grpc
+      protocol: TCP
+    - name: otlp-http
+      port: 4318
+      targetPort: otlp-http
+      protocol: TCP

@@ -8,4 +8,5 @@ import (
 
 func TestCollector(t *testing.T) {
 	assert.NotEmpty(t, agentConfig)
+	assert.NotEmpty(t, deploymentConfig)
 }
