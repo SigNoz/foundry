@@ -30,7 +30,8 @@
     },
     "CollectionagentCollectorKind": {
       "enum": [
-        "agent"
+        "agent",
+        "deployment"
       ],
       "type": "string"
     },

@@ -47,6 +47,8 @@ func (m *collector) MoldV1Alpha1(ctx context.Context, config *collectionagent.Ca
 	switch kind {
 	case collectionagent.CollectorKindAgent:
 		tmpl = agentConfig
+	case collectionagent.CollectorKindDeployment:
+		tmpl = deploymentConfig
 	default:
 		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported collector kind %q", kind)
 	}
