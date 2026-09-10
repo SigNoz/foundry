@@ -88,10 +88,10 @@ var (
 		Mode:        v1alpha1.ModeEC2,
 		Description: "ARN of the ECS cluster to deploy services into.",
 	}
-	ECSSubnetIDs = v1alpha1.Annotation{
-		Key:         "foundry.signoz.io/ecs-subnet-ids",
+	ECSPrivateSubnetIDs = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/ecs-private-subnet-ids",
 		Mode:        v1alpha1.ModeEC2,
-		Description: "Comma-separated subnet IDs for task networking (awsvpc).",
+		Description: "Comma-separated IDs of the private subnets tasks are placed in; they need a NAT route or the ECR, ECS, S3, AppConfig and logs VPC endpoints, since tasks on the EC2 launch type take no public IP.",
 	}
 	ECSSecurityGroupIDs = v1alpha1.Annotation{
 		Key:         "foundry.signoz.io/ecs-security-group-ids",
@@ -130,7 +130,7 @@ func Annotations() []v1alpha1.Annotation {
 		HelmChartVersion,
 		ECSRegion,
 		ECSClusterARN,
-		ECSSubnetIDs,
+		ECSPrivateSubnetIDs,
 		ECSSecurityGroupIDs,
 		ECSVPCID,
 		ECSTaskRoleARN,

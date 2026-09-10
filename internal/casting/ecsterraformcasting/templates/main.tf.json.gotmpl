@@ -1,5 +1,18 @@
 {{- $name := $.Metadata.Name -}}
 {
+  {{- if $.Subnets.StatedIDs }}
+  {{- /* An awsvpc task on the EC2 launch type takes no public IP, so a public
+         subnet gives it a route it cannot use. */}}
+  "data": {
+    "aws_subnet": {
+      {{- range $index, $id := $.Subnets.StatedIDs }}{{ if $index }},{{ end }}
+      "tasks_{{ $index }}": {
+        "id": "${var.subnet_ids[{{ $index }}]}"
+      }
+      {{- end }}
+    }
+  },
+  {{- end }}
   {{- /* A component reads `local.cluster_arn`, never the variable. */}}
   "locals": {
     "cluster_arn": "${var.cluster_arn}",
@@ -52,7 +65,17 @@
       "main": {
         "name": "{{ $name }}-installation.local",
         "vpc": "${local.vpc_id}",
-        "tags": {{ toJson $.Labels }}
+        "tags": {{ toJson $.Labels }}{{ if $.Subnets.StatedIDs }},
+        "lifecycle": {
+          "precondition": [
+            {{- range $index, $id := $.Subnets.StatedIDs }}{{ if $index }},{{ end }}
+            {
+              "condition": "${!data.aws_subnet.tasks_{{ $index }}.map_public_ip_on_launch}",
+              "error_message": "subnet {{ $id }} assigns public IPs on launch; tasks on the EC2 launch type take no public IP, so state private subnets with a NAT route or VPC endpoints."
+            }
+            {{- end }}
+          ]
+        }{{ end }}
       }
     },
     {{- /* The sidecar rewrites the config in place, so a component that

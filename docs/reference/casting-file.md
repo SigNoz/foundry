@@ -186,7 +186,7 @@ cluster is made of is named here. Leave one out and terraform refuses at plan.
 | --- | --- | --- |
 | `foundry.signoz.io/ecs-region` | `aws_region` | AWS region holding the cluster |
 | `foundry.signoz.io/ecs-cluster-arn` | `cluster_arn` | ARN of the ECS cluster |
-| `foundry.signoz.io/ecs-subnet-ids` | `subnet_ids` | Comma-separated subnet IDs |
+| `foundry.signoz.io/ecs-private-subnet-ids` | `subnet_ids` | Comma-separated IDs of the private subnets tasks are placed in; they need a NAT route or the ECR, ECS, S3, AppConfig and logs VPC endpoints, since tasks on the EC2 launch type take no public IP |
 | `foundry.signoz.io/ecs-security-group-ids` | `security_group_ids` | Comma-separated security group IDs |
 | `foundry.signoz.io/ecs-vpc-id` | `vpc_id` | VPC ID for the Cloud Map namespace |
 

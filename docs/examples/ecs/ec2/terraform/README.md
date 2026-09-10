@@ -45,7 +45,7 @@ metadata:
     foundry.signoz.io/ecs-region: us-east-1
     foundry.signoz.io/ecs-cluster-arn: arn:aws:ecs:us-east-1:111122223333:cluster/observability
     foundry.signoz.io/ecs-vpc-id: vpc-0a1b2c3d4e5f67890
-    foundry.signoz.io/ecs-subnet-ids: subnet-0a1b2c3d4e5f67890,subnet-0f9e8d7c6b5a43210
+    foundry.signoz.io/ecs-private-subnet-ids: subnet-0a1b2c3d4e5f67890,subnet-0f9e8d7c6b5a43210
     foundry.signoz.io/ecs-security-group-ids: sg-0a1b2c3d4e5f67890
 spec:
   deployment:
@@ -54,7 +54,7 @@ spec:
     flavor: terraform
 ```
 
-The forge refuses if a required annotation is missing. The ID annotations take a comma-separated list. For the full annotation table, see the [casting file reference](../../../reference/casting-file.md).
+The forge refuses if a required annotation is missing. The ID annotations take a comma-separated list. The subnets must be private: the root reads each stated subnet at plan and refuses one that assigns public IPs on launch. For the full annotation table, see the [casting file reference](../../../reference/casting-file.md).
 
 The two IAM roles are optional: state `foundry.signoz.io/ecs-task-role-arn` or `foundry.signoz.io/ecs-task-execution-role-arn` to use your own, otherwise they are created here. A stated task role must allow `appconfig:StartConfigurationSession` and `appconfig:GetLatestConfiguration`.
 

@@ -3,6 +3,7 @@ package ecsterraformcasting
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"log/slog"
 	"maps"
 	"strings"
@@ -20,7 +21,7 @@ func statedCasting(declared *installation.Casting) *installation.Casting {
 		installation.ECSRegion.Key:           "us-east-1",
 		installation.ECSClusterARN.Key:       "arn:aws:ecs:us-east-1:123456789012:cluster/test",
 		installation.ECSVPCID.Key:            "vpc-abc123",
-		installation.ECSSubnetIDs.Key:        "subnet-abc123, subnet-def456",
+		installation.ECSPrivateSubnetIDs.Key: "subnet-abc123, subnet-def456",
 		installation.ECSSecurityGroupIDs.Key: "sg-abc123",
 	}
 
@@ -98,7 +99,6 @@ func TestTfvarsTemplateCarriesStatedRoles(t *testing.T) {
 	}`, buf.String())
 }
 
-// An empty "data" object is a root terraform refuses outright.
 func TestStatedObjectsAreResolvedThroughLocals(t *testing.T) {
 	data := templateDataFor(t, statedCasting(&installation.Casting{}))
 
@@ -131,12 +131,77 @@ func TestStatedObjectsAreResolvedThroughLocals(t *testing.T) {
 	} {
 		assert.Contains(t, out, expected)
 	}
+}
 
-	material, err := domain.NewJSONMaterial(main.Bytes(), "main.tf.json")
-	require.NoError(t, err)
+// A public subnet hands an awsvpc task on the EC2 launch type a route it
+// cannot use. An empty "data" object is a root terraform refuses outright.
+func TestStatedSubnetsAreCheckedAtPlan(t *testing.T) {
+	tests := []struct {
+		name               string
+		subnetIDs          string
+		expectedLookups    []string
+		expectedConditions []string
+		expectedMessages   []string
+		pass               bool
+	}{
+		{
+			name:               "TwoSubnetsStated_Checked",
+			subnetIDs:          "subnet-abc123, subnet-def456",
+			expectedLookups:    []string{"${var.subnet_ids[0]}", "${var.subnet_ids[1]}"},
+			expectedConditions: []string{"${!data.aws_subnet.tasks_0.map_public_ip_on_launch}", "${!data.aws_subnet.tasks_1.map_public_ip_on_launch}"},
+			expectedMessages:   []string{"subnet subnet-abc123 assigns public IPs on launch", "subnet subnet-def456 assigns public IPs on launch"},
+			pass:               true,
+		},
+		{name: "NoSubnetStated_NotChecked"},
+	}
 
-	_, err = material.GetBytes("data")
-	assert.Error(t, err, "a root with no lookups emits no data block")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			casting := statedCasting(&installation.Casting{})
+
+			if tt.subnetIDs == "" {
+				delete(casting.Metadata.Annotations, installation.ECSPrivateSubnetIDs.Key)
+			} else {
+				casting.Metadata.Annotations[installation.ECSPrivateSubnetIDs.Key] = tt.subnetIDs
+			}
+
+			main := bytes.NewBuffer(nil)
+			require.NoError(t, mainTF.Execute(main, templateDataFor(t, casting)))
+
+			material, err := domain.NewJSONMaterial(main.Bytes(), "main.tf.json")
+			require.NoError(t, err)
+
+			if !tt.pass {
+				_, err := material.GetBytes("data")
+				assert.Error(t, err, "an unstated subnet list emits no lookup")
+
+				_, err = material.GetBytes("resource.aws_service_discovery_private_dns_namespace.main.lifecycle")
+				assert.Error(t, err, "an unstated subnet list emits no precondition")
+
+				return
+			}
+
+			for index, expected := range tt.expectedLookups {
+				id, err := material.GetBytes(fmt.Sprintf("data.aws_subnet.tasks_%d.id", index))
+				require.NoError(t, err)
+				assert.Equal(t, expected, string(id))
+			}
+
+			preconditions, err := material.GetBytes("resource.aws_service_discovery_private_dns_namespace.main.lifecycle.precondition")
+			require.NoError(t, err)
+
+			rendered := string(preconditions)
+			assert.Equal(t, len(tt.expectedConditions), strings.Count(rendered, `"condition"`))
+
+			for _, expected := range tt.expectedConditions {
+				assert.Contains(t, rendered, expected)
+			}
+
+			for _, expected := range tt.expectedMessages {
+				assert.Contains(t, rendered, expected)
+			}
+		})
+	}
 }
 
 func TestStatedRoleIsNotCreated(t *testing.T) {
@@ -178,7 +243,7 @@ func TestTemplateDataResolution(t *testing.T) {
 
 	malformed := map[string]string{}
 	maps.Copy(malformed, complete)
-	malformed[installation.ECSSubnetIDs.Key] = " , ,"
+	malformed[installation.ECSPrivateSubnetIDs.Key] = " , ,"
 
 	tests := []struct {
 		name            string

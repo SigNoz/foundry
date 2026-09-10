@@ -152,7 +152,7 @@ func (c *ecsCasting) templateData(config installation.Casting) (templateData, er
 		ExecutionRole: Reference{Stated: installation.ECSTaskExecutionRoleARN.Resolve(annotations)},
 	}
 
-	subnets, err := statedIDs(installation.ECSSubnetIDs, annotations)
+	subnets, err := statedIDs(installation.ECSPrivateSubnetIDs, annotations)
 	if err != nil {
 		return templateData{}, err
 	}
