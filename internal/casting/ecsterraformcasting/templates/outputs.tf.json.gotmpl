@@ -23,11 +23,11 @@
     {{- if derefBool $.Spec.Signoz.Spec.Enabled }},
     "signoz_service_arn": {
       "description": "SigNoz ECS service ARN (target for ALB on port 8080)",
-      "value": "${aws_ecs_service.signoz.id}"
+      "value": "${aws_ecs_service.signoz_0.id}"
     },
     "signoz_service_name": {
       "description": "SigNoz ECS service name",
-      "value": "${aws_ecs_service.signoz.name}"
+      "value": "${aws_ecs_service.signoz_0.name}"
     }
     {{- end }}
     {{- if derefBool $.Spec.Ingester.Spec.Enabled }},
@@ -43,19 +43,19 @@
     {{- if derefBool $.Spec.TelemetryStore.Spec.Enabled }},
     "telemetrystore_service_names": {
       "description": "TelemetryStore ECS service names (one per node)",
-      "value": ["${aws_ecs_service.telemetrystore_0_0.name}"]
+      "value": ["${aws_ecs_service.telemetrystore_{{ $.Spec.TelemetryStore.Kind.String }}_0_0.name}"]
     }
     {{- end }}
     {{- if derefBool $.Spec.TelemetryKeeper.Spec.Enabled }},
     "telemetrykeeper_service_names": {
       "description": "TelemetryKeeper ECS service names (one per node)",
-      "value": ["${aws_ecs_service.telemetrykeeper_0.name}"]
+      "value": ["${aws_ecs_service.telemetrykeeper_{{ $.Spec.TelemetryKeeper.Kind.String }}_0.name}"]
     }
     {{- end }}
     {{- if and (derefBool $.Spec.MetaStore.Spec.Enabled) (eq $.Spec.MetaStore.Kind.String "postgres") }},
     "metastore_service_name": {
       "description": "MetaStore ECS service name",
-      "value": "${aws_ecs_service.metastore.name}"
+      "value": "${aws_ecs_service.metastore_{{ $.Spec.MetaStore.Kind.String }}_0.name}"
     }
     {{- end }}
     {{- if derefBool $.Spec.MCP.Spec.Enabled }},

@@ -1,9 +1,6 @@
 {{- $name := $.Metadata.Name -}}
 {
-  {{- /* Every object the cluster is made of is stated on the casting, so the
-         locals name it directly. They exist anyway: a component reads
-         `local.cluster_arn`, never the variable, so what resolves an axis can
-         change without touching a component file. */}}
+  {{- /* A component reads `local.cluster_arn`, never the variable. */}}
   "locals": {
     "cluster_arn": "${var.cluster_arn}",
     "subnet_ids": "${var.subnet_ids}",
@@ -13,9 +10,7 @@
     "execution_role_arn": "{{ if $.ExecutionRole.IsStated }}${var.execution_role_arn}{{ else }}${aws_iam_role.exec.arn}{{ end }}"
   },
   "resource": {
-    {{- /* Workload identity is the workload's own. A role holds no data and
-           dies with this stack. An operator states an ARN instead and nothing
-           is created. */}}
+    {{- /* A role holds no data and dies with this stack. */}}
     {{- if or (not $.TaskRole.IsStated) (not $.ExecutionRole.IsStated) }}
     "aws_iam_role": {
       {{- $first := true }}
@@ -44,8 +39,7 @@
     },
     {{- end }}
     {{- if not $.TaskRole.IsStated }}
-    {{- /* Scoped to the application this stack creates. GetLatestConfiguration
-           acts on a session token and cannot be scoped. */}}
+    {{- /* GetLatestConfiguration acts on a session token, so it is unscoped. */}}
     "aws_iam_role_policy": {
       "task_appconfig_read": {
         "name": "${var.task_role_name}-appconfig-read",
@@ -56,14 +50,13 @@
     {{- end }}
     "aws_service_discovery_private_dns_namespace": {
       "main": {
-        "name": "{{ $name }}.local",
+        "name": "{{ $name }}-installation.local",
         "vpc": "${local.vpc_id}",
         "tags": {{ toJson $.Labels }}
       }
     },
-    {{- /* AppConfig is the ECS analog of a ConfigMap. The sidecar rewrites the
-           config in place, so a component that reloads its own config does not
-           need the task replaced. Verified against keeper 25.12.5. */}}
+    {{- /* The sidecar rewrites the config in place, so a component that
+           reloads it does not need the task replaced. */}}
     "aws_appconfig_application": {
       "main": {
         "name": "{{ $name }}-installation-appconfig",
@@ -78,9 +71,8 @@
         "tags": {{ toJson $.Labels }}
       }
     },
-    {{- /* No bake. AppConfig serializes deployments per environment, paying
-           bake time once per component on every apply. Add it back with
-           CloudWatch monitors that can trigger a rollback. */}}
+    {{- /* AppConfig serializes deployments per environment, so bake time is
+           paid once per component on every apply. */}}
     "aws_appconfig_deployment_strategy": {
       "main": {
         "name": "{{ $name }}-installation-appconfig-strategy",

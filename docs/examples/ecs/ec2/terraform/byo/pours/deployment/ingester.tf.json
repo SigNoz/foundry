@@ -2,29 +2,6 @@
   "locals": {
     "containers_ingester": [
       {
-        "name": "signoz-ingester-config-init",
-        "image": "signoz/signoz-otel-collector:latest",
-        "logConfiguration": {
-          "logDriver": "json-file",
-          "options": {
-            "max-size": "10m",
-            "max-file": "3",
-            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
-          }
-        },
-        "essential": false,
-        "user": "0",
-        "entryPoint": ["/bin/sh", "-c"],
-        "command": ["chown 10001:0 /conf"],
-        "mountPoints": [
-          {
-            "sourceVolume": "ingester-config",
-            "containerPath": "/conf"
-          }
-        ],
-        "memoryReservation": 102
-      },
-      {
         "name": "signoz-ingester-appconfig-agent",
         "image": "public.ecr.aws/aws-appconfig/aws-appconfig-agent:2.x",
         "logConfiguration": {
@@ -36,10 +13,7 @@
           }
         },
         "essential": true,
-        "user": "10001:0",
-        "dependsOn": [
-          {"containerName": "signoz-ingester-config-init", "condition": "SUCCESS"}
-        ],
+        "user": "0",
         "environment": [
           {"name": "PREFETCH_LIST", "value": "signoz-installation-appconfig:default:ingester,signoz-installation-appconfig:default:ingester-opamp"},
           {"name": "POLL_INTERVAL", "value": "45s"},
@@ -72,9 +46,10 @@
           }
         },
         "essential": true,
+        "user": "0",
         "entryPoint": ["/bin/sh", "-c"],
         "command": ["/signoz-otel-collector migrate sync check && /signoz-otel-collector --config=/conf/ingester.yaml --manager-config=/conf/opamp.yaml --copy-path=/var/tmp/collector-config.yaml"],
-        "environment": [{"name":"FOUNDRY_CONFIG_DIGEST","value":"2e649906418d119026f3bf3ecc42d49e9e6f0fc3fd1e3bc19afb703f2c1551ff"},{"name":"SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN","value":"tcp://telemetrystore-clickhouse-0-0.signoz.local:9000"},{"name":"SIGNOZ_OTEL_COLLECTOR_TIMEOUT","value":"10m"}],
+        "environment": [{"name":"FOUNDRY_CONFIG_DIGEST","value":"22aace76e36835ba8a7472b621d87518e77cc63261f8f8ae4e1b4180d60b1ac0"},{"name":"SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN","value":"tcp://telemetrystore-clickhouse-0-0.signoz-installation.local:9000"},{"name":"SIGNOZ_OTEL_COLLECTOR_TIMEOUT","value":"10m"}],
         "portMappings": [
           {"name": "grpc", "containerPort": 4317, "protocol": "tcp", "appProtocol": "grpc"},
           {"name": "http", "containerPort": 4318, "protocol": "tcp", "appProtocol": "http"}
@@ -86,7 +61,6 @@
           }
         ],
         "dependsOn": [
-          {"containerName": "signoz-ingester-config-init", "condition": "SUCCESS"},
           {"containerName": "signoz-ingester-appconfig-agent", "condition": "HEALTHY"}
         ],
         "cpu": 512,
@@ -186,8 +160,8 @@
         "cluster": "${local.cluster_arn}",
         "task_definition": "${aws_ecs_task_definition.ingester.arn}",
         "desired_count": 1,
-        "deployment_minimum_healthy_percent": 0,
-        "deployment_maximum_percent": 100,
+        "deployment_minimum_healthy_percent": 100,
+        "deployment_maximum_percent": 200,
         "launch_type": "EC2",
         "deployment_circuit_breaker": {
           "enable": true,

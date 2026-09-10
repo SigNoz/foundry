@@ -1,6 +1,4 @@
-{{- /* Every identifier arrives as a variable defaulted to what the casting
-       stated, so the root is patchable without re-forging. */ -}}
-{{- $name := $.Metadata.Name -}}
+{{- /* terraform.tfvars.json carries the values these declare. */ -}}
 {
   "variable": {
     "aws_region": {
@@ -15,58 +13,49 @@
     "cluster_arn": {
       "nullable": false,
       "description": "ARN of the ECS cluster to deploy into",
-      "type": "string",
-      "default": "{{ $.Cluster.Stated }}"
+      "type": "string"
     },
     "subnet_ids": {
       "nullable": false,
       "description": "IDs of the subnets tasks are placed in",
-      "type": "list(string)",
-      "default": {{ toJson $.Subnets.StatedIDs }}
+      "type": "list(string)"
     },
     "security_group_ids": {
       "nullable": false,
       "description": "IDs of the security groups tasks join",
-      "type": "list(string)",
-      "default": {{ toJson $.SecurityGroup.StatedIDs }}
+      "type": "list(string)"
     },
     "vpc_id": {
       "nullable": false,
       "description": "ID of the VPC the Cloud Map namespace is created in",
-      "type": "string",
-      "default": "{{ $.VPC.Stated }}"
+      "type": "string"
     },
-    {{- /* The roles die with this stack, so they carry the Kind: several
-           workloads share one cluster, and a bare name collides on the second
-           apply. */}}
+    {{- /* Several workloads share one cluster, so a bare role name collides
+           on the second apply. */}}
     {{- if $.TaskRole.IsStated }}
     "task_role_arn": {
       "nullable": false,
       "description": "ARN of the IAM role tasks assume",
-      "type": "string",
-      "default": "{{ $.TaskRole.Stated }}"
+      "type": "string"
     },
     {{- else }}
     "task_role_name": {
       "nullable": false,
       "description": "Name of the IAM role this stack creates for its tasks",
-      "type": "string",
-      "default": "{{ $name }}-installation-iam-task"
+      "type": "string"
     },
     {{- end }}
     {{- if $.ExecutionRole.IsStated }}
     "execution_role_arn": {
       "nullable": false,
       "description": "ARN of the IAM role the ECS agent assumes",
-      "type": "string",
-      "default": "{{ $.ExecutionRole.Stated }}"
+      "type": "string"
     }
     {{- else }}
     "execution_role_name": {
       "nullable": false,
       "description": "Name of the IAM role this stack creates for the ECS agent to pull images and write logs",
-      "type": "string",
-      "default": "{{ $name }}-installation-iam-exec"
+      "type": "string"
     }
     {{- end }}
   }

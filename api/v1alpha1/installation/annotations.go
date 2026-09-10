@@ -74,9 +74,9 @@ var (
 	)
 
 // Cluster annotations for the ECS/EC2 deployment of the Installation Kind.
-// Each names an existing AWS object, and an absent one falls back to what the
-// substrate in spec.infrastructure.name derives. The region has no substrate
-// to fall back to and is always stated.
+// Each names an existing object of the cluster the installation is placed
+// onto. The region and every object are stated, and an unstated one is
+// refused at forge.
 var (
 	ECSRegion = v1alpha1.Annotation{
 		Key:         "foundry.signoz.io/ecs-region",

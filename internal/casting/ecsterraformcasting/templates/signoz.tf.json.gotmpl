@@ -1,9 +1,15 @@
 {{- $name := $.Metadata.Name -}}
+{{- $sqlite := eq $.Spec.MetaStore.Kind.String "sqlite" -}}
+{{- $i := 0 -}}
+{{- $label := printf "signoz_%d" $i -}}
+{{- $dns := printf "signoz-%d" $i -}}
+{{- $family := printf "%s-signoz-%d" $name $i -}}
+{{- $local := printf "containers_%s" $label -}}
 {
   "locals": {
-    "containers_signoz": [
+    "{{ $local }}": [
       {
-        "name": "{{ $name }}-signoz",
+        "name": "{{ $family }}",
         "image": "{{ $.Spec.Signoz.Spec.Image }}",
         "logConfiguration": {
           "logDriver": "json-file",
@@ -25,7 +31,7 @@
           {"name": "http", "containerPort": 8080, "protocol": "tcp", "appProtocol": "http"},
           {"name": "opamp", "containerPort": 4320, "protocol": "tcp"}
         ],
-        {{- if eq $.Spec.MetaStore.Kind.String "sqlite" }}
+        {{- if $sqlite }}
         "mountPoints": [
           {
             "sourceVolume": "signoz-data",
@@ -40,37 +46,34 @@
           "interval": 30,
           "timeout": 5,
           "retries": 3,
-          "startPeriod": 30
+          "startPeriod": 300
         }
       }
     ]
   },
   "resource": {
     "aws_ecs_task_definition": {
-      "signoz": {
-        "family": "{{ $name }}-signoz",
+      "{{ $label }}": {
+        "family": "{{ $family }}",
         "tags": {{ toJson $.Labels }},
         "network_mode": "awsvpc",
         "requires_compatibilities": ["EC2"],
         "task_role_arn": "${local.task_role_arn}",
         "execution_role_arn": "${local.execution_role_arn}",
-        "container_definitions": "${jsonencode(local.containers_signoz)}"
-        {{- if eq $.Spec.MetaStore.Kind.String "sqlite" }},
+        "container_definitions": "${jsonencode(local.{{ $local }})}"
+        {{- if $sqlite }},
         "volume": [
           {
             "name": "signoz-data",
-            "docker_volume_configuration": {
-              "scope": "task",
-              "driver": "local"
-            }
+            "host_path": "/var/lib/foundry/{{ $name }}/metastore/{{ $.Spec.MetaStore.Kind.String }}/{{ $i }}"
           }
         ]
         {{- end }}
       }
     },
     "aws_service_discovery_service": {
-      "signoz": {
-        "name": "signoz",
+      "{{ $label }}": {
+        "name": "{{ $dns }}",
         "tags": {{ toJson $.Labels }},
         "dns_config": {
           "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
@@ -85,13 +88,13 @@
       }
     },
     "aws_ecs_service": {
-      "signoz": {
-        "name": "{{ $name }}-signoz",
+      "{{ $label }}": {
+        "name": "{{ $family }}",
         "cluster": "${local.cluster_arn}",
-        "task_definition": "${aws_ecs_task_definition.signoz.arn}",
-        "desired_count": {{ if eq $.Spec.MetaStore.Kind.String "sqlite" }}1{{ else }}{{ derefIntDefault $.Spec.Signoz.Spec.Cluster.Replicas 1 }}{{ end }},
-        "deployment_minimum_healthy_percent": 0,
-        "deployment_maximum_percent": 100,
+        "task_definition": "${aws_ecs_task_definition.{{ $label }}.arn}",
+        "desired_count": 1,
+        "deployment_minimum_healthy_percent": {{ if $sqlite }}0{{ else }}100{{ end }},
+        "deployment_maximum_percent": {{ if $sqlite }}100{{ else }}200{{ end }},
         "launch_type": "EC2",
         "deployment_circuit_breaker": {
           "enable": true,
@@ -103,7 +106,7 @@
           "security_groups": "${local.security_group_ids}"
         },
         "service_registries": {
-          "registry_arn": "${aws_service_discovery_service.signoz.arn}"
+          "registry_arn": "${aws_service_discovery_service.{{ $label }}.arn}"
         }
       }
     }

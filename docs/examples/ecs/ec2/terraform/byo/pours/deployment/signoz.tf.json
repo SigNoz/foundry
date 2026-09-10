@@ -1,8 +1,8 @@
 {
   "locals": {
-    "containers_signoz": [
+    "containers_signoz_0": [
       {
-        "name": "signoz-signoz",
+        "name": "signoz-signoz-0",
         "image": "signoz/signoz:latest",
         "logConfiguration": {
           "logDriver": "json-file",
@@ -13,7 +13,7 @@
           }
         },
         "essential": true,
-        "environment": [{"name":"SIGNOZ_SQLSTORE_POSTGRES_DSN","value":"postgres://signoz:signoz@metastore-postgres-0.signoz.local:5432/signoz?sslmode=disable"},{"name":"SIGNOZ_SQLSTORE_PROVIDER","value":"postgres"},{"name":"SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN","value":"tcp://telemetrystore-clickhouse-0-0.signoz.local:9000"},{"name":"SIGNOZ_TELEMETRYSTORE_PROVIDER","value":"clickhouse"}],
+        "environment": [{"name":"SIGNOZ_SQLSTORE_POSTGRES_DSN","value":"postgres://signoz:signoz@metastore-postgres-0.signoz-installation.local:5432/signoz?sslmode=disable"},{"name":"SIGNOZ_SQLSTORE_PROVIDER","value":"postgres"},{"name":"SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN","value":"tcp://telemetrystore-clickhouse-0-0.signoz-installation.local:9000"},{"name":"SIGNOZ_TELEMETRYSTORE_PROVIDER","value":"clickhouse"}],
         "portMappings": [
           {"name": "http", "containerPort": 8080, "protocol": "tcp", "appProtocol": "http"},
           {"name": "opamp", "containerPort": 4320, "protocol": "tcp"}
@@ -25,26 +25,26 @@
           "interval": 30,
           "timeout": 5,
           "retries": 3,
-          "startPeriod": 30
+          "startPeriod": 300
         }
       }
     ]
   },
   "resource": {
     "aws_ecs_task_definition": {
-      "signoz": {
-        "family": "signoz-signoz",
+      "signoz_0": {
+        "family": "signoz-signoz-0",
         "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"},
         "network_mode": "awsvpc",
         "requires_compatibilities": ["EC2"],
         "task_role_arn": "${local.task_role_arn}",
         "execution_role_arn": "${local.execution_role_arn}",
-        "container_definitions": "${jsonencode(local.containers_signoz)}"
+        "container_definitions": "${jsonencode(local.containers_signoz_0)}"
       }
     },
     "aws_service_discovery_service": {
-      "signoz": {
-        "name": "signoz",
+      "signoz_0": {
+        "name": "signoz-0",
         "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"},
         "dns_config": {
           "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
@@ -59,13 +59,13 @@
       }
     },
     "aws_ecs_service": {
-      "signoz": {
-        "name": "signoz-signoz",
+      "signoz_0": {
+        "name": "signoz-signoz-0",
         "cluster": "${local.cluster_arn}",
-        "task_definition": "${aws_ecs_task_definition.signoz.arn}",
+        "task_definition": "${aws_ecs_task_definition.signoz_0.arn}",
         "desired_count": 1,
-        "deployment_minimum_healthy_percent": 0,
-        "deployment_maximum_percent": 100,
+        "deployment_minimum_healthy_percent": 100,
+        "deployment_maximum_percent": 200,
         "launch_type": "EC2",
         "deployment_circuit_breaker": {
           "enable": true,
@@ -77,7 +77,7 @@
           "security_groups": "${local.security_group_ids}"
         },
         "service_registries": {
-          "registry_arn": "${aws_service_discovery_service.signoz.arn}"
+          "registry_arn": "${aws_service_discovery_service.signoz_0.arn}"
         }
       }
     }

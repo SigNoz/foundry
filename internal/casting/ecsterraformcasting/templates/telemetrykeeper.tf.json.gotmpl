@@ -1,11 +1,12 @@
 {{- $name := $.Metadata.Name -}}
 {{- $kind := $.Spec.TelemetryKeeper.Kind.String -}}
-{{- /* One replica. The molding names its config file by the same ordinal. */ -}}
+{{- /* The molding names its config file by the same ordinal. */ -}}
 {{- $i := 0 -}}
+{{- $label := printf "telemetrykeeper_%s_%d" $kind $i -}}
 {{- if eq $kind "zookeeper" -}}
 {
   "locals": {
-    "containers_telemetrykeeper_{{ $i }}": [
+    "containers_{{ $label }}": [
       {
         "name": "{{ $name }}-telemetrykeeper-{{ $kind }}-{{ $i }}",
         "image": "{{ $.Spec.TelemetryKeeper.Spec.Image }}",
@@ -18,6 +19,7 @@
           }
         },
         "essential": true,
+        "user": "0",
         {{- /* One-based: ZooKeeper's own myid starts at 1. */}}
         {{- $env := list (dict "name" "ZOO_SERVER_ID" "value" (printf "%d" (add $i 1))) }}
         {{- range $key, $value := $.Spec.TelemetryKeeper.Spec.Env }}
@@ -27,7 +29,8 @@
         "portMappings": [
           {"name": "client", "containerPort": 2181, "protocol": "tcp"},
           {"name": "raft", "containerPort": 2888, "protocol": "tcp"},
-          {"name": "election", "containerPort": 3888, "protocol": "tcp"}
+          {"name": "election", "containerPort": 3888, "protocol": "tcp"},
+          {"name": "prometheus", "containerPort": 9141, "protocol": "tcp", "appProtocol": "http"}
         ],
         "mountPoints": [
           {
@@ -42,34 +45,31 @@
           "interval": 30,
           "timeout": 5,
           "retries": 3,
-          "startPeriod": 30
+          "startPeriod": 300
         }
       }
     ]
   },
   "resource": {
     "aws_ecs_task_definition": {
-      "telemetrykeeper_{{ $i }}": {
+      "{{ $label }}": {
         "family": "{{ $name }}-telemetrykeeper-{{ $kind }}-{{ $i }}",
         "tags": {{ toJson $.Labels }},
         "network_mode": "awsvpc",
         "requires_compatibilities": ["EC2"],
         "task_role_arn": "${local.task_role_arn}",
         "execution_role_arn": "${local.execution_role_arn}",
-        "container_definitions": "${jsonencode(local.containers_telemetrykeeper_{{ $i }})}",
+        "container_definitions": "${jsonencode(local.containers_{{ $label }})}",
         "volume": [
           {
             "name": "telemetrykeeper-data",
-            "docker_volume_configuration": {
-              "scope": "task",
-              "driver": "local"
-            }
+            "host_path": "/var/lib/foundry/{{ $name }}/telemetrykeeper/{{ $kind }}/{{ $i }}"
           }
         ]
       }
     },
     "aws_service_discovery_service": {
-      "telemetrykeeper_{{ $i }}": {
+      "{{ $label }}": {
         "name": "telemetrykeeper-{{ $kind }}-{{ $i }}",
         "tags": {{ toJson $.Labels }},
         "dns_config": {
@@ -85,10 +85,10 @@
       }
     },
     "aws_ecs_service": {
-      "telemetrykeeper_{{ $i }}": {
+      "{{ $label }}": {
         "name": "{{ $name }}-telemetrykeeper-{{ $kind }}-{{ $i }}",
         "cluster": "${local.cluster_arn}",
-        "task_definition": "${aws_ecs_task_definition.telemetrykeeper_{{ $i }}.arn}",
+        "task_definition": "${aws_ecs_task_definition.{{ $label }}.arn}",
         "desired_count": 1,
         "deployment_minimum_healthy_percent": 0,
         "deployment_maximum_percent": 100,
@@ -103,7 +103,7 @@
           "security_groups": "${local.security_group_ids}"
         },
         "service_registries": {
-          "registry_arn": "${aws_service_discovery_service.telemetrykeeper_{{ $i }}.arn}"
+          "registry_arn": "${aws_service_discovery_service.{{ $label }}.arn}"
         }
       }
     }
@@ -113,11 +113,9 @@
 {{- $profile := printf "telemetrykeeper-%s-%d" $kind $i -}}
 {
   "locals": {
-    "containers_telemetrykeeper_{{ $i }}": [
-      {{- /* The agent keeps the config file current while the process runs, so
-             a config change reloads keeper instead of replacing the task. That
-             matters more here than anywhere else: replacing the node that
-             holds the raft log is how an ensemble loses its data. */}}
+    "containers_{{ $label }}": [
+      {{- /* A config change reloads keeper rather than replacing the node
+             that holds the raft log. */}}
       {
         "name": "{{ $name }}-telemetrykeeper-appconfig-agent",
         "image": "public.ecr.aws/aws-appconfig/aws-appconfig-agent:2.x",
@@ -141,8 +139,7 @@
             "containerPath": "/etc/clickhouse-keeper"
           }
         ],
-        {{- /* Assert the precondition keeper actually has, rather than probing
-               the agent's HTTP port: the file is present and non-empty. */}}
+        {{- /* Keeper's precondition is the file, not the agent's port. */}}
         "healthCheck": {
           "command": ["CMD-SHELL", "test -s /etc/clickhouse-keeper/keeper.yaml"],
           "interval": 5,
@@ -152,6 +149,9 @@
         },
         "memoryReservation": 102
       },
+      {{- /* The entryPoint bypasses the image entrypoint and the image sets no
+             USER, so keeper runs as root and reads the agent's root-owned
+             config and writes the root-owned host path. */}}
       {
         "name": "{{ $name }}-telemetrykeeper-{{ $kind }}-{{ $i }}",
         "image": "{{ $.Spec.TelemetryKeeper.Spec.Image }}",
@@ -194,19 +194,16 @@
           "interval": 30,
           "timeout": 5,
           "retries": 3,
-          "startPeriod": 30
+          "startPeriod": 300
         }
       }
     ]
   },
   "resource": {
-    {{- /* The pour's YAML stays the source of truth -- it remains readable and
-           spec.patches-targetable, and file() lifts it into a hosted version at
-           plan time. Hosted versions are immutable, so editing the YAML mints a
-           new version and a new deployment, which the agent picks up on its
-           next poll. */}}
+    {{- /* Hosted versions are immutable, so editing the pour's YAML mints a
+           new version and a new deployment. */}}
     "aws_appconfig_configuration_profile": {
-      "telemetrykeeper_{{ $i }}": {
+      "{{ $label }}": {
         "application_id": "${aws_appconfig_application.main.id}",
         "name": "{{ $profile }}",
         "location_uri": "hosted",
@@ -215,32 +212,32 @@
       }
     },
     "aws_appconfig_hosted_configuration_version": {
-      "telemetrykeeper_{{ $i }}": {
+      "{{ $label }}": {
         "application_id": "${aws_appconfig_application.main.id}",
-        "configuration_profile_id": "${aws_appconfig_configuration_profile.telemetrykeeper_{{ $i }}.configuration_profile_id}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.{{ $label }}.configuration_profile_id}",
         "content_type": "application/x-yaml",
         "content": "${file(\"${path.module}/telemetrykeeper/{{ $kind }}/keeper-{{ $i }}.yaml\")}"
       }
     },
     "aws_appconfig_deployment": {
-      "telemetrykeeper_{{ $i }}": {
+      "{{ $label }}": {
         "application_id": "${aws_appconfig_application.main.id}",
         "environment_id": "${aws_appconfig_environment.main.environment_id}",
-        "configuration_profile_id": "${aws_appconfig_configuration_profile.telemetrykeeper_{{ $i }}.configuration_profile_id}",
-        "configuration_version": "${aws_appconfig_hosted_configuration_version.telemetrykeeper_{{ $i }}.version_number}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.{{ $label }}.configuration_profile_id}",
+        "configuration_version": "${aws_appconfig_hosted_configuration_version.{{ $label }}.version_number}",
         "deployment_strategy_id": "${aws_appconfig_deployment_strategy.main.id}",
         "tags": {{ toJson $.Labels }}
       }
     },
     "aws_ecs_task_definition": {
-      "telemetrykeeper_{{ $i }}": {
+      "{{ $label }}": {
         "family": "{{ $name }}-telemetrykeeper-{{ $kind }}-{{ $i }}",
         "tags": {{ toJson $.Labels }},
         "network_mode": "awsvpc",
         "requires_compatibilities": ["EC2"],
         "task_role_arn": "${local.task_role_arn}",
         "execution_role_arn": "${local.execution_role_arn}",
-        "container_definitions": "${jsonencode(local.containers_telemetrykeeper_{{ $i }})}",
+        "container_definitions": "${jsonencode(local.containers_{{ $label }})}",
         "volume": [
           {
             "name": "telemetrykeeper-config",
@@ -251,17 +248,14 @@
           },
           {
             "name": "telemetrykeeper-data",
-            "docker_volume_configuration": {
-              "scope": "task",
-              "driver": "local"
-            }
+            "host_path": "/var/lib/foundry/{{ $name }}/telemetrykeeper/{{ $kind }}/{{ $i }}"
           }
         ],
-        "depends_on": ["aws_appconfig_deployment.telemetrykeeper_{{ $i }}"]
+        "depends_on": ["aws_appconfig_deployment.{{ $label }}"]
       }
     },
     "aws_service_discovery_service": {
-      "telemetrykeeper_{{ $i }}": {
+      "{{ $label }}": {
         "name": "telemetrykeeper-{{ $kind }}-{{ $i }}",
         "tags": {{ toJson $.Labels }},
         "dns_config": {
@@ -277,10 +271,10 @@
       }
     },
     "aws_ecs_service": {
-      "telemetrykeeper_{{ $i }}": {
+      "{{ $label }}": {
         "name": "{{ $name }}-telemetrykeeper-{{ $kind }}-{{ $i }}",
         "cluster": "${local.cluster_arn}",
-        "task_definition": "${aws_ecs_task_definition.telemetrykeeper_{{ $i }}.arn}",
+        "task_definition": "${aws_ecs_task_definition.{{ $label }}.arn}",
         "desired_count": 1,
         "deployment_minimum_healthy_percent": 0,
         "deployment_maximum_percent": 100,
@@ -295,7 +289,7 @@
           "security_groups": "${local.security_group_ids}"
         },
         "service_registries": {
-          "registry_arn": "${aws_service_discovery_service.telemetrykeeper_{{ $i }}.arn}"
+          "registry_arn": "${aws_service_discovery_service.{{ $label }}.arn}"
         }
       }
     }

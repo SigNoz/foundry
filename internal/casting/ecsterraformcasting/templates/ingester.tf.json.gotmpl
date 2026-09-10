@@ -2,32 +2,6 @@
 {
   "locals": {
     "containers_ingester": [
-      {{- /* The collector image runs as uid 10001 and a fresh task volume is
-             owned by root, so the config directory is handed to that uid
-             before the agent, which runs as the same uid, writes into it. */}}
-      {
-        "name": "{{ $name }}-ingester-config-init",
-        "image": "{{ $.Spec.Ingester.Spec.Image }}",
-        "logConfiguration": {
-          "logDriver": "json-file",
-          "options": {
-            "max-size": "10m",
-            "max-file": "3",
-            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
-          }
-        },
-        "essential": false,
-        "user": "0",
-        "entryPoint": ["/bin/sh", "-c"],
-        "command": ["chown 10001:0 /conf"],
-        "mountPoints": [
-          {
-            "sourceVolume": "ingester-config",
-            "containerPath": "/conf"
-          }
-        ],
-        "memoryReservation": 102
-      },
       {
         "name": "{{ $name }}-ingester-appconfig-agent",
         "image": "public.ecr.aws/aws-appconfig/aws-appconfig-agent:2.x",
@@ -40,12 +14,9 @@
           }
         },
         "essential": true,
-        {{- /* writeTo has no mode or owner setting; the agent writes 0600 as
-               its own uid, so it runs as the collector's. */}}
-        "user": "10001:0",
-        "dependsOn": [
-          {"containerName": "{{ $name }}-ingester-config-init", "condition": "SUCCESS"}
-        ],
+        {{- /* writeTo writes 0600 as the agent's own uid, so the collector
+               runs as the same uid. */}}
+        "user": "0",
         "environment": [
           {"name": "PREFETCH_LIST", "value": "{{ $name }}-installation-appconfig:default:ingester,{{ $name }}-installation-appconfig:default:ingester-opamp"},
           {"name": "POLL_INTERVAL", "value": "45s"},
@@ -78,11 +49,11 @@
           }
         },
         "essential": true,
+        "user": "0",
         "entryPoint": ["/bin/sh", "-c"],
         "command": ["/signoz-otel-collector migrate sync check && /signoz-otel-collector --config=/conf/ingester.yaml --manager-config=/conf/opamp.yaml --copy-path=/var/tmp/collector-config.yaml"],
         {{- /* The collector reads its config once at start, so a change has to
-               replace the task. Keeper and telemetrystore reload in place and
-               carry no digest. */}}
+               replace the task. */}}
         {{- $digest := "" }}
         {{- with $.Spec.Ingester.Spec.Config.Data }}
         {{- $digest = sha256sum (printf "%s%s" (index . "ingester.yaml") (index . "opamp.yaml")) }}
@@ -106,7 +77,6 @@
           }
         ],
         "dependsOn": [
-          {"containerName": "{{ $name }}-ingester-config-init", "condition": "SUCCESS"},
           {"containerName": "{{ $name }}-ingester-appconfig-agent", "condition": "HEALTHY"}
         ],
         "cpu": 512,
@@ -206,8 +176,8 @@
         "cluster": "${local.cluster_arn}",
         "task_definition": "${aws_ecs_task_definition.ingester.arn}",
         "desired_count": {{ derefIntDefault $.Spec.Ingester.Spec.Cluster.Replicas 1 }},
-        "deployment_minimum_healthy_percent": 0,
-        "deployment_maximum_percent": 100,
+        "deployment_minimum_healthy_percent": 100,
+        "deployment_maximum_percent": 200,
         "launch_type": "EC2",
         "deployment_circuit_breaker": {
           "enable": true,

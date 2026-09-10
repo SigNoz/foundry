@@ -9,8 +9,6 @@ import (
 //go:embed templates/*.gotmpl
 var templates embed.FS
 
-// Components are files in the one root module, never child modules: a module
-// with a single generated caller is indirection without reuse.
 var (
 	versionsTF  = domain.MustNewTemplateFromFS(templates, "templates/versions.tf.json.gotmpl", domain.FormatJSON)
 	backendTF   = domain.MustNewTemplateFromFS(templates, "templates/backend.tf.json.gotmpl", domain.FormatJSON)

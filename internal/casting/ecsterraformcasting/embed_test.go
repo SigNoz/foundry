@@ -14,8 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// The cluster is placed onto, not provisioned, so every object it is made of is
-// stated and nothing renders without them.
 func statedCasting(declared *installation.Casting) *installation.Casting {
 	c := installation.Default(declared)
 	c.Metadata.Annotations = map[string]string{
@@ -64,17 +62,43 @@ func TestNotEmptyAndValid(t *testing.T) {
 	}
 }
 
-// The region is the one axis with no object to name, so it is all the tfvars hold.
-func TestTfvarsTemplateCarriesTheRegion(t *testing.T) {
+// A default in the variables would race the tfvars.
+func TestTfvarsTemplateCarriesEveryValue(t *testing.T) {
 	buf := bytes.NewBuffer(nil)
 	require.NoError(t, tfarsTF.Execute(buf, templateDataFor(t, statedCasting(&installation.Casting{}))))
 
-	assert.JSONEq(t, `{"aws_region": "us-east-1"}`, buf.String())
+	assert.JSONEq(t, `{
+		"aws_region": "us-east-1",
+		"cluster_arn": "arn:aws:ecs:us-east-1:123456789012:cluster/test",
+		"subnet_ids": ["subnet-abc123", "subnet-def456"],
+		"security_group_ids": ["sg-abc123"],
+		"vpc_id": "vpc-abc123",
+		"task_role_name": "signoz-installation-iam-task",
+		"execution_role_name": "signoz-installation-iam-exec"
+	}`, buf.String())
 }
 
-// Each object is named once, in a variable, and every component reads the local
-// that resolves it. Nothing is looked up, so the root holds no data source --
-// and an empty "data" object is a root terraform refuses outright.
+// No name is computed for a role this stack does not create.
+func TestTfvarsTemplateCarriesStatedRoles(t *testing.T) {
+	casting := statedCasting(&installation.Casting{})
+	casting.Metadata.Annotations[installation.ECSTaskRoleARN.Key] = "arn:aws:iam::123456789012:role/task"
+	casting.Metadata.Annotations[installation.ECSTaskExecutionRoleARN.Key] = "arn:aws:iam::123456789012:role/exec"
+
+	buf := bytes.NewBuffer(nil)
+	require.NoError(t, tfarsTF.Execute(buf, templateDataFor(t, casting)))
+
+	assert.JSONEq(t, `{
+		"aws_region": "us-east-1",
+		"cluster_arn": "arn:aws:ecs:us-east-1:123456789012:cluster/test",
+		"subnet_ids": ["subnet-abc123", "subnet-def456"],
+		"security_group_ids": ["sg-abc123"],
+		"vpc_id": "vpc-abc123",
+		"task_role_arn": "arn:aws:iam::123456789012:role/task",
+		"execution_role_arn": "arn:aws:iam::123456789012:role/exec"
+	}`, buf.String())
+}
+
+// An empty "data" object is a root terraform refuses outright.
 func TestStatedObjectsAreResolvedThroughLocals(t *testing.T) {
 	data := templateDataFor(t, statedCasting(&installation.Casting{}))
 
@@ -82,15 +106,17 @@ func TestStatedObjectsAreResolvedThroughLocals(t *testing.T) {
 	require.NoError(t, variablesTF.Execute(variables, data))
 
 	for _, expected := range []string{
-		`"default": "arn:aws:ecs:us-east-1:123456789012:cluster/test"`,
-		`"default": ["subnet-abc123","subnet-def456"]`,
-		`"default": ["sg-abc123"]`,
-		`"default": "vpc-abc123"`,
-		`"default": "signoz-installation-iam-task"`,
-		`"default": "signoz-installation-iam-exec"`,
+		`"cluster_arn"`,
+		`"subnet_ids"`,
+		`"security_group_ids"`,
+		`"vpc_id"`,
+		`"task_role_name"`,
+		`"execution_role_name"`,
 	} {
 		assert.Contains(t, variables.String(), expected)
 	}
+
+	assert.NotContains(t, variables.String(), `"default"`)
 
 	main := bytes.NewBuffer(nil)
 	require.NoError(t, mainTF.Execute(main, data))
@@ -113,7 +139,6 @@ func TestStatedObjectsAreResolvedThroughLocals(t *testing.T) {
 	assert.Error(t, err, "a root with no lookups emits no data block")
 }
 
-// A role the operator brought is referenced as-is, and this stack creates none.
 func TestStatedRoleIsNotCreated(t *testing.T) {
 	casting := statedCasting(&installation.Casting{})
 	casting.Metadata.Annotations[installation.ECSTaskRoleARN.Key] = "arn:aws:iam::123456789012:role/task"
@@ -164,16 +189,20 @@ func TestTemplateDataResolution(t *testing.T) {
 	malformed[installation.ECSSubnetIDs.Key] = " , ,"
 
 	tests := []struct {
-		name        string
-		annotations map[string]string
-		pass        bool
+		name            string
+		annotations     map[string]string
+		substrate       string
+		expectedMessage string
+		pass            bool
 	}{
 		{name: "AllStated_Valid", annotations: complete, pass: true},
+		{name: "AllStatedWithSubstrate_Valid", annotations: complete, substrate: "signoz-prod", pass: true},
 		{name: "RegionUnstated_Invalid", annotations: without(installation.ECSRegion.Key)},
-		{name: "ClusterUnstated_Invalid", annotations: without(installation.ECSClusterARN.Key)},
-		{name: "VPCUnstated_Invalid", annotations: without(installation.ECSVPCID.Key)},
-		{name: "SubnetIDsUnstated_Invalid", annotations: without(installation.ECSSubnetIDs.Key)},
-		{name: "SecurityGroupIDsUnstated_Invalid", annotations: without(installation.ECSSecurityGroupIDs.Key)},
+		{name: "ClusterUnstated_Invalid", annotations: without(installation.ECSClusterARN.Key), expectedMessage: "no infrastructure is stated"},
+		{name: "VPCUnstated_Invalid", annotations: without(installation.ECSVPCID.Key), expectedMessage: "no infrastructure is stated"},
+		{name: "SubnetIDsUnstated_Invalid", annotations: without(installation.ECSSubnetIDs.Key), expectedMessage: "no infrastructure is stated"},
+		{name: "SecurityGroupIDsUnstated_Invalid", annotations: without(installation.ECSSecurityGroupIDs.Key), expectedMessage: "no infrastructure is stated"},
+		{name: "ClusterUnstatedWithSubstrate_Invalid", annotations: without(installation.ECSClusterARN.Key), substrate: "signoz-prod", expectedMessage: "does not derive from it yet"},
 		{name: "SubnetIDsMalformed_Invalid", annotations: malformed},
 	}
 
@@ -181,10 +210,16 @@ func TestTemplateDataResolution(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			casting := installation.Default(&installation.Casting{})
 			casting.Metadata.Annotations = tt.annotations
+			casting.Spec.Infrastructure.Name = tt.substrate
 
 			data, err := New(slog.New(slog.DiscardHandler)).templateData(*casting)
 			if !tt.pass {
 				assert.Error(t, err)
+
+				if tt.expectedMessage != "" {
+					assert.ErrorContains(t, err, tt.expectedMessage)
+				}
+
 				return
 			}
 
@@ -195,24 +230,12 @@ func TestTemplateDataResolution(t *testing.T) {
 				assert.True(t, reference.IsStated())
 			}
 
-			// The roles are this stack's own, so an unstated one is created.
 			assert.False(t, data.TaskRole.IsStated())
 		})
 	}
 }
 
-// Binding a substrate reaches nothing in this casting, so it is refused rather
-// than read by nothing.
-func TestSubstrateBound_Invalid(t *testing.T) {
-	casting := statedCasting(&installation.Casting{})
-	casting.Spec.Infrastructure.Name = "signoz-infra"
-
-	_, err := New(slog.New(slog.DiscardHandler)).templateData(*casting)
-	assert.Error(t, err)
-}
-
-// sqlite is a file the signoz task holds, so no metastore service is forged and
-// no output may name one.
+// Sqlite is a file the signoz task holds, so it is no service of its own.
 func TestSqliteForgesNoMetaStoreService(t *testing.T) {
 	casting := statedCasting(&installation.Casting{})
 	casting.Spec.MetaStore.Kind = installation.MetaStoreKindSQLite
@@ -230,10 +253,30 @@ func TestSqliteForgesNoMetaStoreService(t *testing.T) {
 	assert.NotContains(t, outputs.String(), "metastore_service_name")
 }
 
-// The agent attributes a log line by the labels docker copies into it, so a
-// container that writes through another driver, or through json-file without
-// the labels, reaches SigNoz carrying only a container id. Fargate refuses
-// json-file, so the migrator is the one task that carries no block.
+func TestPostgresForgesAMetaStoreService(t *testing.T) {
+	casting := statedCasting(&installation.Casting{})
+	casting.Spec.MetaStore.Kind = installation.MetaStoreKindPostgres
+
+	materials, err := New(slog.New(slog.DiscardHandler)).Forge(context.Background(), *casting, "")
+	require.NoError(t, err)
+
+	forged := false
+	for _, material := range materials {
+		if strings.Contains(material.Path(), "metastore.tf.json") {
+			forged = true
+		}
+	}
+
+	assert.True(t, forged)
+
+	outputs := bytes.NewBuffer(nil)
+	require.NoError(t, outputsTF.Execute(outputs, templateDataFor(t, casting)))
+
+	assert.Contains(t, outputs.String(), "metastore_service_name")
+}
+
+// A container that logs without the labels reaches SigNoz carrying only a
+// container id. Fargate refuses json-file, so the migrator carries no block.
 func TestEveryEC2ContainerLogsWithLabels(t *testing.T) {
 	data := templateDataFor(t, statedCasting(&installation.Casting{}))
 
@@ -264,8 +307,7 @@ func TestEveryEC2ContainerLogsWithLabels(t *testing.T) {
 	assert.NotContains(t, migrator.String(), "logConfiguration")
 }
 
-// A revision that never becomes healthy would otherwise sit there, because
-// nothing else puts the previous one back.
+// Nothing else puts a previous revision back.
 func TestEveryServiceRollsBackABadRevision(t *testing.T) {
 	data := templateDataFor(t, statedCasting(&installation.Casting{}))
 
@@ -287,8 +329,7 @@ func TestEveryServiceRollsBackABadRevision(t *testing.T) {
 	}
 }
 
-// The application carries the Kind, so a CollectionAgent of the same name on
-// the same account holds its own.
+// A CollectionAgent of the same name on the same account holds its own.
 func TestAppConfigApplicationCarriesTheKind(t *testing.T) {
 	data := templateDataFor(t, statedCasting(&installation.Casting{}))
 
@@ -302,9 +343,7 @@ func TestAppConfigApplicationCarriesTheKind(t *testing.T) {
 		"resource.aws_appconfig_application.main.name":         "signoz-installation-appconfig",
 		"resource.aws_appconfig_deployment_strategy.main.name": "signoz-installation-appconfig-strategy",
 
-		// The namespace is a DNS name components resolve each other by, not a
-		// resource name, so it does not follow.
-		"resource.aws_service_discovery_private_dns_namespace.main.name": "signoz.local",
+		"resource.aws_service_discovery_private_dns_namespace.main.name": "signoz-installation.local",
 	} {
 		value, err := material.GetBytes(path)
 
@@ -312,10 +351,284 @@ func TestAppConfigApplicationCarriesTheKind(t *testing.T) {
 		assert.Equal(t, expected, string(value), "at %s", path)
 	}
 
-	// The sidecar prefetches by the application name, so a rename that misses
-	// the triple leaves it fetching a profile that does not exist.
+	// The sidecar prefetches by the application name, so a rename must reach it.
 	ingester := bytes.NewBuffer(nil)
 	require.NoError(t, ingesterTF.Execute(ingester, data))
 
 	assert.Contains(t, ingester.String(), "signoz-installation-appconfig:default:ingester")
+}
+
+// A task bound to a disk cannot be replaced before the one holding it stops.
+func TestServiceRollsBeforeStopping(t *testing.T) {
+	tests := []struct {
+		name                   string
+		template               *domain.Template
+		metaStoreKind          installation.MetaStoreKind
+		service                string
+		expectedMinimumPercent string
+		expectedMaximumPercent string
+	}{
+		{name: "Ingester_Rolling", template: ingesterTF, metaStoreKind: installation.MetaStoreKindPostgres, service: "ingester", expectedMinimumPercent: "100", expectedMaximumPercent: "200"},
+		{name: "MCP_Rolling", template: mcpTF, metaStoreKind: installation.MetaStoreKindPostgres, service: "mcp", expectedMinimumPercent: "100", expectedMaximumPercent: "200"},
+		{name: "SignozOnPostgres_Rolling", template: signozTF, metaStoreKind: installation.MetaStoreKindPostgres, service: "signoz_0", expectedMinimumPercent: "100", expectedMaximumPercent: "200"},
+		{name: "SignozOnSqlite_StopFirst", template: signozTF, metaStoreKind: installation.MetaStoreKindSQLite, service: "signoz_0", expectedMinimumPercent: "0", expectedMaximumPercent: "100"},
+		{name: "TelemetryStore_StopFirst", template: telemetryStoreTF, metaStoreKind: installation.MetaStoreKindPostgres, service: "telemetrystore_clickhouse_0_0", expectedMinimumPercent: "0", expectedMaximumPercent: "100"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			casting := statedCasting(&installation.Casting{})
+			casting.Spec.MetaStore.Kind = tt.metaStoreKind
+
+			buf := bytes.NewBuffer(nil)
+			require.NoError(t, tt.template.Execute(buf, templateDataFor(t, casting)))
+
+			material, err := domain.NewJSONMaterial(buf.Bytes(), "service.tf.json")
+			require.NoError(t, err)
+
+			minimum, err := material.GetBytes("resource.aws_ecs_service." + tt.service + ".deployment_minimum_healthy_percent")
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedMinimumPercent, string(minimum))
+
+			maximum, err := material.GetBytes("resource.aws_ecs_service." + tt.service + ".deployment_maximum_percent")
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedMaximumPercent, string(maximum))
+		})
+	}
+}
+
+// Replication reaches a node on the interserver port, and a node holding data
+// takes longer to answer than the default start period allows.
+func TestTelemetryStoreContainerIsReachableAndGivenTimeToStart(t *testing.T) {
+	buf := bytes.NewBuffer(nil)
+	require.NoError(t, telemetryStoreTF.Execute(buf, templateDataFor(t, statedCasting(&installation.Casting{}))))
+
+	material, err := domain.NewJSONMaterial(buf.Bytes(), "telemetrystore.tf.json")
+	require.NoError(t, err)
+
+	container := `locals.containers_telemetrystore_clickhouse_0_0.#(name=="signoz-telemetrystore-clickhouse-0-0")`
+
+	tests := []struct {
+		name          string
+		path          string
+		expectedValue string
+	}{
+		{name: "NativePort_Mapped", path: container + `.portMappings.#(containerPort==9000).name`, expectedValue: "native"},
+		{name: "HTTPPort_Mapped", path: container + `.portMappings.#(containerPort==8123).name`, expectedValue: "http"},
+		{name: "PrometheusPort_Mapped", path: container + `.portMappings.#(containerPort==9363).name`, expectedValue: "prometheus"},
+		{name: "InterserverPort_Mapped", path: container + `.portMappings.#(containerPort==9009).name`, expectedValue: "interserver"},
+		{name: "StartPeriod_Stated", path: container + `.healthCheck.startPeriod`, expectedValue: "300"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			value, err := material.GetBytes(tt.path)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedValue, string(value))
+		})
+	}
+}
+
+// Nothing chowns the task volume, so the agent writes as root and the server
+// stays root to read what it wrote.
+func TestTelemetryStoreRunsAsRoot(t *testing.T) {
+	buf := bytes.NewBuffer(nil)
+	require.NoError(t, telemetryStoreTF.Execute(buf, templateDataFor(t, statedCasting(&installation.Casting{}))))
+
+	material, err := domain.NewJSONMaterial(buf.Bytes(), "telemetrystore.tf.json")
+	require.NoError(t, err)
+
+	agent := `locals.containers_telemetrystore_clickhouse_0_0.#(name=="signoz-telemetrystore-appconfig-agent")`
+	server := `locals.containers_telemetrystore_clickhouse_0_0.#(name=="signoz-telemetrystore-clickhouse-0-0")`
+	scripts := `locals.containers_telemetrystore_clickhouse_0_0.#(name=="signoz-telemetrystore-user-scripts")`
+
+	t.Run("AgentUser_Unstated", func(t *testing.T) {
+		_, err := material.GetBytes(agent + ".user")
+		assert.Error(t, err)
+	})
+
+	t.Run("ServerRunAsRoot_Stated", func(t *testing.T) {
+		value, err := material.GetBytes(server + `.environment.#(name=="CLICKHOUSE_RUN_AS_ROOT").value`)
+		require.NoError(t, err)
+		assert.Equal(t, "1", string(value))
+	})
+
+	t.Run("UserScriptsCommand_Chownless", func(t *testing.T) {
+		value, err := material.GetBytes(scripts + ".command.0")
+		require.NoError(t, err)
+		assert.NotContains(t, string(value), "chown")
+	})
+}
+
+// Nothing chowns the task volume, so the agent writes as root and the
+// collector reads what it wrote.
+func TestIngesterContainersRunAsRoot(t *testing.T) {
+	buf := bytes.NewBuffer(nil)
+	require.NoError(t, ingesterTF.Execute(buf, templateDataFor(t, statedCasting(&installation.Casting{}))))
+
+	material, err := domain.NewJSONMaterial(buf.Bytes(), "ingester.tf.json")
+	require.NoError(t, err)
+
+	tests := []struct {
+		name          string
+		path          string
+		expectedValue string
+	}{
+		{name: "ContainerCount_Stated", path: "locals.containers_ingester.#", expectedValue: "2"},
+		{name: "AgentName_Stated", path: "locals.containers_ingester.0.name", expectedValue: "signoz-ingester-appconfig-agent"},
+		{name: "CollectorName_Stated", path: "locals.containers_ingester.1.name", expectedValue: "signoz-ingester"},
+		{name: "AgentUser_Root", path: `locals.containers_ingester.#(name=="signoz-ingester-appconfig-agent").user`, expectedValue: "0"},
+		{name: "CollectorUser_Root", path: `locals.containers_ingester.#(name=="signoz-ingester").user`, expectedValue: "0"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			value, err := material.GetBytes(tt.path)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedValue, string(value))
+		})
+	}
+}
+
+// The keeper writes a host path owned by root, and a node holding a raft log
+// takes longer to answer than the default start period allows.
+func TestTelemetryKeeperContainerRunsAsRootAndIsGivenTimeToStart(t *testing.T) {
+	zookeeper := `locals.containers_telemetrykeeper_zookeeper_0.#(name=="signoz-telemetrykeeper-zookeeper-0")`
+	clickhouseKeeper := `locals.containers_telemetrykeeper_clickhousekeeper_0.#(name=="signoz-telemetrykeeper-clickhousekeeper-0")`
+
+	tests := []struct {
+		name          string
+		kind          installation.TelemetryKeeperKind
+		path          string
+		expectedValue string
+	}{
+		{name: "ZookeeperUser_Root", kind: installation.TelemetryKeeperKindZookeeper, path: zookeeper + ".user", expectedValue: "0"},
+		{name: "ZookeeperPrometheusPort_Mapped", kind: installation.TelemetryKeeperKindZookeeper, path: zookeeper + `.portMappings.#(containerPort==9141).name`, expectedValue: "prometheus"},
+		{name: "ZookeeperStartPeriod_Stated", kind: installation.TelemetryKeeperKindZookeeper, path: zookeeper + ".healthCheck.startPeriod", expectedValue: "300"},
+		{name: "ClickhouseKeeperStartPeriod_Stated", kind: installation.TelemetryKeeperKindClickhouseKeeper, path: clickhouseKeeper + ".healthCheck.startPeriod", expectedValue: "300"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			casting := statedCasting(&installation.Casting{})
+			casting.Spec.TelemetryKeeper.Kind = tt.kind
+
+			buf := bytes.NewBuffer(nil)
+			require.NoError(t, telemetryKeeperTF.Execute(buf, templateDataFor(t, casting)))
+
+			material, err := domain.NewJSONMaterial(buf.Bytes(), "telemetrykeeper.tf.json")
+			require.NoError(t, err)
+
+			value, err := material.GetBytes(tt.path)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedValue, string(value))
+		})
+	}
+}
+
+// SigNoz carries a node ordinal whatever the metadata store is, so only the
+// sqlite disk and its rollout tell the two apart.
+func TestSignozIsAlwaysANode(t *testing.T) {
+	tests := []struct {
+		name                   string
+		metaStoreKind          installation.MetaStoreKind
+		expectedHostPath       string
+		expectedMinimumPercent string
+		expectedMaximumPercent string
+	}{
+		{
+			name:                   "Postgres_Diskless",
+			metaStoreKind:          installation.MetaStoreKindPostgres,
+			expectedMinimumPercent: "100",
+			expectedMaximumPercent: "200",
+		},
+		{
+			name:                   "Sqlite_HoldsADisk",
+			metaStoreKind:          installation.MetaStoreKindSQLite,
+			expectedHostPath:       "/var/lib/foundry/signoz/metastore/sqlite/0",
+			expectedMinimumPercent: "0",
+			expectedMaximumPercent: "100",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			casting := statedCasting(&installation.Casting{})
+			casting.Spec.MetaStore.Kind = tt.metaStoreKind
+
+			buf := bytes.NewBuffer(nil)
+			require.NoError(t, signozTF.Execute(buf, templateDataFor(t, casting)))
+
+			material, err := domain.NewJSONMaterial(buf.Bytes(), "signoz.tf.json")
+			require.NoError(t, err)
+
+			expected := map[string]string{
+				"locals.containers_signoz_0.0.name":                                    "signoz-signoz-0",
+				"locals.containers_signoz_0.0.healthCheck.startPeriod":                 "300",
+				"resource.aws_ecs_task_definition.signoz_0.family":                     "signoz-signoz-0",
+				"resource.aws_service_discovery_service.signoz_0.name":                 "signoz-0",
+				"resource.aws_ecs_service.signoz_0.name":                               "signoz-signoz-0",
+				"resource.aws_ecs_service.signoz_0.task_definition":                    "${aws_ecs_task_definition.signoz_0.arn}",
+				"resource.aws_ecs_service.signoz_0.desired_count":                      "1",
+				"resource.aws_ecs_service.signoz_0.deployment_minimum_healthy_percent": tt.expectedMinimumPercent,
+				"resource.aws_ecs_service.signoz_0.deployment_maximum_percent":         tt.expectedMaximumPercent,
+			}
+
+			if tt.expectedHostPath != "" {
+				expected["resource.aws_ecs_task_definition.signoz_0.volume.0.host_path"] = tt.expectedHostPath
+			}
+
+			for path, want := range expected {
+				value, err := material.GetBytes(path)
+
+				require.NoError(t, err, "reading %s", path)
+				assert.Equal(t, want, string(value), "at %s", path)
+			}
+
+			if tt.expectedHostPath == "" {
+				_, err := material.GetBytes("resource.aws_ecs_task_definition.signoz_0.volume")
+				assert.Error(t, err)
+			}
+
+			outputs := bytes.NewBuffer(nil)
+			require.NoError(t, outputsTF.Execute(outputs, templateDataFor(t, casting)))
+
+			assert.Contains(t, outputs.String(), "${aws_ecs_service.signoz_0.name}")
+			assert.Contains(t, outputs.String(), "${aws_ecs_service.signoz_0.id}")
+		})
+	}
+}
+
+// A postgres holding a data directory takes longer to answer than the default
+// start period allows.
+func TestMetaStoreIsANodeGivenTimeToStart(t *testing.T) {
+	casting := statedCasting(&installation.Casting{})
+	casting.Spec.MetaStore.Kind = installation.MetaStoreKindPostgres
+
+	buf := bytes.NewBuffer(nil)
+	require.NoError(t, metaStoreTF.Execute(buf, templateDataFor(t, casting)))
+
+	material, err := domain.NewJSONMaterial(buf.Bytes(), "metastore.tf.json")
+	require.NoError(t, err)
+
+	tests := []struct {
+		name          string
+		path          string
+		expectedValue string
+	}{
+		{name: "StartPeriod_Stated", path: "locals.containers_metastore_postgres_0.0.healthCheck.startPeriod", expectedValue: "300"},
+		{name: "ContainerName_Stated", path: "locals.containers_metastore_postgres_0.0.name", expectedValue: "signoz-metastore-postgres-0"},
+		{name: "Family_Stated", path: "resource.aws_ecs_task_definition.metastore_postgres_0.family", expectedValue: "signoz-metastore-postgres-0"},
+		{name: "DNS_Stated", path: "resource.aws_service_discovery_service.metastore_postgres_0.name", expectedValue: "metastore-postgres-0"},
+		{name: "ServiceName_Stated", path: "resource.aws_ecs_service.metastore_postgres_0.name", expectedValue: "signoz-metastore-postgres-0"},
+		{name: "HostPath_Stated", path: "resource.aws_ecs_task_definition.metastore_postgres_0.volume.0.host_path", expectedValue: "/var/lib/foundry/signoz/metastore/postgres/0"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			value, err := material.GetBytes(tt.path)
+			require.NoError(t, err, "reading %s", tt.path)
+			assert.Equal(t, tt.expectedValue, string(value))
+		})
+	}
 }

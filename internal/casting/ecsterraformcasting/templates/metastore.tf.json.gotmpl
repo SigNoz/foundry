@@ -1,9 +1,14 @@
 {{- $name := $.Metadata.Name -}}
+{{- $kind := $.Spec.MetaStore.Kind.String -}}
+{{- $i := 0 -}}
+{{- $label := printf "metastore_%s_%d" $kind $i -}}
+{{- $dns := printf "metastore-%s-%d" $kind $i -}}
+{{- $family := printf "%s-%s" $name $dns -}}
 {
   "locals": {
-    "containers_metastore": [
+    "containers_{{ $label }}": [
       {
-        "name": "{{ $name }}-metastore-{{ $.Spec.MetaStore.Kind }}-0",
+        "name": "{{ $family }}",
         "image": "{{ $.Spec.MetaStore.Spec.Image }}",
         "logConfiguration": {
           "logDriver": "json-file",
@@ -35,35 +40,32 @@
           "interval": 30,
           "timeout": 5,
           "retries": 3,
-          "startPeriod": 30
+          "startPeriod": 300
         }
       }
     ]
   },
   "resource": {
     "aws_ecs_task_definition": {
-      "metastore": {
-        "family": "{{ $name }}-metastore-{{ $.Spec.MetaStore.Kind }}-0",
+      "{{ $label }}": {
+        "family": "{{ $family }}",
         "tags": {{ toJson $.Labels }},
         "network_mode": "awsvpc",
         "requires_compatibilities": ["EC2"],
         "task_role_arn": "${local.task_role_arn}",
         "execution_role_arn": "${local.execution_role_arn}",
-        "container_definitions": "${jsonencode(local.containers_metastore)}",
+        "container_definitions": "${jsonencode(local.containers_{{ $label }})}",
         "volume": [
           {
             "name": "metastore-data",
-            "docker_volume_configuration": {
-              "scope": "task",
-              "driver": "local"
-            }
+            "host_path": "/var/lib/foundry/{{ $name }}/metastore/{{ $kind }}/{{ $i }}"
           }
         ]
       }
     },
     "aws_service_discovery_service": {
-      "metastore": {
-        "name": "metastore-{{ $.Spec.MetaStore.Kind }}-0",
+      "{{ $label }}": {
+        "name": "{{ $dns }}",
         "tags": {{ toJson $.Labels }},
         "dns_config": {
           "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
@@ -78,10 +80,10 @@
       }
     },
     "aws_ecs_service": {
-      "metastore": {
-        "name": "{{ $name }}-metastore-{{ $.Spec.MetaStore.Kind }}-0",
+      "{{ $label }}": {
+        "name": "{{ $family }}",
         "cluster": "${local.cluster_arn}",
-        "task_definition": "${aws_ecs_task_definition.metastore.arn}",
+        "task_definition": "${aws_ecs_task_definition.{{ $label }}.arn}",
         "desired_count": 1,
         "deployment_minimum_healthy_percent": 0,
         "deployment_maximum_percent": 100,
@@ -96,7 +98,7 @@
           "security_groups": "${local.security_group_ids}"
         },
         "service_registries": {
-          "registry_arn": "${aws_service_discovery_service.metastore.arn}"
+          "registry_arn": "${aws_service_discovery_service.{{ $label }}.arn}"
         }
       }
     }

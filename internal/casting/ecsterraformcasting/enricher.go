@@ -27,8 +27,7 @@ const (
 )
 
 const (
-	// Names are read back from the rendered template rather than recomputed, so
-	// the template stays the single source of node names and their order.
+	// Names are read back from the rendered template, never recomputed.
 	sdNamesPath   = "resource.aws_service_discovery_service.@values.#.name"
 	namespacePath = "resource.aws_service_discovery_private_dns_namespace.main.name"
 )
@@ -110,10 +109,13 @@ func (e *ecsMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.Mol
 			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to read metastore service names")
 		}
 
-		if len(names) > 0 {
-			host := names[0] + "." + e.namespace
-			config.Spec.MetaStore.Status.Addresses.DSN = []string{domain.MustNewAddress("tcp", host, metaStorePort).String()}
+		var dsns []string
+		for _, name := range names {
+			host := name + "." + e.namespace
+			dsns = append(dsns, domain.MustNewAddress("tcp", host, metaStorePort).String())
 		}
+
+		config.Spec.MetaStore.Status.Addresses.DSN = dsns
 
 	case v1alpha1.MoldingKindSignoz:
 		names, err := e.materials[v1alpha1.MoldingKindSignoz].GetStringSlice(sdNamesPath)
@@ -121,11 +123,15 @@ func (e *ecsMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.Mol
 			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to read signoz service names")
 		}
 
-		if len(names) > 0 {
-			host := names[0] + "." + e.namespace
-			config.Spec.Signoz.Status.Addresses.APIServer = []string{domain.MustNewAddress("tcp", host, signozAPIServerPort).String()}
-			config.Spec.Signoz.Status.Addresses.Opamp = []string{domain.MustNewAddress("ws", host, signozOpampPort).String()}
+		var apiServers, opamps []string
+		for _, name := range names {
+			host := name + "." + e.namespace
+			apiServers = append(apiServers, domain.MustNewAddress("tcp", host, signozAPIServerPort).String())
+			opamps = append(opamps, domain.MustNewAddress("ws", host, signozOpampPort).String())
 		}
+
+		config.Spec.Signoz.Status.Addresses.APIServer = apiServers
+		config.Spec.Signoz.Status.Addresses.Opamp = opamps
 
 	case v1alpha1.MoldingKindIngester:
 		names, err := e.materials[v1alpha1.MoldingKindIngester].GetStringSlice(sdNamesPath)

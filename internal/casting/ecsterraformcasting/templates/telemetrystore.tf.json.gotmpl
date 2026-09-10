@@ -1,14 +1,15 @@
 {{- $name := $.Metadata.Name -}}
 {{- $kind := $.Spec.TelemetryStore.Kind.String -}}
-{{- /* One node, shard 0 replica 0. The molding names its config file by the
-       same coordinates, so the id stays in every name it reaches. */ -}}
+{{- /* The molding names its config file by the same id. */ -}}
 {{- $id := "0-0" -}}
 {{- $nodeKey := "0_0" -}}
+{{- $label := printf "telemetrystore_%s_%s" $kind $nodeKey -}}
+{{- $fnLabel := printf "telemetrystore_%s_functions" $kind -}}
 {{- $cfgProfile := printf "telemetrystore-%s-%s" $kind $id -}}
 {{- $fnProfile := printf "telemetrystore-%s-functions" $kind -}}
 {
   "locals": {
-    "containers_telemetrystore_{{ $nodeKey }}": [
+    "containers_{{ $label }}": [
       {
         "name": "{{ $name }}-telemetrystore-user-scripts",
         "image": "{{ $.Spec.TelemetryStore.Spec.Image }}",
@@ -22,7 +23,7 @@
         },
         "essential": false,
         "entryPoint": ["/bin/sh", "-c"],
-        "command": ["node_os=$(uname -s | tr '[:upper:]' '[:lower:]') && node_arch=$(uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/) && cd /tmp && wget -O histogram-quantile.tar.gz https://github.com/SigNoz/signoz/releases/download/histogram-quantile%2Fv0.0.1/histogram-quantile_$${node_os}_$${node_arch}.tar.gz && tar -xzf histogram-quantile.tar.gz && mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile && chown clickhouse:clickhouse /etc/clickhouse-server/config.d"],
+        "command": ["node_os=$(uname -s | tr '[:upper:]' '[:lower:]') && node_arch=$(uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/) && cd /tmp && wget -O histogram-quantile.tar.gz https://github.com/SigNoz/signoz/releases/download/histogram-quantile%2Fv0.0.1/histogram-quantile_$${node_os}_$${node_arch}.tar.gz && tar -xzf histogram-quantile.tar.gz && mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile"],
         "mountPoints": [
           {
             "sourceVolume": "telemetrystore-user-scripts",
@@ -35,8 +36,6 @@
         ],
         "memoryReservation": 256
       },
-      {{- /* One agent, two configurations: the server config and the UDF file,
-             which the molding emits on its own. */}}
       {
         "name": "{{ $name }}-telemetrystore-appconfig-agent",
         "image": "public.ecr.aws/aws-appconfig/aws-appconfig-agent:2.x",
@@ -49,10 +48,6 @@
           }
         },
         "essential": true,
-        {{- /* writeTo has no mode or owner setting and the agent writes 0600
-               as whichever uid it runs as. ClickHouse drops to uid 101, so the
-               agent runs as 101 and every rewrite stays readable. */}}
-        "user": "101:101",
         "dependsOn": [
           {"containerName": "{{ $name }}-telemetrystore-user-scripts", "condition": "SUCCESS"}
         ],
@@ -90,6 +85,9 @@
         "essential": true,
         {{- $env := list (dict "name" "CLICKHOUSE_SKIP_USER_SETUP" "value" "1") }}
         {{- $env = append $env (dict "name" "CLICKHOUSE_CONFIG" "value" (printf "/etc/clickhouse-server/config.d/config-%s.yaml" $id)) }}
+        {{- /* The agent writes its files as root, so the server stays root
+               through the image's own switch. */}}
+        {{- $env = append $env (dict "name" "CLICKHOUSE_RUN_AS_ROOT" "value" "1") }}
         {{- range $key, $value := $.Spec.TelemetryStore.Spec.Env }}
         {{- $env = append $env (dict "name" $key "value" $value) }}
         {{- end }}
@@ -97,7 +95,8 @@
         "portMappings": [
           {"name": "native", "containerPort": 9000, "protocol": "tcp"},
           {"name": "http", "containerPort": 8123, "protocol": "tcp", "appProtocol": "http"},
-          {"name": "prometheus", "containerPort": 9363, "protocol": "tcp", "appProtocol": "http"}
+          {"name": "prometheus", "containerPort": 9363, "protocol": "tcp", "appProtocol": "http"},
+          {"name": "interserver", "containerPort": 9009, "protocol": "tcp", "appProtocol": "http"}
         ],
         "mountPoints": [
           {
@@ -124,21 +123,22 @@
           "interval": 30,
           "timeout": 5,
           "retries": 3,
-          "startPeriod": 30
+          {{- /* Startup grows with the data directory. */}}
+          "startPeriod": 300
         }
       }
     ]
   },
   "resource": {
     "aws_appconfig_configuration_profile": {
-      "telemetrystore_{{ $nodeKey }}": {
+      "{{ $label }}": {
         "application_id": "${aws_appconfig_application.main.id}",
         "name": "{{ $cfgProfile }}",
         "location_uri": "hosted",
         "type": "AWS.Freeform",
         "tags": {{ toJson $.Labels }}
       },
-      "telemetrystore_functions": {
+      "{{ $fnLabel }}": {
         "application_id": "${aws_appconfig_application.main.id}",
         "name": "{{ $fnProfile }}",
         "location_uri": "hosted",
@@ -147,50 +147,46 @@
       }
     },
     "aws_appconfig_hosted_configuration_version": {
-      "telemetrystore_{{ $nodeKey }}": {
+      "{{ $label }}": {
         "application_id": "${aws_appconfig_application.main.id}",
-        "configuration_profile_id": "${aws_appconfig_configuration_profile.telemetrystore_{{ $nodeKey }}.configuration_profile_id}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.{{ $label }}.configuration_profile_id}",
         "content_type": "application/x-yaml",
         "content": "${file(\"${path.module}/telemetrystore/{{ $kind }}/config-{{ $id }}.yaml\")}"
       },
-      "telemetrystore_functions": {
+      "{{ $fnLabel }}": {
         "application_id": "${aws_appconfig_application.main.id}",
-        "configuration_profile_id": "${aws_appconfig_configuration_profile.telemetrystore_functions.configuration_profile_id}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.{{ $fnLabel }}.configuration_profile_id}",
         "content_type": "application/x-yaml",
         "content": "${file(\"${path.module}/telemetrystore/{{ $kind }}/functions.yaml\")}"
       }
     },
     "aws_appconfig_deployment": {
-      "telemetrystore_{{ $nodeKey }}": {
+      "{{ $label }}": {
         "application_id": "${aws_appconfig_application.main.id}",
         "environment_id": "${aws_appconfig_environment.main.environment_id}",
-        "configuration_profile_id": "${aws_appconfig_configuration_profile.telemetrystore_{{ $nodeKey }}.configuration_profile_id}",
-        "configuration_version": "${aws_appconfig_hosted_configuration_version.telemetrystore_{{ $nodeKey }}.version_number}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.{{ $label }}.configuration_profile_id}",
+        "configuration_version": "${aws_appconfig_hosted_configuration_version.{{ $label }}.version_number}",
         "deployment_strategy_id": "${aws_appconfig_deployment_strategy.main.id}",
         "tags": {{ toJson $.Labels }}
       },
-      "telemetrystore_functions": {
+      "{{ $fnLabel }}": {
         "application_id": "${aws_appconfig_application.main.id}",
         "environment_id": "${aws_appconfig_environment.main.environment_id}",
-        "configuration_profile_id": "${aws_appconfig_configuration_profile.telemetrystore_functions.configuration_profile_id}",
-        "configuration_version": "${aws_appconfig_hosted_configuration_version.telemetrystore_functions.version_number}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.{{ $fnLabel }}.configuration_profile_id}",
+        "configuration_version": "${aws_appconfig_hosted_configuration_version.{{ $fnLabel }}.version_number}",
         "deployment_strategy_id": "${aws_appconfig_deployment_strategy.main.id}",
         "tags": {{ toJson $.Labels }}
       }
     },
     "aws_ecs_task_definition": {
-      "telemetrystore_{{ $nodeKey }}": {
+      "{{ $label }}": {
         "family": "{{ $name }}-telemetrystore-{{ $kind }}-{{ $id }}",
         "tags": {{ toJson $.Labels }},
         "network_mode": "awsvpc",
         "requires_compatibilities": ["EC2"],
         "task_role_arn": "${local.task_role_arn}",
         "execution_role_arn": "${local.execution_role_arn}",
-        "container_definitions": "${jsonencode(local.containers_telemetrystore_{{ $nodeKey }})}",
-        {{- /* Task-scoped, so the data lives as long as the task does. Pinning
-               a task to the instance holding its disk is the substrate's job,
-               and without the pin a host path is worse than none: a restart
-               elsewhere finds a clean disk and initialises fresh. */}}
+        "container_definitions": "${jsonencode(local.containers_{{ $label }})}",
         "volume": [
           {
             "name": "telemetrystore-user-scripts",
@@ -208,17 +204,14 @@
           },
           {
             "name": "telemetrystore-data",
-            "docker_volume_configuration": {
-              "scope": "task",
-              "driver": "local"
-            }
+            "host_path": "/var/lib/foundry/{{ $name }}/telemetrystore/{{ $kind }}/{{ $id }}"
           }
         ],
-        "depends_on": ["aws_appconfig_deployment.telemetrystore_{{ $nodeKey }}", "aws_appconfig_deployment.telemetrystore_functions"]
+        "depends_on": ["aws_appconfig_deployment.{{ $label }}", "aws_appconfig_deployment.{{ $fnLabel }}"]
       }
     },
     "aws_service_discovery_service": {
-      "telemetrystore_{{ $nodeKey }}": {
+      "{{ $label }}": {
         "name": "telemetrystore-{{ $kind }}-{{ $id }}",
         "tags": {{ toJson $.Labels }},
         "dns_config": {
@@ -234,13 +227,12 @@
       }
     },
     "aws_ecs_service": {
-      "telemetrystore_{{ $nodeKey }}": {
+      "{{ $label }}": {
         "name": "{{ $name }}-telemetrystore-{{ $kind }}-{{ $id }}",
         "cluster": "${local.cluster_arn}",
-        "task_definition": "${aws_ecs_task_definition.telemetrystore_{{ $nodeKey }}.arn}",
+        "task_definition": "${aws_ecs_task_definition.{{ $label }}.arn}",
         "desired_count": 1,
-        {{- /* A replacement task cannot co-schedule over the same data
-               directory, so the minimum has to allow the gap. */}}
+        {{- /* Two tasks cannot co-schedule over one data directory. */}}
         "deployment_minimum_healthy_percent": 0,
         "deployment_maximum_percent": 100,
         "launch_type": "EC2",
@@ -254,7 +246,7 @@
           "security_groups": "${local.security_group_ids}"
         },
         "service_registries": {
-          "registry_arn": "${aws_service_discovery_service.telemetrystore_{{ $nodeKey }}.arn}"
+          "registry_arn": "${aws_service_discovery_service.{{ $label }}.arn}"
         }
       }
     }
