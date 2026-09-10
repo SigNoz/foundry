@@ -1,6 +1,3 @@
-{{- /* Every identifier arrives as a variable defaulted to what the casting
-       stated, so the root is patchable without re-forging. */ -}}
-{{- $name := $.Metadata.Name -}}
 {
   "variable": {
     "aws_region": {
@@ -16,58 +13,37 @@
       "nullable": false,
       "description": "ARN of the ECS cluster to deploy into",
       "type": "string",
-      "default": "{{ $.Cluster.Stated }}"
+      "default": "arn:aws:ecs:us-east-1:111122223333:cluster/observability"
     },
     "subnet_ids": {
       "nullable": false,
       "description": "IDs of the subnets tasks are placed in",
       "type": "list(string)",
-      "default": {{ toJson $.Subnets.StatedIDs }}
+      "default": ["subnet-0a1b2c3d4e5f67890","subnet-0f9e8d7c6b5a43210"]
     },
     "security_group_ids": {
       "nullable": false,
       "description": "IDs of the security groups tasks join",
       "type": "list(string)",
-      "default": {{ toJson $.SecurityGroup.StatedIDs }}
+      "default": ["sg-0a1b2c3d4e5f67890"]
     },
     "vpc_id": {
       "nullable": false,
       "description": "ID of the VPC the Cloud Map namespace is created in",
       "type": "string",
-      "default": "{{ $.VPC.Stated }}"
+      "default": "vpc-0a1b2c3d4e5f67890"
     },
-    {{- /* The roles die with this stack, so they carry the Kind: several
-           workloads share one cluster, and a bare name collides on the second
-           apply. */}}
-    {{- if $.TaskRole.IsStated }}
-    "task_role_arn": {
-      "nullable": false,
-      "description": "ARN of the IAM role tasks assume",
-      "type": "string",
-      "default": "{{ $.TaskRole.Stated }}"
-    },
-    {{- else }}
     "task_role_name": {
       "nullable": false,
       "description": "Name of the IAM role this stack creates for its tasks",
       "type": "string",
-      "default": "{{ $name }}-installation-iam-task"
+      "default": "signoz-installation-iam-task"
     },
-    {{- end }}
-    {{- if $.ExecutionRole.IsStated }}
-    "execution_role_arn": {
-      "nullable": false,
-      "description": "ARN of the IAM role the ECS agent assumes",
-      "type": "string",
-      "default": "{{ $.ExecutionRole.Stated }}"
-    }
-    {{- else }}
     "execution_role_name": {
       "nullable": false,
       "description": "Name of the IAM role this stack creates for the ECS agent to pull images and write logs",
       "type": "string",
-      "default": "{{ $name }}-installation-iam-exec"
+      "default": "signoz-installation-iam-exec"
     }
-    {{- end }}
   }
 }

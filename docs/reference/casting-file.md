@@ -178,19 +178,25 @@ Optional. Override the default Helm chart source when using `mode: kubernetes`, 
 
 ### ECS annotations
 
-Required when using `platform: ecs`, `mode: ec2`, `flavor: terraform`.
+Required when using `platform: ecs`, `mode: ec2`, `flavor: terraform`. The
+casting places tasks onto a cluster it does not provision, so every object the
+cluster is made of is named here. Leave one out and the forge refuses.
 
 | Annotation | Maps to tfvar | Description |
 | --- | --- | --- |
-| `foundry.signoz.io/ecs/region` | `region` | AWS region |
-| `foundry.signoz.io/ecs/cluster-id` | `ecs_cluster_id` | ECS cluster ARN or ID |
-| `foundry.signoz.io/ecs/subnet-ids` | `subnet_ids` | Comma-separated subnet IDs |
-| `foundry.signoz.io/ecs/security-group-ids` | `security_group_ids` | Comma-separated security group IDs |
-| `foundry.signoz.io/ecs/vpc-id` | `vpc_id` | VPC ID for Cloud Map namespace |
-| `foundry.signoz.io/ecs/config-bucket` | `config_bucket` | S3 bucket for component configs |
-| `foundry.signoz.io/ecs/task-role-arn` | `task_role_arn` | IAM role ARN for ECS tasks |
-| `foundry.signoz.io/ecs/task-execution-role-arn` | `task_execution_role_arn` | IAM role ARN for task execution |
-| `foundry.signoz.io/ecs/capacity-provider` | `capacity_provider` | ECS capacity provider name |
+| `foundry.signoz.io/ecs-region` | `aws_region` | AWS region holding the cluster |
+| `foundry.signoz.io/ecs-cluster-arn` | `cluster_arn` | ARN of the ECS cluster |
+| `foundry.signoz.io/ecs-subnet-ids` | `subnet_ids` | Comma-separated subnet IDs |
+| `foundry.signoz.io/ecs-security-group-ids` | `security_group_ids` | Comma-separated security group IDs |
+| `foundry.signoz.io/ecs-vpc-id` | `vpc_id` | VPC ID for the Cloud Map namespace |
+
+The two IAM roles are this stack's own identity, so an absent one is created
+rather than looked up.
+
+| Annotation | Maps to tfvar | Description |
+| --- | --- | --- |
+| `foundry.signoz.io/ecs-task-role-arn` | `task_role_arn` | IAM role the tasks assume; needs AppConfig read access |
+| `foundry.signoz.io/ecs-task-execution-role-arn` | `execution_role_arn` | IAM role the ECS agent assumes to pull images and start tasks |
 
 ## Schema
 

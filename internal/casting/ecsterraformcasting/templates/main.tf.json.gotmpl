@@ -1,30 +1,95 @@
+{{- $name := $.Metadata.Name -}}
 {
-  "terraform": {
-    "required_version": ">= 1.0",
-    "required_providers": {
-      "aws": {
-        "source": "hashicorp/aws",
-        "version": ">= 5.0"
+  {{- /* Every object the cluster is made of is stated on the casting, so the
+         locals name it directly. They exist anyway: a component reads
+         `local.cluster_arn`, never the variable, so what resolves an axis can
+         change without touching a component file. */}}
+  "locals": {
+    "cluster_arn": "${var.cluster_arn}",
+    "subnet_ids": "${var.subnet_ids}",
+    "security_group_ids": "${var.security_group_ids}",
+    "vpc_id": "${var.vpc_id}",
+    "task_role_arn": "{{ if $.TaskRole.IsStated }}${var.task_role_arn}{{ else }}${aws_iam_role.task.arn}{{ end }}",
+    "execution_role_arn": "{{ if $.ExecutionRole.IsStated }}${var.execution_role_arn}{{ else }}${aws_iam_role.exec.arn}{{ end }}"
+  },
+  "resource": {
+    {{- /* Workload identity is the workload's own. A role holds no data and
+           dies with this stack. An operator states an ARN instead and nothing
+           is created. */}}
+    {{- if or (not $.TaskRole.IsStated) (not $.ExecutionRole.IsStated) }}
+    "aws_iam_role": {
+      {{- $first := true }}
+      {{- if not $.TaskRole.IsStated }}{{ if not $first }},{{ end }}{{ $first = false }}
+      "task": {
+        "name": "${var.task_role_name}",
+        "assume_role_policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Action\" = \"sts:AssumeRole\", \"Effect\" = \"Allow\", \"Principal\" = {\"Service\" = \"ecs-tasks.amazonaws.com\"}}]})}",
+        "tags": {{ toJson $.Labels }}
       }
-    }
-  },
-  "provider": {
-    "aws": {
-      "region": "${var.region}"
-    }
-  },
-  "module": {
-    "signoz": {
-      "source": "./module",
-      "region": "${var.region}",
-      "ecs_cluster_id": "${var.ecs_cluster_id}",
-      "subnet_ids": "${var.subnet_ids}",
-      "security_group_ids": "${var.security_group_ids}",
-      "vpc_id": "${var.vpc_id}",
-      "config_bucket": "${var.config_bucket}",
-      "task_role_arn": "${var.task_role_arn}",
-      "task_execution_role_arn": "${var.task_execution_role_arn}",
-      "capacity_provider": "${var.capacity_provider}"
+      {{- end }}
+      {{- if not $.ExecutionRole.IsStated }}{{ if not $first }},{{ end }}{{ $first = false }}
+      "exec": {
+        "name": "${var.execution_role_name}",
+        "assume_role_policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Action\" = \"sts:AssumeRole\", \"Effect\" = \"Allow\", \"Principal\" = {\"Service\" = \"ecs-tasks.amazonaws.com\"}}]})}",
+        "tags": {{ toJson $.Labels }}
+      }
+      {{- end }}
+    },
+    {{- end }}
+    {{- if not $.ExecutionRole.IsStated }}
+    "aws_iam_role_policy_attachment": {
+      "exec": {
+        "policy_arn": "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+        "role": "${aws_iam_role.exec.name}"
+      }
+    },
+    {{- end }}
+    {{- if not $.TaskRole.IsStated }}
+    {{- /* Scoped to the application this stack creates. GetLatestConfiguration
+           acts on a session token and cannot be scoped. */}}
+    "aws_iam_role_policy": {
+      "task_appconfig_read": {
+        "name": "${var.task_role_name}-appconfig-read",
+        "role": "${aws_iam_role.task.id}",
+        "policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Effect\" = \"Allow\", \"Action\" = [\"appconfig:StartConfigurationSession\"], \"Resource\" = [format(\"%s/environment/*/configuration/*\", aws_appconfig_application.main.arn)]}, {\"Effect\" = \"Allow\", \"Action\" = [\"appconfig:GetLatestConfiguration\"], \"Resource\" = \"*\"}]})}"
+      }
+    },
+    {{- end }}
+    "aws_service_discovery_private_dns_namespace": {
+      "main": {
+        "name": "{{ $name }}.local",
+        "vpc": "${local.vpc_id}",
+        "tags": {{ toJson $.Labels }}
+      }
+    },
+    {{- /* AppConfig is the ECS analog of a ConfigMap. The sidecar rewrites the
+           config in place, so a component that reloads its own config does not
+           need the task replaced. Verified against keeper 25.12.5. */}}
+    "aws_appconfig_application": {
+      "main": {
+        "name": "{{ $name }}-installation-appconfig",
+        "description": "SigNoz component configuration",
+        "tags": {{ toJson $.Labels }}
+      }
+    },
+    "aws_appconfig_environment": {
+      "main": {
+        "name": "default",
+        "application_id": "${aws_appconfig_application.main.id}",
+        "tags": {{ toJson $.Labels }}
+      }
+    },
+    {{- /* No bake. AppConfig serializes deployments per environment, paying
+           bake time once per component on every apply. Add it back with
+           CloudWatch monitors that can trigger a rollback. */}}
+    "aws_appconfig_deployment_strategy": {
+      "main": {
+        "name": "{{ $name }}-installation-appconfig-strategy",
+        "deployment_duration_in_minutes": 0,
+        "final_bake_time_in_minutes": 0,
+        "growth_factor": 100,
+        "replicate_to": "NONE",
+        "tags": {{ toJson $.Labels }}
+      }
     }
   }
 }

@@ -46,8 +46,8 @@ Not all deployment modes require annotations. Most modes (Docker Compose, Docker
 | Casting | Required | Annotations |
 |---|---|---|
 | [Systemd (binary)](../examples/systemd/binary/) | Yes | Binary paths for SigNoz, ingester, and PostgreSQL |
-| [ECS EC2 (Terraform)](../examples/ecs/ec2/terraform/) | Yes | AWS region, cluster ID, subnets, security groups, IAM roles, S3 bucket |
-| [Kubernetes (Helm)](../examples/kubernetes/helm/) | No | Optional chart repo, chart name and chart version overrides |
+| [ECS EC2 (Terraform)](../examples/ecs/ec2/terraform/) | Yes | AWS region, cluster ARN, subnets, security groups, VPC, IAM roles |
+| [Kubernetes (Helm)](../examples/kubernetes/helm/) | No | Optional chart repo and chart name overrides |
 
 For the complete list of annotation keys and their descriptions, see [Casting File Reference](../reference/casting-file.md#annotations).
 
