@@ -1,11 +1,12 @@
 {{- $name := $.Metadata.Name -}}
 {{- $kind := $.Spec.MetaStore.Kind.String -}}
-{{- $i := 0 -}}
-{{- $label := printf "metastore_%s_%d" $kind $i -}}
-{{- $dns := printf "metastore-%s-%d" $kind $i -}}
-{{- $family := printf "%s-%s" $name $dns -}}
+{{- $replicas := derefIntDefault $.Spec.MetaStore.Spec.Cluster.Replicas 1 -}}
+{{- if lt $replicas 1 }}{{- $replicas = 1 -}}{{- end -}}
 {
   "locals": {
+    {{- range $i := until $replicas }}{{ if $i }},{{ end }}
+    {{- $label := printf "metastore_%s_%d" $kind $i }}
+    {{- $family := printf "%s-metastore-%s-%d" $name $kind $i }}
     "containers_{{ $label }}": [
       {
         "name": "{{ $family }}",
@@ -44,9 +45,13 @@
         }
       }
     ]
+    {{- end }}
   },
   "resource": {
     "aws_ecs_task_definition": {
+      {{- range $i := until $replicas }}{{ if $i }},{{ end }}
+      {{- $label := printf "metastore_%s_%d" $kind $i }}
+      {{- $family := printf "%s-metastore-%s-%d" $name $kind $i }}
       "{{ $label }}": {
         "family": "{{ $family }}",
         "tags": {{ toJson $.Labels }},
@@ -62,10 +67,13 @@
           }
         ]
       }
+      {{- end }}
     },
     "aws_service_discovery_service": {
+      {{- range $i := until $replicas }}{{ if $i }},{{ end }}
+      {{- $label := printf "metastore_%s_%d" $kind $i }}
       "{{ $label }}": {
-        "name": "{{ $dns }}",
+        "name": "metastore-{{ $kind }}-{{ $i }}",
         "tags": {{ toJson $.Labels }},
         "dns_config": {
           "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
@@ -78,8 +86,12 @@
           "routing_policy": "MULTIVALUE"
         }
       }
+      {{- end }}
     },
     "aws_ecs_service": {
+      {{- range $i := until $replicas }}{{ if $i }},{{ end }}
+      {{- $label := printf "metastore_%s_%d" $kind $i }}
+      {{- $family := printf "%s-metastore-%s-%d" $name $kind $i }}
       "{{ $label }}": {
         "name": "{{ $family }}",
         "cluster": "${local.cluster_arn}",
@@ -101,6 +113,7 @@
           "registry_arn": "${aws_service_discovery_service.{{ $label }}.arn}"
         }
       }
+      {{- end }}
     }
   }
 }

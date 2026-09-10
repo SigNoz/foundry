@@ -1,3 +1,8 @@
+{{- $storeShards := derefIntDefault $.Spec.TelemetryStore.Spec.Cluster.Shards 1 -}}
+{{- if lt $storeShards 1 }}{{- $storeShards = 1 -}}{{- end -}}
+{{- $storePerShard := int (add (derefIntDefault $.Spec.TelemetryStore.Spec.Cluster.Replicas 0) 1) -}}
+{{- $keeperReplicas := derefIntDefault $.Spec.TelemetryKeeper.Spec.Cluster.Replicas 1 -}}
+{{- if lt $keeperReplicas 1 }}{{- $keeperReplicas = 1 -}}{{- end -}}
 {
   "output": {
     "cluster_arn": {
@@ -43,13 +48,13 @@
     {{- if derefBool $.Spec.TelemetryStore.Spec.Enabled }},
     "telemetrystore_service_names": {
       "description": "TelemetryStore ECS service names (one per node)",
-      "value": ["${aws_ecs_service.telemetrystore_{{ $.Spec.TelemetryStore.Kind.String }}_0_0.name}"]
+      "value": [{{ $first := true }}{{ range $s := until $storeShards }}{{ range $r := until $storePerShard }}{{ if not $first }}, {{ end }}{{ $first = false }}"${aws_ecs_service.telemetrystore_{{ $.Spec.TelemetryStore.Kind.String }}_{{ $s }}_{{ $r }}.name}"{{ end }}{{ end }}]
     }
     {{- end }}
     {{- if derefBool $.Spec.TelemetryKeeper.Spec.Enabled }},
     "telemetrykeeper_service_names": {
       "description": "TelemetryKeeper ECS service names (one per node)",
-      "value": ["${aws_ecs_service.telemetrykeeper_{{ $.Spec.TelemetryKeeper.Kind.String }}_0.name}"]
+      "value": [{{ range $i := until $keeperReplicas }}{{ if $i }}, {{ end }}"${aws_ecs_service.telemetrykeeper_{{ $.Spec.TelemetryKeeper.Kind.String }}_{{ $i }}.name}"{{ end }}]
     }
     {{- end }}
     {{- if and (derefBool $.Spec.MetaStore.Spec.Enabled) (eq $.Spec.MetaStore.Kind.String "postgres") }},

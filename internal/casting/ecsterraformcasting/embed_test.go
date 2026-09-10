@@ -737,3 +737,161 @@ func TestMetaStoreIsANodeGivenTimeToStart(t *testing.T) {
 		})
 	}
 }
+
+// A clustered fixture is one service per node, each named by the ordinal the
+// molding gives it.
+func TestStatefulComponentsForgeAServicePerNode(t *testing.T) {
+	shards, perShard, keepers, nodes := 2, 1, 3, 2
+
+	store := statedCasting(&installation.Casting{})
+	store.Spec.TelemetryStore.Spec.Cluster.Shards = &shards
+	store.Spec.TelemetryStore.Spec.Cluster.Replicas = &perShard
+
+	keeper := statedCasting(&installation.Casting{})
+	keeper.Spec.TelemetryKeeper.Kind = installation.TelemetryKeeperKindClickhouseKeeper
+	keeper.Spec.TelemetryKeeper.Spec.Cluster.Replicas = &keepers
+
+	metaStore := statedCasting(&installation.Casting{})
+	metaStore.Spec.MetaStore.Spec.Cluster.Replicas = &nodes
+
+	signoz := statedCasting(&installation.Casting{})
+	signoz.Spec.Signoz.Spec.Cluster.Replicas = &nodes
+
+	tests := []struct {
+		name             string
+		template         *domain.Template
+		casting          *installation.Casting
+		expectedServices []string
+	}{
+		{
+			name: "TelemetryStore_ServicePerNode", template: telemetryStoreTF, casting: store,
+			expectedServices: []string{
+				"signoz-telemetrystore-clickhouse-0-0",
+				"signoz-telemetrystore-clickhouse-0-1",
+				"signoz-telemetrystore-clickhouse-1-0",
+				"signoz-telemetrystore-clickhouse-1-1",
+			},
+		},
+		{
+			name: "TelemetryKeeper_ServicePerNode", template: telemetryKeeperTF, casting: keeper,
+			expectedServices: []string{
+				"signoz-telemetrykeeper-clickhousekeeper-0",
+				"signoz-telemetrykeeper-clickhousekeeper-1",
+				"signoz-telemetrykeeper-clickhousekeeper-2",
+			},
+		},
+		{
+			name: "MetaStore_ServicePerNode", template: metaStoreTF, casting: metaStore,
+			expectedServices: []string{"signoz-metastore-postgres-0", "signoz-metastore-postgres-1"},
+		},
+		{
+			name: "Signoz_ServicePerNode", template: signozTF, casting: signoz,
+			expectedServices: []string{"signoz-signoz-0", "signoz-signoz-1"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buf := bytes.NewBuffer(nil)
+			require.NoError(t, tt.template.Execute(buf, templateDataFor(t, tt.casting)))
+
+			material, err := domain.NewJSONMaterial(buf.Bytes(), "component.tf.json")
+			require.NoError(t, err)
+
+			services, err := material.GetStringSlice("resource.aws_ecs_service.@values.#.name")
+			require.NoError(t, err)
+			assert.ElementsMatch(t, tt.expectedServices, services)
+		})
+	}
+}
+
+// ZooKeeper numbers its own nodes from one, and an ensemble names itself
+// 0.0.0.0 so the node does not dial its own service record.
+func TestZookeeperEnsembleKnowsItsPeers(t *testing.T) {
+	tests := []struct {
+		name            string
+		replicas        int
+		node            int
+		expectedID      string
+		expectedServers string
+	}{
+		{name: "SingleNode_NoEnsemble", replicas: 1, node: 0, expectedID: "1"},
+		{
+			name: "FirstOfThree_Ensemble", replicas: 3, node: 0, expectedID: "1",
+			expectedServers: "0.0.0.0:2888:3888,telemetrykeeper-zookeeper-1.signoz-installation.local:2888:3888,telemetrykeeper-zookeeper-2.signoz-installation.local:2888:3888",
+		},
+		{
+			name: "LastOfThree_Ensemble", replicas: 3, node: 2, expectedID: "3",
+			expectedServers: "telemetrykeeper-zookeeper-0.signoz-installation.local:2888:3888,telemetrykeeper-zookeeper-1.signoz-installation.local:2888:3888,0.0.0.0:2888:3888",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			casting := statedCasting(&installation.Casting{})
+			casting.Spec.TelemetryKeeper.Kind = installation.TelemetryKeeperKindZookeeper
+			casting.Spec.TelemetryKeeper.Spec.Cluster.Replicas = &tt.replicas
+
+			buf := bytes.NewBuffer(nil)
+			require.NoError(t, telemetryKeeperTF.Execute(buf, templateDataFor(t, casting)))
+
+			material, err := domain.NewJSONMaterial(buf.Bytes(), "telemetrykeeper.tf.json")
+			require.NoError(t, err)
+
+			container := fmt.Sprintf(`locals.containers_telemetrykeeper_zookeeper_%d.#(name=="signoz-telemetrykeeper-zookeeper-%d")`, tt.node, tt.node)
+
+			id, err := material.GetBytes(container + `.environment.#(name=="ZOO_SERVER_ID").value`)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedID, string(id))
+
+			servers, err := material.GetBytes(container + `.environment.#(name=="ZOO_SERVERS").value`)
+			if tt.expectedServers == "" {
+				assert.Error(t, err, "a single node stands alone")
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedServers, string(servers))
+		})
+	}
+}
+
+// A patch written against the singular output keeps working, so both shapes
+// stand.
+func TestOutputsEnumerateEveryNode(t *testing.T) {
+	shards, perShard, keepers := 2, 1, 3
+
+	casting := statedCasting(&installation.Casting{})
+	casting.Spec.TelemetryStore.Spec.Cluster.Shards = &shards
+	casting.Spec.TelemetryStore.Spec.Cluster.Replicas = &perShard
+	casting.Spec.TelemetryKeeper.Spec.Cluster.Replicas = &keepers
+
+	buf := bytes.NewBuffer(nil)
+	require.NoError(t, outputsTF.Execute(buf, templateDataFor(t, casting)))
+
+	material, err := domain.NewJSONMaterial(buf.Bytes(), "outputs.tf.json")
+	require.NoError(t, err)
+
+	tests := []struct {
+		name          string
+		path          string
+		expectedCount int
+	}{
+		{name: "TelemetryStore_PerNode", path: "output.telemetrystore_service_names.value", expectedCount: 4},
+		{name: "TelemetryKeeper_PerNode", path: "output.telemetrykeeper_service_names.value", expectedCount: 3},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			names, err := material.GetStringSlice(tt.path)
+			require.NoError(t, err, "reading %s", tt.path)
+			assert.Len(t, names, tt.expectedCount)
+		})
+	}
+
+	for _, path := range []string{"output.metastore_service_name.value", "output.signoz_service_name.value", "output.signoz_service_arn.value"} {
+		_, err := material.GetBytes(path)
+		assert.NoError(t, err, "reading %s", path)
+	}
+}

@@ -1,13 +1,13 @@
 {{- $name := $.Metadata.Name -}}
 {{- $sqlite := eq $.Spec.MetaStore.Kind.String "sqlite" -}}
-{{- $i := 0 -}}
-{{- $label := printf "signoz_%d" $i -}}
-{{- $dns := printf "signoz-%d" $i -}}
-{{- $family := printf "%s-signoz-%d" $name $i -}}
-{{- $local := printf "containers_%s" $label -}}
+{{- $replicas := derefIntDefault $.Spec.Signoz.Spec.Cluster.Replicas 1 -}}
+{{- if lt $replicas 1 }}{{- $replicas = 1 -}}{{- end -}}
 {
   "locals": {
-    "{{ $local }}": [
+    {{- range $i := until $replicas }}{{ if $i }},{{ end }}
+    {{- $label := printf "signoz_%d" $i }}
+    {{- $family := printf "%s-signoz-%d" $name $i }}
+    "containers_{{ $label }}": [
       {
         "name": "{{ $family }}",
         "image": "{{ $.Spec.Signoz.Spec.Image }}",
@@ -50,9 +50,13 @@
         }
       }
     ]
+    {{- end }}
   },
   "resource": {
     "aws_ecs_task_definition": {
+      {{- range $i := until $replicas }}{{ if $i }},{{ end }}
+      {{- $label := printf "signoz_%d" $i }}
+      {{- $family := printf "%s-signoz-%d" $name $i }}
       "{{ $label }}": {
         "family": "{{ $family }}",
         "tags": {{ toJson $.Labels }},
@@ -60,7 +64,7 @@
         "requires_compatibilities": ["EC2"],
         "task_role_arn": "${local.task_role_arn}",
         "execution_role_arn": "${local.execution_role_arn}",
-        "container_definitions": "${jsonencode(local.{{ $local }})}"
+        "container_definitions": "${jsonencode(local.containers_{{ $label }})}"
         {{- if $sqlite }},
         "volume": [
           {
@@ -70,10 +74,13 @@
         ]
         {{- end }}
       }
+      {{- end }}
     },
     "aws_service_discovery_service": {
+      {{- range $i := until $replicas }}{{ if $i }},{{ end }}
+      {{- $label := printf "signoz_%d" $i }}
       "{{ $label }}": {
-        "name": "{{ $dns }}",
+        "name": "signoz-{{ $i }}",
         "tags": {{ toJson $.Labels }},
         "dns_config": {
           "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
@@ -86,8 +93,12 @@
           "routing_policy": "MULTIVALUE"
         }
       }
+      {{- end }}
     },
     "aws_ecs_service": {
+      {{- range $i := until $replicas }}{{ if $i }},{{ end }}
+      {{- $label := printf "signoz_%d" $i }}
+      {{- $family := printf "%s-signoz-%d" $name $i }}
       "{{ $label }}": {
         "name": "{{ $family }}",
         "cluster": "${local.cluster_arn}",
@@ -109,6 +120,7 @@
           "registry_arn": "${aws_service_discovery_service.{{ $label }}.arn}"
         }
       }
+      {{- end }}
     }
   }
 }
