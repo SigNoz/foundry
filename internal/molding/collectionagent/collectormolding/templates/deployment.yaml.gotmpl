@@ -1,0 +1,50 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+    path: /healthz
+
+receivers:
+  otlp/grpc:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+        max_recv_msg_size_mib: 16
+  otlp/http:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 4000
+    spike_limit_mib: 800
+  resourcedetection:
+    detectors:
+      - env
+      - system
+    timeout: 5s
+  batch:
+    send_batch_size: 1000
+    send_batch_max_size: 2048
+    timeout: 10s
+
+exporters:
+  otlphttp/signoz:
+    endpoint: ${env:SIGNOZ_INGESTION_ENDPOINT}
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp/http, otlp/grpc]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [otlphttp/signoz]
+    metrics:
+      receivers: [otlp/http, otlp/grpc]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [otlphttp/signoz]
+    logs:
+      receivers: [otlp/http, otlp/grpc]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [otlphttp/signoz]
