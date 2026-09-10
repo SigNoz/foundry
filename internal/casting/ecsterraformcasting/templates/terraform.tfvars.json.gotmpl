@@ -2,8 +2,8 @@
 {
   "aws_region": "{{ $.Region }}",
   "cluster_arn": "{{ $.Cluster.Stated }}",
-  "subnet_ids": {{ toJson $.Subnets.StatedIDs }},
-  "security_group_ids": {{ toJson $.SecurityGroup.StatedIDs }},
+  "subnet_ids": {{ toJson (default (list) $.Subnets.StatedIDs) }},
+  "security_group_ids": {{ toJson (default (list) $.SecurityGroup.StatedIDs) }},
   "vpc_id": "{{ $.VPC.Stated }}",
   {{- if $.TaskRole.IsStated }}
   "task_role_arn": "{{ $.TaskRole.Stated }}",

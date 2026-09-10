@@ -176,14 +176,6 @@ func TestReferenceIsStated(t *testing.T) {
 func TestTemplateDataResolution(t *testing.T) {
 	complete := statedCasting(&installation.Casting{}).Metadata.Annotations
 
-	without := func(key string) map[string]string {
-		annotations := map[string]string{}
-		maps.Copy(annotations, complete)
-		delete(annotations, key)
-
-		return annotations
-	}
-
 	malformed := map[string]string{}
 	maps.Copy(malformed, complete)
 	malformed[installation.ECSSubnetIDs.Key] = " , ,"
@@ -191,46 +183,94 @@ func TestTemplateDataResolution(t *testing.T) {
 	tests := []struct {
 		name            string
 		annotations     map[string]string
-		substrate       string
+		expectedRegion  string
+		expectedStated  bool
 		expectedMessage string
 		pass            bool
 	}{
-		{name: "AllStated_Valid", annotations: complete, pass: true},
-		{name: "AllStatedWithSubstrate_Valid", annotations: complete, substrate: "signoz-prod", pass: true},
-		{name: "RegionUnstated_Invalid", annotations: without(installation.ECSRegion.Key)},
-		{name: "ClusterUnstated_Invalid", annotations: without(installation.ECSClusterARN.Key), expectedMessage: "no infrastructure is stated"},
-		{name: "VPCUnstated_Invalid", annotations: without(installation.ECSVPCID.Key), expectedMessage: "no infrastructure is stated"},
-		{name: "SubnetIDsUnstated_Invalid", annotations: without(installation.ECSSubnetIDs.Key), expectedMessage: "no infrastructure is stated"},
-		{name: "SecurityGroupIDsUnstated_Invalid", annotations: without(installation.ECSSecurityGroupIDs.Key), expectedMessage: "no infrastructure is stated"},
-		{name: "ClusterUnstatedWithSubstrate_Invalid", annotations: without(installation.ECSClusterARN.Key), substrate: "signoz-prod", expectedMessage: "does not derive from it yet"},
-		{name: "SubnetIDsMalformed_Invalid", annotations: malformed},
+		{name: "AllStated_Valid", annotations: complete, expectedRegion: "us-east-1", expectedStated: true, pass: true},
+		{name: "NothingStated_Valid", annotations: nil, pass: true},
+		{name: "SubnetIDsMalformed_Invalid", annotations: malformed, expectedMessage: "no ids found"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			casting := installation.Default(&installation.Casting{})
 			casting.Metadata.Annotations = tt.annotations
-			casting.Spec.Infrastructure.Name = tt.substrate
 
 			data, err := New(slog.New(slog.DiscardHandler)).templateData(*casting)
 			if !tt.pass {
-				assert.Error(t, err)
-
-				if tt.expectedMessage != "" {
-					assert.ErrorContains(t, err, tt.expectedMessage)
-				}
+				assert.ErrorContains(t, err, tt.expectedMessage)
 
 				return
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, "us-east-1", data.Region)
+			assert.Equal(t, tt.expectedRegion, data.Region)
 
 			for _, reference := range []Reference{data.Cluster, data.VPC, data.Subnets, data.SecurityGroup} {
-				assert.True(t, reference.IsStated())
+				assert.Equal(t, tt.expectedStated, reference.IsStated())
 			}
 
 			assert.False(t, data.TaskRole.IsStated())
+		})
+	}
+}
+
+// The platform judges its own inputs, so an unstated casting still forges.
+func TestUnstatedCastingForges(t *testing.T) {
+	casting := installation.Default(&installation.Casting{})
+
+	materials, err := New(slog.New(slog.DiscardHandler)).Forge(context.Background(), *casting, "")
+	require.NoError(t, err)
+	assert.NotEmpty(t, materials)
+
+	buf := bytes.NewBuffer(nil)
+	require.NoError(t, tfarsTF.Execute(buf, templateDataFor(t, casting)))
+
+	assert.JSONEq(t, `{
+		"aws_region": "",
+		"cluster_arn": "",
+		"subnet_ids": [],
+		"security_group_ids": [],
+		"vpc_id": "",
+		"task_role_name": "signoz-installation-iam-task",
+		"execution_role_name": "signoz-installation-iam-exec"
+	}`, buf.String())
+}
+
+// Terraform refuses an empty or malformed value at plan, so every variable the
+// casting does not judge carries its own condition.
+func TestVariablesCarryValidations(t *testing.T) {
+	casting := statedCasting(&installation.Casting{})
+	casting.Metadata.Annotations[installation.ECSTaskRoleARN.Key] = "arn:aws:iam::123456789012:role/task"
+	casting.Metadata.Annotations[installation.ECSTaskExecutionRoleARN.Key] = "arn:aws:iam::123456789012:role/exec"
+
+	buf := bytes.NewBuffer(nil)
+	require.NoError(t, variablesTF.Execute(buf, templateDataFor(t, casting)))
+
+	material, err := domain.NewJSONMaterial(buf.Bytes(), "variables.tf.json")
+	require.NoError(t, err)
+
+	tests := []struct {
+		name              string
+		variable          string
+		expectedCondition string
+	}{
+		{name: "Region_Validated", variable: "aws_region", expectedCondition: `^[a-z]{2}(-gov)?-[a-z]+-[0-9]$`},
+		{name: "ClusterARN_Validated", variable: "cluster_arn", expectedCondition: `^arn:aws:ecs:`},
+		{name: "SubnetIDs_Validated", variable: "subnet_ids", expectedCondition: `^subnet-`},
+		{name: "SecurityGroupIDs_Validated", variable: "security_group_ids", expectedCondition: `^sg-`},
+		{name: "VPCID_Validated", variable: "vpc_id", expectedCondition: `^vpc-`},
+		{name: "TaskRoleARN_Validated", variable: "task_role_arn", expectedCondition: `^arn:aws:iam::`},
+		{name: "ExecutionRoleARN_Validated", variable: "execution_role_arn", expectedCondition: `^arn:aws:iam::`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			condition, err := material.GetBytes("variable." + tt.variable + ".validation.condition")
+			require.NoError(t, err)
+			assert.Contains(t, string(condition), tt.expectedCondition)
 		})
 	}
 }

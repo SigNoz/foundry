@@ -174,5 +174,3 @@ spec:
 ```
 
 Run `foundryctl forge` first, then read the generated file to find the path you want. See [patches](../../../concepts/patches.md).
-
-File names and Terraform resource labels are a public surface: renaming one breaks every stored patch and the live state addresses.

@@ -142,15 +142,9 @@ func (c *ecsCasting) terraform(ctx context.Context, root, verb string, args ...s
 func (c *ecsCasting) templateData(config installation.Casting) (templateData, error) {
 	annotations := config.Metadata.Annotations
 
-	region := installation.ECSRegion.Resolve(annotations)
-
-	if region == "" {
-		return templateData{}, foundryerrors.Newf(foundryerrors.TypeInvalidInput, "no region is stated: state the %q annotation", installation.ECSRegion.Key)
-	}
-
 	data := templateData{
 		Casting: config,
-		Region:  region,
+		Region:  installation.ECSRegion.Resolve(annotations),
 
 		Cluster:       Reference{Stated: installation.ECSClusterARN.Resolve(annotations)},
 		VPC:           Reference{Stated: installation.ECSVPCID.Resolve(annotations)},
@@ -171,26 +165,6 @@ func (c *ecsCasting) templateData(config installation.Casting) (templateData, er
 	}
 
 	data.SecurityGroup = Reference{StatedIDs: securityGroups}
-
-	for _, axis := range []struct {
-		annotation v1alpha1.Annotation
-		reference  Reference
-	}{
-		{installation.ECSClusterARN, data.Cluster},
-		{installation.ECSVPCID, data.VPC},
-		{installation.ECSSubnetIDs, data.Subnets},
-		{installation.ECSSecurityGroupIDs, data.SecurityGroup},
-	} {
-		if axis.reference.IsStated() {
-			continue
-		}
-
-		if config.Spec.Infrastructure.Name == "" {
-			return templateData{}, foundryerrors.Newf(foundryerrors.TypeInvalidInput, "no infrastructure is stated, so %q is required: without a substrate there is nothing to find it by", axis.annotation.Key)
-		}
-
-		return templateData{}, foundryerrors.Newf(foundryerrors.TypeUnsupported, "substrate %q is stated but this casting does not derive from it yet: state %q", config.Spec.Infrastructure.Name, axis.annotation.Key)
-	}
 
 	return data, nil
 }

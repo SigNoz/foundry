@@ -12,21 +12,37 @@
     },
     "cluster_arn": {
       "nullable": false,
+      "validation": {
+        "condition": "${can(regex(\"^arn:aws:ecs:\", var.cluster_arn))}",
+        "error_message": "cluster_arn must be the ARN of an ECS cluster."
+      },
       "description": "ARN of the ECS cluster to deploy into",
       "type": "string"
     },
     "subnet_ids": {
       "nullable": false,
+      "validation": {
+        "condition": "${length(var.subnet_ids) > 0 && alltrue([for id in var.subnet_ids : can(regex(\"^subnet-\", id))])}",
+        "error_message": "subnet_ids must be a non-empty list of subnet IDs."
+      },
       "description": "IDs of the subnets tasks are placed in",
       "type": "list(string)"
     },
     "security_group_ids": {
       "nullable": false,
+      "validation": {
+        "condition": "${length(var.security_group_ids) > 0 && alltrue([for id in var.security_group_ids : can(regex(\"^sg-\", id))])}",
+        "error_message": "security_group_ids must be a non-empty list of security group IDs."
+      },
       "description": "IDs of the security groups tasks join",
       "type": "list(string)"
     },
     "vpc_id": {
       "nullable": false,
+      "validation": {
+        "condition": "${can(regex(\"^vpc-\", var.vpc_id))}",
+        "error_message": "vpc_id must be the ID of a VPC, such as vpc-0a1b2c3d."
+      },
       "description": "ID of the VPC the Cloud Map namespace is created in",
       "type": "string"
     },
@@ -35,6 +51,10 @@
     {{- if $.TaskRole.IsStated }}
     "task_role_arn": {
       "nullable": false,
+      "validation": {
+        "condition": "${can(regex(\"^arn:aws:iam::\", var.task_role_arn))}",
+        "error_message": "task_role_arn must be the ARN of an IAM role."
+      },
       "description": "ARN of the IAM role tasks assume",
       "type": "string"
     },
@@ -48,6 +68,10 @@
     {{- if $.ExecutionRole.IsStated }}
     "execution_role_arn": {
       "nullable": false,
+      "validation": {
+        "condition": "${can(regex(\"^arn:aws:iam::\", var.execution_role_arn))}",
+        "error_message": "execution_role_arn must be the ARN of an IAM role."
+      },
       "description": "ARN of the IAM role the ECS agent assumes",
       "type": "string"
     }

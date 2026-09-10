@@ -180,7 +180,7 @@ Optional. Override the default Helm chart source when using `mode: kubernetes`, 
 
 Required when using `platform: ecs`, `mode: ec2`, `flavor: terraform`. The
 casting places tasks onto a cluster it does not provision, so every object the
-cluster is made of is named here. Leave one out and the forge refuses.
+cluster is made of is named here. Leave one out and terraform refuses at plan.
 
 | Annotation | Maps to tfvar | Description |
 | --- | --- | --- |

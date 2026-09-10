@@ -71,12 +71,12 @@ var (
 		Mode:        v1alpha1.ModeKubernetes,
 		Description: "Helm chart version to install; empty installs the repository's latest.",
 	}
-	)
+)
 
 // Cluster annotations for the ECS/EC2 deployment of the Installation Kind.
 // Each names an existing object of the cluster the installation is placed
-// onto. The region and every object are stated, and an unstated one is
-// refused at forge.
+// onto. The region and every object are stated; terraform validates them at
+// plan.
 var (
 	ECSRegion = v1alpha1.Annotation{
 		Key:         "foundry.signoz.io/ecs-region",
