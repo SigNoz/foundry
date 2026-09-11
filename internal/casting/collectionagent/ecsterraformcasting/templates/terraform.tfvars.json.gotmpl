@@ -1,0 +1,14 @@
+{
+  "aws_region": "{{ $.Region }}",
+  "cluster_arn": "{{ $.Cluster.Stated }}",
+  {{- if $.TaskRole.IsStated }}
+  "task_role_arn": "{{ $.TaskRole.Stated }}",
+  {{- else }}
+  "task_role_name": "{{ $.TaskRole.Name }}",
+  {{- end }}
+  {{- if $.ExecutionRole.IsStated }}
+  "execution_role_arn": "{{ $.ExecutionRole.Stated }}"
+  {{- else }}
+  "execution_role_name": "{{ $.ExecutionRole.Name }}"
+  {{- end }}
+}
