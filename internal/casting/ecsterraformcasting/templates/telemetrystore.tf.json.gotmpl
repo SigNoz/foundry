@@ -1,15 +1,21 @@
 {{- $name := $.Metadata.Name -}}
 {{- $kind := $.Spec.TelemetryStore.Kind.String -}}
+{{- $shards := derefIntDefault $.Spec.TelemetryStore.Spec.Cluster.Shards 1 -}}
+{{- if lt $shards 1 }}{{- $shards = 1 -}}{{- end -}}
+{{- $perShard := int (add (derefIntDefault $.Spec.TelemetryStore.Spec.Cluster.Replicas 0) 1) -}}
 {{- /* The molding names its config file by the same id. */ -}}
-{{- $id := "0-0" -}}
-{{- $nodeKey := "0_0" -}}
-{{- $label := printf "telemetrystore_%s_%s" $kind $nodeKey -}}
+{{- $nodes := list -}}
+{{- range $s := until $shards -}}
+{{- range $r := until $perShard -}}
+{{- $nodes = append $nodes (dict "id" (printf "%d-%d" $s $r) "label" (printf "telemetrystore_%s_%d_%d" $kind $s $r) "profile" (printf "telemetrystore-%s-%d-%d" $kind $s $r)) -}}
+{{- end -}}
+{{- end -}}
 {{- $fnLabel := printf "telemetrystore_%s_functions" $kind -}}
-{{- $cfgProfile := printf "telemetrystore-%s-%s" $kind $id -}}
 {{- $fnProfile := printf "telemetrystore-%s-functions" $kind -}}
 {
   "locals": {
-    "containers_{{ $label }}": [
+    {{- range $i, $node := $nodes }}{{ if $i }},{{ end }}
+    "containers_{{ $node.label }}": [
       {
         "name": "{{ $name }}-telemetrystore-user-scripts",
         "image": "{{ $.Spec.TelemetryStore.Spec.Image }}",
@@ -52,9 +58,9 @@
           {"containerName": "{{ $name }}-telemetrystore-user-scripts", "condition": "SUCCESS"}
         ],
         "environment": [
-          {"name": "PREFETCH_LIST", "value": "{{ $name }}-installation-appconfig:default:{{ $cfgProfile }},{{ $name }}-installation-appconfig:default:{{ $fnProfile }}"},
+          {"name": "PREFETCH_LIST", "value": "{{ $name }}-installation-appconfig:default:{{ $node.profile }},{{ $name }}-installation-appconfig:default:{{ $fnProfile }}"},
           {"name": "POLL_INTERVAL", "value": "45s"},
-          {"name": "MANIFEST", "value": "{\"{{ $name }}-installation-appconfig:default:{{ $cfgProfile }}\":{\"writeTo\":{\"path\":\"/etc/clickhouse-server/config.d/config-{{ $id }}.yaml\"}},\"{{ $name }}-installation-appconfig:default:{{ $fnProfile }}\":{\"writeTo\":{\"path\":\"/etc/clickhouse-server/config.d/functions.yaml\"}}}"}
+          {"name": "MANIFEST", "value": "{\"{{ $name }}-installation-appconfig:default:{{ $node.profile }}\":{\"writeTo\":{\"path\":\"/etc/clickhouse-server/config.d/config-{{ $node.id }}.yaml\"}},\"{{ $name }}-installation-appconfig:default:{{ $fnProfile }}\":{\"writeTo\":{\"path\":\"/etc/clickhouse-server/config.d/functions.yaml\"}}}"}
         ],
         "mountPoints": [
           {
@@ -63,7 +69,7 @@
           }
         ],
         "healthCheck": {
-          "command": ["CMD-SHELL", "test -s /etc/clickhouse-server/config.d/config-{{ $id }}.yaml && test -s /etc/clickhouse-server/config.d/functions.yaml"],
+          "command": ["CMD-SHELL", "test -s /etc/clickhouse-server/config.d/config-{{ $node.id }}.yaml && test -s /etc/clickhouse-server/config.d/functions.yaml"],
           "interval": 5,
           "timeout": 3,
           "retries": 10,
@@ -72,7 +78,7 @@
         "memoryReservation": 102
       },
       {
-        "name": "{{ $name }}-telemetrystore-{{ $kind }}-{{ $id }}",
+        "name": "{{ $name }}-telemetrystore-{{ $kind }}-{{ $node.id }}",
         "image": "{{ $.Spec.TelemetryStore.Spec.Image }}",
         "logConfiguration": {
           "logDriver": "json-file",
@@ -84,7 +90,7 @@
         },
         "essential": true,
         {{- $env := list (dict "name" "CLICKHOUSE_SKIP_USER_SETUP" "value" "1") }}
-        {{- $env = append $env (dict "name" "CLICKHOUSE_CONFIG" "value" (printf "/etc/clickhouse-server/config.d/config-%s.yaml" $id)) }}
+        {{- $env = append $env (dict "name" "CLICKHOUSE_CONFIG" "value" (printf "/etc/clickhouse-server/config.d/config-%s.yaml" $node.id)) }}
         {{- /* The agent writes its files as root, so the server stays root
                through the image's own switch. */}}
         {{- $env = append $env (dict "name" "CLICKHOUSE_RUN_AS_ROOT" "value" "1") }}
@@ -119,7 +125,7 @@
         "cpu": 1024,
         "memoryReservation": 512,
         "healthCheck": {
-          "command": ["CMD-SHELL", "wget --spider -q http://localhost:8123/ping || exit 1"],
+          "command": ["CMD-SHELL", "wget -q -O- 0.0.0.0:8123/ping || exit 1"],
           "interval": 30,
           "timeout": 5,
           "retries": 3,
@@ -128,16 +134,19 @@
         }
       }
     ]
+    {{- end }}
   },
   "resource": {
     "aws_appconfig_configuration_profile": {
-      "{{ $label }}": {
+      {{- range $i, $node := $nodes }}{{ if $i }},{{ end }}
+      "{{ $node.label }}": {
         "application_id": "${aws_appconfig_application.main.id}",
-        "name": "{{ $cfgProfile }}",
+        "name": "{{ $node.profile }}",
         "location_uri": "hosted",
         "type": "AWS.Freeform",
         "tags": {{ toJson $.Labels }}
-      },
+      }
+      {{- end }},
       "{{ $fnLabel }}": {
         "application_id": "${aws_appconfig_application.main.id}",
         "name": "{{ $fnProfile }}",
@@ -147,12 +156,14 @@
       }
     },
     "aws_appconfig_hosted_configuration_version": {
-      "{{ $label }}": {
+      {{- range $i, $node := $nodes }}{{ if $i }},{{ end }}
+      "{{ $node.label }}": {
         "application_id": "${aws_appconfig_application.main.id}",
-        "configuration_profile_id": "${aws_appconfig_configuration_profile.{{ $label }}.configuration_profile_id}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.{{ $node.label }}.configuration_profile_id}",
         "content_type": "application/x-yaml",
-        "content": "${file(\"${path.module}/telemetrystore/{{ $kind }}/config-{{ $id }}.yaml\")}"
-      },
+        "content": "${file(\"${path.module}/telemetrystore/{{ $kind }}/config-{{ $node.id }}.yaml\")}"
+      }
+      {{- end }},
       "{{ $fnLabel }}": {
         "application_id": "${aws_appconfig_application.main.id}",
         "configuration_profile_id": "${aws_appconfig_configuration_profile.{{ $fnLabel }}.configuration_profile_id}",
@@ -161,14 +172,16 @@
       }
     },
     "aws_appconfig_deployment": {
-      "{{ $label }}": {
+      {{- range $i, $node := $nodes }}{{ if $i }},{{ end }}
+      "{{ $node.label }}": {
         "application_id": "${aws_appconfig_application.main.id}",
         "environment_id": "${aws_appconfig_environment.main.environment_id}",
-        "configuration_profile_id": "${aws_appconfig_configuration_profile.{{ $label }}.configuration_profile_id}",
-        "configuration_version": "${aws_appconfig_hosted_configuration_version.{{ $label }}.version_number}",
+        "configuration_profile_id": "${aws_appconfig_configuration_profile.{{ $node.label }}.configuration_profile_id}",
+        "configuration_version": "${aws_appconfig_hosted_configuration_version.{{ $node.label }}.version_number}",
         "deployment_strategy_id": "${aws_appconfig_deployment_strategy.main.id}",
         "tags": {{ toJson $.Labels }}
-      },
+      }
+      {{- end }},
       "{{ $fnLabel }}": {
         "application_id": "${aws_appconfig_application.main.id}",
         "environment_id": "${aws_appconfig_environment.main.environment_id}",
@@ -179,14 +192,15 @@
       }
     },
     "aws_ecs_task_definition": {
-      "{{ $label }}": {
-        "family": "{{ $name }}-telemetrystore-{{ $kind }}-{{ $id }}",
+      {{- range $i, $node := $nodes }}{{ if $i }},{{ end }}
+      "{{ $node.label }}": {
+        "family": "{{ $name }}-telemetrystore-{{ $kind }}-{{ $node.id }}",
         "tags": {{ toJson $.Labels }},
         "network_mode": "awsvpc",
         "requires_compatibilities": ["EC2"],
         "task_role_arn": "${local.task_role_arn}",
         "execution_role_arn": "${local.execution_role_arn}",
-        "container_definitions": "${jsonencode(local.containers_{{ $label }})}",
+        "container_definitions": "${jsonencode(local.containers_{{ $node.label }})}",
         "volume": [
           {
             "name": "telemetrystore-user-scripts",
@@ -204,15 +218,17 @@
           },
           {
             "name": "telemetrystore-data",
-            "host_path": "/var/lib/foundry/{{ $name }}/telemetrystore/{{ $kind }}/{{ $id }}"
+            "host_path": "/var/lib/foundry/{{ $name }}/telemetrystore/{{ $kind }}/{{ $node.id }}"
           }
         ],
-        "depends_on": ["aws_appconfig_deployment.{{ $label }}", "aws_appconfig_deployment.{{ $fnLabel }}"]
+        "depends_on": ["aws_appconfig_deployment.{{ $node.label }}", "aws_appconfig_deployment.{{ $fnLabel }}"]
       }
+      {{- end }}
     },
     "aws_service_discovery_service": {
-      "{{ $label }}": {
-        "name": "telemetrystore-{{ $kind }}-{{ $id }}",
+      {{- range $i, $node := $nodes }}{{ if $i }},{{ end }}
+      "{{ $node.label }}": {
+        "name": "telemetrystore-{{ $kind }}-{{ $node.id }}",
         "tags": {{ toJson $.Labels }},
         "dns_config": {
           "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
@@ -225,12 +241,14 @@
           "routing_policy": "MULTIVALUE"
         }
       }
+      {{- end }}
     },
     "aws_ecs_service": {
-      "{{ $label }}": {
-        "name": "{{ $name }}-telemetrystore-{{ $kind }}-{{ $id }}",
+      {{- range $i, $node := $nodes }}{{ if $i }},{{ end }}
+      "{{ $node.label }}": {
+        "name": "{{ $name }}-telemetrystore-{{ $kind }}-{{ $node.id }}",
         "cluster": "${local.cluster_arn}",
-        "task_definition": "${aws_ecs_task_definition.{{ $label }}.arn}",
+        "task_definition": "${aws_ecs_task_definition.{{ $node.label }}.arn}",
         "desired_count": 1,
         {{- /* Two tasks cannot co-schedule over one data directory. */}}
         "deployment_minimum_healthy_percent": 0,
@@ -246,9 +264,10 @@
           "security_groups": "${local.security_group_ids}"
         },
         "service_registries": {
-          "registry_arn": "${aws_service_discovery_service.{{ $label }}.arn}"
+          "registry_arn": "${aws_service_discovery_service.{{ $node.label }}.arn}"
         }
       }
+      {{- end }}
     }
   }
 }

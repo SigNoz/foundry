@@ -18,12 +18,10 @@ Components:
 - OTel Collector (ingester)
 - Schema migrator, run once on Fargate
 
-The example beside this file is [`byo/`](byo/): the cluster is yours, and every object it is made of is stated on the casting.
-
 > [!IMPORTANT]
 > Mount a durable volume at `/var/lib/foundry` on the instances that run stateful services, otherwise data lives on the instance's root disk. This deployment sets no placement constraints; pin stateful services to their instances yourself.
 >
-> One node per component: cluster shard and replica counts are not honoured yet.
+> Cluster shard and replica counts are honoured: every node is its own service.
 
 ## Prerequisites
 
@@ -63,6 +61,31 @@ Component configuration is delivered through AWS AppConfig and reloaded in place
 `spec.metastore.kind` defaults to `postgres`, which runs as its own ECS service. Under `sqlite` no PostgreSQL service is created and SigNoz holds the database file itself.
 
 Stateful data lives on the instance running the task, under `/var/lib/foundry/<name>/<component>/<kind>/<node>`, for example `/var/lib/foundry/signoz/telemetrystore/clickhouse/0-0`.
+
+Shard and replica counts become nodes, and every node is its own ECS service:
+
+```yaml
+spec:
+  telemetrystore:
+    spec:
+      cluster:
+        shards: 2
+        replicas: 1  # copies beside each shard, so four nodes here
+  telemetrykeeper:
+    spec:
+      cluster:
+        replicas: 3  # keep it odd, for quorum
+  signoz:
+    spec:
+      cluster:
+        replicas: 2  # under sqlite each node holds its own database
+  metastore:
+    spec:
+      cluster:
+        replicas: 2
+```
+
+Nothing spreads the nodes across instances, so pin them yourself if that matters.
 
 ## Deploy
 
@@ -109,9 +132,9 @@ One root module, one file per component, and no child modules. It creates:
 | Resource | Count |
 | --- | --- |
 | `aws_service_discovery_private_dns_namespace` | 1, named `<name>-installation.local` |
-| `aws_service_discovery_service` | one per component |
-| `aws_ecs_service` | one per component |
-| `aws_ecs_task_definition` | one per component, plus the migrator |
+| `aws_service_discovery_service` | one per node |
+| `aws_ecs_service` | one per node |
+| `aws_ecs_task_definition` | one per node, plus the migrator |
 | `aws_appconfig_*` | one set per config file |
 | `aws_iam_role` | 2, unless stated on the casting |
 
@@ -145,11 +168,11 @@ Components resolve each other inside `<name>-installation.local`:
 
 | Component | DNS name | Ports |
 | --- | --- | --- |
-| ClickHouse Keeper | `telemetrykeeper-clickhousekeeper-0` | 9181 client, 9234 raft |
-| ZooKeeper | `telemetrykeeper-zookeeper-0` | 2181 client, 2888 raft, 3888 election, 9141 metrics |
-| ClickHouse | `telemetrystore-clickhouse-0-0` | 9000 native, 8123 HTTP, 9009 interserver, 9363 metrics |
-| PostgreSQL | `metastore-postgres-0` | 5432 |
-| SigNoz | `signoz-0` | 8080 API, 4320 OpAMP |
+| ClickHouse Keeper | `telemetrykeeper-clickhousekeeper-<i>` | 9181 client, 9234 raft |
+| ZooKeeper | `telemetrykeeper-zookeeper-<i>` | 2181 client, 2888 raft, 3888 election, 9141 metrics |
+| ClickHouse | `telemetrystore-clickhouse-<shard>-<replica>` | 9000 native, 8123 HTTP, 9009 interserver, 9363 metrics |
+| PostgreSQL | `metastore-postgres-<i>` | 5432 |
+| SigNoz | `signoz-<i>` | 8080 API, 4320 OpAMP |
 | Ingester | `ingester` | 4317 gRPC, 4318 HTTP |
 | MCP | `mcp` | 8000 |
 
