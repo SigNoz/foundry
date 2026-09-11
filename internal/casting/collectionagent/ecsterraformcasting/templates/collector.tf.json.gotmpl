@@ -32,9 +32,16 @@
           "retries": 10,
           "startPeriod": 30
         },
-        {{- /* json-file makes the collector tail its own log through the
-               docker-containers mount. */}}
-        "logConfiguration": {"logDriver": "none"},
+        {{- /* The collector tails this file through the docker-containers
+               mount, so agent.yaml drops this task family. */}}
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
         "memoryReservation": 102
       },
       {
@@ -77,7 +84,14 @@
         "dependsOn": [
           {"containerName": "{{ $sidecar }}", "condition": "HEALTHY"}
         ],
-        "logConfiguration": {"logDriver": "none"},
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
         "cpu": 256,
         "memoryReservation": 512
       }

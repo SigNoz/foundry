@@ -20,7 +20,7 @@ It collects:
 
 The task uses the `host` network mode, so OTLP intake is on the instance's own `localhost:4317` (gRPC) and `localhost:4318` (HTTP). Tasks on that instance using the `host` network mode reach the agent there. Tasks using `awsvpc` have their own loopback and must address the instance's private IP instead.
 
-Containers using the `awslogs` log driver write nothing to the instance, so the agent does not read their logs.
+Containers using the `awslogs` log driver write nothing to the instance, so the agent does not read their logs. The agent's own containers log through `json-file` on the instance, readable with `docker logs`, and the agent drops its own lines from what it ships.
 
 Foundry generates Terraform. It does not create the cluster.
 

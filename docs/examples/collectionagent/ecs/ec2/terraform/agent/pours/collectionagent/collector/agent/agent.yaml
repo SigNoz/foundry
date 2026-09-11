@@ -62,6 +62,9 @@ receivers:
         layout_type: gotime
         parse_from: body.time
       type: json_parser
+    - expr: body.attrs["com.amazonaws.ecs.task-definition-family"] == "signoz-collector-agent"
+      on_error: send
+      type: filter
     - combine_field: body.log
       combine_with: ""
       force_flush_period: 5s

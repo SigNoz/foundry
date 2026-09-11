@@ -67,7 +67,7 @@ func TestTemplatesRender(t *testing.T) {
 		"Tfvars_Valid":    {tfvarsTF, data},
 		"Main_Valid":      {mainTF, data},
 		"Collector_Valid": {collectorTF, data},
-		"Agent_Valid":     {agentYAMLTemplate, nil},
+		"Agent_Valid":     {agentYAMLTemplate, agentTemplateDataFor(*statedCasting(t))},
 	} {
 		t.Run(name, func(t *testing.T) {
 			material, err := test.template.Render(test.data, strings.TrimSuffix(test.template.Name(), ".gotmpl"))
@@ -192,7 +192,7 @@ func TestMainRoleOwnership(t *testing.T) {
 }
 
 func TestAgentConfig(t *testing.T) {
-	material, err := agentYAMLTemplate.Render(nil, "agent.yaml")
+	material, err := agentYAMLTemplate.Render(agentTemplateDataFor(*statedCasting(t)), "agent.yaml")
 	require.NoError(t, err)
 
 	structured, ok := material.(domain.StructuredMaterial)
@@ -209,6 +209,7 @@ func TestAgentConfig(t *testing.T) {
 				Operators []struct {
 					Type    string `json:"type"`
 					From    string `json:"from"`
+					Expr    string `json:"expr"`
 					OnError string `json:"on_error"`
 				} `json:"operators"`
 			} `json:"filelog"`
@@ -242,5 +243,26 @@ func TestAgentConfig(t *testing.T) {
 		}
 
 		assert.Equal(t, 5, guarded, "four ecs label lifts plus the carved container id")
+	})
+
+	// The agent's own containers log through json-file, so it would otherwise
+	// ship its own lines back to itself.
+	t.Run("OwnFamilyFiltered_Valid", func(t *testing.T) {
+		expectedExpr := `body.attrs["com.amazonaws.ecs.task-definition-family"] == "signoz-collector-agent"`
+
+		filtered := 0
+
+		for _, operator := range config.Receivers.Filelog.Operators {
+			if operator.Type != "filter" {
+				continue
+			}
+
+			filtered++
+
+			assert.Equal(t, expectedExpr, operator.Expr)
+			assert.Equal(t, "send", operator.OnError)
+		}
+
+		assert.Equal(t, 1, filtered, "the agent's own family is dropped once")
 	})
 }

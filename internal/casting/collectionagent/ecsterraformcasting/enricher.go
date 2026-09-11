@@ -28,11 +28,20 @@ func (e *ecsMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.Mol
 	}
 
 	buf := bytes.NewBuffer(nil)
-	if err := agentYAMLTemplate.Execute(buf, nil); err != nil {
+	if err := agentYAMLTemplate.Execute(buf, agentTemplateDataFor(*config)); err != nil {
 		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute agent template")
 	}
 
 	config.Spec.Collector.Status.Config.Set(config.Spec.Collector.Kind.ConfigKey(), buf.Bytes())
 
 	return nil
+}
+
+// Family is the agent's own ECS task family, which its filelog pipeline drops.
+type agentTemplateData struct {
+	Family string
+}
+
+func agentTemplateDataFor(config collectionagent.Casting) agentTemplateData {
+	return agentTemplateData{Family: config.Metadata.Name + "-collector-" + config.Spec.Collector.Kind.String()}
 }

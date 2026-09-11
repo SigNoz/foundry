@@ -24,7 +24,14 @@
           "retries": 10,
           "startPeriod": 30
         },
-        "logConfiguration": {"logDriver": "none"},
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
         "memoryReservation": 102
       },
       {
@@ -33,7 +40,7 @@
         "essential": true,
         "user": "0",
         "command": ["--config=/conf/agent.yaml"],
-        "environment": [{"name":"FOUNDRY_CONFIG_DIGEST","value":"19e7f29008b5eceb0379c293cb5b46481879df97ad66be91de2c34364e3efcc6"},{"name":"OTEL_COLLECTOR_ROLE","value":"agent"},{"name":"SIGNOZ_INGESTION_ENDPOINT","value":"https://ingest.us.signoz.cloud:443"}],
+        "environment": [{"name":"FOUNDRY_CONFIG_DIGEST","value":"503dd4857ebd4ec7c2378c9c670c764f92194354f58c0913dbe79fd17a349d3e"},{"name":"OTEL_COLLECTOR_ROLE","value":"agent"},{"name":"SIGNOZ_INGESTION_ENDPOINT","value":"https://ingest.us.signoz.cloud:443"}],
         "portMappings": [
           {"containerPort": 4317, "hostPort": 4317, "protocol": "tcp"},
           {"containerPort": 4318, "hostPort": 4318, "protocol": "tcp"}
@@ -63,7 +70,14 @@
         "dependsOn": [
           {"containerName": "signoz-collector-appconfig-agent", "condition": "HEALTHY"}
         ],
-        "logConfiguration": {"logDriver": "none"},
+        "logConfiguration": {
+          "logDriver": "json-file",
+          "options": {
+            "max-size": "10m",
+            "max-file": "3",
+            "labels": "com.amazonaws.ecs.task-definition-family,com.amazonaws.ecs.container-name,com.amazonaws.ecs.task-arn,com.amazonaws.ecs.cluster"
+          }
+        },
         "cpu": 256,
         "memoryReservation": 512
       }

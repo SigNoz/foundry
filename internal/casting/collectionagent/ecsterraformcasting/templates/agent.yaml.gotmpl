@@ -96,6 +96,10 @@ receivers:
           parse_from: body.time
           layout_type: gotime
           layout: '2006-01-02T15:04:05.999999999Z07:00'
+      # The agent tails its own json-file log, so its own family is dropped here.
+      - type: filter
+        expr: 'body.attrs["com.amazonaws.ecs.task-definition-family"] == "{{ .Family }}"'
+        on_error: send
       - type: recombine
         combine_field: body.log
         combine_with: ""
