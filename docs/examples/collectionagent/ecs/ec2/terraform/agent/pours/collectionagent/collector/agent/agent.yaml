@@ -62,7 +62,8 @@ receivers:
         layout_type: gotime
         parse_from: body.time
       type: json_parser
-    - expr: body.attrs["com.amazonaws.ecs.task-definition-family"] == "signoz-collector-agent"
+    - expr: body.attrs != nil && body.attrs["com.amazonaws.ecs.task-definition-family"]
+        == "signoz-collector-agent"
       on_error: send
       type: filter
     - combine_field: body.log
@@ -73,22 +74,27 @@ receivers:
       source_identifier: attributes["log.file.path"]
       type: recombine
     - from: body.attrs["com.amazonaws.ecs.task-definition-family"]
+      if: body.attrs != nil
       on_error: send_quiet
       to: resource["service.name"]
       type: move
     - from: body.attrs["com.amazonaws.ecs.container-name"]
+      if: body.attrs != nil
       on_error: send_quiet
       to: resource["aws.ecs.container.name"]
       type: move
     - from: body.attrs["com.amazonaws.ecs.task-arn"]
+      if: body.attrs != nil
       on_error: send_quiet
       to: resource["aws.ecs.task.arn"]
       type: move
     - from: body.attrs["com.amazonaws.ecs.cluster"]
+      if: body.attrs != nil
       on_error: send_quiet
       to: resource["aws.ecs.cluster.name"]
       type: move
     - field: body.attrs
+      if: body.attrs != nil
       on_error: send_quiet
       type: remove
     - on_error: send

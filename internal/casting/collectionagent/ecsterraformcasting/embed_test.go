@@ -209,6 +209,8 @@ func TestAgentConfig(t *testing.T) {
 				Operators []struct {
 					Type    string `json:"type"`
 					From    string `json:"from"`
+					Field   string `json:"field"`
+					If      string `json:"if"`
 					Expr    string `json:"expr"`
 					OnError string `json:"on_error"`
 				} `json:"operators"`
@@ -245,10 +247,37 @@ func TestAgentConfig(t *testing.T) {
 		assert.Equal(t, 5, guarded, "four ecs label lifts plus the carved container id")
 	})
 
+	// send_quiet still hands the error back to the file reader, so the operators
+	// that read body.attrs must not run at all on a line that carries none.
+	t.Run("AttrsOperatorsGuarded_Valid", func(t *testing.T) {
+		guarded := 0
+
+		for _, operator := range config.Receivers.Filelog.Operators {
+			subject := operator.From
+			if operator.Type == "remove" {
+				subject = operator.Field
+			}
+
+			if operator.Type != "move" && operator.Type != "remove" {
+				continue
+			}
+
+			if !strings.HasPrefix(subject, "body.attrs") {
+				continue
+			}
+
+			guarded++
+
+			assert.Equal(t, "body.attrs != nil", operator.If, "%q must be skipped without attrs", subject)
+		}
+
+		assert.Equal(t, 5, guarded, "four ecs label lifts plus the attrs removal")
+	})
+
 	// The agent's own containers log through json-file, so it would otherwise
 	// ship its own lines back to itself.
 	t.Run("OwnFamilyFiltered_Valid", func(t *testing.T) {
-		expectedExpr := `body.attrs["com.amazonaws.ecs.task-definition-family"] == "signoz-collector-agent"`
+		expectedExpr := `body.attrs != nil && body.attrs["com.amazonaws.ecs.task-definition-family"] == "signoz-collector-agent"`
 
 		filtered := 0
 
@@ -260,6 +289,7 @@ func TestAgentConfig(t *testing.T) {
 			filtered++
 
 			assert.Equal(t, expectedExpr, operator.Expr)
+			assert.Empty(t, operator.If, "stanza's filter never evaluates if")
 			assert.Equal(t, "send", operator.OnError)
 		}
 

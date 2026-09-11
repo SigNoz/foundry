@@ -40,7 +40,7 @@
         "essential": true,
         "user": "0",
         "command": ["--config=/conf/agent.yaml"],
-        "environment": [{"name":"FOUNDRY_CONFIG_DIGEST","value":"503dd4857ebd4ec7c2378c9c670c764f92194354f58c0913dbe79fd17a349d3e"},{"name":"OTEL_COLLECTOR_ROLE","value":"agent"},{"name":"SIGNOZ_INGESTION_ENDPOINT","value":"https://ingest.us.signoz.cloud:443"}],
+        "environment": [{"name":"FOUNDRY_CONFIG_DIGEST","value":"af899eeb0726da9874899aa1db8a72381743b8a5053eb78472b565c4a012fd0c"},{"name":"OTEL_COLLECTOR_ROLE","value":"agent"},{"name":"SIGNOZ_INGESTION_ENDPOINT","value":"https://ingest.us.signoz.cloud:443"}],
         "portMappings": [
           {"containerPort": 4317, "hostPort": 4317, "protocol": "tcp"},
           {"containerPort": 4318, "hostPort": 4318, "protocol": "tcp"}
