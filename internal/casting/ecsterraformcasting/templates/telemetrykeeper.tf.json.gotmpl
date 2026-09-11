@@ -1,11 +1,14 @@
 {{- $name := $.Metadata.Name -}}
 {{- $kind := $.Spec.TelemetryKeeper.Kind.String -}}
+{{- $namespace := printf "%s-installation.local" $name -}}
+{{- $replicas := derefIntDefault $.Spec.TelemetryKeeper.Spec.Cluster.Replicas 1 -}}
+{{- if lt $replicas 1 }}{{- $replicas = 1 -}}{{- end -}}
 {{- /* The molding names its config file by the same ordinal. */ -}}
-{{- $i := 0 -}}
-{{- $label := printf "telemetrykeeper_%s_%d" $kind $i -}}
 {{- if eq $kind "zookeeper" -}}
 {
   "locals": {
+    {{- range $i := until $replicas }}{{ if $i }},{{ end }}
+    {{- $label := printf "telemetrykeeper_%s_%d" $kind $i }}
     "containers_{{ $label }}": [
       {
         "name": "{{ $name }}-telemetrykeeper-{{ $kind }}-{{ $i }}",
@@ -22,6 +25,17 @@
         "user": "0",
         {{- /* One-based: ZooKeeper's own myid starts at 1. */}}
         {{- $env := list (dict "name" "ZOO_SERVER_ID" "value" (printf "%d" (add $i 1))) }}
+        {{- if gt $replicas 1 }}
+        {{- $servers := list }}
+        {{- range $j := until $replicas }}
+        {{- if eq $j $i }}
+        {{- $servers = append $servers "0.0.0.0:2888:3888" }}
+        {{- else }}
+        {{- $servers = append $servers (printf "telemetrykeeper-%s-%d.%s:2888:3888" $kind $j $namespace) }}
+        {{- end }}
+        {{- end }}
+        {{- $env = append $env (dict "name" "ZOO_SERVERS" "value" (join "," $servers)) }}
+        {{- end }}
         {{- range $key, $value := $.Spec.TelemetryKeeper.Spec.Env }}
         {{- $env = append $env (dict "name" $key "value" $value) }}
         {{- end }}
@@ -49,9 +63,12 @@
         }
       }
     ]
+    {{- end }}
   },
   "resource": {
     "aws_ecs_task_definition": {
+      {{- range $i := until $replicas }}{{ if $i }},{{ end }}
+      {{- $label := printf "telemetrykeeper_%s_%d" $kind $i }}
       "{{ $label }}": {
         "family": "{{ $name }}-telemetrykeeper-{{ $kind }}-{{ $i }}",
         "tags": {{ toJson $.Labels }},
@@ -67,8 +84,11 @@
           }
         ]
       }
+      {{- end }}
     },
     "aws_service_discovery_service": {
+      {{- range $i := until $replicas }}{{ if $i }},{{ end }}
+      {{- $label := printf "telemetrykeeper_%s_%d" $kind $i }}
       "{{ $label }}": {
         "name": "telemetrykeeper-{{ $kind }}-{{ $i }}",
         "tags": {{ toJson $.Labels }},
@@ -83,8 +103,11 @@
           "routing_policy": "MULTIVALUE"
         }
       }
+      {{- end }}
     },
     "aws_ecs_service": {
+      {{- range $i := until $replicas }}{{ if $i }},{{ end }}
+      {{- $label := printf "telemetrykeeper_%s_%d" $kind $i }}
       "{{ $label }}": {
         "name": "{{ $name }}-telemetrykeeper-{{ $kind }}-{{ $i }}",
         "cluster": "${local.cluster_arn}",
@@ -106,13 +129,16 @@
           "registry_arn": "${aws_service_discovery_service.{{ $label }}.arn}"
         }
       }
+      {{- end }}
     }
   }
 }
 {{- else -}}
-{{- $profile := printf "telemetrykeeper-%s-%d" $kind $i -}}
 {
   "locals": {
+    {{- range $i := until $replicas }}{{ if $i }},{{ end }}
+    {{- $label := printf "telemetrykeeper_%s_%d" $kind $i }}
+    {{- $profile := printf "telemetrykeeper-%s-%d" $kind $i }}
     "containers_{{ $label }}": [
       {{- /* A config change reloads keeper rather than replacing the node
              that holds the raft log. */}}
@@ -198,28 +224,37 @@
         }
       }
     ]
+    {{- end }}
   },
   "resource": {
     {{- /* Hosted versions are immutable, so editing the pour's YAML mints a
            new version and a new deployment. */}}
     "aws_appconfig_configuration_profile": {
+      {{- range $i := until $replicas }}{{ if $i }},{{ end }}
+      {{- $label := printf "telemetrykeeper_%s_%d" $kind $i }}
       "{{ $label }}": {
         "application_id": "${aws_appconfig_application.main.id}",
-        "name": "{{ $profile }}",
+        "name": "telemetrykeeper-{{ $kind }}-{{ $i }}",
         "location_uri": "hosted",
         "type": "AWS.Freeform",
         "tags": {{ toJson $.Labels }}
       }
+      {{- end }}
     },
     "aws_appconfig_hosted_configuration_version": {
+      {{- range $i := until $replicas }}{{ if $i }},{{ end }}
+      {{- $label := printf "telemetrykeeper_%s_%d" $kind $i }}
       "{{ $label }}": {
         "application_id": "${aws_appconfig_application.main.id}",
         "configuration_profile_id": "${aws_appconfig_configuration_profile.{{ $label }}.configuration_profile_id}",
         "content_type": "application/x-yaml",
         "content": "${file(\"${path.module}/telemetrykeeper/{{ $kind }}/keeper-{{ $i }}.yaml\")}"
       }
+      {{- end }}
     },
     "aws_appconfig_deployment": {
+      {{- range $i := until $replicas }}{{ if $i }},{{ end }}
+      {{- $label := printf "telemetrykeeper_%s_%d" $kind $i }}
       "{{ $label }}": {
         "application_id": "${aws_appconfig_application.main.id}",
         "environment_id": "${aws_appconfig_environment.main.environment_id}",
@@ -228,8 +263,11 @@
         "deployment_strategy_id": "${aws_appconfig_deployment_strategy.main.id}",
         "tags": {{ toJson $.Labels }}
       }
+      {{- end }}
     },
     "aws_ecs_task_definition": {
+      {{- range $i := until $replicas }}{{ if $i }},{{ end }}
+      {{- $label := printf "telemetrykeeper_%s_%d" $kind $i }}
       "{{ $label }}": {
         "family": "{{ $name }}-telemetrykeeper-{{ $kind }}-{{ $i }}",
         "tags": {{ toJson $.Labels }},
@@ -253,8 +291,11 @@
         ],
         "depends_on": ["aws_appconfig_deployment.{{ $label }}"]
       }
+      {{- end }}
     },
     "aws_service_discovery_service": {
+      {{- range $i := until $replicas }}{{ if $i }},{{ end }}
+      {{- $label := printf "telemetrykeeper_%s_%d" $kind $i }}
       "{{ $label }}": {
         "name": "telemetrykeeper-{{ $kind }}-{{ $i }}",
         "tags": {{ toJson $.Labels }},
@@ -269,8 +310,11 @@
           "routing_policy": "MULTIVALUE"
         }
       }
+      {{- end }}
     },
     "aws_ecs_service": {
+      {{- range $i := until $replicas }}{{ if $i }},{{ end }}
+      {{- $label := printf "telemetrykeeper_%s_%d" $kind $i }}
       "{{ $label }}": {
         "name": "{{ $name }}-telemetrykeeper-{{ $kind }}-{{ $i }}",
         "cluster": "${local.cluster_arn}",
@@ -292,6 +336,7 @@
           "registry_arn": "${aws_service_discovery_service.{{ $label }}.arn}"
         }
       }
+      {{- end }}
     }
   }
 }
