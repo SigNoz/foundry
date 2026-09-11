@@ -1,20 +1,18 @@
-{{- $region := index $.Metadata.Annotations "foundry.signoz.io/ecs/region" -}}
-{{- $configBucket := index $.Metadata.Annotations "foundry.signoz.io/ecs/config-bucket" -}}
-{{- $taskRoleArn := index $.Metadata.Annotations "foundry.signoz.io/ecs/task-role-arn" -}}
-{{- $taskExecutionRoleArn := index $.Metadata.Annotations "foundry.signoz.io/ecs/task-execution-role-arn" -}}
-{{- $clusterID := index $.Metadata.Annotations "foundry.signoz.io/ecs/cluster-id" -}}
-{{- $subnetIDs := index $.Metadata.Annotations "foundry.signoz.io/ecs/subnet-ids" -}}
-{{- $securityGroupIDs := index $.Metadata.Annotations "foundry.signoz.io/ecs/security-group-ids" -}}
-{{- $vpcID := index $.Metadata.Annotations "foundry.signoz.io/ecs/vpc-id" -}}
-{{- $capacityProvider := index $.Metadata.Annotations "foundry.signoz.io/ecs/capacity-provider" -}}
+{{- $name := $.Metadata.Name -}}
 {
-  "region": "{{ $region }}",
-  "ecs_cluster_id": "{{ $clusterID }}",
-  "subnet_ids": [{{ range $i, $v := splitList "," $subnetIDs }}{{ if $i }}, {{ end }}"{{ trim $v }}"{{ end }}],
-  "security_group_ids": [{{ range $i, $v := splitList "," $securityGroupIDs }}{{ if $i }}, {{ end }}"{{ trim $v }}"{{ end }}],
-  "vpc_id": "{{ $vpcID }}",
-  "config_bucket": "{{ $configBucket }}",
-  "task_role_arn": "{{ $taskRoleArn }}",
-  "task_execution_role_arn": "{{ $taskExecutionRoleArn }}",
-  "capacity_provider": "{{ $capacityProvider }}"
+  "aws_region": "{{ $.Region }}",
+  "cluster_arn": "{{ $.Cluster.Stated }}",
+  "subnet_ids": {{ toJson (default (list) $.Subnets.StatedIDs) }},
+  "security_group_ids": {{ toJson (default (list) $.SecurityGroup.StatedIDs) }},
+  "vpc_id": "{{ $.VPC.Stated }}",
+  {{- if $.TaskRole.IsStated }}
+  "task_role_arn": "{{ $.TaskRole.Stated }}",
+  {{- else }}
+  "task_role_name": "{{ $name }}-installation-iam-task",
+  {{- end }}
+  {{- if $.ExecutionRole.IsStated }}
+  "execution_role_arn": "{{ $.ExecutionRole.Stated }}"
+  {{- else }}
+  "execution_role_name": "{{ $name }}-installation-iam-exec"
+  {{- end }}
 }

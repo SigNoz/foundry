@@ -1,40 +1,86 @@
+{{- /* terraform.tfvars.json carries the values these declare. */ -}}
 {
   "variable": {
-    "region": {
-      "description": "AWS region",
+    "aws_region": {
+      "nullable": false,
+      "validation": {
+        "condition": "${can(regex(\"^[a-z]{2}(-gov)?-[a-z]+-[0-9]$\", var.aws_region))}",
+        "error_message": "aws_region must be a region identifier such as us-east-1."
+      },
+      "description": "AWS region holding the cluster",
       "type": "string"
     },
-    "ecs_cluster_id": {
-      "description": "ID of the existing ECS cluster to deploy services into",
+    "cluster_arn": {
+      "nullable": false,
+      "validation": {
+        "condition": "${can(regex(\"^arn:aws:ecs:\", var.cluster_arn))}",
+        "error_message": "cluster_arn must be the ARN of an ECS cluster."
+      },
+      "description": "ARN of the ECS cluster to deploy into",
       "type": "string"
     },
     "subnet_ids": {
-      "description": "List of subnet IDs for ECS service networking (awsvpc)",
+      "nullable": false,
+      "validation": {
+        "condition": "${length(var.subnet_ids) > 0 && alltrue([for id in var.subnet_ids : can(regex(\"^subnet-\", id))])}",
+        "error_message": "subnet_ids must be a non-empty list of subnet IDs."
+      },
+      "description": "IDs of the subnets tasks are placed in",
       "type": "list(string)"
     },
     "security_group_ids": {
-      "description": "List of security group IDs for ECS service networking (awsvpc)",
+      "nullable": false,
+      "validation": {
+        "condition": "${length(var.security_group_ids) > 0 && alltrue([for id in var.security_group_ids : can(regex(\"^sg-\", id))])}",
+        "error_message": "security_group_ids must be a non-empty list of security group IDs."
+      },
+      "description": "IDs of the security groups tasks join",
       "type": "list(string)"
     },
     "vpc_id": {
-      "description": "VPC ID for the private DNS namespace",
+      "nullable": false,
+      "validation": {
+        "condition": "${can(regex(\"^vpc-\", var.vpc_id))}",
+        "error_message": "vpc_id must be the ID of a VPC, such as vpc-0a1b2c3d."
+      },
+      "description": "ID of the VPC the Cloud Map namespace is created in",
       "type": "string"
     },
-    "config_bucket": {
-      "description": "S3 bucket name for storing config files",
-      "type": "string"
-    },
+    {{- /* Several workloads share one cluster, so a bare role name collides
+           on the second apply. */}}
+    {{- if $.TaskRole.IsStated }}
     "task_role_arn": {
-      "description": "IAM role ARN for ECS tasks",
+      "nullable": false,
+      "validation": {
+        "condition": "${can(regex(\"^arn:aws:iam::\", var.task_role_arn))}",
+        "error_message": "task_role_arn must be the ARN of an IAM role."
+      },
+      "description": "ARN of the IAM role tasks assume",
       "type": "string"
     },
-    "task_execution_role_arn": {
-      "description": "IAM role ARN for ECS task execution (pull images, write logs)",
+    {{- else }}
+    "task_role_name": {
+      "nullable": false,
+      "description": "Name of the IAM role this stack creates for its tasks",
       "type": "string"
     },
-    "capacity_provider": {
-      "description": "Name of the ECS capacity provider",
+    {{- end }}
+    {{- if $.ExecutionRole.IsStated }}
+    "execution_role_arn": {
+      "nullable": false,
+      "validation": {
+        "condition": "${can(regex(\"^arn:aws:iam::\", var.execution_role_arn))}",
+        "error_message": "execution_role_arn must be the ARN of an IAM role."
+      },
+      "description": "ARN of the IAM role the ECS agent assumes",
       "type": "string"
     }
+    {{- else }}
+    "execution_role_name": {
+      "nullable": false,
+      "description": "Name of the IAM role this stack creates for the ECS agent to pull images and write logs",
+      "type": "string"
+    }
+    {{- end }}
   }
 }
