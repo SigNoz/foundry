@@ -88,6 +88,16 @@ spec:
 Set it: the SigNoz Kubernetes views require it on every entity, and queries
 fail silently without it.
 
+Extra resource attributes, `deployment.environment` among them, travel on
+`OTEL_RESOURCE_ATTRIBUTES` in `spec.collector.spec.env`. Host and cluster
+identity is set by the collector config itself, so your value only adds
+attributes:
+
+```yaml
+      env:
+        OTEL_RESOURCE_ATTRIBUTES: deployment.environment=production
+```
+
 ## Forge
 
 ```bash
