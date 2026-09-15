@@ -40,7 +40,7 @@ spec:
               value: "/var/lib/postgresql/data"
             {{- range $key, $val := $.Spec.MetaStore.Spec.Env }}
             - name: {{ $key }}
-              value: {{ $val }}
+              value: {{ $val | quote }}
             {{- end }}
           livenessProbe:
             exec:

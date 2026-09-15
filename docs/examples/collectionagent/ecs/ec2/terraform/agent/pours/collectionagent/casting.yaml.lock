@@ -1,0 +1,471 @@
+apiVersion: v1alpha1
+kind: CollectionAgent
+metadata:
+  annotations:
+    foundry.signoz.io/ecs-cluster-arn: arn:aws:ecs:us-east-1:123456789012:cluster/signoz
+    foundry.signoz.io/ecs-region: us-east-1
+  name: signoz
+spec:
+  collector:
+    kind: agent
+    spec:
+      cluster:
+        replicas: 1
+      config:
+        data:
+          collector/agent/agent.yaml: |
+            exporters:
+              otlphttp/signoz:
+                endpoint: ${env:SIGNOZ_INGESTION_ENDPOINT}
+            extensions:
+              health_check:
+                endpoint: 0.0.0.0:13133
+                path: /healthz
+            processors:
+              batch:
+                send_batch_max_size: 2048
+                send_batch_size: 1000
+                timeout: 10s
+              memory_limiter:
+                check_interval: 5s
+                limit_mib: 4000
+                spike_limit_mib: 800
+              resourcedetection:
+                detectors:
+                - env
+                - ec2
+                timeout: 5s
+            receivers:
+              docker_stats:
+                api_version: "1.44"
+                collection_interval: 60s
+                container_labels_to_metric_labels:
+                  com.amazonaws.ecs.cluster: aws.ecs.cluster.name
+                  com.amazonaws.ecs.task-arn: aws.ecs.task.arn
+                  com.amazonaws.ecs.task-definition-family: aws.ecs.task.family
+                  com.amazonaws.ecs.task-definition-version: aws.ecs.task.revision
+                endpoint: unix:///var/run/docker.sock
+                metrics:
+                  container.blockio.io_service_bytes_recursive:
+                    enabled: true
+                  container.cpu.utilization:
+                    enabled: true
+                  container.memory.percent:
+                    enabled: true
+                  container.memory.usage.limit:
+                    enabled: true
+                  container.memory.usage.total:
+                    enabled: true
+                  container.network.io.usage.rx_bytes:
+                    enabled: true
+                  container.network.io.usage.rx_dropped:
+                    enabled: true
+                  container.network.io.usage.tx_bytes:
+                    enabled: true
+                  container.network.io.usage.tx_dropped:
+                    enabled: true
+                timeout: 20s
+              filelog:
+                include:
+                - /var/lib/docker/containers/*/*-json.log
+                include_file_name: false
+                include_file_path: true
+                operators:
+                - on_error: send
+                  parse_to: body
+                  timestamp:
+                    layout: 2006-01-02T15:04:05.999999999Z07:00
+                    layout_type: gotime
+                    parse_from: body.time
+                  type: json_parser
+                - combine_field: body.log
+                  combine_with: ""
+                  force_flush_period: 5s
+                  is_last_entry: body.log endsWith "\n"
+                  on_error: send
+                  source_identifier: attributes["log.file.path"]
+                  type: recombine
+                - from: body.attrs["com.amazonaws.ecs.task-definition-family"]
+                  on_error: send_quiet
+                  to: resource["service.name"]
+                  type: move
+                - from: body.attrs["com.amazonaws.ecs.container-name"]
+                  on_error: send_quiet
+                  to: resource["aws.ecs.container.name"]
+                  type: move
+                - from: body.attrs["com.amazonaws.ecs.task-arn"]
+                  on_error: send_quiet
+                  to: resource["aws.ecs.task.arn"]
+                  type: move
+                - from: body.attrs["com.amazonaws.ecs.cluster"]
+                  on_error: send_quiet
+                  to: resource["aws.ecs.cluster.name"]
+                  type: move
+                - field: body.attrs
+                  on_error: send_quiet
+                  type: remove
+                - on_error: send
+                  parse_from: attributes["log.file.path"]
+                  regex: /var/lib/docker/containers/(?P<container_id>[a-f0-9]{64})/
+                  type: regex_parser
+                - from: attributes.container_id
+                  on_error: send_quiet
+                  to: resource["container.id"]
+                  type: move
+                - from: attributes["log.file.path"]
+                  to: resource["log.file.path"]
+                  type: move
+                - from: body.stream
+                  to: attributes["log.iostream"]
+                  type: move
+                - field: body.time
+                  type: remove
+                - from: body.log
+                  to: body
+                  type: move
+                start_at: end
+              filelog/host:
+                include:
+                - /hostfs/var/log/messages
+                - /hostfs/var/log/secure
+                - /hostfs/var/log/ecs/*.log
+                include_file_name: true
+                include_file_path: true
+                resource:
+                  service.name: ecs-host
+                start_at: end
+              hostmetrics:
+                collection_interval: 60s
+                root_path: /hostfs
+                scrapers:
+                  cpu: {}
+                  disk: {}
+                  filesystem:
+                    exclude_fs_types:
+                      fs_types:
+                      - autofs
+                      - binfmt_misc
+                      - bpf
+                      - cgroup2
+                      - configfs
+                      - debugfs
+                      - devpts
+                      - devtmpfs
+                      - fusectl
+                      - hugetlbfs
+                      - iso9660
+                      - mqueue
+                      - nsfs
+                      - overlay
+                      - proc
+                      - procfs
+                      - pstore
+                      - rpc_pipefs
+                      - securityfs
+                      - selinuxfs
+                      - squashfs
+                      - sysfs
+                      - tracefs
+                      match_type: strict
+                    exclude_mount_points:
+                      match_type: regexp
+                      mount_points:
+                      - /dev/*
+                      - /proc/*
+                      - /sys/*
+                      - /run/*
+                      - /var/lib/docker/*
+                  load: {}
+                  memory: {}
+                  network: {}
+                  paging: {}
+                  process:
+                    mute_process_exe_error: true
+                    mute_process_io_error: true
+                    mute_process_name_error: true
+                    mute_process_user_error: true
+                  processes: {}
+                  system: {}
+              otlp/grpc:
+                protocols:
+                  grpc:
+                    endpoint: 0.0.0.0:4317
+                    max_recv_msg_size_mib: 16
+              otlp/http:
+                protocols:
+                  http:
+                    endpoint: 0.0.0.0:4318
+            service:
+              extensions:
+              - health_check
+              pipelines:
+                logs:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+                  - filelog
+                  - filelog/host
+                metrics:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+                  - docker_stats
+                  - hostmetrics
+                traces:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+      enabled: true
+      env:
+        OTEL_COLLECTOR_ROLE: agent
+        SIGNOZ_INGESTION_ENDPOINT: https://ingest.us.signoz.cloud:443
+      image: otel/opentelemetry-collector-contrib:0.139.0
+      version: 0.139.0
+    status:
+      config:
+        data:
+          collector/agent/agent.yaml: |
+            exporters:
+              otlphttp/signoz:
+                endpoint: ${env:SIGNOZ_INGESTION_ENDPOINT}
+            extensions:
+              health_check:
+                endpoint: 0.0.0.0:13133
+                path: /healthz
+            processors:
+              batch:
+                send_batch_max_size: 2048
+                send_batch_size: 1000
+                timeout: 10s
+              memory_limiter:
+                check_interval: 5s
+                limit_mib: 4000
+                spike_limit_mib: 800
+              resourcedetection:
+                detectors:
+                - env
+                - ec2
+                timeout: 5s
+            receivers:
+              docker_stats:
+                api_version: "1.44"
+                collection_interval: 60s
+                container_labels_to_metric_labels:
+                  com.amazonaws.ecs.cluster: aws.ecs.cluster.name
+                  com.amazonaws.ecs.task-arn: aws.ecs.task.arn
+                  com.amazonaws.ecs.task-definition-family: aws.ecs.task.family
+                  com.amazonaws.ecs.task-definition-version: aws.ecs.task.revision
+                endpoint: unix:///var/run/docker.sock
+                metrics:
+                  container.blockio.io_service_bytes_recursive:
+                    enabled: true
+                  container.cpu.utilization:
+                    enabled: true
+                  container.memory.percent:
+                    enabled: true
+                  container.memory.usage.limit:
+                    enabled: true
+                  container.memory.usage.total:
+                    enabled: true
+                  container.network.io.usage.rx_bytes:
+                    enabled: true
+                  container.network.io.usage.rx_dropped:
+                    enabled: true
+                  container.network.io.usage.tx_bytes:
+                    enabled: true
+                  container.network.io.usage.tx_dropped:
+                    enabled: true
+                timeout: 20s
+              filelog:
+                include:
+                - /var/lib/docker/containers/*/*-json.log
+                include_file_name: false
+                include_file_path: true
+                operators:
+                - on_error: send
+                  parse_to: body
+                  timestamp:
+                    layout: 2006-01-02T15:04:05.999999999Z07:00
+                    layout_type: gotime
+                    parse_from: body.time
+                  type: json_parser
+                - combine_field: body.log
+                  combine_with: ""
+                  force_flush_period: 5s
+                  is_last_entry: body.log endsWith "\n"
+                  on_error: send
+                  source_identifier: attributes["log.file.path"]
+                  type: recombine
+                - from: body.attrs["com.amazonaws.ecs.task-definition-family"]
+                  on_error: send_quiet
+                  to: resource["service.name"]
+                  type: move
+                - from: body.attrs["com.amazonaws.ecs.container-name"]
+                  on_error: send_quiet
+                  to: resource["aws.ecs.container.name"]
+                  type: move
+                - from: body.attrs["com.amazonaws.ecs.task-arn"]
+                  on_error: send_quiet
+                  to: resource["aws.ecs.task.arn"]
+                  type: move
+                - from: body.attrs["com.amazonaws.ecs.cluster"]
+                  on_error: send_quiet
+                  to: resource["aws.ecs.cluster.name"]
+                  type: move
+                - field: body.attrs
+                  on_error: send_quiet
+                  type: remove
+                - on_error: send
+                  parse_from: attributes["log.file.path"]
+                  regex: /var/lib/docker/containers/(?P<container_id>[a-f0-9]{64})/
+                  type: regex_parser
+                - from: attributes.container_id
+                  on_error: send_quiet
+                  to: resource["container.id"]
+                  type: move
+                - from: attributes["log.file.path"]
+                  to: resource["log.file.path"]
+                  type: move
+                - from: body.stream
+                  to: attributes["log.iostream"]
+                  type: move
+                - field: body.time
+                  type: remove
+                - from: body.log
+                  to: body
+                  type: move
+                start_at: end
+              filelog/host:
+                include:
+                - /hostfs/var/log/messages
+                - /hostfs/var/log/secure
+                - /hostfs/var/log/ecs/*.log
+                include_file_name: true
+                include_file_path: true
+                resource:
+                  service.name: ecs-host
+                start_at: end
+              hostmetrics:
+                collection_interval: 60s
+                root_path: /hostfs
+                scrapers:
+                  cpu: {}
+                  disk: {}
+                  filesystem:
+                    exclude_fs_types:
+                      fs_types:
+                      - autofs
+                      - binfmt_misc
+                      - bpf
+                      - cgroup2
+                      - configfs
+                      - debugfs
+                      - devpts
+                      - devtmpfs
+                      - fusectl
+                      - hugetlbfs
+                      - iso9660
+                      - mqueue
+                      - nsfs
+                      - overlay
+                      - proc
+                      - procfs
+                      - pstore
+                      - rpc_pipefs
+                      - securityfs
+                      - selinuxfs
+                      - squashfs
+                      - sysfs
+                      - tracefs
+                      match_type: strict
+                    exclude_mount_points:
+                      match_type: regexp
+                      mount_points:
+                      - /dev/*
+                      - /proc/*
+                      - /sys/*
+                      - /run/*
+                      - /var/lib/docker/*
+                  load: {}
+                  memory: {}
+                  network: {}
+                  paging: {}
+                  process:
+                    mute_process_exe_error: true
+                    mute_process_io_error: true
+                    mute_process_name_error: true
+                    mute_process_user_error: true
+                  processes: {}
+                  system: {}
+              otlp/grpc:
+                protocols:
+                  grpc:
+                    endpoint: 0.0.0.0:4317
+                    max_recv_msg_size_mib: 16
+              otlp/http:
+                protocols:
+                  http:
+                    endpoint: 0.0.0.0:4318
+            service:
+              extensions:
+              - health_check
+              pipelines:
+                logs:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+                  - filelog
+                  - filelog/host
+                metrics:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+                  - docker_stats
+                  - hostmetrics
+                traces:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+      env:
+        OTEL_COLLECTOR_ROLE: agent
+        SIGNOZ_INGESTION_ENDPOINT: https://ingest.us.signoz.cloud:443
+  deployment:
+    flavor: terraform
+    mode: ec2
+    platform: ecs

@@ -51,6 +51,70 @@ var (
 	}
 )
 
+// Chart source for kubernetes/helm; an empty chart version resolves to the repository's latest.
+var (
+	HelmChart = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/kubernetes-helm-casting-chart",
+		Default:     "signoz",
+		Mode:        v1alpha1.ModeKubernetes,
+		Description: "Chart to install: a name in the chart repository, a URL to a chart archive, or a local chart path.",
+	}
+	HelmChartRepoURL = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/kubernetes-helm-casting-repo-url",
+		Default:     "https://charts.signoz.io",
+		Mode:        v1alpha1.ModeKubernetes,
+		Description: "Chart repository URL the chart name is resolved against; unused when the chart states its own location.",
+	}
+	HelmChartVersion = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/kubernetes-helm-casting-chart-version",
+		Default:     "",
+		Mode:        v1alpha1.ModeKubernetes,
+		Description: "Helm chart version to install; empty installs the repository's latest.",
+	}
+)
+
+// Cluster annotations for the ECS/EC2 deployment of the Installation Kind.
+// Each names an existing object of the cluster the installation is placed
+// onto. The region and every object are stated; terraform validates them at
+// plan.
+var (
+	ECSRegion = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/ecs-region",
+		Mode:        v1alpha1.ModeEC2,
+		Description: "AWS region holding the cluster.",
+	}
+	ECSClusterARN = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/ecs-cluster-arn",
+		Mode:        v1alpha1.ModeEC2,
+		Description: "ARN of the ECS cluster to deploy services into.",
+	}
+	ECSPrivateSubnetIDs = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/ecs-private-subnet-ids",
+		Mode:        v1alpha1.ModeEC2,
+		Description: "Comma-separated IDs of the private subnets tasks are placed in; they need a NAT route or the ECR, ECS, S3, AppConfig and logs VPC endpoints, since tasks on the EC2 launch type take no public IP.",
+	}
+	ECSSecurityGroupIDs = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/ecs-security-group-ids",
+		Mode:        v1alpha1.ModeEC2,
+		Description: "Comma-separated security group IDs for task networking (awsvpc); must permit intra-cluster traffic.",
+	}
+	ECSVPCID = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/ecs-vpc-id",
+		Mode:        v1alpha1.ModeEC2,
+		Description: "VPC ID the Cloud Map private DNS namespace is created in.",
+	}
+	ECSTaskRoleARN = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/ecs-task-role-arn",
+		Mode:        v1alpha1.ModeEC2,
+		Description: "IAM role ARN assumed by the tasks; needs read access to AWS AppConfig.",
+	}
+	ECSTaskExecutionRoleARN = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/ecs-task-execution-role-arn",
+		Mode:        v1alpha1.ModeEC2,
+		Description: "IAM role ARN the ECS agent assumes to pull images and start tasks.",
+	}
+)
+
 // Annotations returns the Installation annotation catalog.
 func Annotations() []v1alpha1.Annotation {
 	return []v1alpha1.Annotation{
@@ -61,5 +125,15 @@ func Annotations() []v1alpha1.Annotation {
 		TelemetryKeeperClickHouseKeeperBinaryPath,
 		TelemetryKeeperZookeeperBinaryPath,
 		MCPBinaryPath,
+		HelmChart,
+		HelmChartRepoURL,
+		HelmChartVersion,
+		ECSRegion,
+		ECSClusterARN,
+		ECSPrivateSubnetIDs,
+		ECSSecurityGroupIDs,
+		ECSVPCID,
+		ECSTaskRoleARN,
+		ECSTaskExecutionRoleARN,
 	}
 }

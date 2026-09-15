@@ -20,58 +20,103 @@ import (
 var _ rootcasting.Casting = (*kustomizeCasting)(nil)
 
 type kustomizeCasting struct {
-	logger   *slog.Logger
-	castings []*domain.Template
+	logger *slog.Logger
 }
 
 func New(logger *slog.Logger) *kustomizeCasting {
-	return &kustomizeCasting{
-		logger: logger,
-		castings: []*domain.Template{
-			clickhouseOperatorClusterrole,
-			clickhouseOperatorClusterrolebinding,
-			clickhouseOperatorConfigmap,
-			clickhouseOperatorDeployment,
-			clickhouseOperatorService,
-			clickhouseOperatorServiceaccount,
-			clickhouseInstanceInstallation,
-			clickhouseInstanceConfigmap,
-			clickhouseKeeperInstallation,
-			signozService,
-			signozServiceaccount,
-			signozStatefulset,
-			mcpDeployment,
-			mcpService,
-			ingesterConfigmap,
-			ingesterDeployment,
-			ingesterService,
-			ingesterServiceaccount,
-			metastoreService,
-			metastoreServiceaccount,
-			metastoreStatefulset,
-			telemetrystoreMigratorJob,
-			clickhouseOperatorKustomization,
-			clickhouseInstallationKustomization,
-			clickhouseKeeperKustomization,
-			signozKustomization,
-			mcpKustomization,
-			ingesterKustomization,
-			metastoreKustomization,
-			telemetrystoreMigratorKustomization,
-			deploymentNamespace,
-			deploymentKustomization,
-		},
-	}
+	return &kustomizeCasting{logger: logger}
 }
+
+var (
+	deploymentTemplates = []*domain.Template{
+		deploymentNamespace,
+		deploymentKustomization,
+	}
+	clickhouseOperatorTemplates = []*domain.Template{
+		clickhouseOperatorClusterrole,
+		clickhouseOperatorClusterrolebinding,
+		clickhouseOperatorConfigmap,
+		clickhouseOperatorDeployment,
+		clickhouseOperatorService,
+		clickhouseOperatorServiceaccount,
+		clickhouseOperatorKustomization,
+		clickhouseOperatorNamespace,
+	}
+	telemetryStoreTemplates = []*domain.Template{
+		clickhouseInstanceInstallation,
+		clickhouseInstanceConfigmap,
+		clickhouseInstallationKustomization,
+		telemetrystoreMigratorJob,
+		telemetrystoreMigratorKustomization,
+	}
+	telemetryKeeperTemplates = []*domain.Template{
+		clickhouseKeeperInstallation,
+		clickhouseKeeperKustomization,
+	}
+	metaStoreTemplates = []*domain.Template{
+		metastoreService,
+		metastoreServiceaccount,
+		metastoreStatefulset,
+		metastoreKustomization,
+	}
+	signozTemplates = []*domain.Template{
+		signozService,
+		signozServiceaccount,
+		signozStatefulset,
+		signozKustomization,
+	}
+	mcpTemplates = []*domain.Template{
+		mcpDeployment,
+		mcpService,
+		mcpKustomization,
+	}
+	ingesterTemplates = []*domain.Template{
+		ingesterConfigmap,
+		ingesterDeployment,
+		ingesterService,
+		ingesterServiceaccount,
+		ingesterKustomization,
+	}
+)
 
 func (c *kustomizeCasting) Enricher(ctx context.Context, config *installation.Casting) (molding.MoldingEnricher, error) {
 	return newKustomizeMoldingEnricher(config)
 }
 
 func (c *kustomizeCasting) Forge(ctx context.Context, cfg installation.Casting, poursPath string) ([]domain.Material, error) {
+	templates := append([]*domain.Template{}, deploymentTemplates...)
+
+	if needsClickhouseOperator(&cfg) {
+		templates = append(templates, clickhouseOperatorTemplates...)
+	}
+
+	if cfg.Spec.TelemetryStore.Spec.IsEnabled() {
+		templates = append(templates, telemetryStoreTemplates...)
+	}
+
+	if cfg.Spec.TelemetryKeeper.Spec.IsEnabled() {
+		templates = append(templates, telemetryKeeperTemplates...)
+	}
+
+	if cfg.Spec.MetaStore.Spec.IsEnabled() && cfg.Spec.MetaStore.Kind == installation.MetaStoreKindPostgres {
+		templates = append(templates, metaStoreTemplates...)
+	}
+
+	if cfg.Spec.Signoz.Spec.IsEnabled() {
+		templates = append(templates, signozTemplates...)
+	}
+
+	if cfg.Spec.MCP.Spec.IsEnabled() {
+		templates = append(templates, mcpTemplates...)
+	}
+
+	if cfg.Spec.Ingester.Spec.IsEnabled() {
+		templates = append(templates, ingesterTemplates...)
+	}
+
 	var materials []domain.Material
-	for _, tmpl := range c.castings {
-		m, err := c.forgeCasting(tmpl, &cfg, poursPath)
+	for _, tmpl := range templates {
+		m, err := c.forgeCasting(tmpl, &cfg)
 		if err != nil {
 			return nil, errors.Wrapf(err, errors.TypeInternal, "failed to forge")
 		}
@@ -80,13 +125,14 @@ func (c *kustomizeCasting) Forge(ctx context.Context, cfg installation.Casting, 
 	return materials, nil
 }
 
-const clickhouseOperatorVersion = "0.25.3"
-
+// operators/ is its own tier, outside the root kustomization: it is applied
+// first and its CRDs waited on, since one pass would post the
+// ClickHouseInstallation before its kind exists.
 var clickhouseCRDs = []string{
-	"clickhouseinstallations.clickhouse.altinity.com.crd.yaml",
-	"clickhouseinstallationtemplates.clickhouse.altinity.com.crd.yaml",
-	"clickhouseoperatorconfigurations.clickhouse.altinity.com.crd.yaml",
-	"clickhousekeeperinstallations.clickhouse-keeper.altinity.com.crd.yaml",
+	"clickhouseinstallations.clickhouse.altinity.com",
+	"clickhouseinstallationtemplates.clickhouse.altinity.com",
+	"clickhouseoperatorconfigurations.clickhouse.altinity.com",
+	"clickhousekeeperinstallations.clickhouse-keeper.altinity.com",
 }
 
 func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting, poursPath string) error {
@@ -100,19 +146,30 @@ func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting
 	runctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	if err := c.applyCRDs(runctx); err != nil {
-		return errors.Wrapf(err, errors.TypeInternal, "failed to apply CRDs")
+	if needsClickhouseOperator(&config) {
+		if err := c.kubectl(runctx, "apply", "-k", filepath.Join(kustomizeDir, "operators", "clickhouse-operator")); err != nil {
+			return errors.Wrapf(err, errors.TypeInternal, "failed to apply clickhouse-operator")
+		}
+
+		args := []string{"wait", "--for=condition=Established", "--timeout=60s"}
+		for _, crd := range clickhouseCRDs {
+			args = append(args, "crd/"+crd)
+		}
+		if err := c.kubectl(runctx, args...); err != nil {
+			return errors.Wrapf(err, errors.TypeInternal, "failed waiting for clickhouse CRDs to be established")
+		}
 	}
 
-	cmd := exec.CommandContext(runctx, "kubectl", "apply", "-k", kustomizeDir)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	// A Job's pod template is immutable, so a re-cast with a changed migrator
+	// (image, DSN) would be rejected; the finished run is replaced, not patched.
+	if config.Spec.TelemetryStore.Spec.IsEnabled() {
+		job := config.Metadata.Name + "-telemetrystore-migrator"
+		if err := c.kubectl(runctx, "delete", "job", job, "--namespace", config.Metadata.Name, "--ignore-not-found"); err != nil {
+			return errors.Wrapf(err, errors.TypeInternal, "failed to delete job %q", job)
+		}
+	}
 
-	c.logger.DebugContext(runctx, "Running command",
-		slog.String("command", fmt.Sprintf("kubectl apply -k %s", kustomizeDir)))
-
-	if err := cmd.Run(); err != nil {
-		c.logger.ErrorContext(runctx, "kubectl apply failed", slog.String("error", err.Error()))
+	if err := c.kubectl(runctx, "apply", "-k", kustomizeDir); err != nil {
 		return errors.Wrapf(err, errors.TypeInternal, "kubectl apply -k failed")
 	}
 
@@ -120,31 +177,28 @@ func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting
 	return nil
 }
 
-func (c *kustomizeCasting) applyCRDs(ctx context.Context) error {
-	c.logger.InfoContext(ctx, "Applying ClickHouse CRDs",
-		slog.String("version", clickhouseOperatorVersion))
+func (c *kustomizeCasting) kubectl(ctx context.Context, args ...string) error {
+	cmd := exec.CommandContext(ctx, "kubectl", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
-	for _, crd := range clickhouseCRDs {
-		url := fmt.Sprintf(
-			"https://raw.githubusercontent.com/Altinity/clickhouse-operator/%s/deploy/operatorhub/%s/%s",
-			clickhouseOperatorVersion, clickhouseOperatorVersion, crd,
-		)
+	c.logger.DebugContext(ctx, "Running command",
+		slog.String("command", fmt.Sprintf("kubectl %s", strings.Join(args, " "))))
 
-		cmd := exec.CommandContext(ctx, "kubectl", "apply", "-f", url)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		c.logger.DebugContext(ctx, "Applying CRD", slog.String("url", url))
-
-		if err := cmd.Run(); err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to apply CRD %s", crd)
-		}
+	if err := cmd.Run(); err != nil {
+		c.logger.ErrorContext(ctx, "kubectl failed", slog.String("error", err.Error()))
+		return err
 	}
-
 	return nil
 }
 
-func (c *kustomizeCasting) forgeCasting(tmpl *domain.Template, cfg *installation.Casting, poursPath string) ([]domain.Material, error) {
+// The Altinity operator serves both the CHI and the CHK.
+func needsClickhouseOperator(cfg *installation.Casting) bool {
+	return cfg.Spec.TelemetryStore.Spec.IsEnabled() ||
+		(cfg.Spec.TelemetryKeeper.Spec.IsEnabled() && cfg.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindClickhouseKeeper)
+}
+
+func (c *kustomizeCasting) forgeCasting(tmpl *domain.Template, cfg *installation.Casting) ([]domain.Material, error) {
 	templatePath := tmpl.Path()
 	relPath := strings.TrimPrefix(templatePath, "templates/")
 	relPath = strings.TrimSuffix(relPath, filepath.Ext(relPath))

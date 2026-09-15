@@ -1,0 +1,17 @@
+apiVersion: v1alpha1
+kind: CollectionAgent
+metadata:
+  name: signoz
+  annotations:
+    foundry.signoz.io/ecs-region: us-east-1
+    foundry.signoz.io/ecs-cluster-arn: arn:aws:ecs:us-east-1:123456789012:cluster/signoz
+spec:
+  deployment:
+    platform: ecs
+    mode: ec2
+    flavor: terraform
+  collector:
+    kind: agent
+    spec:
+      env:
+        SIGNOZ_INGESTION_ENDPOINT: "https://ingest.us.signoz.cloud:443"

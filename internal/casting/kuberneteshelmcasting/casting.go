@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"time"
+	"strings"
 
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
@@ -17,21 +17,7 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
-	"helm.sh/helm/v3/pkg/getter"
-	"helm.sh/helm/v3/pkg/repo"
 	"sigs.k8s.io/yaml"
-)
-
-const (
-	helmChartRepoUrl  = "https://charts.signoz.io"
-	helmChartRepoName = "signoz"
-	helmChart         = "signoz/signoz"
-	helmDeployTimeout = 10 * time.Minute
-
-	annotationChart      = "foundry.signoz.io/kubernetes-helm-casting-chart"
-	annotationRepoURL    = "foundry.signoz.io/kubernetes-helm-casting-repo-url"
-	annotationRepoName   = "foundry.signoz.io/kubernetes-helm-casting-repo-name"
-	annotationForgeChart = "foundry.signoz.io/kubernetes-helm-casting-forge-chart"
 )
 
 var _ rootcasting.Casting = (*helmCasting)(nil)
@@ -96,44 +82,12 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 		return errors.Wrapf(err, errors.TypeInternal, "failed to initialize helm action config")
 	}
 
-	var chartRef string
-	if c.shouldForgeChart(&config) {
-		chartRef = filepath.Join(poursPath, rootcasting.DeploymentDir, "chart", "signoz")
-		if _, err := os.Stat(chartRef); os.IsNotExist(err) {
-			return errors.Newf(errors.TypeNotFound, "local chart not found at %s, run 'forge' first with %s annotation set to 'true'", chartRef, annotationForgeChart)
-		}
-		c.logger.InfoContext(ctx, "Installing from local chart", slog.String("path", chartRef))
-	} else {
-		repoURL := helmChartRepoUrl
-		if config.Metadata.Annotations != nil {
-			if u := config.Metadata.Annotations[annotationRepoURL]; u != "" {
-				repoURL = u
-			}
-		}
-
-		chartRef = helmChart
-		if config.Metadata.Annotations != nil {
-			if ch := config.Metadata.Annotations[annotationChart]; ch != "" {
-				chartRef = ch
-			}
-		}
-
-		repoName := helmChartRepoName
-		if config.Metadata.Annotations != nil {
-			if ch := config.Metadata.Annotations[annotationRepoName]; ch != "" {
-				chartRef = ch
-			}
-		}
-
-		c.logger.InfoContext(ctx, "Adding Helm repo", slog.String("name", repoName), slog.String("url", repoURL), slog.String("chart", chartRef))
-		if err := addHelmRepo(settings, repoName, repoURL); err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to add helm repo")
-		}
-	}
+	chartRef, version, repoURL := chartSource(config)
 
 	c.logger.InfoContext(ctx, "Deploying with Helm",
 		slog.String("release", config.Metadata.Name),
 		slog.String("chart", chartRef),
+		slog.String("repo", repoURL),
 		slog.String("namespace", config.Metadata.Name),
 	)
 
@@ -146,8 +100,9 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 		install.ReleaseName = config.Metadata.Name
 		install.Namespace = config.Metadata.Name
 		install.CreateNamespace = true
-		install.Wait = true
-		install.Timeout = helmDeployTimeout
+		install.Version = version
+		install.RepoURL = repoURL
+		// Readiness belongs to the platform; no other casting waits on it.
 
 		chartPath, err := install.LocateChart(chartRef, settings)
 		if err != nil {
@@ -159,14 +114,16 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 			return errors.Wrapf(err, errors.TypeInternal, "failed to load chart")
 		}
 
+		c.logger.InfoContext(ctx, "resolved chart", slog.String("chart", chartRef), slog.String("version", chart.Metadata.Version), slog.String("app_version", chart.Metadata.AppVersion))
+
 		if _, err := install.RunWithContext(ctx, chart, vals); err != nil {
 			return errors.Wrapf(err, errors.TypeInternal, "helm install failed")
 		}
 	} else {
 		upgrade := action.NewUpgrade(actionConfig)
 		upgrade.Namespace = config.Metadata.Name
-		upgrade.Wait = true
-		upgrade.Timeout = helmDeployTimeout
+		upgrade.Version = version
+		upgrade.RepoURL = repoURL
 
 		chartPath, err := upgrade.LocateChart(chartRef, settings)
 		if err != nil {
@@ -177,6 +134,8 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 		if err != nil {
 			return errors.Wrapf(err, errors.TypeInternal, "failed to load chart")
 		}
+
+		c.logger.InfoContext(ctx, "resolved chart", slog.String("chart", chartRef), slog.String("version", chart.Metadata.Version), slog.String("app_version", chart.Metadata.AppVersion))
 
 		if _, err := upgrade.RunWithContext(ctx, config.Metadata.Name, chart, vals); err != nil {
 			return errors.Wrapf(err, errors.TypeInternal, "helm upgrade failed")
@@ -190,35 +149,15 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 	return nil
 }
 
-func (c *helmCasting) shouldForgeChart(config *installation.Casting) bool {
-	if config.Metadata.Annotations == nil {
-		return false
-	}
-	return config.Metadata.Annotations[annotationForgeChart] == "true"
-}
+// The repository applies to a bare chart name only: a reference carrying a slash
+// states its own location, and helm would look that string up in the index.
+func chartSource(config installation.Casting) (chart, version, repoURL string) {
+	chart = installation.HelmChart.Resolve(config.Metadata.Annotations)
+	version = installation.HelmChartVersion.Resolve(config.Metadata.Annotations)
 
-func addHelmRepo(settings *cli.EnvSettings, name, url string) error {
-	repoFile := settings.RepositoryConfig
-	repoEntry := &repo.Entry{
-		Name: name,
-		URL:  url,
+	if strings.ContainsRune(chart, '/') {
+		return chart, version, ""
 	}
 
-	r, err := repo.NewChartRepository(repoEntry, getter.All(settings))
-	if err != nil {
-		return errors.Wrapf(err, errors.TypeInternal, "failed to create chart repository")
-	}
-
-	r.CachePath = settings.RepositoryCache
-	if _, err := r.DownloadIndexFile(); err != nil {
-		return errors.Wrapf(err, errors.TypeInternal, "failed to download repo index")
-	}
-
-	f, err := repo.LoadFile(repoFile)
-	if err != nil {
-		f = repo.NewFile()
-	}
-
-	f.Update(repoEntry)
-	return f.WriteFile(repoFile, 0644)
+	return chart, version, installation.HelmChartRepoURL.Resolve(config.Metadata.Annotations)
 }

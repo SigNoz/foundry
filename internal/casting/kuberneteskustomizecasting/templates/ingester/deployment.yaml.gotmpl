@@ -58,7 +58,7 @@ spec:
                   fieldPath: metadata.namespace
             {{- range $key, $val := $.Spec.Ingester.Spec.Env }}
             - name: {{ $key }}
-              value: {{ $val }}
+              value: {{ $val | quote }}
             {{- end }}
           image: {{ $.Spec.Ingester.Spec.Image }}
           imagePullPolicy: IfNotPresent
@@ -116,7 +116,7 @@ spec:
             {{ end }}
             {{- range $key, $val := $.Spec.Ingester.Spec.Env }}
             - name: {{ $key }}
-              value: {{ $val }}
+              value: {{ $val | quote }}
             {{- end }}
           image: {{ $.Spec.Ingester.Spec.Image }}
           imagePullPolicy: IfNotPresent

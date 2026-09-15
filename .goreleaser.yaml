@@ -32,6 +32,8 @@ builds:
       - -X github.com/signoz/foundry/internal/updater.repository=SigNoz/foundry
     tags:
       - timetzdata
+    env:
+      - CGO_ENABLED=0
 
 archives:
   - formats:

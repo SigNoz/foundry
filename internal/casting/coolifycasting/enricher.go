@@ -30,6 +30,9 @@ func newCoolifyMoldingEnricher(config *installation.Casting) (*coolifyMoldingEnr
 func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *installation.Casting) error {
 	switch kind {
 	case v1alpha1.MoldingKindTelemetryStore:
+		if !config.Spec.TelemetryStore.Spec.IsEnabled() {
+			return nil
+		}
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
 			return errors.Wrapf(err, errors.TypeInternal, "failed to get telemetrystore container names")
@@ -44,6 +47,9 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 		config.Spec.TelemetryStore.Status.Addresses.TCP = telemetrystoreContainerNames
 
 	case v1alpha1.MoldingKindSignoz:
+		if !config.Spec.Signoz.Spec.IsEnabled() {
+			return nil
+		}
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
 			return errors.Wrapf(err, errors.TypeInternal, "failed to get signoz container names")
@@ -61,6 +67,9 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 		config.Spec.Signoz.Status.Addresses.Opamp = opampAddr
 
 	case v1alpha1.MoldingKindTelemetryKeeper:
+		if !config.Spec.TelemetryKeeper.Spec.IsEnabled() {
+			return nil
+		}
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
 		if err != nil {
 			return errors.Wrapf(err, errors.TypeInternal, "failed to get telemetrykeeper container names")
@@ -89,7 +98,7 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 
 	case v1alpha1.MoldingKindMetaStore:
 		// Skip molding enrichment if sqlite
-		if config.Spec.MetaStore.Kind == installation.MetaStoreKindSQLite {
+		if !config.Spec.MetaStore.Spec.IsEnabled() || config.Spec.MetaStore.Kind == installation.MetaStoreKindSQLite {
 			return nil
 		}
 		containerNames, err := enricher.material.GetStringSlice("services|@keys")
@@ -106,22 +115,19 @@ func (enricher *coolifyMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 		config.Spec.MetaStore.Status.Addresses.DSN = metastoreContainerNames
 
 	case v1alpha1.MoldingKindIngester:
-		// The ingester is scaled via `deploy.replicas` and reached through the
-		// `<metadata.name>-ingester` network alias on the default network,
-		// which compose load-balances across all replicas.
+		if !config.Spec.Ingester.Spec.IsEnabled() {
+			return nil
+		}
+
 		config.Spec.Ingester.Status.Addresses.OTLP = []string{
 			domain.MustNewAddress("tcp", config.Metadata.Name+"-ingester", 4318).String(),
 			domain.MustNewAddress("tcp", config.Metadata.Name+"-ingester", 4317).String(),
-
 		}
 	case v1alpha1.MoldingKindMCP:
 		if !config.Spec.MCP.Spec.IsEnabled() {
 			return nil
 		}
 
-		// The mcp server is scaled via `deploy.replicas` and reached through the
-		// `<metadata.name>-mcp` network alias on the default network,
-		// which compose load-balances across all replicas.
 		config.Spec.MCP.Status.Addresses.HTTP = []string{
 			domain.MustNewAddress("http", config.Metadata.Name+"-mcp", 8000).String(),
 		}

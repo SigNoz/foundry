@@ -6,8 +6,9 @@ import (
 	"github.com/signoz/foundry/internal/errors"
 )
 
-// Image is a container image reference split into its repository and tag.
+// Image is a container image reference split into registry, repository and tag.
 type Image struct {
+	registry   string
 	repository string
 	tag        string
 }
@@ -22,7 +23,24 @@ func NewImage(repository, tag string) (Image, error) {
 		return Image{}, errors.Newf(errors.TypeInvalidInput, "failed to create image: tag is empty")
 	}
 
-	return Image{repository: repository, tag: tag}, nil
+	registry, repository := splitRegistry(repository)
+
+	return Image{registry: registry, repository: repository, tag: tag}, nil
+}
+
+// The first segment is a registry only when it holds a dot or a port, or is
+// "localhost"; otherwise "signoz/signoz" would read as registry "signoz".
+func splitRegistry(repository string) (string, string) {
+	i := strings.IndexByte(repository, '/')
+	if i <= 0 {
+		return "", repository
+	}
+
+	if head := repository[:i]; head == "localhost" || strings.ContainsAny(head, ".:") {
+		return head, repository[i+1:]
+	}
+
+	return "", repository
 }
 
 // MustNewImage is NewImage for known-good literals; it panics on error.
@@ -35,9 +53,9 @@ func MustNewImage(repository, tag string) Image {
 	return image
 }
 
-// ParseImage accepts "repository[:tag]". The tag is the segment after the final
+// ParseImage accepts "[registry/]repository[:tag]". The tag follows the final
 // colon, but only when that colon follows the final slash, so a registry port
-// (e.g. "host:5000/repo") is not mistaken for a tag. A missing tag is "latest".
+// ("host:5000/repo") is not a tag. A missing tag is "latest".
 func ParseImage(raw string) (Image, error) {
 	if raw == "" {
 		return Image{}, errors.Newf(errors.TypeInvalidInput, "failed to create image from %q: reference is empty", raw)
@@ -51,6 +69,10 @@ func ParseImage(raw string) (Image, error) {
 	return NewImage(repository, tag)
 }
 
+func (i Image) Registry() string {
+	return i.registry
+}
+
 func (i Image) Repository() string {
 	return i.repository
 }
@@ -61,7 +83,7 @@ func (i Image) Tag() string {
 
 // WithTag returns a copy of the image with its tag replaced.
 func (i Image) WithTag(tag string) Image {
-	return Image{repository: i.repository, tag: tag}
+	return Image{registry: i.registry, repository: i.repository, tag: tag}
 }
 
 // Version parses the tag as a semantic version. ok is false for non-semver tags
@@ -75,7 +97,11 @@ func (i Image) Version() (Version, bool) {
 	return version, true
 }
 
-// String renders the reference as "repository:tag".
+// String renders the reference, registry included when one was named.
 func (i Image) String() string {
-	return i.repository + ":" + i.tag
+	if i.registry == "" {
+		return i.repository + ":" + i.tag
+	}
+
+	return i.registry + "/" + i.repository + ":" + i.tag
 }

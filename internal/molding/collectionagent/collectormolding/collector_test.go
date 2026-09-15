@@ -96,6 +96,20 @@ func TestMoldAgent(t *testing.T) {
 	}
 }
 
+// Every kind molds its base config at its own config key and reports its
+// role through the env.
+func TestMoldKinds(t *testing.T) {
+	for _, kind := range collectionagent.CollectorKinds() {
+		t.Run(kind.String()+"_MoldsConfigAtKindKey", func(t *testing.T) {
+			c := newCasting(t, kind, "")
+			require.NoError(t, New(slog.Default()).MoldV1Alpha1(context.Background(), c))
+
+			assert.NotEmpty(t, c.Spec.Collector.Status.Config.Data[kind.ConfigKey()])
+			assert.Equal(t, kind.String(), c.Spec.Collector.Status.Env["OTEL_COLLECTOR_ROLE"])
+		})
+	}
+}
+
 func TestMoldAgentErrors(t *testing.T) {
 	tests := []struct {
 		name           string

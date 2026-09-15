@@ -49,7 +49,7 @@ func (c *coolifyCasting) Forge(ctx context.Context, config installation.Casting,
 }
 
 func (c *coolifyCasting) Cast(ctx context.Context, config installation.Casting, poursPath string) error {
-	c.logger.InfoContext(ctx, "Please run 'forge' first to generate the Coolify Casting",
+	c.logger.InfoContext(ctx, "coolify.yaml is forged, deploy it in Coolify as a Docker Compose resource",
 		slog.String("pours_path", poursPath))
 	c.logger.InfoContext(ctx, "After forging, deploy coolify.yaml to Coolify using the stack feature",
 		slog.String("docs", "https://coolify.io/docs/knowledge-base/docker/compose"))

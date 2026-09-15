@@ -6,11 +6,15 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockercomposecasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockerswarmcasting"
+	"github.com/signoz/foundry/internal/casting/collectionagent/ecsterraformcasting"
+	"github.com/signoz/foundry/internal/casting/collectionagent/kuberneteskustomizecasting"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/tooler"
 	"github.com/signoz/foundry/internal/tooler/dockercomposetooler"
 	"github.com/signoz/foundry/internal/tooler/dockerswarmtooler"
 	"github.com/signoz/foundry/internal/tooler/dockertooler"
+	"github.com/signoz/foundry/internal/tooler/kubectltooler"
+	"github.com/signoz/foundry/internal/tooler/terraformtooler"
 )
 
 type CastingItem struct {
@@ -38,6 +42,21 @@ func NewRegistry(logger *slog.Logger) *Registry {
 			}: {
 				Casting: dockerswarmcasting.New(logger),
 				Toolers: []tooler.Tooler{dockertooler.New(), dockerswarmtooler.New()},
+			},
+			{
+				Mode:   v1alpha1.ModeKubernetes,
+				Flavor: v1alpha1.FlavorKustomize,
+			}: {
+				Casting: kuberneteskustomizecasting.New(logger),
+				Toolers: []tooler.Tooler{kubectltooler.New()},
+			},
+			{
+				Platform: v1alpha1.PlatformECS,
+				Flavor:   v1alpha1.FlavorTerraform,
+				Mode:     v1alpha1.ModeEC2,
+			}: {
+				Casting: ecsterraformcasting.New(logger),
+				Toolers: []tooler.Tooler{terraformtooler.New()},
 			},
 		},
 	}

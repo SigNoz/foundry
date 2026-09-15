@@ -7,12 +7,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
+	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
-	"github.com/signoz/foundry/internal/errors"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 )
 
@@ -29,125 +29,76 @@ func New(logger *slog.Logger) *ecsCasting {
 }
 
 func (c *ecsCasting) Enricher(ctx context.Context, config *installation.Casting) (molding.MoldingEnricher, error) {
-	return newEcsMoldingEnricher(config)
+	data, err := c.templateData(*config)
+	if err != nil {
+		return nil, err
+	}
+
+	return newEcsMoldingEnricher(data)
 }
 
 func (c *ecsCasting) Forge(ctx context.Context, config installation.Casting, poursPath string) ([]domain.Material, error) {
 	var materials []domain.Material
 
-	deployDir := rootcasting.DeploymentDir
-	moduleDir := filepath.Join(deployDir, "module")
+	dir := rootcasting.DeploymentDir
 
-	// Root Terraform files
-	rootTemplates := map[string]*domain.Template{
+	data, err := c.templateData(config)
+	if err != nil {
+		return nil, err
+	}
+
+	for filename, tmpl := range map[string]*domain.Template{
+		"versions.tf.json":      versionsTF,
+		"backend.tf.json":       backendTF,
+		"providers.tf.json":     providersTF,
 		"main.tf.json":          mainTF,
 		"variables.tf.json":     variablesTF,
+		"outputs.tf.json":       outputsTF,
 		"terraform.tfvars.json": tfarsTF,
-	}
-	for filename, tmpl := range rootTemplates {
-		m, err := tmpl.Render(config, filepath.Join(deployDir, filename))
+	} {
+		m, err := tmpl.Render(data, filepath.Join(dir, filename))
 		if err != nil {
 			return nil, err
 		}
+
 		materials = append(materials, m)
 	}
 
-	// Module shared files
-	moduleTemplates := map[string]*domain.Template{
-		"main.tf.json":      moduleMainTF,
-		"variables.tf.json": moduleVariablesTF,
-		"outputs.tf.json":   moduleOutputsTF,
+	// A component configured only through env has no configDir.
+	components := []struct {
+		enabled   bool
+		filename  string
+		template  *domain.Template
+		configDir string
+		config    map[string]string
+	}{
+		{config.Spec.TelemetryKeeper.Spec.IsEnabled(), "telemetrykeeper.tf.json", telemetryKeeperTF, filepath.Join("telemetrykeeper", config.Spec.TelemetryKeeper.Kind.String()), config.Spec.TelemetryKeeper.Spec.Config.Data},
+		{config.Spec.TelemetryStore.Spec.IsEnabled(), "telemetrystore.tf.json", telemetryStoreTF, filepath.Join("telemetrystore", config.Spec.TelemetryStore.Kind.String()), config.Spec.TelemetryStore.Spec.Config.Data},
+		{config.Spec.TelemetryStore.Spec.IsEnabled(), "telemetrystore_migrator.tf.json", migratorTF, "", nil},
+		{config.Spec.MetaStore.Spec.IsEnabled() && config.Spec.MetaStore.Kind == installation.MetaStoreKindPostgres, "metastore.tf.json", metaStoreTF, filepath.Join("metastore", config.Spec.MetaStore.Kind.String()), config.Spec.MetaStore.Spec.Config.Data},
+		{config.Spec.Signoz.Spec.IsEnabled(), "signoz.tf.json", signozTF, "", nil},
+		{config.Spec.Ingester.Spec.IsEnabled(), "ingester.tf.json", ingesterTF, "ingester", config.Spec.Ingester.Spec.Config.Data},
+		{config.Spec.MCP.Spec.IsEnabled(), "mcp.tf.json", mcpTF, "", nil},
 	}
-	for filename, tmpl := range moduleTemplates {
-		m, err := tmpl.Render(config, filepath.Join(moduleDir, filename))
+
+	for _, component := range components {
+		if !component.enabled {
+			continue
+		}
+
+		m, err := component.template.Render(data, filepath.Join(dir, component.filename))
 		if err != nil {
 			return nil, err
 		}
-		materials = append(materials, m)
-	}
 
-	// TelemetryKeeper
-	if config.Spec.TelemetryKeeper.Spec.IsEnabled() {
-		m, err := moduleTelemetryKeeperTF.Render(config, filepath.Join(moduleDir, "telemetrykeeper.tf.json"))
-		if err != nil {
-			return nil, err
-		}
 		materials = append(materials, m)
 
-		for filename, content := range config.Spec.TelemetryKeeper.Spec.Config.Data {
-			material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(moduleDir, "telemetrykeeper", config.Spec.TelemetryKeeper.Kind.String(), filename))
+		for filename, content := range component.config {
+			material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(dir, component.configDir, filename))
 			if err != nil {
 				return nil, err
 			}
-			materials = append(materials, material)
-		}
-	}
 
-	// TelemetryStore
-	if config.Spec.TelemetryStore.Spec.IsEnabled() {
-		m, err := moduleTelemetryStoreTF.Render(config, filepath.Join(moduleDir, "telemetrystore.tf.json"))
-		if err != nil {
-			return nil, err
-		}
-		materials = append(materials, m)
-
-		for filename, content := range config.Spec.TelemetryStore.Spec.Config.Data {
-			material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(moduleDir, "telemetrystore", config.Spec.TelemetryStore.Kind.String(), filename))
-			if err != nil {
-				return nil, err
-			}
-			materials = append(materials, material)
-		}
-	}
-
-	// TelemetryStore migrator
-	if config.Spec.TelemetryStore.Spec.IsEnabled() {
-		m, err := moduleMigratorTF.Render(config, filepath.Join(moduleDir, "telemetrystore_migrator.tf.json"))
-		if err != nil {
-			return nil, err
-		}
-		materials = append(materials, m)
-	}
-
-	// MetaStore
-	if config.Spec.MetaStore.Spec.IsEnabled() {
-		m, err := moduleMetaStoreTF.Render(config, filepath.Join(moduleDir, "metastore.tf.json"))
-		if err != nil {
-			return nil, err
-		}
-		materials = append(materials, m)
-
-		for filename, content := range config.Spec.MetaStore.Spec.Config.Data {
-			material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(moduleDir, "metastore", config.Spec.MetaStore.Kind.String(), filename))
-			if err != nil {
-				return nil, err
-			}
-			materials = append(materials, material)
-		}
-	}
-
-	// Signoz
-	if config.Spec.Signoz.Spec.IsEnabled() {
-		m, err := moduleSignozTF.Render(config, filepath.Join(moduleDir, "signoz.tf.json"))
-		if err != nil {
-			return nil, err
-		}
-		materials = append(materials, m)
-	}
-
-	// Ingester
-	if config.Spec.Ingester.Spec.IsEnabled() {
-		m, err := moduleIngesterTF.Render(config, filepath.Join(moduleDir, "ingester.tf.json"))
-		if err != nil {
-			return nil, err
-		}
-		materials = append(materials, m)
-
-		for filename, content := range config.Spec.Ingester.Spec.Config.Data {
-			material, err := domain.NewYAMLMaterial([]byte(content), filepath.Join(moduleDir, "ingester", filename))
-			if err != nil {
-				return nil, err
-			}
 			materials = append(materials, material)
 		}
 	}
@@ -155,68 +106,141 @@ func (c *ecsCasting) Forge(ctx context.Context, config installation.Casting, pou
 	return materials, nil
 }
 
+const planFile = "tfplan"
+
 func (c *ecsCasting) Cast(ctx context.Context, config installation.Casting, outputPath string) error {
-	c.logger.InfoContext(ctx, "Running Terraform for ECS deployment")
+	root := filepath.Join(outputPath, rootcasting.DeploymentDir)
 
-	deploymentDir := filepath.Join(outputPath, rootcasting.DeploymentDir)
-
-	// Verify terraform files exist
-	if _, err := os.Stat(filepath.Join(deploymentDir, "main.tf.json")); os.IsNotExist(err) {
-		return errors.Newf(errors.TypeNotFound, "terraform files do not exist at path: %s; run forge first", deploymentDir)
+	if err := c.terraform(ctx, root, "init"); err != nil {
+		return err
 	}
 
-	// Create a context with 10-minute timeout (terraform can be slow)
-	runctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
-	defer cancel()
-
-	// Run terraform init
-	c.logger.InfoContext(runctx, "Running terraform init")
-	initCmd := exec.CommandContext(runctx, "terraform", "-chdir="+deploymentDir, "init")
-	initCmd.Stdout = os.Stdout
-	initCmd.Stderr = os.Stderr
-	if err := initCmd.Run(); err != nil {
-		c.logger.ErrorContext(runctx, "terraform init failed", slog.String("error", err.Error()))
-		return errors.Wrapf(err, errors.TypeInternal, "terraform init failed")
+	if err := c.terraform(ctx, root, "plan", "-out="+planFile); err != nil {
+		return err
 	}
 
-	// Run terraform apply
-	c.logger.InfoContext(runctx, "Running terraform apply")
-	args := []string{"-chdir=" + deploymentDir, "apply", "-auto-approve"}
-	c.logger.DebugContext(runctx, "Running command", slog.String("command", "terraform "+strings.Join(args, " ")))
+	return c.terraform(ctx, root, "apply", planFile)
+}
 
-	applyCmd := exec.CommandContext(runctx, "terraform", args...)
-	applyCmd.Stdout = os.Stdout
-	applyCmd.Stderr = os.Stderr
-	if err := applyCmd.Run(); err != nil {
-		c.logger.ErrorContext(runctx, "terraform apply failed", slog.String("error", err.Error()))
-		return errors.Wrapf(err, errors.TypeInternal, "terraform apply failed")
+func (c *ecsCasting) terraform(ctx context.Context, root, verb string, args ...string) error {
+	argv := append([]string{"-chdir=" + root, verb}, args...)
+
+	c.logger.DebugContext(ctx, "Running command", slog.String("command", "terraform "+strings.Join(argv, " ")))
+
+	// Stdout is foundry's own contract, so the tool's output goes to stderr.
+	cmd := exec.CommandContext(ctx, "terraform", argv...)
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to run terraform %s", verb)
 	}
 
-	c.logger.InfoContext(runctx, "Terraform apply completed successfully")
 	return nil
 }
 
-// getMaterials renders all module templates and returns them as JSONMaterials.
-func getMaterials(config *installation.Casting) ([]domain.StructuredMaterial, error) {
-	var materials []domain.StructuredMaterial
+func (c *ecsCasting) templateData(config installation.Casting) (templateData, error) {
+	annotations := config.Metadata.Annotations
 
-	for _, tmpl := range []*domain.Template{
-		moduleMainTF,
-		moduleTelemetryStoreTF,
-		moduleTelemetryKeeperTF,
-		moduleMetaStoreTF,
-		moduleSignozTF,
-		moduleIngesterTF,
-	} {
-		m, err := tmpl.Render(*config, tmpl.Path())
-		if err != nil {
-			return nil, errors.Wrapf(err, errors.TypeInternal, "failed to create material")
+	data := templateData{
+		Casting: config,
+		Region:  installation.ECSRegion.Resolve(annotations),
+
+		Cluster:       Reference{Stated: installation.ECSClusterARN.Resolve(annotations)},
+		VPC:           Reference{Stated: installation.ECSVPCID.Resolve(annotations)},
+		TaskRole:      Reference{Stated: installation.ECSTaskRoleARN.Resolve(annotations)},
+		ExecutionRole: Reference{Stated: installation.ECSTaskExecutionRoleARN.Resolve(annotations)},
+	}
+
+	subnets, err := statedIDs(installation.ECSPrivateSubnetIDs, annotations)
+	if err != nil {
+		return templateData{}, err
+	}
+
+	data.Subnets = Reference{StatedIDs: subnets}
+
+	securityGroups, err := statedIDs(installation.ECSSecurityGroupIDs, annotations)
+	if err != nil {
+		return templateData{}, err
+	}
+
+	data.SecurityGroup = Reference{StatedIDs: securityGroups}
+
+	return data, nil
+}
+
+// An annotation that is set but names nothing is a mistake, not an omission.
+func statedIDs(annotation v1alpha1.Annotation, annotations map[string]string) ([]string, error) {
+	value := annotation.Resolve(annotations)
+	if value == "" {
+		return nil, nil
+	}
+
+	ids := make([]string, 0, 1)
+	for id := range strings.SplitSeq(value, ",") {
+		if id = strings.TrimSpace(id); id != "" {
+			ids = append(ids, id)
 		}
+	}
+
+	if len(ids) == 0 {
+		return nil, foundryerrors.Newf(foundryerrors.TypeInvalidInput, "failed to parse the %q annotation: no ids found in %q", annotation.Key, value)
+	}
+
+	return ids, nil
+}
+
+// Reference is one object the casting names: lists through StatedIDs, the
+// rest through Stated.
+type Reference struct {
+	Stated    string
+	StatedIDs []string
+}
+
+func (r Reference) IsStated() bool {
+	return r.Stated != "" || len(r.StatedIDs) > 0
+}
+
+// templateData embeds the casting, so `.Spec` and `.Metadata` stay as they were.
+type templateData struct {
+	installation.Casting
+
+	Region string
+
+	Cluster       Reference
+	VPC           Reference
+	Subnets       Reference
+	SecurityGroup Reference
+
+	// The roles are this stack's own identity, so an absent one is created.
+	TaskRole      Reference
+	ExecutionRole Reference
+}
+
+// getMaterials renders the component templates, keyed by the molding kind the
+// enricher switches on.
+func getMaterials(data templateData) (map[v1alpha1.MoldingKind]domain.StructuredMaterial, error) {
+	materials := map[v1alpha1.MoldingKind]domain.StructuredMaterial{}
+
+	for kind, tmpl := range map[v1alpha1.MoldingKind]*domain.Template{
+		v1alpha1.MoldingKindTelemetryStore:  telemetryStoreTF,
+		v1alpha1.MoldingKindTelemetryKeeper: telemetryKeeperTF,
+		v1alpha1.MoldingKindMetaStore:       metaStoreTF,
+		v1alpha1.MoldingKindSignoz:          signozTF,
+		v1alpha1.MoldingKindIngester:        ingesterTF,
+		v1alpha1.MoldingKindMCP:             mcpTF,
+	} {
+		m, err := tmpl.Render(data, tmpl.Path())
+		if err != nil {
+			return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to render material")
+		}
+
 		sm, ok := m.(domain.StructuredMaterial)
 		if !ok {
-			return nil, errors.Newf(errors.TypeInternal, "template %s does not produce a structured material", tmpl.Path())
+			return nil, foundryerrors.Newf(foundryerrors.TypeInternal, "template %q does not produce a structured material", tmpl.Path())
 		}
-		materials = append(materials, sm)
+
+		materials[kind] = sm
 	}
 
 	return materials, nil
