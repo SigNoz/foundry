@@ -200,6 +200,9 @@ processors:
     timeout: 2s
 
 service:
+  telemetry:
+    logs:
+      encoding: json
   pipelines:
     metrics:
       receivers:

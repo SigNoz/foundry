@@ -269,6 +269,9 @@ spec:
                   receivers:
                   - otlp/http
                   - otlp/grpc
+              telemetry:
+                logs:
+                  encoding: json
       enabled: true
       env:
         K8S_CLUSTER_NAME: <cluster-name>
@@ -538,6 +541,9 @@ spec:
                   receivers:
                   - otlp/http
                   - otlp/grpc
+              telemetry:
+                logs:
+                  encoding: json
       env:
         K8S_CLUSTER_NAME: <cluster-name>
         OTEL_COLLECTOR_ROLE: agent

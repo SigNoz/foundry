@@ -266,7 +266,9 @@ otelAgent:
           receivers:
           - otlp/http
           - otlp/grpc
-      telemetry: null
+      telemetry:
+        logs:
+          encoding: json
   enabled: true
   extraVolumeMounts:
   - mountPath: /hostfs

@@ -52,7 +52,6 @@ type component struct {
 	Config struct {
 		Receivers  map[string]any `json:"receivers"`
 		Extensions map[string]any `json:"extensions"`
-		Service    map[string]any `json:"service"`
 	} `json:"config"`
 }
 
@@ -241,9 +240,6 @@ func TestValuesAgent(t *testing.T) {
 			assert.Nil(t, agent.Config.Extensions["zpages"])
 			require.Contains(t, agent.Config.Extensions, "pprof")
 			assert.Nil(t, agent.Config.Extensions["pprof"])
-
-			require.Contains(t, agent.Config.Service, "telemetry")
-			assert.Nil(t, agent.Config.Service["telemetry"])
 		})
 	}
 }
@@ -260,8 +256,6 @@ func TestValuesDeploymentNoReceiverNull(t *testing.T) {
 
 	require.Contains(t, deployment.Config.Extensions, "zpages")
 	assert.Nil(t, deployment.Config.Extensions["zpages"])
-	require.Contains(t, deployment.Config.Service, "telemetry")
-	assert.Nil(t, deployment.Config.Service["telemetry"])
 }
 
 func TestValuesDeployment(t *testing.T) {
@@ -409,7 +403,6 @@ var chartAllowlist = []struct {
 	{"service.pipelines.metrics/internal", "the chart splits internal from scraper", nil, deploymentOnly},
 	{"service.pipelines.traces", "the chart's deployment has no traces pipeline", nil, deploymentOnly},
 	{"receivers.filelog/k8s.exclude", "foundry excludes its own pods by namespace", nil, agentOnly},
-	{"service.telemetry", "the chart's logs.encoding json is nulled away", nil, nil},
 	{"processors.k8sattributes.extract.annotations", "the chart emits empty extract lists", nil, agentOnly},
 	{"processors.k8sattributes.extract.labels", "the chart emits empty extract lists", nil, agentOnly},
 	{"processors.resource/identity", "identity attributes are config-owned", nil, nil},
@@ -429,6 +422,9 @@ var chartAllowlist = []struct {
 	{"receivers.filelog/self_logs", "opt-in chart feature, foundry's channel is spec.config.data", []string{"SelfTelemetry"}, nil},
 	{"processors.filter/non_error_logs", "opt-in chart feature, foundry's channel is spec.config.data", []string{"SelfTelemetry"}, nil},
 	{"service.pipelines.logs/self_logs", "opt-in chart feature, foundry's channel is spec.config.data", []string{"SelfTelemetry"}, nil},
+	{"service.telemetry.traces", "opt-in chart feature, foundry's channel is spec.config.data", []string{"SelfTelemetry"}, nil},
+	{"service.telemetry.metrics", "opt-in chart feature, foundry's channel is spec.config.data", []string{"SelfTelemetry"}, nil},
+	{"service.telemetry.resource", "opt-in chart feature, foundry's channel is spec.config.data", []string{"SelfTelemetry"}, nil},
 }
 
 // TestChart runs against a local k8s-infra checkout: the annotations leave the

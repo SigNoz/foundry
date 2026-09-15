@@ -3,7 +3,7 @@
 {{- $config := fromYaml (index $.Spec.Collector.Spec.Config.Data $.Spec.Collector.Kind.ConfigKey) }}
 {{- /* Helm drops a nulled key only when the chart ships it, so nulling a key
        absent from this kind's chart defaults leaves a literal null. */}}
-{{- $chartOnly := dict "extensions" (dict "zpages" nil "pprof" nil) "service" (dict "telemetry" nil) }}
+{{- $chartOnly := dict "extensions" (dict "zpages" nil "pprof" nil) }}
 {{- if eq $kind "agent" }}
 {{- $_ := set $chartOnly "receivers" (dict "otlp" nil) }}
 {{- end }}
