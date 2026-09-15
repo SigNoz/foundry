@@ -1,6 +1,5 @@
-# The environment-scoped collector's Kubernetes additions: the once-per-
-# cluster signals, held to the shipped k8s-infra chart (0.17.1, app 0.139.0,
-# default render; the gate-0 source). Divergences are recorded in the ledger.
+# The deployment's once-per-cluster additions mirror the k8s-infra chart
+# 0.17.1 (app 0.139.0). Bodies replace the molding base; pipeline lists merge.
 receivers:
   k8s_cluster:
     collection_interval: 30s

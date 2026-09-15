@@ -379,7 +379,7 @@ var chartCases = []struct {
 	}}},
 }
 
-// The reason a divergence is allowed, keyed by the path prefix it covers: the
+// Why foundry differs from the chart, keyed by the path prefix it covers: the
 // prefix itself or a path under it, so receivers.otlp does not swallow
 // receivers.otlp/grpc. A nil cases or kinds means every case or both kinds.
 var chartAllowlist = []struct {
@@ -388,39 +388,39 @@ var chartAllowlist = []struct {
 	cases  []string
 	kinds  []collectionagent.CollectorKind
 }{
-	{"exporters", "divergence 1: foundry exports through otlphttp/signoz and SIGNOZ_INGESTION_ENDPOINT", nil, nil},
-	{"extensions", "divergences 2 and 6: no pprof or zpages, and health_check serves /healthz", nil, nil},
-	{"service.extensions", "divergence 2: no pprof or zpages in the base config", nil, nil},
-	{"processors.batch", "divergence 3: the base config's 1000/2048/10s wins", nil, nil},
-	{"processors.memory_limiter", "divergence 4: base-owned, the chart has none", nil, nil},
-	{"receivers.otlp", "divergence 5: the chart's single 4MiB intake is split", nil, nil},
-	{"receivers.otlp/grpc", "divergence 5: the chart's single 4MiB intake is split", nil, nil},
-	{"receivers.otlp/http", "divergence 5: the chart's single 4MiB intake is split", nil, nil},
-	{"service.pipelines.traces.receivers", "divergence 5: the chart's single 4MiB intake is split", nil, nil},
-	{"service.pipelines.metrics.receivers", "divergence 5: the chart's single 4MiB intake is split", nil, nil},
-	{"service.pipelines.logs.receivers", "divergence 5: the chart's single 4MiB intake is split", nil, nil},
-	{"service.pipelines.traces.processors", "divergence 9: foundry states its own processor order", nil, nil},
-	{"service.pipelines.metrics.processors", "divergence 9: foundry states its own processor order", nil, nil},
-	{"service.pipelines.logs.processors", "divergence 9: foundry states its own processor order", nil, nil},
-	{"service.pipelines.traces.exporters", "divergence 1: foundry exports through otlphttp/signoz", nil, nil},
-	{"service.pipelines.metrics.exporters", "divergence 1: foundry exports through otlphttp/signoz", nil, nil},
-	{"service.pipelines.logs.exporters", "divergence 1: foundry exports through otlphttp/signoz", nil, nil},
-	{"service.pipelines.metrics", "divergence 5: foundry's deployment keeps one metrics pipeline", nil, deploymentOnly},
-	{"service.pipelines.metrics/internal", "divergence 5: the chart splits internal from scraper", nil, deploymentOnly},
-	{"service.pipelines.traces", "divergence 5: the chart's deployment has no traces pipeline", nil, deploymentOnly},
-	{"receivers.filelog/k8s.exclude", "divergence 8: foundry excludes its own pods by namespace", nil, agentOnly},
-	{"service.telemetry", "2026-09-12: the chart's logs.encoding json is nulled away", nil, nil},
-	{"processors.k8sattributes.extract.annotations", "divergence 12: the chart emits empty extract lists", nil, agentOnly},
-	{"processors.k8sattributes.extract.labels", "divergence 12: the chart emits empty extract lists", nil, agentOnly},
-	{"processors.resource/identity", "divergence 13: identity attributes are config-owned", nil, nil},
-	{"processors.resourcedetection.detectors", "cloud deltas parked, vanilla first", cloudCases, nil},
-	{"processors.resourcedetection.ec2", "cloud deltas parked, vanilla first", []string{"CloudAWS"}, nil},
-	{"processors.resourcedetection.gcp", "cloud deltas parked, vanilla first", []string{"CloudGCP", "CloudAutoGKE"}, nil},
-	{"processors.resourcedetection.azure", "cloud deltas parked, vanilla first", []string{"CloudAzure"}, nil},
-	{"receivers.hostmetrics.root_path", "cloud deltas parked, vanilla first", []string{"CloudAutoGKE"}, agentOnly},
-	{"receivers.kubeletstats.extra_metadata_labels", "cloud deltas parked, vanilla first", []string{"CloudAutoGKE"}, agentOnly},
-	{"receivers.kubeletstats.metrics", "cloud deltas parked, vanilla first", []string{"CloudAutoGKE"}, agentOnly},
-	{"processors.resource/deployenv", "attribution contract 3: the environment travels on OTEL_RESOURCE_ATTRIBUTES", []string{"DeploymentEnvironment"}, nil},
+	{"exporters", "foundry exports through otlphttp/signoz and SIGNOZ_INGESTION_ENDPOINT", nil, nil},
+	{"extensions", "no pprof or zpages, and health_check serves /healthz", nil, nil},
+	{"service.extensions", "no pprof or zpages in the base config", nil, nil},
+	{"processors.batch", "the base config's 1000/2048/10s wins", nil, nil},
+	{"processors.memory_limiter", "base-owned, the chart has none", nil, nil},
+	{"receivers.otlp", "the chart's single 4MiB intake is split", nil, nil},
+	{"receivers.otlp/grpc", "the chart's single 4MiB intake is split", nil, nil},
+	{"receivers.otlp/http", "the chart's single 4MiB intake is split", nil, nil},
+	{"service.pipelines.traces.receivers", "the chart's single 4MiB intake is split", nil, nil},
+	{"service.pipelines.metrics.receivers", "the chart's single 4MiB intake is split", nil, nil},
+	{"service.pipelines.logs.receivers", "the chart's single 4MiB intake is split", nil, nil},
+	{"service.pipelines.traces.processors", "foundry states its own processor order", nil, nil},
+	{"service.pipelines.metrics.processors", "foundry states its own processor order", nil, nil},
+	{"service.pipelines.logs.processors", "foundry states its own processor order", nil, nil},
+	{"service.pipelines.traces.exporters", "foundry exports through otlphttp/signoz", nil, nil},
+	{"service.pipelines.metrics.exporters", "foundry exports through otlphttp/signoz", nil, nil},
+	{"service.pipelines.logs.exporters", "foundry exports through otlphttp/signoz", nil, nil},
+	{"service.pipelines.metrics", "foundry's deployment keeps one metrics pipeline", nil, deploymentOnly},
+	{"service.pipelines.metrics/internal", "the chart splits internal from scraper", nil, deploymentOnly},
+	{"service.pipelines.traces", "the chart's deployment has no traces pipeline", nil, deploymentOnly},
+	{"receivers.filelog/k8s.exclude", "foundry excludes its own pods by namespace", nil, agentOnly},
+	{"service.telemetry", "the chart's logs.encoding json is nulled away", nil, nil},
+	{"processors.k8sattributes.extract.annotations", "the chart emits empty extract lists", nil, agentOnly},
+	{"processors.k8sattributes.extract.labels", "the chart emits empty extract lists", nil, agentOnly},
+	{"processors.resource/identity", "identity attributes are config-owned", nil, nil},
+	{"processors.resourcedetection.detectors", "foundry does not mirror the chart's cloud presets", cloudCases, nil},
+	{"processors.resourcedetection.ec2", "foundry does not mirror the chart's cloud presets", []string{"CloudAWS"}, nil},
+	{"processors.resourcedetection.gcp", "foundry does not mirror the chart's cloud presets", []string{"CloudGCP", "CloudAutoGKE"}, nil},
+	{"processors.resourcedetection.azure", "foundry does not mirror the chart's cloud presets", []string{"CloudAzure"}, nil},
+	{"receivers.hostmetrics.root_path", "foundry does not mirror the chart's cloud presets", []string{"CloudAutoGKE"}, agentOnly},
+	{"receivers.kubeletstats.extra_metadata_labels", "foundry does not mirror the chart's cloud presets", []string{"CloudAutoGKE"}, agentOnly},
+	{"receivers.kubeletstats.metrics", "foundry does not mirror the chart's cloud presets", []string{"CloudAutoGKE"}, agentOnly},
+	{"processors.resource/deployenv", "the environment travels on OTEL_RESOURCE_ATTRIBUTES", []string{"DeploymentEnvironment"}, nil},
 	{"receivers.prometheus/scraper", "opt-in chart feature, foundry's channel is spec.config.data", []string{"Prometheus"}, nil},
 	{"service.pipelines.metrics/scraper", "opt-in chart feature, foundry's channel is spec.config.data", []string{"Prometheus"}, nil},
 	{"receivers.k8s_events.namespaces", "opt-in chart feature, foundry's channel is spec.config.data", []string{"K8sEventsNamespaces"}, nil},
@@ -513,7 +513,7 @@ func TestChart(t *testing.T) {
 				}
 
 				slices.Sort(residual)
-				assert.Empty(t, residual, "unexplained divergences from the chart")
+				assert.Empty(t, residual, "unexplained differences from the chart")
 			})
 		}
 	}
