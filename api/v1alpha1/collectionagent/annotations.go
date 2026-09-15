@@ -27,11 +27,43 @@ var (
 	}
 )
 
+var KubernetesNamespace = v1alpha1.Annotation{
+	Key:         "foundry.signoz.io/kubernetes-namespace",
+	Default:     "",
+	Mode:        v1alpha1.ModeKubernetes,
+	Description: "Namespace the collector is deployed into; unstated, the casting's metadata.name.",
+}
+
+var (
+	HelmChart = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/kubernetes-helm-chart",
+		Default:     "k8s-infra",
+		Mode:        v1alpha1.ModeKubernetes,
+		Description: "Chart to install: a name in the chart repository, a URL to a chart archive, or a local chart path.",
+	}
+	HelmChartRepoURL = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/kubernetes-helm-repo-url",
+		Default:     "https://charts.signoz.io",
+		Mode:        v1alpha1.ModeKubernetes,
+		Description: "Chart repository URL the chart name is resolved against; unused when the chart states its own location.",
+	}
+	HelmChartVersion = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/kubernetes-helm-chart-version",
+		Default:     "latest",
+		Mode:        v1alpha1.ModeKubernetes,
+		Description: "Helm chart version to install; `latest` installs the repository's latest chart.",
+	}
+)
+
 func Annotations() []v1alpha1.Annotation {
 	return []v1alpha1.Annotation{
 		ECSRegion,
 		ECSClusterARN,
 		ECSTaskRoleARN,
 		ECSTaskExecutionRoleARN,
+		KubernetesNamespace,
+		HelmChart,
+		HelmChartRepoURL,
+		HelmChartVersion,
 	}
 }

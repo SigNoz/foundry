@@ -7,12 +7,14 @@ import (
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockercomposecasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockerswarmcasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/ecsterraformcasting"
+	"github.com/signoz/foundry/internal/casting/collectionagent/kuberneteshelmcasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/kuberneteskustomizecasting"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/tooler"
 	"github.com/signoz/foundry/internal/tooler/dockercomposetooler"
 	"github.com/signoz/foundry/internal/tooler/dockerswarmtooler"
 	"github.com/signoz/foundry/internal/tooler/dockertooler"
+	"github.com/signoz/foundry/internal/tooler/helmtooler"
 	"github.com/signoz/foundry/internal/tooler/kubectltooler"
 	"github.com/signoz/foundry/internal/tooler/terraformtooler"
 )
@@ -57,6 +59,13 @@ func NewRegistry(logger *slog.Logger) *Registry {
 			}: {
 				Casting: ecsterraformcasting.New(logger),
 				Toolers: []tooler.Tooler{terraformtooler.New()},
+			},
+			{
+				Mode:   v1alpha1.ModeKubernetes,
+				Flavor: v1alpha1.FlavorHelm,
+			}: {
+				Casting: kuberneteshelmcasting.New(logger),
+				Toolers: []tooler.Tooler{helmtooler.New()},
 			},
 		},
 	}
