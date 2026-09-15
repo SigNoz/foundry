@@ -33,12 +33,11 @@ func (c *kubernetesHelmCasting) Enricher(ctx context.Context, config *collection
 
 func (c *kubernetesHelmCasting) Forge(ctx context.Context, config collectionagent.Casting, p *pourer.Pourer) error {
 	buf := bytes.NewBuffer(nil)
-	if err := valuesYAMLTemplate.Execute(buf, config); err != nil {
+	if err := valuesYAMLTemplate.Execute(buf, templateDataFor(config)); err != nil {
 		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute %s template", valuesYAMLTemplate.Name())
 	}
 
-	// One values file per kind, so a casting file holding several collection
-	// agents pours a release's values per document.
+	// A values file per kind, so a casting file of several agents pours one per document.
 	p.AddYAML(buf.Bytes(), filepath.Dir(config.Spec.Collector.Kind.ConfigKey()), "values.yaml")
 
 	return nil
@@ -61,12 +60,13 @@ func (c *kubernetesHelmCasting) Cast(ctx context.Context, config collectionagent
 	}
 
 	release := releaseName(config)
+	ns := namespace(config)
 
 	settings := cli.New()
-	settings.SetNamespace(config.Metadata.Name)
+	settings.SetNamespace(ns)
 
 	actionConfig := new(action.Configuration)
-	if err := actionConfig.Init(settings.RESTClientGetter(), config.Metadata.Name, os.Getenv("HELM_DRIVER"), func(format string, v ...any) {
+	if err := actionConfig.Init(settings.RESTClientGetter(), ns, os.Getenv("HELM_DRIVER"), func(format string, v ...any) {
 		c.logger.DebugContext(ctx, fmt.Sprintf(format, v...))
 	}); err != nil {
 		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to initialize helm action config")
@@ -78,7 +78,7 @@ func (c *kubernetesHelmCasting) Cast(ctx context.Context, config collectionagent
 		slog.String("release", release),
 		slog.String("chart", chartRef),
 		slog.String("repo", repoURL),
-		slog.String("namespace", config.Metadata.Name),
+		slog.String("namespace", ns),
 	)
 
 	histClient := action.NewHistory(actionConfig)
@@ -87,7 +87,7 @@ func (c *kubernetesHelmCasting) Cast(ctx context.Context, config collectionagent
 	if _, err := histClient.Run(release); err != nil {
 		install := action.NewInstall(actionConfig)
 		install.ReleaseName = release
-		install.Namespace = config.Metadata.Name
+		install.Namespace = ns
 		install.CreateNamespace = true
 		install.Version = version
 		install.RepoURL = repoURL
@@ -110,7 +110,7 @@ func (c *kubernetesHelmCasting) Cast(ctx context.Context, config collectionagent
 		}
 	} else {
 		upgrade := action.NewUpgrade(actionConfig)
-		upgrade.Namespace = config.Metadata.Name
+		upgrade.Namespace = ns
 		upgrade.Version = version
 		upgrade.RepoURL = repoURL
 
@@ -133,26 +133,44 @@ func (c *kubernetesHelmCasting) Cast(ctx context.Context, config collectionagent
 
 	c.logger.InfoContext(ctx, "Helm deployment complete",
 		slog.String("release", release),
-		slog.String("namespace", config.Metadata.Name),
+		slog.String("namespace", ns),
 	)
 
 	return nil
 }
 
-// The release name carries the collector kind so the agent and the deployment
-// of one casting file live as two releases in the same namespace.
+// The embedded casting keeps $.Spec and $.Metadata reachable from the templates.
+type templateData struct {
+	collectionagent.Casting
+
+	Namespace string
+}
+
+func templateDataFor(config collectionagent.Casting) templateData {
+	return templateData{Casting: config, Namespace: namespace(config)}
+}
+
+// The annotation's default cannot name metadata.name, so the fallback lives here.
+func namespace(config collectionagent.Casting) string {
+	ns := collectionagent.KubernetesNamespace.Resolve(config.Metadata.Annotations)
+	if ns == "" {
+		ns = config.Metadata.Name
+	}
+
+	return ns
+}
+
+// The kind keeps a file's agent and deployment two releases in one namespace.
 func releaseName(config collectionagent.Casting) string {
 	return fmt.Sprintf("%s-collector-%s", config.Metadata.Name, config.Spec.Collector.Kind)
 }
 
-// The repository applies to a bare chart name only: a reference carrying a slash
-// states its own location, and helm would look that string up in the index.
+// The repository applies to a bare chart name only: helm looks a slashed reference up in the index.
 func chartSource(config collectionagent.Casting) (chart, version, repoURL string) {
 	chart = collectionagent.HelmChart.Resolve(config.Metadata.Annotations)
 	version = collectionagent.HelmChartVersion.Resolve(config.Metadata.Annotations)
 
-	// Helm has no "latest" token: it parses a stated version as a semver
-	// constraint, and only an empty one means the repository's newest chart.
+	// Helm has no "latest" token: only an empty version means the repository's newest chart.
 	if version == "latest" {
 		version = ""
 	}

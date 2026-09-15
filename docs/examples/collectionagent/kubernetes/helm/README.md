@@ -41,8 +41,10 @@ missing.
 
 Each kind installs as its own Helm release, `<metadata.name>-collector-agent`
 and `<metadata.name>-collector-deployment`, into the `<metadata.name>`
-namespace. Both castings share the `metadata.name`, so the two releases compose
-into one namespace without upgrading over each other.
+namespace, or into the namespace the
+`foundry.signoz.io/kubernetes-namespace` annotation names. Both castings share
+the `metadata.name`, so the two releases compose into one namespace without
+upgrading over each other.
 
 Kubernetes metadata lands on every signal through the `k8sattributes`
 processor. The chart stamps a `checksum/config` pod annotation from the
@@ -99,6 +101,16 @@ fail silently without it. It becomes the chart's `clusterName`; every other
 `spec.collector.spec.env` key becomes an entry in the component's
 `additionalEnvs`.
 
+Extra resource attributes, `deployment.environment` among them, travel on
+`OTEL_RESOURCE_ATTRIBUTES` in `spec.collector.spec.env`. Host and cluster
+identity is set by the collector config itself, so your value only adds
+attributes:
+
+```yaml
+      env:
+        OTEL_RESOURCE_ATTRIBUTES: deployment.environment=production
+```
+
 ## Forge
 
 ```bash
@@ -147,14 +159,15 @@ helm template signoz-collector-agent k8s-infra --repo https://charts.signoz.io \
 
 ## Annotations
 
-Optional annotations to override the default chart source. These are not
+Optional annotations naming the namespace and the chart source. These are not
 required for standard deployments.
 
 | Annotation | Default | Description |
 | --- | --- | --- |
-| `foundry.signoz.io/kubernetes-helm-casting-chart` | `k8s-infra` | Chart name in the repository, a URL to a chart archive, or a local chart path |
-| `foundry.signoz.io/kubernetes-helm-casting-repo-url` | `https://charts.signoz.io` | Chart repository the chart name is resolved against; unused when the chart states its own location |
-| `foundry.signoz.io/kubernetes-helm-casting-chart-version` | `latest` | Chart version to install; `latest` installs the newest chart in the repository |
+| `foundry.signoz.io/kubernetes-namespace` | `metadata.name` | Namespace the collector is deployed into |
+| `foundry.signoz.io/kubernetes-helm-chart` | `k8s-infra` | Chart name in the repository, a URL to a chart archive, or a local chart path |
+| `foundry.signoz.io/kubernetes-helm-repo-url` | `https://charts.signoz.io` | Chart repository the chart name is resolved against; unused when the chart states its own location |
+| `foundry.signoz.io/kubernetes-helm-chart-version` | `latest` | Chart version to install; `latest` installs the newest chart in the repository |
 
 Example pinning the chart version:
 
@@ -164,7 +177,7 @@ kind: CollectionAgent
 metadata:
   name: signoz
   annotations:
-    foundry.signoz.io/kubernetes-helm-casting-chart-version: 0.17.1
+    foundry.signoz.io/kubernetes-helm-chart-version: 0.17.1
 spec:
   deployment:
     mode: kubernetes

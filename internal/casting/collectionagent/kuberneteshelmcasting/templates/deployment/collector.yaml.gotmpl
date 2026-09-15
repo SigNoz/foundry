@@ -1,5 +1,5 @@
 # The environment-scoped collector's Kubernetes additions: the once-per-
-# cluster signals, held to the shipped k8s-infra chart (0.16.0, app 0.139.0,
+# cluster signals, held to the shipped k8s-infra chart (0.17.1, app 0.139.0,
 # default render; the gate-0 source). Divergences are recorded in the ledger.
 receivers:
   k8s_cluster:
@@ -61,6 +61,14 @@ processors:
             name: k8s.pod.uid
       - sources:
           - from: connection
+  {{- if index $.Spec.Collector.Spec.Env "K8S_CLUSTER_NAME" }}
+  resource/identity:
+    # An unset env resolves to empty; insert lets a user-supplied value win.
+    attributes:
+      - key: k8s.cluster.name
+        value: ${env:K8S_CLUSTER_NAME}
+        action: insert
+  {{- end }}
   resourcedetection:
     detectors:
       - env
@@ -73,12 +81,21 @@ service:
       receivers:
         - k8s_cluster
       processors:
+        {{- if index $.Spec.Collector.Spec.Env "K8S_CLUSTER_NAME" }}
+        - resource/identity
+        {{- end }}
         - k8sattributes
     logs:
       receivers:
         - k8s_events
       processors:
+        {{- if index $.Spec.Collector.Spec.Env "K8S_CLUSTER_NAME" }}
+        - resource/identity
+        {{- end }}
         - k8sattributes
     traces:
       processors:
+        {{- if index $.Spec.Collector.Spec.Env "K8S_CLUSTER_NAME" }}
+        - resource/identity
+        {{- end }}
         - k8sattributes

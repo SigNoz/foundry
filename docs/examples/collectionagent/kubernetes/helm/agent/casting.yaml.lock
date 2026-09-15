@@ -53,6 +53,17 @@ spec:
                 check_interval: 5s
                 limit_mib: 4000
                 spike_limit_mib: 800
+              resource/identity:
+                attributes:
+                - action: insert
+                  key: host.name
+                  value: ${env:K8S_NODE_NAME}
+                - action: insert
+                  key: k8s.node.name
+                  value: ${env:K8S_NODE_NAME}
+                - action: insert
+                  key: k8s.cluster.name
+                  value: ${env:K8S_CLUSTER_NAME}
               resourcedetection:
                 detectors:
                 - k8snode
@@ -225,6 +236,7 @@ spec:
                   processors:
                   - memory_limiter
                   - resourcedetection
+                  - resource/identity
                   - k8sattributes
                   - batch
                   receivers:
@@ -237,6 +249,7 @@ spec:
                   processors:
                   - memory_limiter
                   - resourcedetection
+                  - resource/identity
                   - k8sattributes
                   - batch
                   receivers:
@@ -250,6 +263,7 @@ spec:
                   processors:
                   - memory_limiter
                   - resourcedetection
+                  - resource/identity
                   - k8sattributes
                   - batch
                   receivers:
@@ -308,6 +322,17 @@ spec:
                 check_interval: 5s
                 limit_mib: 4000
                 spike_limit_mib: 800
+              resource/identity:
+                attributes:
+                - action: insert
+                  key: host.name
+                  value: ${env:K8S_NODE_NAME}
+                - action: insert
+                  key: k8s.node.name
+                  value: ${env:K8S_NODE_NAME}
+                - action: insert
+                  key: k8s.cluster.name
+                  value: ${env:K8S_CLUSTER_NAME}
               resourcedetection:
                 detectors:
                 - k8snode
@@ -480,6 +505,7 @@ spec:
                   processors:
                   - memory_limiter
                   - resourcedetection
+                  - resource/identity
                   - k8sattributes
                   - batch
                   receivers:
@@ -492,6 +518,7 @@ spec:
                   processors:
                   - memory_limiter
                   - resourcedetection
+                  - resource/identity
                   - k8sattributes
                   - batch
                   receivers:
@@ -505,6 +532,7 @@ spec:
                   processors:
                   - memory_limiter
                   - resourcedetection
+                  - resource/identity
                   - k8sattributes
                   - batch
                   receivers:

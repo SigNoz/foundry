@@ -11,8 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// One values file per kind, under the kind's own directory, so a casting file
-// carrying both kinds pours a release's values per document.
 func TestForge(t *testing.T) {
 	for _, test := range []struct {
 		name         string
@@ -59,8 +57,27 @@ func TestReleaseName(t *testing.T) {
 	}
 }
 
-// Helm has no "latest" token, so the annotation's default and a stated "latest"
-// both reach the SDK as the empty version that means the repository's newest.
+func TestNamespace(t *testing.T) {
+	for _, test := range []struct {
+		name              string
+		metadataName      string
+		annotations       map[string]string
+		expectedNamespace string
+	}{
+		{"Unstated_Valid", "signoz", nil, "signoz"},
+		{"UnstatedRenamed_Valid", "acme", nil, "acme"},
+		{"Stated_Valid", "signoz", map[string]string{collectionagent.KubernetesNamespace.Key: "observability"}, "observability"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			config := collectionagent.Default()
+			config.Metadata.Name = test.metadataName
+			config.Metadata.Annotations = test.annotations
+
+			assert.Equal(t, test.expectedNamespace, namespace(*config))
+		})
+	}
+}
+
 func TestChartSource(t *testing.T) {
 	for _, test := range []struct {
 		name            string

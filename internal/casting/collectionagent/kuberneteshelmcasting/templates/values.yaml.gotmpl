@@ -1,9 +1,8 @@
 {{- $kind := $.Spec.Collector.Kind.String }}
 {{- $env := fromYaml (toYaml $.Spec.Collector.Spec.Env) }}
 {{- $config := fromYaml (index $.Spec.Collector.Spec.Config.Data $.Spec.Collector.Kind.ConfigKey) }}
-{{- /* Chart config keys foundry's config never states. Helm drops a nulled key only
-       when the chart ships it, so nulling a key absent from this kind's chart
-       defaults would leave a literal null in the ConfigMap. */}}
+{{- /* Helm drops a nulled key only when the chart ships it, so nulling a key
+       absent from this kind's chart defaults leaves a literal null. */}}
 {{- $chartOnly := dict "extensions" (dict "zpages" nil "pprof" nil) "service" (dict "telemetry" nil) }}
 {{- if eq $kind "agent" }}
 {{- $_ := set $chartOnly "receivers" (dict "otlp" nil) }}
@@ -63,8 +62,7 @@ otelAgent:
   additionalEnvs:
 {{ toYaml . | indent 4 }}
   {{- end }}
-  # The hostmetrics receiver reads the node through /hostfs, which the chart
-  # mounts only under its own hostMetrics preset.
+  # The chart mounts /hostfs only under its hostMetrics preset, which is off.
   extraVolumes:
     - name: hostfs
       hostPath:

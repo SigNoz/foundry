@@ -1,5 +1,5 @@
 # The agent's Kubernetes additions, held to the shipped k8s-infra chart
-# (0.16.0, app 0.139.0, default render; the gate-0 source). Divergences are
+# (0.17.1, app 0.139.0, default render; the gate-0 source). Divergences are
 # recorded in the ledger. Bodies replace the molding base; pipeline lists
 # merge per the molding's listTypes.
 receivers:
@@ -9,7 +9,7 @@ receivers:
     exclude:
       # The collectors' own logs (self-log loop) and kube-system noise,
       # matching the shipped chart's excludes.
-      - /var/log/pods/{{ $.Metadata.Name }}_{{ $.Metadata.Name }}-collector-*/*/*.log
+      - /var/log/pods/{{ $.Namespace }}_{{ $.Metadata.Name }}-collector-*/*/*.log
       - /var/log/pods/kube-system_*/*/*.log
     include_file_name: false
     include_file_path: true
@@ -167,6 +167,21 @@ processors:
             name: k8s.pod.uid
       - sources:
           - from: connection
+  resource/identity:
+    # hostNetwork is false, so the system detector would report the pod's name.
+    # insert lets a user-supplied value win.
+    attributes:
+      - key: host.name
+        value: ${env:K8S_NODE_NAME}
+        action: insert
+      - key: k8s.node.name
+        value: ${env:K8S_NODE_NAME}
+        action: insert
+      {{- if index $.Spec.Collector.Spec.Env "K8S_CLUSTER_NAME" }}
+      - key: k8s.cluster.name
+        value: ${env:K8S_CLUSTER_NAME}
+        action: insert
+      {{- end }}
   resourcedetection:
     detectors:
       - k8snode
@@ -193,12 +208,15 @@ service:
         - hostmetrics
         - kubeletstats
       processors:
+        - resource/identity
         - k8sattributes
     logs:
       receivers:
         - filelog/k8s
       processors:
+        - resource/identity
         - k8sattributes
     traces:
       processors:
+        - resource/identity
         - k8sattributes

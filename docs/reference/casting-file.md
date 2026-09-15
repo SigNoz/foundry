@@ -147,6 +147,8 @@ See [Patches](../concepts/patches.md) for operation details and examples.
 
 ## Annotations
 
+Every key is `foundry.signoz.io/<scope>-<thing>`, where scope is the deployment mode or the component it configures.
+
 ### Systemd binary paths
 
 Required when using `mode: systemd`, `flavor: binary`.
@@ -172,9 +174,9 @@ Optional. Override the default Helm chart source when using `mode: kubernetes`, 
 
 | Annotation | Default | Description |
 | --- | --- | --- |
-| `foundry.signoz.io/kubernetes-helm-casting-chart` | `signoz` | Chart name in the repository, a URL to a chart archive, or a local chart path |
-| `foundry.signoz.io/kubernetes-helm-casting-repo-url` | `https://charts.signoz.io` | Chart repository the chart name is resolved against |
-| `foundry.signoz.io/kubernetes-helm-casting-chart-version` | - | Helm chart version to install; empty installs the latest chart in the repository |
+| `foundry.signoz.io/kubernetes-helm-chart` | `signoz` | Chart name in the repository, a URL to a chart archive, or a local chart path |
+| `foundry.signoz.io/kubernetes-helm-repo-url` | `https://charts.signoz.io` | Chart repository the chart name is resolved against |
+| `foundry.signoz.io/kubernetes-helm-chart-version` | - | Helm chart version to install; empty installs the latest chart in the repository |
 
 ### ECS annotations
 

@@ -35,7 +35,7 @@ func (e *kubernetesHelmMoldingEnricher) EnrichStatus(ctx context.Context, kind v
 	}
 
 	buf := bytes.NewBuffer(nil)
-	if err := tmpl.Execute(buf, config); err != nil {
+	if err := tmpl.Execute(buf, templateDataFor(*config)); err != nil {
 		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute %s template", config.Spec.Collector.Kind)
 	}
 
