@@ -168,6 +168,14 @@ metadata:
     foundry.signoz.io/metastore-postgres-binary-path: /usr/bin/postgres
 ```
 
+### Kubernetes annotations
+
+Optional. Applies to `mode: kubernetes`, both flavors.
+
+| Annotation | Default | Description |
+| --- | --- | --- |
+| `foundry.signoz.io/kubernetes-namespace` | `metadata.name` | Namespace the installation is deployed into |
+
 ### Kubernetes Helm annotations
 
 Optional. Override the default Helm chart source when using `mode: kubernetes`, `flavor: helm`.
@@ -176,7 +184,7 @@ Optional. Override the default Helm chart source when using `mode: kubernetes`, 
 | --- | --- | --- |
 | `foundry.signoz.io/kubernetes-helm-chart` | `signoz` | Chart name in the repository, a URL to a chart archive, or a local chart path |
 | `foundry.signoz.io/kubernetes-helm-repo-url` | `https://charts.signoz.io` | Chart repository the chart name is resolved against |
-| `foundry.signoz.io/kubernetes-helm-chart-version` | - | Helm chart version to install; empty installs the latest chart in the repository |
+| `foundry.signoz.io/kubernetes-helm-chart-version` | `latest` | Helm chart version to install; `latest` installs the repository's latest chart |
 
 ### ECS annotations
 

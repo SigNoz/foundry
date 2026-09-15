@@ -32,7 +32,8 @@ Run both. The SigNoz Kubernetes views require both sources: entity
 resolution breaks when either the kubelet metrics or the cluster-level
 metrics are missing. Together they match what the SigNoz k8s-infra chart
 deploys. Both castings share the `metadata.name`, so they compose into one
-namespace.
+namespace: `<metadata.name>`, or the namespace the
+`foundry.signoz.io/kubernetes-namespace` annotation names.
 
 Kubernetes metadata lands on every signal through the `k8sattributes`
 processor, and the collector config enters the cluster through a
@@ -112,4 +113,33 @@ context. To inspect what would be applied first:
 
 ```bash
 kubectl kustomize agent/pours/collectionagent/collector/agent
+```
+
+## Annotations
+
+Optional annotation naming the namespace. It is not required for standard
+deployments.
+
+| Annotation | Default | Description |
+| --- | --- | --- |
+| `foundry.signoz.io/kubernetes-namespace` | `metadata.name` | Namespace the collector is deployed into |
+
+Example deploying into a namespace of its own:
+
+```yaml
+apiVersion: v1alpha1
+kind: CollectionAgent
+metadata:
+  name: signoz
+  annotations:
+    foundry.signoz.io/kubernetes-namespace: observability
+spec:
+  deployment:
+    mode: kubernetes
+    flavor: kustomize
+  collector:
+    spec:
+      env:
+        SIGNOZ_INGESTION_ENDPOINT: http://<signoz-host>:4318
+        K8S_CLUSTER_NAME: <cluster-name>
 ```

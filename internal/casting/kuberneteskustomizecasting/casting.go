@@ -114,9 +114,11 @@ func (c *kustomizeCasting) Forge(ctx context.Context, cfg installation.Casting, 
 		templates = append(templates, ingesterTemplates...)
 	}
 
+	data := templateDataFor(cfg)
+
 	var materials []domain.Material
 	for _, tmpl := range templates {
-		m, err := c.forgeCasting(tmpl, &cfg)
+		m, err := c.forgeCasting(tmpl, data)
 		if err != nil {
 			return nil, errors.Wrapf(err, errors.TypeInternal, "failed to forge")
 		}
@@ -164,7 +166,7 @@ func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting
 	// (image, DSN) would be rejected; the finished run is replaced, not patched.
 	if config.Spec.TelemetryStore.Spec.IsEnabled() {
 		job := config.Metadata.Name + "-telemetrystore-migrator"
-		if err := c.kubectl(runctx, "delete", "job", job, "--namespace", config.Metadata.Name, "--ignore-not-found"); err != nil {
+		if err := c.kubectl(runctx, "delete", "job", job, "--namespace", namespace(config), "--ignore-not-found"); err != nil {
 			return errors.Wrapf(err, errors.TypeInternal, "failed to delete job %q", job)
 		}
 	}
@@ -198,12 +200,33 @@ func needsClickhouseOperator(cfg *installation.Casting) bool {
 		(cfg.Spec.TelemetryKeeper.Spec.IsEnabled() && cfg.Spec.TelemetryKeeper.Kind == installation.TelemetryKeeperKindClickhouseKeeper)
 }
 
-func (c *kustomizeCasting) forgeCasting(tmpl *domain.Template, cfg *installation.Casting) ([]domain.Material, error) {
+// The embedded casting keeps $.Spec and $.Metadata reachable from the templates.
+type templateData struct {
+	installation.Casting
+
+	Namespace string
+}
+
+func templateDataFor(config installation.Casting) templateData {
+	return templateData{Casting: config, Namespace: namespace(config)}
+}
+
+// The annotation's default cannot name metadata.name, so the fallback lives here.
+func namespace(config installation.Casting) string {
+	ns := installation.KubernetesNamespace.Resolve(config.Metadata.Annotations)
+	if ns == "" {
+		ns = config.Metadata.Name
+	}
+
+	return ns
+}
+
+func (c *kustomizeCasting) forgeCasting(tmpl *domain.Template, data templateData) ([]domain.Material, error) {
 	templatePath := tmpl.Path()
 	relPath := strings.TrimPrefix(templatePath, "templates/")
 	relPath = strings.TrimSuffix(relPath, filepath.Ext(relPath))
 	path := filepath.Join(rootcasting.DeploymentDir, relPath)
-	material, err := tmpl.Render(cfg, path)
+	material, err := tmpl.Render(data, path)
 	if err != nil {
 		return nil, errors.Wrapf(err, errors.TypeInternal, "render template %s", templatePath)
 	}
@@ -229,9 +252,11 @@ type templateAt struct {
 }
 
 func renderStructured(config *installation.Casting, items []templateAt) ([]domain.StructuredMaterial, error) {
+	data := templateDataFor(*config)
+
 	materials := make([]domain.StructuredMaterial, 0, len(items))
 	for _, item := range items {
-		m, err := item.tmpl.Render(config, item.path)
+		m, err := item.tmpl.Render(data, item.path)
 		if err != nil {
 			return nil, errors.Wrapf(err, errors.TypeInternal, "render template %s", item.tmpl.Path())
 		}

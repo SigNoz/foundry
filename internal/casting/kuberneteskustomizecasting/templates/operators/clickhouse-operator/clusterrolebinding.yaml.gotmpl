@@ -13,4 +13,4 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-operator
-    namespace: {{ $.Metadata.Name }}
+    namespace: {{ $.Namespace }}

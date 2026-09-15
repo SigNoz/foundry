@@ -72,11 +72,13 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 		return errors.Wrapf(err, errors.TypeInvalidInput, "failed to parse values")
 	}
 
+	ns := namespace(config)
+
 	settings := cli.New()
-	settings.SetNamespace(config.Metadata.Name)
+	settings.SetNamespace(ns)
 
 	actionConfig := new(action.Configuration)
-	if err := actionConfig.Init(settings.RESTClientGetter(), config.Metadata.Name, os.Getenv("HELM_DRIVER"), func(format string, v ...any) {
+	if err := actionConfig.Init(settings.RESTClientGetter(), ns, os.Getenv("HELM_DRIVER"), func(format string, v ...any) {
 		c.logger.Debug(fmt.Sprintf(format, v...))
 	}); err != nil {
 		return errors.Wrapf(err, errors.TypeInternal, "failed to initialize helm action config")
@@ -88,7 +90,7 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 		slog.String("release", config.Metadata.Name),
 		slog.String("chart", chartRef),
 		slog.String("repo", repoURL),
-		slog.String("namespace", config.Metadata.Name),
+		slog.String("namespace", ns),
 	)
 
 	histClient := action.NewHistory(actionConfig)
@@ -98,7 +100,7 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 	if err != nil {
 		install := action.NewInstall(actionConfig)
 		install.ReleaseName = config.Metadata.Name
-		install.Namespace = config.Metadata.Name
+		install.Namespace = ns
 		install.CreateNamespace = true
 		install.Version = version
 		install.RepoURL = repoURL
@@ -121,7 +123,7 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 		}
 	} else {
 		upgrade := action.NewUpgrade(actionConfig)
-		upgrade.Namespace = config.Metadata.Name
+		upgrade.Namespace = ns
 		upgrade.Version = version
 		upgrade.RepoURL = repoURL
 
@@ -144,9 +146,19 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 
 	c.logger.InfoContext(ctx, "Helm deployment complete",
 		slog.String("release", config.Metadata.Name),
-		slog.String("namespace", config.Metadata.Name),
+		slog.String("namespace", ns),
 	)
 	return nil
+}
+
+// The annotation's default cannot name metadata.name, so the fallback lives here.
+func namespace(config installation.Casting) string {
+	ns := installation.KubernetesNamespace.Resolve(config.Metadata.Annotations)
+	if ns == "" {
+		ns = config.Metadata.Name
+	}
+
+	return ns
 }
 
 // The repository applies to a bare chart name only: a reference carrying a slash
@@ -154,6 +166,11 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 func chartSource(config installation.Casting) (chart, version, repoURL string) {
 	chart = installation.HelmChart.Resolve(config.Metadata.Annotations)
 	version = installation.HelmChartVersion.Resolve(config.Metadata.Annotations)
+
+	// Helm has no "latest" token: only an empty version means the repository's newest chart.
+	if version == "latest" {
+		version = ""
+	}
 
 	if strings.ContainsRune(chart, '/') {
 		return chart, version, ""
