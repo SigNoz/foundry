@@ -55,6 +55,13 @@ var (
 	}
 )
 
+var CollectorAgentBinaryPath = v1alpha1.Annotation{
+	Key:         "foundry.signoz.io/collector-binary-path",
+	Default:     "/opt/signoz-collector-agent/bin/otelcol-contrib",
+	Mode:        v1alpha1.ModeSystemd,
+	Description: "Absolute path to the OpenTelemetry Collector Contrib binary.",
+}
+
 func Annotations() []v1alpha1.Annotation {
 	return []v1alpha1.Annotation{
 		ECSRegion,
@@ -65,5 +72,6 @@ func Annotations() []v1alpha1.Annotation {
 		HelmChart,
 		HelmChartRepoURL,
 		HelmChartVersion,
+		CollectorAgentBinaryPath,
 	}
 }
