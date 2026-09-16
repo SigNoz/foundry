@@ -1,0 +1,96 @@
+receivers:
+  hostmetrics:
+    collection_interval: 60s
+    scrapers:
+      cpu: {}
+      disk: {}
+      load: {}
+      memory: {}
+      network: {}
+      paging: {}
+      processes: {}
+      system: {}
+      process:
+        mute_process_name_error: true
+        mute_process_exe_error: true
+        mute_process_io_error: true
+        mute_process_user_error: true
+      filesystem:
+        exclude_fs_types:
+          match_type: strict
+          fs_types:
+            - autofs
+            - binfmt_misc
+            - bpf
+            - cgroup2
+            - configfs
+            - debugfs
+            - devpts
+            - devtmpfs
+            - fusectl
+            - hugetlbfs
+            - iso9660
+            - mqueue
+            - nsfs
+            - overlay
+            - proc
+            - procfs
+            - pstore
+            - rpc_pipefs
+            - securityfs
+            - selinuxfs
+            - squashfs
+            - sysfs
+            - tracefs
+        exclude_mount_points:
+          match_type: regexp
+          mount_points:
+            - /dev/*
+            - /proc/*
+            - /sys/*
+            - /run/*
+            - /var/lib/docker/*
+  filelog/varlog:
+    include:
+      - /var/log/*.log
+      - /var/log/*log
+      - /var/log/*messages*
+      - /var/log/*secure*
+      - /var/log/*auth*
+      - /var/log/*mesg
+      - /var/log/*cron
+      - /var/log/*acpid
+      - /var/log/*.out
+      - /var/adm/*.log
+      - /var/adm/*messages*
+    exclude:
+      - /var/log/lastlog
+      - /var/log/anaconda.syslog
+      - /var/log/*.swp
+      - /var/log/*.swx
+      - /var/log/.*.swp
+      - /var/log/.*.swx
+    start_at: end
+    include_file_name: false
+    include_file_path: true
+
+processors:
+  resourcedetection:
+    detectors:
+      - env
+      - ec2
+      - gcp
+      - azure
+      - ecs
+      - system
+    timeout: 2s
+    system:
+      hostname_sources:
+        - os
+
+service:
+  pipelines:
+    metrics:
+      receivers: [hostmetrics]
+    logs:
+      receivers: [filelog/varlog]
