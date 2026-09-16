@@ -40,6 +40,17 @@ processors:
     check_interval: 5s
     limit_mib: 4000
     spike_limit_mib: 800
+  resource/identity:
+    attributes:
+    - action: insert
+      key: host.name
+      value: ${env:K8S_NODE_NAME}
+    - action: insert
+      key: k8s.node.name
+      value: ${env:K8S_NODE_NAME}
+    - action: insert
+      key: k8s.cluster.name
+      value: ${env:K8S_CLUSTER_NAME}
   resourcedetection:
     detectors:
     - k8snode
@@ -212,6 +223,7 @@ service:
       processors:
       - memory_limiter
       - resourcedetection
+      - resource/identity
       - k8sattributes
       - batch
       receivers:
@@ -224,6 +236,7 @@ service:
       processors:
       - memory_limiter
       - resourcedetection
+      - resource/identity
       - k8sattributes
       - batch
       receivers:
@@ -237,8 +250,12 @@ service:
       processors:
       - memory_limiter
       - resourcedetection
+      - resource/identity
       - k8sattributes
       - batch
       receivers:
       - otlp/http
       - otlp/grpc
+  telemetry:
+    logs:
+      encoding: json
