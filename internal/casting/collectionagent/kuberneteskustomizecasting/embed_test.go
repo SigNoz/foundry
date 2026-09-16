@@ -2,10 +2,14 @@ package kuberneteskustomizecasting
 
 import (
 	"bytes"
+	"context"
+	"log/slog"
 	"testing"
 
+	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
 	"github.com/signoz/foundry/internal/domain"
+	"github.com/signoz/foundry/internal/molding/collectionagent/collectormolding"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -165,6 +169,159 @@ func TestTemplatesNamespace(t *testing.T) {
 
 				workload := render(t, workloadTemplates[kind], kindData)
 				require.Len(t, workload.Spec.Template.Spec.Containers, 1)
+			}
+		})
+	}
+}
+
+// The identity attributes the collector config owns, and the pipeline lists the
+// molding's ordered merge produces.
+type collectorConfig struct {
+	Processors struct {
+		Identity *struct {
+			Attributes []struct {
+				Key    string `json:"key"`
+				Action string `json:"action"`
+			} `json:"attributes"`
+		} `json:"resource/identity"`
+	} `json:"processors"`
+	Service struct {
+		Pipelines map[string]struct {
+			Processors []string `json:"processors"`
+		} `json:"pipelines"`
+	} `json:"service"`
+}
+
+type workloadManifest struct {
+	Spec struct {
+		Template struct {
+			Spec struct {
+				Containers []struct {
+					Env []struct {
+						Name  string `json:"name"`
+						Value string `json:"value"`
+					} `json:"env"`
+				} `json:"containers"`
+			} `json:"spec"`
+		} `json:"template"`
+	} `json:"spec"`
+}
+
+// The molding's ordered list merge puts the enricher's processors before the
+// terminal batch, in the order the enricher states them.
+func TestMoldedProcessors(t *testing.T) {
+	cluster := map[string]string{
+		"K8S_CLUSTER_NAME":          "production",
+		"SIGNOZ_INGESTION_ENDPOINT": "http://signoz:4318",
+	}
+
+	for _, test := range []struct {
+		name               string
+		kind               collectionagent.CollectorKind
+		env                map[string]string
+		expectedAttributes []string
+		expectedProcessors []string
+	}{
+		{
+			"AgentCluster_Valid", collectionagent.CollectorKindAgent, cluster,
+			[]string{"host.name", "k8s.node.name", "k8s.cluster.name"},
+			[]string{"memory_limiter", "resourcedetection", "resource/identity", "k8sattributes", "batch"},
+		},
+		{
+			"AgentNoCluster_Valid", collectionagent.CollectorKindAgent, map[string]string{},
+			[]string{"host.name", "k8s.node.name"},
+			[]string{"memory_limiter", "resourcedetection", "resource/identity", "k8sattributes", "batch"},
+		},
+		{
+			"DeploymentCluster_Valid", collectionagent.CollectorKindDeployment, cluster,
+			[]string{"k8s.cluster.name"},
+			[]string{"memory_limiter", "resourcedetection", "resource/identity", "k8sattributes", "batch"},
+		},
+		{
+			"DeploymentNoCluster_Valid", collectionagent.CollectorKindDeployment, map[string]string{},
+			nil,
+			[]string{"memory_limiter", "resourcedetection", "k8sattributes", "batch"},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			config := collectionagent.Default()
+			config.Spec.Collector.Kind = test.kind
+			config.Spec.Collector.Spec.Env = test.env
+
+			require.NoError(t, newKubernetesKustomizeMoldingEnricher().EnrichStatus(ctx, v1alpha1.MoldingKindCollector, config))
+			require.NoError(t, collectormolding.New(slog.New(slog.DiscardHandler)).MoldV1Alpha1(ctx, config))
+			require.NoError(t, config.MergeStatusIntoSpec())
+
+			contents := config.Spec.Collector.Spec.Config.Data[test.kind.ConfigKey()]
+			require.NotEmpty(t, contents)
+
+			var molded collectorConfig
+			require.NoError(t, domain.UnmarshalYAML([]byte(contents), &molded))
+
+			if test.expectedAttributes == nil {
+				assert.Nil(t, molded.Processors.Identity)
+			} else {
+				require.NotNil(t, molded.Processors.Identity)
+
+				var keys []string
+				for _, attribute := range molded.Processors.Identity.Attributes {
+					assert.Equal(t, "insert", attribute.Action)
+
+					keys = append(keys, attribute.Key)
+				}
+
+				assert.Equal(t, test.expectedAttributes, keys)
+			}
+
+			for _, pipeline := range []string{"traces", "metrics", "logs"} {
+				assert.Equal(t, test.expectedProcessors, molded.Service.Pipelines[pipeline].Processors, "pipeline %q", pipeline)
+			}
+		})
+	}
+}
+
+// Identity is the collector config's, so the workload only carries what
+// spec.collector.spec.env states.
+func TestWorkloadTemplates_ResourceAttributes(t *testing.T) {
+	workloadTemplates := map[collectionagent.CollectorKind]*domain.Template{
+		collectionagent.CollectorKindAgent:      daemonsetTemplate,
+		collectionagent.CollectorKindDeployment: deploymentTemplate,
+	}
+
+	for _, test := range []struct {
+		name               string
+		env                map[string]string
+		expectedAttributes []string
+	}{
+		{"Unstated_Valid", map[string]string{"K8S_CLUSTER_NAME": "production"}, nil},
+		{
+			"Stated_Valid",
+			map[string]string{"OTEL_RESOURCE_ATTRIBUTES": "deployment.environment=production"},
+			[]string{"deployment.environment=production"},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			for _, kind := range collectionagent.CollectorKinds() {
+				config := castingWithKind(t, kind)
+				config.Spec.Collector.Spec.Env = test.env
+
+				material, err := workloadTemplates[kind].Render(config, "out.yaml")
+				require.NoError(t, err)
+
+				var workload workloadManifest
+				require.NoError(t, domain.UnmarshalYAML(material.FmtContents(), &workload))
+				require.Len(t, workload.Spec.Template.Spec.Containers, 1)
+
+				var stated []string
+				for _, entry := range workload.Spec.Template.Spec.Containers[0].Env {
+					if entry.Name == "OTEL_RESOURCE_ATTRIBUTES" {
+						stated = append(stated, entry.Value)
+					}
+				}
+
+				assert.Equal(t, test.expectedAttributes, stated, "workload %q", kind)
 			}
 		})
 	}
