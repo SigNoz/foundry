@@ -80,13 +80,14 @@ To set resource limits, storage classes, or scheduling constraints on the genera
 
 ## Annotations
 
-Optional annotations to override the default Helm chart source. These are not required for standard deployments.
+Optional annotations to place the release and override the default Helm chart source. These are not required for standard deployments.
 
 | Annotation | Default | Description |
 | --- | --- | --- |
-| `foundry.signoz.io/kubernetes-helm-casting-chart` | `signoz` | Chart name in the repository, a URL to a chart archive, or a local chart path |
-| `foundry.signoz.io/kubernetes-helm-casting-repo-url` | `https://charts.signoz.io` | Chart repository the chart name is resolved against |
-| `foundry.signoz.io/kubernetes-helm-casting-chart-version` | - | Helm chart version to install; empty installs the latest chart in the repository |
+| `foundry.signoz.io/kubernetes-namespace` | `metadata.name` | Namespace the release is installed into |
+| `foundry.signoz.io/kubernetes-helm-chart` | `signoz` | Chart name in the repository, a URL to a chart archive, or a local chart path |
+| `foundry.signoz.io/kubernetes-helm-repo-url` | `https://charts.signoz.io` | Chart repository the chart name is resolved against |
+| `foundry.signoz.io/kubernetes-helm-chart-version` | `latest` | Helm chart version to install; `latest` installs the repository's latest chart |
 
 Example with a custom chart repo:
 
@@ -95,8 +96,8 @@ apiVersion: v1alpha1
 metadata:
   name: signoz
   annotations:
-    foundry.signoz.io/kubernetes-helm-casting-repo-url: https://my-registry.example.com/charts
-    foundry.signoz.io/kubernetes-helm-casting-chart: signoz
+    foundry.signoz.io/kubernetes-helm-repo-url: https://my-registry.example.com/charts
+    foundry.signoz.io/kubernetes-helm-chart: signoz
 spec:
   deployment:
     flavor: helm

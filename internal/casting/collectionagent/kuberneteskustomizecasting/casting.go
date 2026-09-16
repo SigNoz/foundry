@@ -59,9 +59,11 @@ func (c *kubernetesKustomizeCasting) Forge(ctx context.Context, config collectio
 	// holding several collection agents pours a tree per document.
 	dir := filepath.Dir(config.Spec.Collector.Kind.ConfigKey())
 
+	data := templateDataFor(config)
+
 	for _, tmpl := range tmpls {
 		buf := bytes.NewBuffer(nil)
-		if err := tmpl.Execute(buf, config); err != nil {
+		if err := tmpl.Execute(buf, data); err != nil {
 			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute %s template", tmpl.Name())
 		}
 
@@ -80,7 +82,7 @@ func (c *kubernetesKustomizeCasting) Forge(ctx context.Context, config collectio
 func (c *kubernetesKustomizeCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
 	c.logger.InfoContext(ctx, "Applying kustomize manifests",
 		slog.String("release", config.Metadata.Name),
-		slog.String("namespace", config.Metadata.Name),
+		slog.String("namespace", namespace(config)),
 	)
 
 	kustomizeDir := filepath.Join(outputPath, p.Dir(), filepath.Dir(config.Spec.Collector.Kind.ConfigKey()))
@@ -95,6 +97,27 @@ func (c *kubernetesKustomizeCasting) Cast(ctx context.Context, config collection
 	c.logger.InfoContext(ctx, "Kustomize manifests applied successfully")
 
 	return nil
+}
+
+// The embedded casting keeps $.Spec and $.Metadata reachable from the templates.
+type templateData struct {
+	collectionagent.Casting
+
+	Namespace string
+}
+
+func templateDataFor(config collectionagent.Casting) templateData {
+	return templateData{Casting: config, Namespace: namespace(config)}
+}
+
+// The annotation's default cannot name metadata.name, so the fallback lives here.
+func namespace(config collectionagent.Casting) string {
+	ns := collectionagent.KubernetesNamespace.Resolve(config.Metadata.Annotations)
+	if ns == "" {
+		ns = config.Metadata.Name
+	}
+
+	return ns
 }
 
 func (c *kubernetesKustomizeCasting) kubectl(ctx context.Context, args ...string) error {
