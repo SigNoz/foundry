@@ -326,7 +326,9 @@ exporters:
 var (
 	agentOnly      = []collectionagent.CollectorKind{collectionagent.CollectorKindAgent}
 	deploymentOnly = []collectionagent.CollectorKind{collectionagent.CollectorKindDeployment}
-	cloudCases     = []string{"CloudAWS", "CloudAzure", "CloudGCP", "CloudAutoGKE"}
+	// The chart carries these two workloads; the sidecar has no chart.
+	chartKinds = []collectionagent.CollectorKind{collectionagent.CollectorKindAgent, collectionagent.CollectorKindDeployment}
+	cloudCases = []string{"CloudAWS", "CloudAzure", "CloudGCP", "CloudAutoGKE"}
 )
 
 // A nil kinds means both; passthrough admits keys only foundry states, which
@@ -470,7 +472,7 @@ func TestChart(t *testing.T) {
 
 			assert.Equal(t, foundryConfig(t, test.config), chartConfig(t, manifests, chrt, kind))
 
-			for _, other := range collectionagent.CollectorKinds() {
+			for _, other := range chartKinds {
 				if other == kind {
 					continue
 				}
@@ -481,12 +483,12 @@ func TestChart(t *testing.T) {
 	}
 
 	molded := map[collectionagent.CollectorKind]map[string]any{}
-	for _, kind := range collectionagent.CollectorKinds() {
+	for _, kind := range chartKinds {
 		molded[kind] = foundryConfig(t, moldedCasting(t, kind, defaultEnv()))
 	}
 
 	for _, test := range chartCases {
-		for _, kind := range collectionagent.CollectorKinds() {
+		for _, kind := range chartKinds {
 			if len(test.kinds) > 0 && !slices.Contains(test.kinds, kind) {
 				continue
 			}
@@ -518,7 +520,7 @@ func TestChart(t *testing.T) {
 	manifests := renderChart(t, chrt, map[string]any{}, "signoz", "signoz")
 	renames := map[string][]string{"otlp": {"otlp/grpc", "otlp/http"}, "otlphttp": {"otlphttp/signoz"}}
 
-	for _, kind := range collectionagent.CollectorKinds() {
+	for _, kind := range chartKinds {
 		t.Run("Membership_"+kind.String()+"_Valid", func(t *testing.T) {
 			mine := pipelines(t, molded[kind])
 

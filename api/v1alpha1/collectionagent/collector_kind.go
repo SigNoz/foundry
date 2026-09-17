@@ -21,6 +21,7 @@ var _ jsonschema.Enum = (*CollectorKind)(nil)
 var (
 	CollectorKindAgent      CollectorKind = CollectorKind{s: "agent"}
 	CollectorKindDeployment CollectorKind = CollectorKind{s: "deployment"}
+	CollectorKindSidecar    CollectorKind = CollectorKind{s: "sidecar"}
 )
 
 type CollectorKind struct {
@@ -38,7 +39,7 @@ func (kind CollectorKind) ConfigKey() string {
 }
 
 func CollectorKinds() []CollectorKind {
-	return []CollectorKind{CollectorKindAgent, CollectorKindDeployment}
+	return []CollectorKind{CollectorKindAgent, CollectorKindDeployment, CollectorKindSidecar}
 }
 
 func (kind CollectorKind) MarshalJSON() ([]byte, error) {

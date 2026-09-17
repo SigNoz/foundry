@@ -31,6 +31,10 @@ func (c *dockerSwarmCasting) Enricher(ctx context.Context, config *collectionage
 }
 
 func (c *dockerSwarmCasting) Forge(ctx context.Context, config collectionagent.Casting, p *pourer.Pourer) error {
+	if kind := config.Spec.Collector.Kind; kind != collectionagent.CollectorKindAgent && kind != collectionagent.CollectorKindDeployment {
+		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported collector kind %q", kind)
+	}
+
 	buf := bytes.NewBuffer(nil)
 	if err := composeYAMLTemplate.Execute(buf, config); err != nil {
 		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute compose template")
