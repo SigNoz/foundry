@@ -1,0 +1,8 @@
+apiVersion: v1alpha1
+kind: Installation
+metadata:
+  name: signoz
+spec:
+  deployment:
+    flavor: stack
+    platform: dokploy
