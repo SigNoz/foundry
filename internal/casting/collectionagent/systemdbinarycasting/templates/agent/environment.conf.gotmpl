@@ -1,0 +1,4 @@
+OTELCOL_OPTIONS=--config=/etc/{{ .Metadata.Name }}-collector-{{ .Spec.Collector.Kind }}/{{ .Spec.Collector.Kind }}.yaml
+{{- range $key, $value := .Spec.Collector.Spec.Env }}
+{{ $key }}={{ $value }}
+{{- end }}
