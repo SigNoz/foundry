@@ -14,4 +14,5 @@ var templates embed.FS
 var (
 	agentConfig      *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/agent.yaml.gotmpl", domain.FormatYAML)
 	deploymentConfig *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/deployment.yaml.gotmpl", domain.FormatYAML)
+	sidecarConfig    *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/sidecar.yaml.gotmpl", domain.FormatYAML)
 )

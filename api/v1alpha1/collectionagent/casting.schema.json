@@ -31,7 +31,8 @@
     "CollectionagentCollectorKind": {
       "enum": [
         "agent",
-        "deployment"
+        "deployment",
+        "sidecar"
       ],
       "type": "string"
     },
