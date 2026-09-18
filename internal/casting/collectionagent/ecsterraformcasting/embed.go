@@ -6,7 +6,7 @@ import (
 	"github.com/signoz/foundry/internal/domain"
 )
 
-//go:embed templates/*.gotmpl
+//go:embed templates/*.gotmpl templates/sidecar/*.gotmpl
 var templates embed.FS
 
 var (
@@ -19,4 +19,9 @@ var (
 	collectorTF = domain.MustNewTemplateFromFS(templates, "templates/collector.tf.json.gotmpl", domain.FormatJSON)
 
 	agentYAMLTemplate = domain.MustNewTemplateFromFS(templates, "templates/agent.yaml.gotmpl", domain.FormatYAML)
+
+	sidecarVersionsTF  = domain.MustNewTemplateFromFS(templates, "templates/sidecar/versions.tf.json.gotmpl", domain.FormatJSON)
+	sidecarVariablesTF = domain.MustNewTemplateFromFS(templates, "templates/sidecar/variables.tf.json.gotmpl", domain.FormatJSON)
+	sidecarMainTF      = domain.MustNewTemplateFromFS(templates, "templates/sidecar/main.tf.json.gotmpl", domain.FormatJSON)
+	sidecarOutputsTF   = domain.MustNewTemplateFromFS(templates, "templates/sidecar/outputs.tf.json.gotmpl", domain.FormatJSON)
 )

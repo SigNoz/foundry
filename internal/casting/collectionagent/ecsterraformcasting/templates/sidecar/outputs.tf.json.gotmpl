@@ -1,0 +1,16 @@
+{
+  "output": {
+    "container_definition": {
+      "description": "The collector container, to concat into the task definition's container_definitions",
+      "value": "${local.container_definition}"
+    },
+    "log_configuration": {
+      "description": "The awsfirelens logConfiguration the application containers carry to ship their logs to the collector",
+      "value": "${local.log_configuration}"
+    },
+    "parameter_arn": {
+      "description": "ARN of the SSM parameter holding the collector configuration",
+      "value": "${aws_ssm_parameter.main.arn}"
+    }
+  }
+}

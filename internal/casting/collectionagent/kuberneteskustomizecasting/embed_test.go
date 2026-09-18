@@ -158,7 +158,7 @@ func TestTemplatesNamespace(t *testing.T) {
 			require.NoError(t, agentYAMLTemplate.Execute(buf, data))
 			assert.Contains(t, buf.String(), "/var/log/pods/"+test.expectedNamespace+"_signoz-collector-*/*/*.log")
 
-			for _, kind := range collectionagent.CollectorKinds() {
+			for kind := range workloadTemplates {
 				config.Spec.Collector.Kind = kind
 				kindData := templateDataFor(config)
 
