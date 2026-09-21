@@ -14,18 +14,23 @@ func TestCheckCompatibility(t *testing.T) {
 
 	tests := []struct {
 		name              string
+		signoz            string
 		collector         string
 		clickhouse        string
 		collectorDisabled bool
 		pass              bool
 	}{
-		{"NewCollector_OldClickhouse_Fails", "signoz/signoz-otel-collector:0.144.6", "clickhouse/clickhouse-server:25.5.6", false, false},
-		{"NewCollector_NewClickhouse_OK", "signoz/signoz-otel-collector:0.144.6", "clickhouse/clickhouse-server:25.12.5", false, true},
-		{"NewCollector_NewClickhouseAlpine_OK", "signoz/signoz-otel-collector:0.144.6", "clickhouse/clickhouse-server:25.12.5-alpine", false, true},
-		{"FloorCollector_OldClickhouse_OK", "signoz/signoz-otel-collector:0.144.5", "clickhouse/clickhouse-server:25.5.6", false, true},
-		{"LatestCollector_OldClickhouse_WarnsNoError", "signoz/signoz-otel-collector:latest", "clickhouse/clickhouse-server:25.5.6", false, true},
-		{"LatestCollector_NewClickhouse_OK", "signoz/signoz-otel-collector:latest", "clickhouse/clickhouse-server:25.12.5", false, true},
-		{"DisabledCollector_OldClickhouse_OK", "signoz/signoz-otel-collector:0.144.6", "clickhouse/clickhouse-server:25.5.6", true, true},
+		{"NewCollector_OldClickhouse_Fails", "signoz/signoz:latest", "signoz/signoz-otel-collector:0.144.6", "clickhouse/clickhouse-server:25.5.6", false, false},
+		{"NewCollector_NewClickhouse_OK", "signoz/signoz:latest", "signoz/signoz-otel-collector:0.144.6", "clickhouse/clickhouse-server:25.12.5", false, true},
+		{"NewCollector_NewClickhouseAlpine_OK", "signoz/signoz:latest", "signoz/signoz-otel-collector:0.144.6", "clickhouse/clickhouse-server:25.12.5-alpine", false, true},
+		{"FloorCollector_OldClickhouse_OK", "signoz/signoz:latest", "signoz/signoz-otel-collector:0.144.5", "clickhouse/clickhouse-server:25.5.6", false, true},
+		{"LatestCollector_OldClickhouse_WarnsNoError", "signoz/signoz:latest", "signoz/signoz-otel-collector:latest", "clickhouse/clickhouse-server:25.5.6", false, true},
+		{"LatestCollector_NewClickhouse_OK", "signoz/signoz:latest", "signoz/signoz-otel-collector:latest", "clickhouse/clickhouse-server:25.12.5", false, true},
+		{"DisabledCollector_OldClickhouse_OK", "signoz/signoz:latest", "signoz/signoz-otel-collector:0.144.6", "clickhouse/clickhouse-server:25.5.6", true, true},
+		{"NewSignoz_OldCollector_Fails", "signoz/signoz:0.143.0", "signoz/signoz-otel-collector:0.144.5", "clickhouse/clickhouse-server:25.12.5", false, false},
+		{"NewSignoz_NewCollector_OK", "signoz/signoz:0.143.0", "signoz/signoz-otel-collector:0.144.11", "clickhouse/clickhouse-server:25.12.5", false, true},
+		{"LatestSignoz_OldCollector_WarnsNoError", "signoz/signoz:latest", "signoz/signoz-otel-collector:0.144.5", "clickhouse/clickhouse-server:25.12.5", false, true},
+		{"OldSignoz_OldCollector_OK", "signoz/signoz:0.142.1", "signoz/signoz-otel-collector:0.144.5", "clickhouse/clickhouse-server:25.5.6", false, true},
 	}
 
 	for _, tt := range tests {
@@ -35,6 +40,8 @@ func TestCheckCompatibility(t *testing.T) {
 			casting.Spec.Ingester.Spec.Image = tt.collector
 			casting.Spec.TelemetryStore.Spec.Enabled = v1alpha1.BoolPtr(true)
 			casting.Spec.TelemetryStore.Spec.Image = tt.clickhouse
+			casting.Spec.Signoz.Spec.Enabled = v1alpha1.BoolPtr(true)
+			casting.Spec.Signoz.Spec.Image = tt.signoz
 
 			err := Compatibility(casting, logger)
 			if !tt.pass {

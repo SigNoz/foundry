@@ -1,0 +1,151 @@
+connectors:
+  signozmeter:
+    metrics_flush_interval: 1h
+    dimensions:
+      - name: service.name
+      - name: deployment.environment
+      - name: host.name
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: "0.0.0.0:4317"
+      http:
+        endpoint: "0.0.0.0:4318"
+processors:
+  batch:
+    send_batch_size: 50000
+    send_batch_max_size: 55000
+    timeout: 5s
+  batch/meter:
+    send_batch_size: 20000
+    send_batch_max_size: 25000
+    timeout: 5s
+  signozspanmetrics/delta:
+    metrics_exporter: signozclickhousemetrics
+    metrics_flush_interval: 60s
+    latency_histogram_buckets:
+      - 100us
+      - 1ms
+      - 2ms
+      - 6ms
+      - 10ms
+      - 50ms
+      - 100ms
+      - 250ms
+      - 500ms
+      - 1000ms
+      - 1400ms
+      - 2000ms
+      - 5s
+      - 10s
+      - 20s
+      - 40s
+      - 60s
+    dimensions_cache_size: 100000
+    aggregation_temporality: AGGREGATION_TEMPORALITY_DELTA
+    enable_exp_histogram: true
+    dimensions:
+      - name: service.namespace
+        default: default
+      - name: deployment.environment
+        default: default
+      - name: signoz.collector.id
+      - name: service.version
+  signozspanmapper:
+    groups: []
+  signozllmpricing:
+    attrs:
+      model: gen_ai.request.model
+      in: gen_ai.usage.input_tokens
+      out: gen_ai.usage.output_tokens
+      cache_read: gen_ai.usage.cache_read.input_tokens
+      cache_write: gen_ai.usage.cache_creation.input_tokens
+    default_pricing:
+      rules: []
+    output_attrs:
+      in: signoz.gen_ai.usage.input_tokens.cost
+      out: signoz.gen_ai.usage.output_tokens.cost
+      cache_read: signoz.gen_ai.usage.cache_read.input_tokens.cost
+      cache_write: signoz.gen_ai.usage.cache_write.input_tokens.cost
+      total: signoz.gen_ai.usage.tokens.cost
+exporters:
+  clickhousetraces:
+    datasource: {{ .TelemetryStoreTracesAddress }}
+    low_cardinal_exception_grouping: ${env:LOW_CARDINAL_EXCEPTION_GROUPING}
+    use_new_schema: true
+    timeout: 45s
+    sending_queue:
+      enabled: false
+  signozclickhousemetrics:
+    dsn: {{ .TelemetryStoreMetricsAddress }}
+    timeout: 45s
+    sending_queue:
+      enabled: false
+  clickhouselogsexporter:
+    dsn: {{ .TelemetryStoreLogsAddress }}
+    use_new_schema: true
+    timeout: 45s
+    sending_queue:
+      enabled: false
+  signozclickhousemeter:
+    dsn: {{ .TelemetryStoreMeterAddress }}
+    timeout: 45s
+    sending_queue:
+      enabled: false
+  metadataexporter:
+    enabled: true
+    dsn: {{ .TelemetryStoreMetadataAddress }}
+    timeout: 45s
+    cache:
+      provider: in_memory
+extensions:
+  signoz_health_check:
+    endpoint: "0.0.0.0:13133"
+  pprof:
+    endpoint: "0.0.0.0:1777"
+service:
+  telemetry:
+    logs:
+      encoding: json
+  extensions:
+    - signoz_health_check
+    - pprof
+  pipelines:
+    traces:
+      receivers:
+        - otlp
+      processors:
+        - signozspanmetrics/delta
+        - signozspanmapper
+        - signozllmpricing
+        - batch
+      exporters:
+        - clickhousetraces
+        - signozmeter
+        - metadataexporter
+    metrics:
+      receivers:
+        - otlp
+      processors:
+        - batch
+      exporters:
+        - signozclickhousemetrics
+        - signozmeter
+        - metadataexporter
+    logs:
+      receivers:
+        - otlp
+      processors:
+        - batch
+      exporters:
+        - clickhouselogsexporter
+        - signozmeter
+        - metadataexporter
+    metrics/meter:
+      receivers:
+        - signozmeter
+      processors:
+        - batch/meter
+      exporters:
+        - signozclickhousemeter

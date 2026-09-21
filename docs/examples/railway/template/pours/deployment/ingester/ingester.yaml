@@ -49,6 +49,23 @@ processors:
     send_batch_max_size: 25000
     send_batch_size: 20000
     timeout: 5s
+  signozllmpricing:
+    attrs:
+      cache_read: gen_ai.usage.cache_read.input_tokens
+      cache_write: gen_ai.usage.cache_creation.input_tokens
+      in: gen_ai.usage.input_tokens
+      model: gen_ai.request.model
+      out: gen_ai.usage.output_tokens
+    default_pricing:
+      rules: []
+    output_attrs:
+      cache_read: signoz.gen_ai.usage.cache_read.input_tokens.cost
+      cache_write: signoz.gen_ai.usage.cache_write.input_tokens.cost
+      in: signoz.gen_ai.usage.input_tokens.cost
+      out: signoz.gen_ai.usage.output_tokens.cost
+      total: signoz.gen_ai.usage.tokens.cost
+  signozspanmapper:
+    groups: []
   signozspanmetrics/delta:
     aggregation_temporality: AGGREGATION_TEMPORALITY_DELTA
     dimensions:
@@ -124,6 +141,8 @@ service:
       - metadataexporter
       processors:
       - signozspanmetrics/delta
+      - signozspanmapper
+      - signozllmpricing
       - batch
       receivers:
       - otlp
