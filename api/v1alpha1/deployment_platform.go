@@ -19,6 +19,7 @@ var _ jsonschema.Enum = (*Platform)(nil)
 var (
 	PlatformRender  Platform = Platform{s: "render"}
 	PlatformCoolify Platform = Platform{s: "coolify"}
+	PlatformDokploy Platform = Platform{s: "dokploy"}
 	PlatformRailway Platform = Platform{s: "railway"}
 	PlatformECS     Platform = Platform{s: "ecs"}
 	PlatformAWS     Platform = Platform{s: "aws"}
@@ -38,6 +39,7 @@ func Platforms() []Platform {
 	return []Platform{
 		PlatformRender,
 		PlatformCoolify,
+		PlatformDokploy,
 		PlatformRailway,
 		PlatformECS,
 		PlatformAWS,

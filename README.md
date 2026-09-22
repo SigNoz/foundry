@@ -119,6 +119,7 @@ foundryctl cast -f casting.yaml
 | - | systemd | binary | [systemd/binary](docs/examples/systemd/binary/) |
 | ecs | ec2 | terraform | [ecs/ec2/terraform](docs/examples/ecs/ec2/terraform/) |
 | coolify | - | stack | [coolify/stack](docs/examples/coolify/stack/) |
+| dokploy | - | stack | [dokploy/stack](docs/examples/dokploy/stack/) |
 | railway | - | template | [railway/template](docs/examples/railway/template/) |
 | render | - | blueprint | [render/blueprint](docs/examples/render/blueprint/) |
 
