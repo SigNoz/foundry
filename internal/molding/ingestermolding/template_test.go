@@ -12,7 +12,7 @@ import (
 
 func TestIngester(t *testing.T) {
 	assert.NotEmpty(t, ConfigV0129xTemplate)
-	assert.NotEmpty(t, ConfigV014411Template)
+	assert.NotEmpty(t, ConfigV01446Template)
 	assert.NotEmpty(t, OpampV0129xTemplate)
 }
 
@@ -22,13 +22,13 @@ func TestConfigTemplate(t *testing.T) {
 		image            string
 		expectedTemplate *domain.Template
 	}{
-		{"LatestTag_NewConfig", "signoz/signoz-otel-collector:latest", ConfigV014411Template},
-		{"CommitTag_NewConfig", "signoz/signoz-otel-collector:main-0efa06f", ConfigV014411Template},
-		{"BelowFloor_OldConfig", "signoz/signoz-otel-collector:v0.144.10", ConfigV0129xTemplate},
-		{"AtFloor_NewConfig", "signoz/signoz-otel-collector:0.144.11", ConfigV014411Template},
-		{"AboveFloor_NewConfig", "signoz/signoz-otel-collector:v0.144.12", ConfigV014411Template},
+		{"LatestTag_NewConfig", "signoz/signoz-otel-collector:latest", ConfigV01446Template},
+		{"CommitTag_NewConfig", "signoz/signoz-otel-collector:main-0efa06f", ConfigV01446Template},
+		{"BelowFloor_OldConfig", "signoz/signoz-otel-collector:v0.144.5", ConfigV0129xTemplate},
+		{"AtFloor_NewConfig", "signoz/signoz-otel-collector:0.144.6", ConfigV01446Template},
+		{"AboveFloor_NewConfig", "signoz/signoz-otel-collector:v0.144.11", ConfigV01446Template},
 		{"OldRelease_OldConfig", "signoz/signoz-otel-collector:v0.129.0", ConfigV0129xTemplate},
-		{"UnstatedImage_NewConfig", "", ConfigV014411Template},
+		{"UnstatedImage_NewConfig", "", ConfigV01446Template},
 	}
 
 	for _, tt := range tests {
@@ -55,7 +55,7 @@ func TestConfigTemplateRender(t *testing.T) {
 		template                 *domain.Template
 		expectedAIProcessorsHeld bool
 	}{
-		{"NewConfig_HoldsAIProcessors", ConfigV014411Template, true},
+		{"NewConfig_HoldsAIProcessors", ConfigV01446Template, true},
 		{"OldConfig_HoldsNoAIProcessors", ConfigV0129xTemplate, false},
 	}
 

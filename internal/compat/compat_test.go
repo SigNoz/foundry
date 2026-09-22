@@ -56,13 +56,13 @@ func TestResolvedSatisfies(t *testing.T) {
 		constraint        string
 		expectedSatisfied bool
 	}{
-		{"FloatingTag_Satisfies", "component:latest", ">=0.144.11", true},
-		{"CommitTag_Satisfies", "component:main-0efa06f", ">=0.144.11", true},
-		{"SemverAtFloor_Satisfies", "component:0.144.11", ">=0.144.11", true},
-		{"SemverAboveFloor_Satisfies", "component:0.144.12", ">=0.144.11", true},
-		{"SemverBelowFloor_Fails", "component:0.144.10", ">=0.144.11", false},
-		{"InvalidConstraint_Fails", "component:0.144.11", "not a constraint", false},
-		{"UnparseableImage_Satisfies", "", ">=0.144.11", true},
+		{"FloatingTag_Satisfies", "component:latest", ">=0.144.6", true},
+		{"CommitTag_Satisfies", "component:main-0efa06f", ">=0.144.6", true},
+		{"SemverAtFloor_Satisfies", "component:0.144.6", ">=0.144.6", true},
+		{"SemverAboveFloor_Satisfies", "component:0.144.11", ">=0.144.6", true},
+		{"SemverBelowFloor_Fails", "component:0.144.5", ">=0.144.6", false},
+		{"InvalidConstraint_Fails", "component:0.144.6", "not a constraint", false},
+		{"UnparseableImage_Satisfies", "", ">=0.144.6", true},
 	}
 
 	for _, tt := range tests {

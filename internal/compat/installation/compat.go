@@ -24,7 +24,7 @@ var compatRules = []compat.Rule{
 		Subject:  v1alpha1.MoldingKindSignoz,
 		When:     ">=0.143.0",
 		Target:   v1alpha1.MoldingKindIngester,
-		Requires: ">=0.144.11",
+		Requires: ">=0.144.6",
 		Advice:   "upgrade ingester to 0.144.11, or pin signoz to 0.142.x",
 	},
 }

@@ -15,9 +15,9 @@ import (
 
 var _ molding.Molding = (*ingester)(nil)
 
-// configV014411Floor is the first collector release that carries the
+// configV01446Floor is the first collector release that carries the
 // signozspanmapper and signozllmpricing processors.
-const configV014411Floor = ">=0.144.11"
+const configV01446Floor = ">=0.144.6"
 
 type ingester struct {
 	logger *slog.Logger
@@ -89,8 +89,8 @@ func (molding *ingester) getData(config *installation.Casting) (Data, error) {
 
 // A floating image tag such as "latest" gets the newest config.
 func configTemplate(spec v1alpha1.MoldingSpec) *domain.Template {
-	if compat.NewResolved(spec.Image, spec.IsEnabled()).Satisfies(configV014411Floor) {
-		return ConfigV014411Template
+	if compat.NewResolved(spec.Image, spec.IsEnabled()).Satisfies(configV01446Floor) {
+		return ConfigV01446Template
 	}
 
 	return ConfigV0129xTemplate
