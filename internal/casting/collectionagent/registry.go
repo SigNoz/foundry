@@ -6,7 +6,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockercomposecasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockerswarmcasting"
-	"github.com/signoz/foundry/internal/casting/collectionagent/ecsterraformcasting"
+	"github.com/signoz/foundry/internal/casting/collectionagent/ecsec2terraformcasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/kuberneteshelmcasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/kuberneteskustomizecasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/systemdbinarycasting"
@@ -59,7 +59,7 @@ func NewRegistry(logger *slog.Logger) *Registry {
 				Flavor:   v1alpha1.FlavorTerraform,
 				Mode:     v1alpha1.ModeEC2,
 			}: {
-				Casting: ecsterraformcasting.New(logger),
+				Casting: ecsec2terraformcasting.New(logger),
 				Toolers: []tooler.Tooler{terraformtooler.New()},
 			},
 			{
