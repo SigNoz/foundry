@@ -3,8 +3,6 @@ services:
   collector-agent:
     command:
     - --config=/etc/collector/agent/agent.yaml
-    deploy:
-      replicas: 1
     environment:
       OTEL_COLLECTOR_ROLE: agent
     image: otel/opentelemetry-collector-contrib:0.139.0
