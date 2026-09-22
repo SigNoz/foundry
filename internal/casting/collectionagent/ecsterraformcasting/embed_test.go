@@ -47,18 +47,6 @@ func derivedCasting(t *testing.T) *collectionagent.Casting {
 	return config
 }
 
-// sidecarCasting states the region only: the module takes the operator's
-// provider, so it reads no other annotation.
-func sidecarCasting(t *testing.T) *collectionagent.Casting {
-	t.Helper()
-
-	config := collectionagent.Default()
-	config.Metadata.Annotations = map[string]string{collectionagent.ECSRegion.Key: "us-east-1"}
-	config.Spec.Collector.Kind = collectionagent.CollectorKindSidecar
-
-	return config
-}
-
 func templateDataFor(t *testing.T, config *collectionagent.Casting) templateData {
 	t.Helper()
 
@@ -80,11 +68,6 @@ func TestTemplatesRender(t *testing.T) {
 		"Main_Valid":      {mainTF, data},
 		"Collector_Valid": {collectorTF, data},
 		"Agent_Valid":     {agentYAMLTemplate, agentTemplateDataFor(*statedCasting(t))},
-
-		"SidecarVersions_Valid":  {sidecarVersionsTF, sidecarTemplateDataFor(*sidecarCasting(t))},
-		"SidecarVariables_Valid": {sidecarVariablesTF, sidecarTemplateDataFor(*sidecarCasting(t))},
-		"SidecarMain_Valid":      {sidecarMainTF, sidecarTemplateDataFor(*sidecarCasting(t))},
-		"SidecarOutputs_Valid":   {sidecarOutputsTF, sidecarTemplateDataFor(*sidecarCasting(t))},
 	} {
 		t.Run(name, func(t *testing.T) {
 			material, err := test.template.Render(test.data, strings.TrimSuffix(test.template.Name(), ".gotmpl"))
@@ -312,57 +295,4 @@ func TestAgentConfig(t *testing.T) {
 
 		assert.Equal(t, 1, filtered, "the agent's own family is dropped once")
 	})
-}
-
-// A task definition foundry never reads holds the execution role, and nothing
-// else the module needs, so that is the whole input surface.
-func TestSidecarModuleInterface(t *testing.T) {
-	variables := bytes.NewBuffer(nil)
-	require.NoError(t, sidecarVariablesTF.Execute(variables, sidecarTemplateDataFor(*sidecarCasting(t))))
-
-	var declared struct {
-		Variable map[string]map[string]any `json:"variable"`
-	}
-	require.NoError(t, json.Unmarshal(variables.Bytes(), &declared))
-
-	outputs := bytes.NewBuffer(nil)
-	require.NoError(t, sidecarOutputsTF.Execute(outputs, sidecarTemplateDataFor(*sidecarCasting(t))))
-
-	var exported struct {
-		Output map[string]map[string]any `json:"output"`
-	}
-	require.NoError(t, json.Unmarshal(outputs.Bytes(), &exported))
-
-	t.Run("Variables_Valid", func(t *testing.T) {
-		assert.ElementsMatch(t, []string{"execution_role_name"}, slices.Collect(maps.Keys(declared.Variable)))
-
-		for name, variable := range declared.Variable {
-			assert.NotContains(t, variable, "default", "%q must carry no default", name)
-			assert.Contains(t, variable, "type", "%q must carry a type", name)
-			assert.Contains(t, variable, "description", "%q must carry a description", name)
-			assert.Contains(t, variable, "validation", "%q must carry a validation", name)
-		}
-	})
-
-	t.Run("Outputs_Valid", func(t *testing.T) {
-		assert.ElementsMatch(t, []string{"container_definition", "log_configuration", "parameter_arn"}, slices.Collect(maps.Keys(exported.Output)))
-
-		for name, output := range exported.Output {
-			assert.Contains(t, output, "description", "%q must carry a description", name)
-		}
-	})
-}
-
-// The module holds no provider, no backend and no state of its own: the root
-// that imports it owns all three.
-func TestSidecarVersions(t *testing.T) {
-	versions := bytes.NewBuffer(nil)
-	require.NoError(t, sidecarVersionsTF.Execute(versions, sidecarTemplateDataFor(*sidecarCasting(t))))
-
-	var pinned map[string]any
-	require.NoError(t, json.Unmarshal(versions.Bytes(), &pinned))
-
-	assert.NotContains(t, pinned, "provider")
-	assert.Contains(t, pinned["terraform"], "required_providers")
-	assert.NotContains(t, pinned["terraform"], "backend")
 }

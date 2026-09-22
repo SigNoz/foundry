@@ -303,7 +303,7 @@ func TestWorkloadTemplates_ResourceAttributes(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			for _, kind := range collectionagent.CollectorKinds() {
+			for kind := range workloadTemplates {
 				config := castingWithKind(t, kind)
 				config.Spec.Collector.Spec.Env = test.env
 

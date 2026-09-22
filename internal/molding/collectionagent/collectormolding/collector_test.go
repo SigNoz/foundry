@@ -140,8 +140,8 @@ func TestMoldAgentErrors(t *testing.T) {
 	}
 }
 
-// The application containers ship their logs to the sidecar over fluentforward,
-// so the base carries that receiver in the logs pipeline only.
+// The base is platform-free, so every pipeline takes OTLP and nothing else; the
+// task's own log socket is the casting's delta.
 func TestMoldSidecar(t *testing.T) {
 	c := newCasting(t, collectionagent.CollectorKindSidecar, "")
 	require.NoError(t, New(slog.Default()).MoldV1Alpha1(context.Background(), c))
@@ -157,9 +157,9 @@ func TestMoldSidecar(t *testing.T) {
 		pipeline          string
 		expectedReceivers []string
 	}{
-		"Traces_OTLPOnly":           {"traces", []string{"otlp/http", "otlp/grpc"}},
-		"Metrics_OTLPOnly":          {"metrics", []string{"otlp/http", "otlp/grpc"}},
-		"Logs_OTLPAndFluentforward": {"logs", []string{"otlp/http", "otlp/grpc", "fluentforward"}},
+		"Traces_OTLPOnly":  {"traces", []string{"otlp/http", "otlp/grpc"}},
+		"Metrics_OTLPOnly": {"metrics", []string{"otlp/http", "otlp/grpc"}},
+		"Logs_OTLPOnly":    {"logs", []string{"otlp/http", "otlp/grpc"}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			assert.Equal(t, test.expectedReceivers, cfg.Service.Pipelines[test.pipeline].Receivers)

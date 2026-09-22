@@ -33,29 +33,6 @@ func (c *ecsCasting) Enricher(ctx context.Context, config *collectionagent.Casti
 }
 
 func (c *ecsCasting) Forge(ctx context.Context, config collectionagent.Casting, p *pourer.Pourer) error {
-	switch config.Spec.Collector.Kind {
-	case collectionagent.CollectorKindAgent:
-		if err := c.forgeAgent(config, p); err != nil {
-			return err
-		}
-	case collectionagent.CollectorKindSidecar:
-		if err := c.forgeSidecar(config, p); err != nil {
-			return err
-		}
-	default:
-		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported collector kind %q", config.Spec.Collector.Kind)
-	}
-
-	// Terraform reads the config off disk at plan time, so the pour is the
-	// source the delivered configuration is built from.
-	for path, content := range config.Spec.Collector.Spec.Config.Data {
-		p.AddYAML([]byte(content), path)
-	}
-
-	return nil
-}
-
-func (c *ecsCasting) forgeAgent(config collectionagent.Casting, p *pourer.Pourer) error {
 	data := c.templateData(config)
 
 	for _, tmpl := range []*domain.Template{versionsTF, providersTF, backendTF, variablesTF, tfvarsTF, mainTF, collectorTF} {
@@ -67,28 +44,10 @@ func (c *ecsCasting) forgeAgent(config collectionagent.Casting, p *pourer.Pourer
 		p.AddJSON(material.FmtContents(), material.Path())
 	}
 
-	return nil
-}
-
-func (c *ecsCasting) forgeSidecar(config collectionagent.Casting, p *pourer.Pourer) error {
-	replicas := 1
-	if cluster := config.Spec.Collector.Spec.Cluster; cluster.Replicas != nil {
-		replicas = *cluster.Replicas
-	}
-
-	if replicas != 1 {
-		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "failed to forge the sidecar module: spec.collector.spec.cluster.replicas is %d, a sidecar runs once in every task of the application it joins", replicas)
-	}
-
-	data := sidecarTemplateDataFor(config)
-
-	for _, tmpl := range []*domain.Template{sidecarVersionsTF, sidecarVariablesTF, sidecarMainTF, sidecarOutputsTF} {
-		material, err := tmpl.Render(data, strings.TrimSuffix(tmpl.Name(), ".gotmpl"))
-		if err != nil {
-			return err
-		}
-
-		p.AddJSON(material.FmtContents(), material.Path())
+	// AppConfig reads the config off disk at plan time, so the pour is the
+	// source the hosted configuration version is built from.
+	for path, content := range config.Spec.Collector.Spec.Config.Data {
+		p.AddYAML([]byte(content), path)
 	}
 
 	return nil
@@ -99,12 +58,6 @@ const planFile = "tfplan"
 func (c *ecsCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
 	root := filepath.Join(outputPath, p.Dir())
 
-	if config.Spec.Collector.Kind == collectionagent.CollectorKindSidecar {
-		c.castSidecar(ctx, root)
-
-		return nil
-	}
-
 	if err := c.terraform(ctx, root, "init"); err != nil {
 		return err
 	}
@@ -114,29 +67,6 @@ func (c *ecsCasting) Cast(ctx context.Context, config collectionagent.Casting, o
 	}
 
 	return c.terraform(ctx, root, "apply", planFile)
-}
-
-// A sidecar lives in a task definition foundry neither owns nor rewrites, so
-// the pour is a module and the apply is the operator's own.
-func (c *ecsCasting) castSidecar(ctx context.Context, root string) {
-	// Terraform reads a local module source as a path relative to the root
-	// that imports it, and only with the ./ prefix.
-	source := root
-	if wd, err := os.Getwd(); err == nil {
-		if rel, err := filepath.Rel(wd, root); err == nil {
-			source = "./" + rel
-		}
-	}
-
-	c.logger.InfoContext(ctx, "The sidecar collector is a terraform module your own terraform imports, so foundry applies nothing",
-		slog.String("module", root))
-	c.logger.InfoContext(ctx, "Import the module and name the execution role of the task definition the collector joins",
-		slog.String("block", `module "signoz_sidecar" { source = "`+source+`" }`),
-		slog.String("input", "execution_role_name = <the task definition's execution role name>"))
-	c.logger.InfoContext(ctx, "Add the collector to the task definition",
-		slog.String("container_definitions", "jsonencode(concat([module.signoz_sidecar.container_definition], local.containers))"))
-	c.logger.InfoContext(ctx, "Ship the application containers' logs to the collector",
-		slog.String("log_configuration", "module.signoz_sidecar.log_configuration"))
 }
 
 func (c *ecsCasting) terraform(ctx context.Context, root, verb string, args ...string) error {
@@ -186,44 +116,6 @@ func (c *ecsCasting) templateData(config collectionagent.Casting) templateData {
 		Digest:      digest(config.Spec.Collector.Spec.Config.Data[configKey]),
 		ConfigMount: configMount,
 	}
-}
-
-// Resolves the identifiers the module renders. The module is imported into a
-// task definition foundry never reads, so it derives everything but the role
-// the ECS agent assumes.
-func sidecarTemplateDataFor(config collectionagent.Casting) sidecarTemplateData {
-	workload := config.Metadata.Name + "-" + strings.ToLower(config.Kind().String())
-
-	configKey := config.Spec.Collector.Kind.ConfigKey()
-
-	return sidecarTemplateData{
-		Casting:   config,
-		Container: config.Metadata.Name + "-collector-" + config.Spec.Collector.Kind.String(),
-		Parameter: "/" + workload + "/" + filepath.Dir(configKey),
-		Policy:    workload + "-parameter-read",
-		Source:    configKey,
-		Digest:    digest(config.Spec.Collector.Spec.Config.Data[configKey]),
-	}
-}
-
-// Embeds the casting so .Spec and .Metadata stay reachable from templates.
-type sidecarTemplateData struct {
-	collectionagent.Casting
-
-	// Container is the collector's name inside the application's task.
-	Container string
-
-	// Parameter carries the Kind, so a CollectionAgent and an Installation of
-	// the same metadata.name do not collide on one account.
-	Parameter string
-	Policy    string
-
-	// Source is where the pour keeps the config, relative to the module.
-	Source string
-
-	// The collector reads its config once at start, so a changed config has to
-	// replace the task.
-	Digest string
 }
 
 func digest(content string) string {

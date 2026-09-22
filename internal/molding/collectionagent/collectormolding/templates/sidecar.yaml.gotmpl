@@ -13,18 +13,15 @@ receivers:
     protocols:
       http:
         endpoint: 0.0.0.0:4318
-  fluentforward:
-    endpoint: 0.0.0.0:8006
 
 processors:
   memory_limiter:
     check_interval: 5s
-    limit_mib: 4000
-    spike_limit_mib: 800
+    limit_percentage: 80
+    spike_limit_percentage: 20
   resourcedetection:
     detectors:
       - env
-      - ecs
     timeout: 5s
   batch:
     send_batch_size: 1000
@@ -47,6 +44,6 @@ service:
       processors: [memory_limiter, resourcedetection, batch]
       exporters: [otlphttp/signoz]
     logs:
-      receivers: [otlp/http, otlp/grpc, fluentforward]
+      receivers: [otlp/http, otlp/grpc]
       processors: [memory_limiter, resourcedetection, batch]
       exporters: [otlphttp/signoz]

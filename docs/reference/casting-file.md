@@ -46,6 +46,7 @@ Each row is a valid combination. Mixing values across rows is not supported.
 | Coolify | - | `stack` | `coolify` |
 | Railway | - | `template` | `railway` |
 | AWS ECS (EC2) | `ec2` | `terraform` | `ecs` |
+| AWS ECS (Fargate) | `fargate` | `terraform` | `ecs` |
 
 ## Molding spec
 
@@ -207,6 +208,13 @@ rather than looked up.
 | --- | --- | --- |
 | `foundry.signoz.io/ecs-task-role-arn` | `task_role_arn` | IAM role the tasks assume; needs AppConfig read access |
 | `foundry.signoz.io/ecs-task-execution-role-arn` | `execution_role_arn` | IAM role the ECS agent assumes to pull images and start tasks |
+
+`mode: fargate` takes a `CollectionAgent` with `spec.collector.kind: sidecar`. A
+Fargate task has no container instance, so `spec.collector.kind: agent` is
+refused there. The sidecar reads one annotation,
+`foundry.signoz.io/ecs-task-execution-role-arn`, and it is optional: the module
+adopts the role when it is stated and creates one otherwise, handing it back as
+the `execution_role_arn` output.
 
 ## Schema
 

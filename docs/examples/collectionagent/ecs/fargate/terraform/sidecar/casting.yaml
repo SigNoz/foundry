@@ -3,11 +3,11 @@ kind: CollectionAgent
 metadata:
   name: signoz
   annotations:
-    foundry.signoz.io/ecs-region: us-east-1
+    foundry.signoz.io/ecs-task-execution-role-arn: arn:aws:iam::123456789012:role/app-task-exec
 spec:
   deployment:
     platform: ecs
-    mode: ec2
+    mode: fargate
     flavor: terraform
   collector:
     kind: sidecar

@@ -10,18 +10,33 @@ processors:
     send_batch_max_size: 2048
     send_batch_size: 1000
     timeout: 10s
+  filter/ecs:
+    metrics:
+      include:
+        match_type: strict
+        metric_names:
+        - ecs.task.memory.reserved
+        - ecs.task.memory.utilized
+        - ecs.task.cpu.reserved
+        - ecs.task.cpu.utilized
+        - ecs.task.network.rate.rx
+        - ecs.task.network.rate.tx
+        - ecs.task.storage.read_bytes
+        - ecs.task.storage.write_bytes
   memory_limiter:
     check_interval: 5s
-    limit_mib: 4000
-    spike_limit_mib: 800
+    limit_percentage: 80
+    spike_limit_percentage: 20
   resourcedetection:
     detectors:
     - env
     - ecs
     timeout: 5s
 receivers:
+  awsecscontainermetrics:
+    collection_interval: 20s
   fluentforward:
-    endpoint: 0.0.0.0:8006
+    endpoint: unix:///var/run/fluent.sock
   otlp/grpc:
     protocols:
       grpc:
@@ -52,10 +67,12 @@ service:
       processors:
       - memory_limiter
       - resourcedetection
+      - filter/ecs
       - batch
       receivers:
       - otlp/http
       - otlp/grpc
+      - awsecscontainermetrics
     traces:
       exporters:
       - otlphttp/signoz
