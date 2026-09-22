@@ -1,4 +1,4 @@
-package ecsterraformcasting
+package ecsec2terraformcasting
 
 import (
 	"bytes"
@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
 	"github.com/signoz/foundry/internal/domain"
 	"github.com/signoz/foundry/internal/pourer"
@@ -118,6 +119,35 @@ func TestUnstatedCastingForges(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.NotEmpty(t, materials)
+}
+
+// A daemon service places one task per container instance, so a replica count
+// has nothing to scale.
+func TestReplicas(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		replicas *int
+		pass     bool
+	}{
+		{"Unstated_Valid", nil, true},
+		{"One_Valid", domain.NewIntPtr(1), true},
+		{"Two_Invalid", domain.NewIntPtr(2), false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			config := statedCasting(t)
+			config.Spec.Collector.Spec.Cluster.Replicas = test.replicas
+
+			err := newEcsEC2MoldingEnricher().EnrichStatus(context.Background(), v1alpha1.MoldingKindCollector, config)
+
+			if !test.pass {
+				require.Error(t, err)
+
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
 }
 
 // A default in the variables would race the tfvars, so the root declares no

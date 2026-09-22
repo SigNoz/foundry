@@ -1,4 +1,4 @@
-package ecsterraformcasting
+package ecsec2terraformcasting
 
 import (
 	"bytes"
@@ -10,21 +10,30 @@ import (
 	collectionagentmolding "github.com/signoz/foundry/internal/molding/collectionagent"
 )
 
-var _ collectionagentmolding.MoldingEnricher = (*ecsMoldingEnricher)(nil)
+var _ collectionagentmolding.MoldingEnricher = (*ecsEC2MoldingEnricher)(nil)
 
-type ecsMoldingEnricher struct{}
+type ecsEC2MoldingEnricher struct{}
 
-func newEcsMoldingEnricher() *ecsMoldingEnricher {
-	return &ecsMoldingEnricher{}
+func newEcsEC2MoldingEnricher() *ecsEC2MoldingEnricher {
+	return &ecsEC2MoldingEnricher{}
 }
 
-func (e *ecsMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *collectionagent.Casting) error {
+func (e *ecsEC2MoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *collectionagent.Casting) error {
 	if kind != v1alpha1.MoldingKindCollector {
 		return nil
 	}
 
 	if config.Spec.Collector.Kind != collectionagent.CollectorKindAgent {
 		return nil
+	}
+
+	replicas := 1
+	if cluster := config.Spec.Collector.Spec.Cluster; cluster.Replicas != nil {
+		replicas = *cluster.Replicas
+	}
+
+	if replicas != 1 {
+		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "failed to enrich the collector: spec.collector.spec.cluster.replicas is %d, a daemon runs once per container instance", replicas)
 	}
 
 	buf := bytes.NewBuffer(nil)

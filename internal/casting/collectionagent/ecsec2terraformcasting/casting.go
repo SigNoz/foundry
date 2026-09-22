@@ -1,4 +1,4 @@
-package ecsterraformcasting
+package ecsec2terraformcasting
 
 import (
 	"context"
@@ -20,19 +20,23 @@ import (
 // The sidecar writes the config here and the collector reads it.
 const configMount = "/conf"
 
-type ecsCasting struct {
+type ecsEC2TerraformCasting struct {
 	logger *slog.Logger
 }
 
-func New(logger *slog.Logger) *ecsCasting {
-	return &ecsCasting{logger: logger}
+func New(logger *slog.Logger) *ecsEC2TerraformCasting {
+	return &ecsEC2TerraformCasting{logger: logger}
 }
 
-func (c *ecsCasting) Enricher(ctx context.Context, config *collectionagent.Casting) (collectionagentmolding.MoldingEnricher, error) {
-	return newEcsMoldingEnricher(), nil
+func (c *ecsEC2TerraformCasting) Enricher(ctx context.Context, config *collectionagent.Casting) (collectionagentmolding.MoldingEnricher, error) {
+	return newEcsEC2MoldingEnricher(), nil
 }
 
-func (c *ecsCasting) Forge(ctx context.Context, config collectionagent.Casting, p *pourer.Pourer) error {
+func (c *ecsEC2TerraformCasting) Forge(ctx context.Context, config collectionagent.Casting, p *pourer.Pourer) error {
+	// The kind's directory is a terraform root of its own, so a casting file
+	// holding several collection agents pours a root per document.
+	dir := filepath.Dir(config.Spec.Collector.Kind.ConfigKey())
+
 	data := c.templateData(config)
 
 	for _, tmpl := range []*domain.Template{versionsTF, providersTF, backendTF, variablesTF, tfvarsTF, mainTF, collectorTF} {
@@ -41,7 +45,7 @@ func (c *ecsCasting) Forge(ctx context.Context, config collectionagent.Casting, 
 			return err
 		}
 
-		p.AddJSON(material.FmtContents(), material.Path())
+		p.AddJSON(material.FmtContents(), dir, material.Path())
 	}
 
 	// AppConfig reads the config off disk at plan time, so the pour is the
@@ -55,8 +59,8 @@ func (c *ecsCasting) Forge(ctx context.Context, config collectionagent.Casting, 
 
 const planFile = "tfplan"
 
-func (c *ecsCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
-	root := filepath.Join(outputPath, p.Dir())
+func (c *ecsEC2TerraformCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
+	root := filepath.Join(outputPath, p.Dir(), filepath.Dir(config.Spec.Collector.Kind.ConfigKey()))
 
 	if err := c.terraform(ctx, root, "init"); err != nil {
 		return err
@@ -69,7 +73,7 @@ func (c *ecsCasting) Cast(ctx context.Context, config collectionagent.Casting, o
 	return c.terraform(ctx, root, "apply", planFile)
 }
 
-func (c *ecsCasting) terraform(ctx context.Context, root, verb string, args ...string) error {
+func (c *ecsEC2TerraformCasting) terraform(ctx context.Context, root, verb string, args ...string) error {
 	argv := append([]string{"-chdir=" + root, verb}, args...)
 
 	c.logger.DebugContext(ctx, "Running command", slog.String("command", "terraform "+strings.Join(argv, " ")))
@@ -87,7 +91,7 @@ func (c *ecsCasting) terraform(ctx context.Context, root, verb string, args ...s
 }
 
 // Resolves the annotation-derived identifiers the templates render.
-func (c *ecsCasting) templateData(config collectionagent.Casting) templateData {
+func (c *ecsEC2TerraformCasting) templateData(config collectionagent.Casting) templateData {
 	annotations := config.Metadata.Annotations
 
 	// Several workloads share one cluster, so a cluster-derived name collides on
@@ -111,7 +115,7 @@ func (c *ecsCasting) templateData(config collectionagent.Casting) templateData {
 		Application: workload + "-appconfig",
 		Environment: "default",
 		Profile:     strings.ReplaceAll(filepath.Dir(configKey), "/", "-"),
-		Source:      configKey,
+		Source:      filepath.Base(configKey),
 		Target:      filepath.Join(configMount, filepath.Base(configKey)),
 		Digest:      digest(config.Spec.Collector.Spec.Config.Data[configKey]),
 		ConfigMount: configMount,
