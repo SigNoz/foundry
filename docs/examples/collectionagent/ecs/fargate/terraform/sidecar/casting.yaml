@@ -1,0 +1,16 @@
+apiVersion: v1alpha1
+kind: CollectionAgent
+metadata:
+  name: signoz
+  annotations:
+    foundry.signoz.io/ecs-task-execution-role-arn: arn:aws:iam::123456789012:role/app-task-exec
+spec:
+  deployment:
+    platform: ecs
+    mode: fargate
+    flavor: terraform
+  collector:
+    kind: sidecar
+    spec:
+      env:
+        SIGNOZ_INGESTION_ENDPOINT: "https://ingest.us.signoz.cloud:443"

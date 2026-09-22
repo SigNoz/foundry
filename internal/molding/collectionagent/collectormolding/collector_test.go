@@ -139,3 +139,30 @@ func TestMoldAgentErrors(t *testing.T) {
 		})
 	}
 }
+
+// The base is platform-free, so every pipeline takes OTLP and nothing else; the
+// task's own log socket is the casting's delta.
+func TestMoldSidecar(t *testing.T) {
+	c := newCasting(t, collectionagent.CollectorKindSidecar, "")
+	require.NoError(t, New(slog.Default()).MoldV1Alpha1(context.Background(), c))
+
+	var cfg struct {
+		Service struct {
+			Pipelines map[string]pipeline `json:"pipelines"`
+		} `json:"service"`
+	}
+	require.NoError(t, domain.UnmarshalYAML([]byte(c.Spec.Collector.Status.Config.Data[collectionagent.CollectorKindSidecar.ConfigKey()]), &cfg))
+
+	for name, test := range map[string]struct {
+		pipeline          string
+		expectedReceivers []string
+	}{
+		"Traces_OTLPOnly":  {"traces", []string{"otlp/http", "otlp/grpc"}},
+		"Metrics_OTLPOnly": {"metrics", []string{"otlp/http", "otlp/grpc"}},
+		"Logs_OTLPOnly":    {"logs", []string{"otlp/http", "otlp/grpc"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, test.expectedReceivers, cfg.Service.Pipelines[test.pipeline].Receivers)
+		})
+	}
+}

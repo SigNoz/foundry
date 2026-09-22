@@ -94,7 +94,8 @@
         "docker",
         "systemd",
         "kubernetes",
-        "ec2"
+        "ec2",
+        "fargate"
       ],
       "type": "string"
     },

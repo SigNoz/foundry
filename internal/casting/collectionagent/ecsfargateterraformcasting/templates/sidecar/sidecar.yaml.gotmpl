@@ -1,0 +1,43 @@
+receivers:
+  # ECS bind-mounts the FireLens socket into the container carrying the router
+  # configuration, so the collector reads the task's stdout off it.
+  fluentforward:
+    endpoint: unix:///var/run/fluent.sock
+  awsecscontainermetrics:
+    collection_interval: 20s
+
+processors:
+  resourcedetection:
+    detectors:
+      - env
+      - ecs
+  # The receiver emits a metric per container too, so the task set is named here.
+  filter/ecs:
+    metrics:
+      include:
+        match_type: strict
+        metric_names:
+          - ecs.task.memory.reserved
+          - ecs.task.memory.utilized
+          - ecs.task.cpu.reserved
+          - ecs.task.cpu.utilized
+          - ecs.task.network.rate.rx
+          - ecs.task.network.rate.tx
+          - ecs.task.storage.read_bytes
+          - ecs.task.storage.write_bytes
+  # The fluentforward receiver has no operators, so the container name is lifted
+  # here the way filelog operators lift docker labels. The task
+  # family already rides on the resource, so service.name is the container.
+  transform/firelens:
+    log_statements:
+      - set(resource.attributes["aws.ecs.container.name"], log.attributes["container_name"]) where log.attributes["container_name"] != nil
+      - set(resource.attributes["service.name"], log.attributes["container_name"]) where log.attributes["container_name"] != nil
+
+service:
+  pipelines:
+    logs:
+      receivers: [fluentforward]
+      processors: [transform/firelens]
+    metrics:
+      receivers: [awsecscontainermetrics]
+      processors: [filter/ecs]

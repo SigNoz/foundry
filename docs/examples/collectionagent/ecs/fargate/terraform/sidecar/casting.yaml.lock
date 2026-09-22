@@ -1,0 +1,216 @@
+apiVersion: v1alpha1
+kind: CollectionAgent
+metadata:
+  annotations:
+    foundry.signoz.io/ecs-task-execution-role-arn: arn:aws:iam::123456789012:role/app-task-exec
+  name: signoz
+spec:
+  collector:
+    kind: sidecar
+    spec:
+      cluster:
+        replicas: 1
+      config:
+        data:
+          collector/sidecar/sidecar.yaml: |
+            exporters:
+              otlphttp/signoz:
+                endpoint: ${env:SIGNOZ_INGESTION_ENDPOINT}
+            extensions:
+              health_check:
+                endpoint: 0.0.0.0:13133
+                path: /healthz
+            processors:
+              batch:
+                send_batch_max_size: 2048
+                send_batch_size: 1000
+                timeout: 10s
+              filter/ecs:
+                metrics:
+                  include:
+                    match_type: strict
+                    metric_names:
+                    - ecs.task.memory.reserved
+                    - ecs.task.memory.utilized
+                    - ecs.task.cpu.reserved
+                    - ecs.task.cpu.utilized
+                    - ecs.task.network.rate.rx
+                    - ecs.task.network.rate.tx
+                    - ecs.task.storage.read_bytes
+                    - ecs.task.storage.write_bytes
+              memory_limiter:
+                check_interval: 5s
+                limit_percentage: 80
+                spike_limit_percentage: 20
+              resourcedetection:
+                detectors:
+                - env
+                - ecs
+                timeout: 5s
+              transform/firelens:
+                log_statements:
+                - set(resource.attributes["aws.ecs.container.name"], log.attributes["container_name"])
+                  where log.attributes["container_name"] != nil
+                - set(resource.attributes["service.name"], log.attributes["container_name"]) where
+                  log.attributes["container_name"] != nil
+            receivers:
+              awsecscontainermetrics:
+                collection_interval: 20s
+              fluentforward:
+                endpoint: unix:///var/run/fluent.sock
+              otlp/grpc:
+                protocols:
+                  grpc:
+                    endpoint: 0.0.0.0:4317
+                    max_recv_msg_size_mib: 16
+              otlp/http:
+                protocols:
+                  http:
+                    endpoint: 0.0.0.0:4318
+            service:
+              extensions:
+              - health_check
+              pipelines:
+                logs:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - transform/firelens
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+                  - fluentforward
+                metrics:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - filter/ecs
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+                  - awsecscontainermetrics
+                traces:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+      enabled: true
+      env:
+        OTEL_COLLECTOR_ROLE: sidecar
+        SIGNOZ_INGESTION_ENDPOINT: https://ingest.us.signoz.cloud:443
+      image: otel/opentelemetry-collector-contrib:0.139.0
+      version: 0.139.0
+    status:
+      config:
+        data:
+          collector/sidecar/sidecar.yaml: |
+            exporters:
+              otlphttp/signoz:
+                endpoint: ${env:SIGNOZ_INGESTION_ENDPOINT}
+            extensions:
+              health_check:
+                endpoint: 0.0.0.0:13133
+                path: /healthz
+            processors:
+              batch:
+                send_batch_max_size: 2048
+                send_batch_size: 1000
+                timeout: 10s
+              filter/ecs:
+                metrics:
+                  include:
+                    match_type: strict
+                    metric_names:
+                    - ecs.task.memory.reserved
+                    - ecs.task.memory.utilized
+                    - ecs.task.cpu.reserved
+                    - ecs.task.cpu.utilized
+                    - ecs.task.network.rate.rx
+                    - ecs.task.network.rate.tx
+                    - ecs.task.storage.read_bytes
+                    - ecs.task.storage.write_bytes
+              memory_limiter:
+                check_interval: 5s
+                limit_percentage: 80
+                spike_limit_percentage: 20
+              resourcedetection:
+                detectors:
+                - env
+                - ecs
+                timeout: 5s
+              transform/firelens:
+                log_statements:
+                - set(resource.attributes["aws.ecs.container.name"], log.attributes["container_name"])
+                  where log.attributes["container_name"] != nil
+                - set(resource.attributes["service.name"], log.attributes["container_name"]) where
+                  log.attributes["container_name"] != nil
+            receivers:
+              awsecscontainermetrics:
+                collection_interval: 20s
+              fluentforward:
+                endpoint: unix:///var/run/fluent.sock
+              otlp/grpc:
+                protocols:
+                  grpc:
+                    endpoint: 0.0.0.0:4317
+                    max_recv_msg_size_mib: 16
+              otlp/http:
+                protocols:
+                  http:
+                    endpoint: 0.0.0.0:4318
+            service:
+              extensions:
+              - health_check
+              pipelines:
+                logs:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - transform/firelens
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+                  - fluentforward
+                metrics:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - filter/ecs
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+                  - awsecscontainermetrics
+                traces:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - batch
+                  receivers:
+                  - otlp/http
+                  - otlp/grpc
+      env:
+        OTEL_COLLECTOR_ROLE: sidecar
+        SIGNOZ_INGESTION_ENDPOINT: https://ingest.us.signoz.cloud:443
+  deployment:
+    flavor: terraform
+    mode: fargate
+    platform: ecs
