@@ -22,14 +22,14 @@ func TestCheck(t *testing.T) {
 		store     Resolved
 		pass      bool
 	}{
-		{"NewCollector_OldStore_Fails", enabled("0.144.6"), enabled("25.5.6"), false},
-		{"NewCollector_NewStore_OK", enabled("0.144.6"), enabled("25.12.5"), true},
-		{"NewCollector_NewStoreAlpine_OK", enabled("0.144.6"), enabled("25.12.5-alpine"), true},
+		{"NewCollector_OldStore_Fails", enabled("0.144.11"), enabled("25.5.6"), false},
+		{"NewCollector_NewStore_OK", enabled("0.144.11"), enabled("25.12.5"), true},
+		{"NewCollector_NewStoreAlpine_OK", enabled("0.144.11"), enabled("25.12.5-alpine"), true},
 		{"FloorCollector_OldStore_OK", enabled("0.144.5"), enabled("25.5.6"), true},
 		{"FloatingCollector_OldStore_Warns", enabled("latest"), enabled("25.5.6"), true},
 		{"FloatingCollector_NewStore_OK", enabled("latest"), enabled("25.12.5"), true},
-		{"DisabledCollector_OldStore_OK", NewResolved("component:0.144.6", false), enabled("25.5.6"), true},
-		{"UnknownStore_Skips", enabled("0.144.6"), enabled("latest"), true},
+		{"DisabledCollector_OldStore_OK", NewResolved("component:0.144.11", false), enabled("25.5.6"), true},
+		{"UnknownStore_Skips", enabled("0.144.11"), enabled("latest"), true},
 	}
 
 	for _, tt := range tests {
@@ -45,6 +45,29 @@ func TestCheck(t *testing.T) {
 				return
 			}
 			assert.NoError(t, err)
+		})
+	}
+}
+
+func TestResolvedSatisfies(t *testing.T) {
+	tests := []struct {
+		name              string
+		image             string
+		constraint        string
+		expectedSatisfied bool
+	}{
+		{"FloatingTag_Satisfies", "component:latest", ">=0.144.6", true},
+		{"CommitTag_Satisfies", "component:main-0efa06f", ">=0.144.6", true},
+		{"SemverAtFloor_Satisfies", "component:0.144.6", ">=0.144.6", true},
+		{"SemverAboveFloor_Satisfies", "component:0.144.11", ">=0.144.6", true},
+		{"SemverBelowFloor_Fails", "component:0.144.5", ">=0.144.6", false},
+		{"InvalidConstraint_Fails", "component:0.144.6", "not a constraint", false},
+		{"UnparseableImage_Satisfies", "", ">=0.144.6", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expectedSatisfied, NewResolved(tt.image, true).Satisfies(tt.constraint))
 		})
 	}
 }
