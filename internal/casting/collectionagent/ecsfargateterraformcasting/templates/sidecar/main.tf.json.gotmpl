@@ -12,12 +12,10 @@
              fluent socket into the collector and no fluent-bit rides along. */}}
       "firelensConfiguration": {"type": "fluentbit"},
       "command": ["--config=env:FOUNDRY_CONFIG"],
-      {{- /* The version is part of the container definition, so a changed
-             config is a changed task revision. */}}
       "secrets": [
-        {"name": "FOUNDRY_CONFIG", "valueFrom": "${aws_ssm_parameter.{{ $label }}.arn}:${aws_ssm_parameter.{{ $label }}.version}"}
+        {"name": "FOUNDRY_CONFIG", "valueFrom": "${aws_ssm_parameter.{{ $label }}.arn}"}
       ],
-      {{- $env := list }}
+      {{- $env := list (dict "name" "FOUNDRY_CONFIG_VERSION" "value" (printf "${tostring(aws_ssm_parameter.%s.version)}" $label)) }}
       {{- range $key, $value := $.Spec.Collector.Spec.Env }}
       {{- $env = append $env (dict "name" $key "value" $value) }}
       {{- end }}

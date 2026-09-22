@@ -9,24 +9,23 @@
 
 ## Overview
 
-Runs a SigNoz Collection Agent as a sidecar container inside an application's own ECS task. A Fargate task has no container instance, so there is nothing for a daemon agent to run on; `spec.collector.kind` must be `sidecar` here, and `kind: agent` is refused at forge.
+Runs a SigNoz Collection Agent as a sidecar container inside your own ECS task on Fargate. The collector runs the OpenTelemetry Collector, collects the task's telemetry, and exports it, along with anything your applications send it, to any SigNoz: Self-Hosted Community, Self-Hosted Enterprise, or SigNoz Cloud.
 
-ECS has no admission hook, so nothing foundry runs can add a container to a task definition foundry does not own. The pour is a Terraform module you import from your own Terraform, and your task definition takes its containers, its execution role and its log configuration from the module's outputs.
+Foundry generates a Terraform module and deploys nothing itself. You import the module from the Terraform that owns your task definition and apply it yourself; `foundryctl cast` only prints where the module is.
 
-The collector runs the OpenTelemetry Collector and exports to any SigNoz: Self-Hosted Community, Self-Hosted Enterprise, or SigNoz Cloud. It collects:
+It collects:
 
-- OTLP traces, metrics and logs from the application containers, on the task's own `localhost`
+- OTLP traces, metrics and logs from your application containers, on the task's own `localhost:4317` (gRPC) and `localhost:4318` (HTTP)
 - The stdout and stderr of the application containers that opt in to its log configuration
-- Task CPU, memory, network and storage metrics from the ECS task metadata endpoint
+- Eight task-level metrics from the ECS task metadata endpoint: `ecs.task.cpu.*`, `ecs.task.memory.*`, `ecs.task.network.*` and `ecs.task.storage.*`
 
-The collector is the task's FireLens container: ECS validates the router type, not the image, so it mounts the fluent socket into the collector and the collector reads the task's stdout itself, with no fluent-bit router in the task. If ECS ever validates the image too, a fluent-bit router returns as an opt-in.
-
-Foundry generates Terraform. It does not create the cluster, the service or your task definition.
+Every container in a Fargate task shares one network namespace, so your applications reach the collector on localhost. On EC2 tasks with `bridge` networking they do not, and this casting targets Fargate.
 
 ## Prerequisites
 
-- An ECS cluster and a task definition of your own, managed by your own Terraform
+- [foundryctl](../../../../../getting-started.md) to generate the files
 - [Terraform](https://developer.hashicorp.com/terraform/install) 1.4 or newer
+- A task definition of your own, managed by your own Terraform
 - AWS credentials in the environment Terraform runs in, with permission to create SSM parameters and IAM role policies
 - A running SigNoz to receive the telemetry: [Self-Hosted Community](../../../../docker/compose/README.md), Self-Hosted Enterprise, or [SigNoz Cloud](https://signoz.io/teams/)
 
@@ -53,19 +52,31 @@ spec:
         SIGNOZ_INGESTION_ENDPOINT: "https://ingest.us.signoz.cloud:443"
 ```
 
-| Annotation | Meaning |
-| --- | --- |
-| `foundry.signoz.io/ecs-task-execution-role-arn` | Task execution role of the task definition the collector joins. Optional; created when absent. |
+`spec.collector.kind` is `sidecar`, and any other kind is refused at forge: a Fargate task has no host for a daemon agent to run on. `spec.collector.spec.cluster.replicas` stays `1`, one collector per task, and the count belongs to your own service.
 
-The ECS agent, not the task, resolves the collector's config secret, so the read belongs to the execution role. State the ARN and the module adopts that role and attaches the one read to it. Leave it out and the module creates `signoz-collectionagent-iam-exec` with the ECS task execution policy, and `execution_role_arn` hands it back for your task definition to use.
+State `foundry.signoz.io/ecs-task-execution-role-arn` to use your task's existing execution role, and the module adopts it. Omit it and the module creates one and hands it back for your task definition to use.
 
-The module has no provider and touches no cluster and no task role, so the execution role is the only annotation it reads. For the full annotation table, see the [casting file reference](../../../../../reference/casting-file.md).
+### Point the agent at your SigNoz
 
-### Point the collector at your SigNoz
+`SIGNOZ_INGESTION_ENDPOINT` and everything else under `spec.collector.spec.env` becomes the container's environment.
 
-Set the endpoint through `spec.collector.spec.env`, which becomes the container's environment. For SigNoz Cloud or Self-Hosted Enterprise, add the [ingestion key](https://signoz.io/docs/ingestion/signoz-cloud/keys/) as an exporter header through `spec.collector.spec.config.data`:
+- For a Self-Hosted Community installation the OTLP HTTP ingest is port `4318` on the SigNoz host, `http://<signoz-host>:4318`. Community has no ingestion key, so the endpoint is all the collector needs (see [Cloud to Self-Hosted](https://signoz.io/docs/ingestion/cloud-vs-self-hosted/#cloud-to-self-hosted)).
+- `OTEL_RESOURCE_ATTRIBUTES: "deployment.environment=production"` sets the `deployment.environment` resource attribute on everything the collector sends. Adjust it per task.
+
+### SigNoz Cloud or Self-Hosted Enterprise
+
+Both authenticate ingestion with an [ingestion key](https://signoz.io/docs/ingestion/signoz-cloud/keys/). For SigNoz Cloud, set the [endpoint for your region](https://signoz.io/docs/ingestion/signoz-cloud/overview/#endpoint) (`us`, `eu`, `in`); for Self-Hosted Enterprise, use your deployment's ingestion endpoint. Add the key as an exporter header through `spec.collector.spec.config.data`:
 
 ```yaml
+apiVersion: v1alpha1
+kind: CollectionAgent
+metadata:
+  name: signoz
+spec:
+  deployment:
+    platform: ecs
+    mode: fargate
+    flavor: terraform
   collector:
     kind: sidecar
     spec:
@@ -82,53 +93,23 @@ Set the endpoint through `spec.collector.spec.env`, which becomes the container'
                   signoz-ingestion-key: ${env:SIGNOZ_INGESTION_KEY}
 ```
 
-`spec.collector.spec.env` values land in the container definition in plain text. For a Self-Hosted Community installation the OTLP HTTP ingest is port `4318` on the SigNoz host and there is no ingestion key.
+The casting is the single input; treat it as sensitive once the key is in it. `spec.collector.spec.env` values land in the container definition in plain text.
 
-## Forge
+## Deploy
 
 ```bash
+# Validate prerequisites
+foundryctl gauge -f casting.yaml
+
+# Generate the deployment files
 foundryctl forge -f casting.yaml
 ```
 
-`foundryctl cast` applies nothing, because the task definition is yours. Import the module as below and apply it with your own `terraform apply`.
-
-## Generated output
-
-```text
-pours/collectionagent/collector/sidecar/
-  versions.tf.json          # required terraform and provider versions
-  main.tf.json              # the parameter holding the config, its read policy, the execution role, the collector
-  outputs.tf.json           # container_definitions, log_configuration, execution_role_arn
-  sidecar.yaml              # the collector config, uploaded from here
-```
-
-The module declares no variables. Everything the container needs is resolved at forge from the casting: the image from `spec.collector.spec.image`, the environment from `spec.collector.spec.env`, the config from `spec.collector.spec.config.data`. To change what the module renders, use [patches](../../../../../concepts/patches.md).
-
-The module holds no provider, no backend and no state of its own. The root that imports it owns all three, including the region, so the collector is planned, applied and destroyed with the application it runs beside.
-
-| Output | Meaning |
-| --- | --- |
-| `container_definitions` | The collector, to concat into your task definition's `container_definitions` |
-| `log_configuration` | The `awsfirelens` log configuration. Applies to the application containers that opt in; without it a container's stdout is not collected |
-| `execution_role_arn` | The role your task definition states as its execution role, adopted when you state one and created otherwise |
-
-### Consume the module
+Then import the module from the Terraform that owns your task definition. It takes no inputs: the task definition states the module's execution role, concatenates its container into `container_definitions`, and every application container whose stdout should be collected takes the module's log configuration.
 
 ```hcl
 module "signoz_collector_sidecar" {
   source = "./pours/collectionagent/collector/sidecar"
-}
-
-locals {
-  containers = [
-    {
-      name      = "app"
-      image     = "<your application image>"
-      essential = true
-
-      logConfiguration = module.signoz_collector_sidecar.log_configuration
-    },
-  ]
 }
 
 resource "aws_ecs_task_definition" "app" {
@@ -139,40 +120,113 @@ resource "aws_ecs_task_definition" "app" {
   memory                   = 2048
   execution_role_arn       = module.signoz_collector_sidecar.execution_role_arn
 
-  container_definitions = jsonencode(concat(module.signoz_collector_sidecar.container_definitions, local.containers))
+  container_definitions = jsonencode(concat(module.signoz_collector_sidecar.container_definitions, [
+    {
+      name      = "app"
+      image     = "<your application image>"
+      essential = true
+
+      logConfiguration = module.signoz_collector_sidecar.log_configuration
+    },
+  ]))
 }
 ```
 
-`logConfiguration` is per container and opt-in. Leave it off a container and that container keeps its own stdout handling; its telemetry still reaches the collector over OTLP.
+Apply it with your own Terraform, `terraform init && terraform apply`, and point [instrumented applications](https://signoz.io/docs/instrumentation/) at `http://localhost:4317` (gRPC) or `http://localhost:4318` (HTTP).
 
-### Configuration delivery
+`logConfiguration` is per container and opt-in. Leave it off a container and that container keeps its own log driver; its OTLP telemetry still reaches the collector. Opting a container in makes the collector the task's FireLens log router, so the task can carry no other FireLens container.
 
-The config is delivered through [SSM Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html): the module uploads `sidecar.yaml` as the parameter `signoz-collectionagent-ssm-collector-sidecar`, and the collector reads it as a secret environment variable. The secret names the parameter version, so a changed config is a changed container definition and a new task revision, and a running task keeps the config it was registered with.
+The collector is one more container in every task and Fargate bills the task's CPU and memory tier, so size the task with 256 CPU units and 256 MiB on top of what your application needs.
 
-### Sizing
+## Generated output
 
-The collector reserves 256 CPU units and 256 MiB. A reservation is a floor for placement, not a cap. Fargate bills the task's CPU and memory tier, so the collector costs nothing extra until what it reserves pushes the task into the next tier up.
+```text
+pours/collectionagent/collector/sidecar/
+  versions.tf.json          # required terraform and provider versions
+  main.tf.json              # the collector container, the parameter holding its config, and the read policy
+  outputs.tf.json           # container_definitions, log_configuration, execution_role_arn
+  sidecar.yaml              # the collector config, uploaded from here
+```
 
-When it does, drop the `logConfiguration` block and have the application send its logs over OTLP instead, which removes the log path without removing the collector. One collector that every task exports to, rather than one inside every task, is what the `deployment` collector kind will offer on ECS once it lands.
-
-The collector is not essential and carries a restart policy, so it never takes the task down and comes back on its own. Do not give it a health check: its image carries no shell, so the check fails and the task stays UNHEALTHY while the collector runs.
-
-One task shares one network namespace, so these ports are the application containers' own `localhost`:
-
-| Port | Bound by |
-| --- | --- |
-| 4317 | OTLP intake, gRPC |
-| 4318 | OTLP intake, HTTP |
-| 13133 | the collector's health check endpoint |
-
-Container stdout does not arrive on a port. ECS bind-mounts the fluent socket into the collector, and the log driver writes to it.
-
-`spec.collector.spec.cluster.replicas` is refused for anything but `1`. The count belongs to the application's own service.
+The module declares no variables and carries no provider, no backend and no state of its own. The Terraform that imports it owns all three, so the collector is planned, applied and destroyed with the application it runs beside.
 
 ## After deployment
 
-Point [instrumented applications](https://signoz.io/docs/instrumentation/) at `http://localhost:4317` (gRPC) or `http://localhost:4318` (HTTP). In SigNoz, the task metrics appear under [Infrastructure Monitoring](https://signoz.io/docs/infrastructure-monitoring/hostmetrics/).
+```bash
+# The collector runs beside your application containers
+aws ecs describe-tasks --cluster <cluster> --tasks <task-arn> \
+  --query "tasks[].containers[?name=='signoz-collector-sidecar'].lastStatus"
+```
+
+The collector is not essential and restarts on its own, so a crashed collector never takes your application down, but telemetry is missing until it comes back.
+
+The collector's own stdout is not shipped anywhere, because it is the task's log router and carries no log configuration of its own. To read it in CloudWatch, give it one with a patch; the log group has to exist already:
+
+```yaml
+apiVersion: v1alpha1
+kind: CollectionAgent
+metadata:
+  name: signoz
+spec:
+  deployment:
+    platform: ecs
+    mode: fargate
+    flavor: terraform
+  collector:
+    kind: sidecar
+    spec:
+      env:
+        SIGNOZ_INGESTION_ENDPOINT: "https://ingest.us.signoz.cloud:443"
+  patches:
+    - target: collectionagent/collector/sidecar/main.tf.json
+      operations:
+        - op: add
+          path: /locals/container_collector_sidecar/logConfiguration
+          value:
+            logDriver: awslogs
+            options:
+              awslogs-group: /ecs/app
+              awslogs-region: us-east-1
+              awslogs-stream-prefix: collector
+```
+
+To change what the collector does, edit the casting, forge again, and apply. The config is delivered as an SSM parameter whose version is part of the container definition, so a changed config registers a new task revision and your service rolls it out; a running task keeps the config it started with.
+
+In SigNoz, your applications' traces, metrics and logs arrive as usual, and the task metrics feed the [Container Metrics - ECS](https://github.com/SigNoz/dashboards/tree/main/ecs-infra-metrics) dashboard.
 
 ## Customization
 
-Override any collector setting through `spec.collector.spec.config.data`; user keys win over generated ones, and the merged result is what the parameter carries. For changes to the generated Terraform itself, use [patches](../../../../../concepts/patches.md).
+Override any collector setting through `spec.collector.spec.config.data`, keyed by the generated file's path; user keys win over generated ones, and the merged result is what the task reads. For example, to flush batches sooner:
+
+```yaml
+apiVersion: v1alpha1
+kind: CollectionAgent
+metadata:
+  name: signoz
+spec:
+  deployment:
+    platform: ecs
+    mode: fargate
+    flavor: terraform
+  collector:
+    kind: sidecar
+    spec:
+      env:
+        SIGNOZ_INGESTION_ENDPOINT: "https://ingest.us.signoz.cloud:443"
+      config:
+        data:
+          collector/sidecar/sidecar.yaml: |
+            processors:
+              batch:
+                timeout: 5s
+```
+
+For changes to the generated Terraform itself, use [patches](../../../../../concepts/patches.md).
+
+## Annotations
+
+| Annotation | Meaning |
+| --- | --- |
+| `foundry.signoz.io/ecs-task-execution-role-arn` | Execution role of the task definition the collector joins. Optional; created when absent. |
+
+The other `foundry.signoz.io/ecs-*` annotations are not read here: the module touches no region, no cluster and no task role. For the full annotation table, see the [casting file reference](../../../../../reference/casting-file.md).
