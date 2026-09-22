@@ -23,6 +23,15 @@ func (e *dockerSwarmMoldingEnricher) EnrichStatus(ctx context.Context, kind v1al
 		return nil
 	}
 
+	replicas := 1
+	if cluster := config.Spec.Collector.Spec.Cluster; cluster.Replicas != nil {
+		replicas = *cluster.Replicas
+	}
+
+	if replicas != 1 {
+		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "spec.collector.spec.cluster.replicas is %d, an agent runs once per host", replicas)
+	}
+
 	if config.Spec.Collector.Kind != collectionagent.CollectorKindAgent {
 		return nil
 	}

@@ -33,7 +33,7 @@ func (e *ecsEC2MoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.
 	}
 
 	if replicas != 1 {
-		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "failed to enrich the collector: spec.collector.spec.cluster.replicas is %d, a daemon runs once per container instance", replicas)
+		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "spec.collector.spec.cluster.replicas is %d, a daemon runs once per container instance", replicas)
 	}
 
 	buf := bytes.NewBuffer(nil)

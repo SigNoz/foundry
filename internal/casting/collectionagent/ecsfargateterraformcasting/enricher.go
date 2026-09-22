@@ -29,7 +29,7 @@ func (e *ecsFargateMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alp
 	}
 
 	if replicas != 1 {
-		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "failed to enrich the collector: spec.collector.spec.cluster.replicas is %d, a sidecar runs once in every task it joins", replicas)
+		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "spec.collector.spec.cluster.replicas is %d, a sidecar runs once in every task it joins", replicas)
 	}
 
 	if config.Spec.Collector.Kind != collectionagent.CollectorKindSidecar {

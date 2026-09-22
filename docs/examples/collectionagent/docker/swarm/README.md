@@ -114,17 +114,15 @@ foundryctl gauge -f casting.yaml
 foundryctl forge -f casting.yaml
 
 # Deploy the stack
-docker stack deploy -c pours/collectionagent/compose.yaml signoz
+docker stack deploy -c pours/collectionagent/collector/agent/compose.yaml signoz
 ```
 
 ## Generated output
 
 ```text
-pours/collectionagent/
-  compose.yaml
-  collector/
-    agent/
-      agent.yaml
+pours/collectionagent/collector/agent/
+  compose.yaml              # the agent's stack file
+  agent.yaml                # the collector config, delivered as a swarm config
 ```
 
 ## After deployment
