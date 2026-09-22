@@ -34,7 +34,7 @@ func (e *systemdBinaryMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 	}
 
 	if replicas != 1 {
-		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "failed to enrich the collector: spec.collector.spec.cluster.replicas is %d, a systemd unit runs once per host", replicas)
+		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "spec.collector.spec.cluster.replicas is %d, a systemd unit runs once per host", replicas)
 	}
 
 	if config.Spec.Collector.Kind != collectionagent.CollectorKindAgent {
