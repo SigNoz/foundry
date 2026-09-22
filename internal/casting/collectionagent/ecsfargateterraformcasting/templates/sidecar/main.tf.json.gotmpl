@@ -11,9 +11,6 @@
       {{- /* ECS validates the router type, not the image, so it mounts the
              fluent socket into the collector and no fluent-bit rides along. */}}
       "firelensConfiguration": {"type": "fluentbit"},
-      {{- /* The ECS agent assigns the socket directory to uid 0, and a
-             non-root one is honoured only on the newest agent and AMI. */}}
-      "user": "0",
       "command": ["--config=env:FOUNDRY_CONFIG"],
       {{- /* The version is part of the container definition, so a changed
              config is a changed task revision. */}}

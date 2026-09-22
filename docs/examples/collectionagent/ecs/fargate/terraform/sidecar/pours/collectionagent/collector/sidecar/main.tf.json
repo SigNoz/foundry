@@ -7,7 +7,6 @@
       "essential": false,
       "restartPolicy": {"enabled": true},
       "firelensConfiguration": {"type": "fluentbit"},
-      "user": "0",
       "command": ["--config=env:FOUNDRY_CONFIG"],
       "secrets": [
         {"name": "FOUNDRY_CONFIG", "valueFrom": "${aws_ssm_parameter.collector_sidecar.arn}:${aws_ssm_parameter.collector_sidecar.version}"}
