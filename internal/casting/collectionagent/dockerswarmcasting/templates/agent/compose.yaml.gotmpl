@@ -47,4 +47,4 @@ services:
 
 configs:
   collector-{{ .Spec.Collector.Kind }}:
-    file: ./{{ .Spec.Collector.Kind.ConfigKey }}
+    file: ./{{ base .Spec.Collector.Kind.ConfigKey }}

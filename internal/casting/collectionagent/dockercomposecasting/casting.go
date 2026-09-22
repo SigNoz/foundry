@@ -30,12 +30,25 @@ func (c *dockerComposeCasting) Enricher(ctx context.Context, config *collectiona
 }
 
 func (c *dockerComposeCasting) Forge(ctx context.Context, config collectionagent.Casting, p *pourer.Pourer) error {
+	var tmpl *domain.Template
+
+	switch config.Spec.Collector.Kind {
+	case collectionagent.CollectorKindAgent:
+		tmpl = composeYAMLTemplate
+	default:
+		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported collector kind %q", config.Spec.Collector.Kind)
+	}
+
+	// The kind's directory is a compose project of its own, so a casting file
+	// holding several collection agents pours a project per document.
+	dir := filepath.Dir(config.Spec.Collector.Kind.ConfigKey())
+
 	buf := bytes.NewBuffer(nil)
-	if err := composeYAMLTemplate.Execute(buf, config); err != nil {
+	if err := tmpl.Execute(buf, config); err != nil {
 		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute compose template")
 	}
 
-	p.AddYAML(buf.Bytes(), "compose.yaml")
+	p.AddYAML(buf.Bytes(), dir, "compose.yaml")
 
 	for path, content := range config.Spec.Collector.Spec.Config.Data {
 		p.AddYAML([]byte(content), path)
@@ -45,7 +58,7 @@ func (c *dockerComposeCasting) Forge(ctx context.Context, config collectionagent
 }
 
 func (c *dockerComposeCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
-	composeFile := filepath.Join(outputPath, p.Dir(), "compose.yaml")
+	composeFile := filepath.Join(outputPath, p.Dir(), filepath.Dir(config.Spec.Collector.Kind.ConfigKey()), "compose.yaml")
 
 	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
 		return foundryerrors.Newf(foundryerrors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
