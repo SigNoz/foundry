@@ -98,7 +98,7 @@
         "application_id": "${aws_appconfig_application.main.id}",
         "configuration_profile_id": "${aws_appconfig_configuration_profile.collector_agent.configuration_profile_id}",
         "content_type": "application/x-yaml",
-        "content": "${file(\"${path.module}/collector/agent/agent.yaml\")}"
+        "content": "${file(\"${path.module}/agent.yaml\")}"
       }
     },
     "aws_appconfig_deployment": {

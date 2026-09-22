@@ -100,7 +100,7 @@ Or step by step:
 ```bash
 foundryctl gauge -f casting.yaml
 foundryctl forge -f casting.yaml
-cd pours/collectionagent
+cd pours/collectionagent/collector/agent
 terraform init
 terraform plan -out=tfplan
 terraform apply tfplan
@@ -112,19 +112,19 @@ terraform apply tfplan
 
 ```text
 pours/collectionagent/
-  versions.tf.json          # required terraform and provider versions
-  providers.tf.json         # the aws provider, in var.aws_region
-  backend.tf.json           # local state, beside the pours
-  variables.tf.json         # every identifier the root declares, each validated
-  terraform.tfvars.json     # the values the casting resolved
-  main.tf.json              # AppConfig application, environment, strategy; the two roles
-  collector.tf.json         # config profile and deployment, task definition, daemon service
   collector/
     agent/
-      agent.yaml            # the collector config, uploaded from here
+      versions.tf.json          # required terraform and provider versions
+      providers.tf.json         # the aws provider, in var.aws_region
+      backend.tf.json           # local state, in this directory
+      variables.tf.json         # every identifier the root declares, each validated
+      terraform.tfvars.json     # the values the casting resolved
+      main.tf.json              # AppConfig application, environment, strategy; the two roles
+      collector.tf.json         # config profile and deployment, task definition, daemon service
+      agent.yaml                # the collector config, uploaded from here
 ```
 
-Terraform keeps its state file beside the pours. Keep it: `terraform destroy` needs it to know what to remove. To hold state remotely instead, patch `backend.tf.json`.
+Terraform keeps its state file in that directory. Keep it: `terraform destroy` needs it to know what to remove. To hold state remotely instead, patch `backend.tf.json`.
 
 Host networking means these are the instance's own ports:
 
@@ -144,7 +144,7 @@ aws ecs describe-services --cluster <cluster> --services signoz-collector-agent
 curl -fsS localhost:13133/healthz && echo " OK"
 
 # Remove the daemon service, its task definition and its AppConfig application
-cd pours/collectionagent && terraform destroy
+cd pours/collectionagent/collector/agent && terraform destroy
 ```
 
 Point [instrumented applications](https://signoz.io/docs/instrumentation/) at `http://localhost:4317` (gRPC) or `http://localhost:4318` (HTTP). In SigNoz, the instances appear under [Infrastructure Monitoring](https://signoz.io/docs/infrastructure-monitoring/hostmetrics/) and per-container metrics under [Docker container metrics](https://signoz.io/docs/metrics-management/docker-container-metrics/).
@@ -156,7 +156,7 @@ Override any collector setting through `spec.collector.spec.config.data`; user k
 ```yaml
 spec:
   patches:
-    - target: "collectionagent/backend.tf.json"
+    - target: "collectionagent/collector/agent/backend.tf.json"
       operations:
         - op: replace
           path: /terraform/backend

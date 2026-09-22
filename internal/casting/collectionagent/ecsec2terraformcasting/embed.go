@@ -6,17 +6,17 @@ import (
 	"github.com/signoz/foundry/internal/domain"
 )
 
-//go:embed templates/*.gotmpl
+//go:embed templates/agent/*.gotmpl
 var templates embed.FS
 
 var (
-	versionsTF  = domain.MustNewTemplateFromFS(templates, "templates/versions.tf.json.gotmpl", domain.FormatJSON)
-	providersTF = domain.MustNewTemplateFromFS(templates, "templates/providers.tf.json.gotmpl", domain.FormatJSON)
-	backendTF   = domain.MustNewTemplateFromFS(templates, "templates/backend.tf.json.gotmpl", domain.FormatJSON)
-	variablesTF = domain.MustNewTemplateFromFS(templates, "templates/variables.tf.json.gotmpl", domain.FormatJSON)
-	tfvarsTF    = domain.MustNewTemplateFromFS(templates, "templates/terraform.tfvars.json.gotmpl", domain.FormatJSON)
-	mainTF      = domain.MustNewTemplateFromFS(templates, "templates/main.tf.json.gotmpl", domain.FormatJSON)
-	collectorTF = domain.MustNewTemplateFromFS(templates, "templates/collector.tf.json.gotmpl", domain.FormatJSON)
+	versionsTF  = domain.MustNewTemplateFromFS(templates, "templates/agent/versions.tf.json.gotmpl", domain.FormatJSON)
+	providersTF = domain.MustNewTemplateFromFS(templates, "templates/agent/providers.tf.json.gotmpl", domain.FormatJSON)
+	backendTF   = domain.MustNewTemplateFromFS(templates, "templates/agent/backend.tf.json.gotmpl", domain.FormatJSON)
+	variablesTF = domain.MustNewTemplateFromFS(templates, "templates/agent/variables.tf.json.gotmpl", domain.FormatJSON)
+	tfvarsTF    = domain.MustNewTemplateFromFS(templates, "templates/agent/terraform.tfvars.json.gotmpl", domain.FormatJSON)
+	mainTF      = domain.MustNewTemplateFromFS(templates, "templates/agent/main.tf.json.gotmpl", domain.FormatJSON)
+	collectorTF = domain.MustNewTemplateFromFS(templates, "templates/agent/collector.tf.json.gotmpl", domain.FormatJSON)
 
-	agentYAMLTemplate = domain.MustNewTemplateFromFS(templates, "templates/agent.yaml.gotmpl", domain.FormatYAML)
+	agentYAMLTemplate = domain.MustNewTemplateFromFS(templates, "templates/agent/agent.yaml.gotmpl", domain.FormatYAML)
 )

@@ -33,6 +33,10 @@ func (c *ecsEC2TerraformCasting) Enricher(ctx context.Context, config *collectio
 }
 
 func (c *ecsEC2TerraformCasting) Forge(ctx context.Context, config collectionagent.Casting, p *pourer.Pourer) error {
+	// The kind's directory is a terraform root of its own, so a casting file
+	// holding several collection agents pours a root per document.
+	dir := filepath.Dir(config.Spec.Collector.Kind.ConfigKey())
+
 	data := c.templateData(config)
 
 	for _, tmpl := range []*domain.Template{versionsTF, providersTF, backendTF, variablesTF, tfvarsTF, mainTF, collectorTF} {
@@ -41,7 +45,7 @@ func (c *ecsEC2TerraformCasting) Forge(ctx context.Context, config collectionage
 			return err
 		}
 
-		p.AddJSON(material.FmtContents(), material.Path())
+		p.AddJSON(material.FmtContents(), dir, material.Path())
 	}
 
 	// AppConfig reads the config off disk at plan time, so the pour is the
@@ -56,7 +60,7 @@ func (c *ecsEC2TerraformCasting) Forge(ctx context.Context, config collectionage
 const planFile = "tfplan"
 
 func (c *ecsEC2TerraformCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
-	root := filepath.Join(outputPath, p.Dir())
+	root := filepath.Join(outputPath, p.Dir(), filepath.Dir(config.Spec.Collector.Kind.ConfigKey()))
 
 	if err := c.terraform(ctx, root, "init"); err != nil {
 		return err
@@ -111,7 +115,7 @@ func (c *ecsEC2TerraformCasting) templateData(config collectionagent.Casting) te
 		Application: workload + "-appconfig",
 		Environment: "default",
 		Profile:     strings.ReplaceAll(filepath.Dir(configKey), "/", "-"),
-		Source:      configKey,
+		Source:      filepath.Base(configKey),
 		Target:      filepath.Join(configMount, filepath.Base(configKey)),
 		Digest:      digest(config.Spec.Collector.Spec.Config.Data[configKey]),
 		ConfigMount: configMount,
