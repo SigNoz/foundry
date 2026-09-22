@@ -1,4 +1,4 @@
-package ecsterraformcasting
+package ecsec2terraformcasting
 
 import (
 	"bytes"
@@ -10,15 +10,15 @@ import (
 	collectionagentmolding "github.com/signoz/foundry/internal/molding/collectionagent"
 )
 
-var _ collectionagentmolding.MoldingEnricher = (*ecsMoldingEnricher)(nil)
+var _ collectionagentmolding.MoldingEnricher = (*ecsEC2MoldingEnricher)(nil)
 
-type ecsMoldingEnricher struct{}
+type ecsEC2MoldingEnricher struct{}
 
-func newEcsMoldingEnricher() *ecsMoldingEnricher {
-	return &ecsMoldingEnricher{}
+func newEcsEC2MoldingEnricher() *ecsEC2MoldingEnricher {
+	return &ecsEC2MoldingEnricher{}
 }
 
-func (e *ecsMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *collectionagent.Casting) error {
+func (e *ecsEC2MoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *collectionagent.Casting) error {
 	if kind != v1alpha1.MoldingKindCollector {
 		return nil
 	}

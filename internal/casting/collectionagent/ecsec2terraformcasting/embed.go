@@ -1,4 +1,4 @@
-package ecsterraformcasting
+package ecsec2terraformcasting
 
 import (
 	"embed"
