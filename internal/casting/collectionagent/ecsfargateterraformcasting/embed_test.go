@@ -17,7 +17,6 @@ import (
 
 func sidecarCasting(t *testing.T) *collectionagent.Casting {
 	t.Helper()
-
 	config := collectionagent.Default()
 	config.Spec.Collector.Kind = collectionagent.CollectorKindSidecar
 
@@ -33,7 +32,6 @@ func TestTemplatesRender(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			material, err := tmpl.Render(templateDataFor(*sidecarCasting(t)), strings.TrimSuffix(tmpl.Name(), ".gotmpl"))
-
 			require.NoError(t, err)
 			assert.NotEmpty(t, material.FmtContents())
 		})
@@ -76,7 +74,6 @@ func TestRefusals(t *testing.T) {
 // What ECS adds rides in the enricher and has to survive the molding's merge.
 func TestSidecarConfig(t *testing.T) {
 	config := sidecarCasting(t)
-
 	require.NoError(t, newEcsFargateMoldingEnricher().EnrichStatus(context.Background(), v1alpha1.MoldingKindCollector, config))
 	require.NoError(t, collectormolding.New(slog.New(slog.DiscardHandler)).MoldV1Alpha1(context.Background(), config))
 
@@ -86,15 +83,18 @@ func TestSidecarConfig(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "unix:///var/run/fluent.sock", string(endpoint))
 
-	detectors, err := merged.GetStringSlice("processors.resourcedetection.detectors")
-	require.NoError(t, err)
-	assert.Equal(t, []string{"env", "ecs"}, detectors)
+	for path, expected := range map[string][]string{
+		"processors.resourcedetection.detectors": {"env", "ecs"},
+		"service.pipelines.logs.receivers":       {"otlp/http", "otlp/grpc", "fluentforward"},
+		"service.pipelines.logs.processors":      {"memory_limiter", "resourcedetection", "transform/firelens", "batch"},
+		"service.pipelines.metrics.processors":   {"memory_limiter", "resourcedetection", "filter/ecs", "batch"},
+	} {
+		actual, err := merged.GetStringSlice(path)
+		require.NoError(t, err)
+		assert.Equal(t, expected, actual, path)
+	}
 
-	logs, err := merged.GetStringSlice("service.pipelines.logs.receivers")
+	statements, err := merged.GetStringSlice("processors.transform/firelens.log_statements")
 	require.NoError(t, err)
-	assert.Equal(t, []string{"otlp/http", "otlp/grpc", "fluentforward"}, logs)
-
-	processors, err := merged.GetStringSlice("service.pipelines.metrics.processors")
-	require.NoError(t, err)
-	assert.Contains(t, processors, "filter/ecs")
+	assert.Len(t, statements, 2)
 }

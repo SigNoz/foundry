@@ -47,6 +47,12 @@ spec:
                 - env
                 - ecs
                 timeout: 5s
+              transform/firelens:
+                log_statements:
+                - set(resource.attributes["aws.ecs.container.name"], log.attributes["container_name"])
+                  where log.attributes["container_name"] != nil
+                - set(resource.attributes["service.name"], log.attributes["container_name"]) where
+                  log.attributes["container_name"] != nil
             receivers:
               awsecscontainermetrics:
                 collection_interval: 20s
@@ -71,6 +77,7 @@ spec:
                   processors:
                   - memory_limiter
                   - resourcedetection
+                  - transform/firelens
                   - batch
                   receivers:
                   - otlp/http
@@ -142,6 +149,12 @@ spec:
                 - env
                 - ecs
                 timeout: 5s
+              transform/firelens:
+                log_statements:
+                - set(resource.attributes["aws.ecs.container.name"], log.attributes["container_name"])
+                  where log.attributes["container_name"] != nil
+                - set(resource.attributes["service.name"], log.attributes["container_name"]) where
+                  log.attributes["container_name"] != nil
             receivers:
               awsecscontainermetrics:
                 collection_interval: 20s
@@ -166,6 +179,7 @@ spec:
                   processors:
                   - memory_limiter
                   - resourcedetection
+                  - transform/firelens
                   - batch
                   receivers:
                   - otlp/http

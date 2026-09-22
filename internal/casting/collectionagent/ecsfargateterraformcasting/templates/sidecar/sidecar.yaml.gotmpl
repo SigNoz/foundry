@@ -25,11 +25,19 @@ processors:
           - ecs.task.network.rate.tx
           - ecs.task.storage.read_bytes
           - ecs.task.storage.write_bytes
+  # The fluentforward receiver has no operators, so the container name is lifted
+  # here the way filelog operators lift docker labels. The task
+  # family already rides on the resource, so service.name is the container.
+  transform/firelens:
+    log_statements:
+      - set(resource.attributes["aws.ecs.container.name"], log.attributes["container_name"]) where log.attributes["container_name"] != nil
+      - set(resource.attributes["service.name"], log.attributes["container_name"]) where log.attributes["container_name"] != nil
 
 service:
   pipelines:
     logs:
       receivers: [fluentforward]
+      processors: [transform/firelens]
     metrics:
       receivers: [awsecscontainermetrics]
       processors: [filter/ecs]
