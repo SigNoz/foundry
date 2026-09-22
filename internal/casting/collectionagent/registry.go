@@ -6,7 +6,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockercomposecasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockerswarmcasting"
-  "github.com/signoz/foundry/internal/casting/collectionagent/ecsec2terraformcasting"
+ 	"github.com/signoz/foundry/internal/casting/collectionagent/ecsec2terraformcasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/ecsfargateterraformcasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/kuberneteshelmcasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/kuberneteskustomizecasting"
