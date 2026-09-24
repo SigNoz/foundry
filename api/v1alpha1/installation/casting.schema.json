@@ -495,7 +495,8 @@
         "systemd",
         "kubernetes",
         "ec2",
-        "fargate"
+        "fargate",
+        "eksfargate"
       ],
       "type": "string"
     },

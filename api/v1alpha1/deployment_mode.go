@@ -22,6 +22,7 @@ var (
 	ModeKubernetes Mode = Mode{s: "kubernetes"}
 	ModeEC2        Mode = Mode{s: "ec2"}
 	ModeFargate    Mode = Mode{s: "fargate"}
+	ModeEKSFargate Mode = Mode{s: "eksfargate"}
 )
 
 type Mode struct {
@@ -33,7 +34,7 @@ func (mode Mode) String() string {
 }
 
 func Modes() []Mode {
-	return []Mode{ModeDocker, ModeSystemd, ModeKubernetes, ModeEC2, ModeFargate}
+	return []Mode{ModeDocker, ModeSystemd, ModeKubernetes, ModeEC2, ModeFargate, ModeEKSFargate}
 }
 
 func (mode Mode) MarshalJSON() ([]byte, error) {
