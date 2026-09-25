@@ -21,6 +21,7 @@ spec:
               k8s_observer:
                 auth_type: serviceAccount
                 observe_nodes: true
+                observe_pods: false
             processors:
               batch:
                 send_batch_max_size: 2048
@@ -123,7 +124,6 @@ spec:
                       extra_metadata_labels:
                       - container.id
                       - k8s.volume.type
-                      insecure_skip_verify: true
                       k8s_api_config:
                         auth_type: serviceAccount
                       metric_groups:
@@ -236,6 +236,7 @@ spec:
               k8s_observer:
                 auth_type: serviceAccount
                 observe_nodes: true
+                observe_pods: false
             processors:
               batch:
                 send_batch_max_size: 2048
@@ -338,7 +339,6 @@ spec:
                       extra_metadata_labels:
                       - container.id
                       - k8s.volume.type
-                      insecure_skip_verify: true
                       k8s_api_config:
                         auth_type: serviceAccount
                       metric_groups:

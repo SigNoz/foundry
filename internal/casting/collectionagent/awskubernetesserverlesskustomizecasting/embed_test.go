@@ -1,8 +1,8 @@
 package awskubernetesserverlesskustomizecasting
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
 	"log/slog"
 	"path/filepath"
 	"testing"
@@ -10,6 +10,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
 	"github.com/signoz/foundry/internal/domain"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding/collectionagent/collectormolding"
 	"github.com/signoz/foundry/internal/pourer"
 	"github.com/stretchr/testify/assert"
@@ -17,17 +18,16 @@ import (
 )
 
 type manifest struct {
-	Namespace string `json:"namespace"`
-	Metadata  struct {
-		Name string `json:"name"`
-	} `json:"metadata"`
-	Subjects []struct {
-		Namespace string `json:"namespace"`
-	} `json:"subjects"`
 	ConfigMapGenerator []struct {
-		Name string `json:"name"`
+		Files []string `json:"files"`
 	} `json:"configMapGenerator"`
+	Rules []struct {
+		Resources []string `json:"resources"`
+	} `json:"rules"`
 	Spec struct {
+		Strategy struct {
+			Type string `json:"type"`
+		} `json:"strategy"`
 		Template struct {
 			Spec struct {
 				Containers []struct {
@@ -35,20 +35,21 @@ type manifest struct {
 						Name  string `json:"name"`
 						Value string `json:"value"`
 					} `json:"env"`
+					VolumeMounts []struct {
+						Name      string `json:"name"`
+						MountPath string `json:"mountPath"`
+					} `json:"volumeMounts"`
 				} `json:"containers"`
+				Volumes []struct {
+					Name      string `json:"name"`
+					ConfigMap *struct {
+						Name string `json:"name"`
+					} `json:"configMap"`
+				} `json:"volumes"`
 			} `json:"spec"`
 		} `json:"template"`
 	} `json:"spec"`
 }
-
-var (
-	clusterrolebindingTemplates = map[collectionagent.CollectorKind]*domain.Template{
-		collectionagent.CollectorKindDeployment: deploymentClusterrolebindingTemplate,
-	}
-	workloadTemplates = map[collectionagent.CollectorKind]*domain.Template{
-		collectionagent.CollectorKindDeployment: deploymentTemplate,
-	}
-)
 
 func castingWithKind(t *testing.T, kind collectionagent.CollectorKind) collectionagent.Casting {
 	t.Helper()
@@ -59,123 +60,19 @@ func castingWithKind(t *testing.T, kind collectionagent.CollectorKind) collectio
 	return config
 }
 
-func dataWithKind(t *testing.T, kind collectionagent.CollectorKind) templateData {
-	t.Helper()
-
-	return templateDataFor(castingWithKind(t, kind))
-}
-
-func render(t *testing.T, tmpl *domain.Template, data templateData) manifest {
-	t.Helper()
-
-	material, err := tmpl.Render(data, "out.yaml")
-	require.NoError(t, err)
-
-	var rendered manifest
-	require.NoError(t, domain.UnmarshalYAML(material.FmtContents(), &rendered))
-
-	return rendered
-}
-
-func TestTemplates_RenderValidYAML(t *testing.T) {
-	tests := []struct {
-		name     string
-		template *domain.Template
-		kind     collectionagent.CollectorKind
-	}{
-		{name: "KustomizationTemplate_DeploymentRendersValidYAML", template: kustomizationTemplate, kind: collectionagent.CollectorKindDeployment},
-		{name: "NamespaceTemplate_RendersValidYAML", template: namespaceTemplate, kind: collectionagent.CollectorKindDeployment},
-		{name: "DeploymentServiceaccountTemplate_RendersValidYAML", template: deploymentServiceaccountTemplate, kind: collectionagent.CollectorKindDeployment},
-		{name: "DeploymentClusterroleTemplate_RendersValidYAML", template: deploymentClusterroleTemplate, kind: collectionagent.CollectorKindDeployment},
-		{name: "DeploymentClusterrolebindingTemplate_RendersValidYAML", template: deploymentClusterrolebindingTemplate, kind: collectionagent.CollectorKindDeployment},
-		{name: "DeploymentServiceTemplate_RendersValidYAML", template: deploymentServiceTemplate, kind: collectionagent.CollectorKindDeployment},
-		{name: "DeploymentTemplate_RendersValidYAML", template: deploymentTemplate, kind: collectionagent.CollectorKindDeployment},
-		{name: "DeploymentKubeconfigTemplate_RendersValidYAML", template: deploymentKubeconfigTemplate, kind: collectionagent.CollectorKindDeployment},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			material, err := tt.template.Render(dataWithKind(t, tt.kind), "out.yaml")
-			assert.NoError(t, err)
-			assert.NotEmpty(t, material.FmtContents())
-		})
-	}
-}
-
-func TestEnricherConfigTemplates_RenderValidYAML(t *testing.T) {
-	tests := []struct {
-		name     string
-		template *domain.Template
-		kind     collectionagent.CollectorKind
-	}{
-		{name: "DeploymentTemplate_RendersValidYAML", template: deploymentYAMLTemplate, kind: collectionagent.CollectorKindDeployment},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			buf := bytes.NewBuffer(nil)
-			err := tt.template.Execute(buf, dataWithKind(t, tt.kind))
-			assert.NoError(t, err)
-
-			var parsed map[string]any
-			assert.NoError(t, domain.UnmarshalYAML(buf.Bytes(), &parsed))
-			assert.Contains(t, parsed, "service")
-		})
-	}
-}
-
-func TestTemplatesNamespace(t *testing.T) {
-	for _, test := range []struct {
-		name              string
-		annotations       map[string]string
-		env               map[string]string
-		expectedNamespace string
-	}{
-		{"Unstated_Valid", nil, nil, "signoz"},
-		{"Stated_Valid", map[string]string{collectionagent.KubernetesNamespace.Key: "observability"}, nil, "observability"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			config := castingWithKind(t, collectionagent.CollectorKindDeployment)
-			config.Metadata.Annotations = test.annotations
-			config.Spec.Collector.Spec.Env = test.env
-
-			data := templateDataFor(config)
-
-			kustomization := render(t, kustomizationTemplate, data)
-			assert.Equal(t, test.expectedNamespace, kustomization.Namespace)
-			require.Len(t, kustomization.ConfigMapGenerator, 1)
-			assert.Equal(t, "signoz-collector-deployment", kustomization.ConfigMapGenerator[0].Name)
-
-			assert.Equal(t, test.expectedNamespace, render(t, namespaceTemplate, data).Metadata.Name)
-
-			for kind := range workloadTemplates {
-				config.Spec.Collector.Kind = kind
-				kindData := templateDataFor(config)
-
-				binding := render(t, clusterrolebindingTemplates[kind], kindData)
-				require.Len(t, binding.Subjects, 1)
-				assert.Equal(t, test.expectedNamespace, binding.Subjects[0].Namespace)
-				assert.Equal(t, "signoz-collector-"+kind.String(), binding.Metadata.Name)
-
-				workload := render(t, workloadTemplates[kind], kindData)
-				require.Len(t, workload.Spec.Template.Spec.Containers, 1)
-			}
-		})
-	}
-}
-
 // Fargate schedules no DaemonSet, and one collector scrapes every node.
-func TestRefusals(t *testing.T) {
+func TestForge(t *testing.T) {
 	for _, test := range []struct {
-		name     string
-		kind     collectionagent.CollectorKind
-		replicas *int
-		pass     bool
+		name         string
+		kind         collectionagent.CollectorKind
+		replicas     *int
+		pass         bool
+		expectedType int
 	}{
-		{"Deployment_Valid", collectionagent.CollectorKindDeployment, nil, true},
-		{"Agent_Invalid", collectionagent.CollectorKindAgent, nil, false},
-		{"Sidecar_Invalid", collectionagent.CollectorKindSidecar, nil, false},
-		{"Replicas_Invalid", collectionagent.CollectorKindDeployment, domain.NewIntPtr(2), false},
+		{"Deployment_Valid", collectionagent.CollectorKindDeployment, nil, true, 0},
+		{"Agent_Invalid", collectionagent.CollectorKindAgent, nil, false, foundryerrors.TypeUnsupported.ExitCode()},
+		{"Sidecar_Invalid", collectionagent.CollectorKindSidecar, nil, false, foundryerrors.TypeUnsupported.ExitCode()},
+		{"Replicas_Invalid", collectionagent.CollectorKindDeployment, domain.NewIntPtr(2), false, foundryerrors.TypeUnsupported.ExitCode()},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			config := castingWithKind(t, test.kind)
@@ -190,6 +87,7 @@ func TestRefusals(t *testing.T) {
 
 			if !test.pass {
 				require.Error(t, err)
+				assert.Equal(t, test.expectedType, foundryerrors.ExitCode(err))
 
 				return
 			}
@@ -205,175 +103,209 @@ func TestRefusals(t *testing.T) {
 			}
 
 			dir := filepath.Join("collectionagent", filepath.Dir(test.kind.ConfigKey()))
+
+			var expectedPaths []string
 			for _, file := range []string{"kustomization.yaml", "namespace.yaml", "serviceaccount.yaml", "clusterrole.yaml", "clusterrolebinding.yaml", "service.yaml", "workload.yaml", "kubeconfig.yaml"} {
-				assert.Contains(t, paths, filepath.Join(dir, file))
+				expectedPaths = append(expectedPaths, filepath.Join(dir, file))
 			}
+
+			assert.ElementsMatch(t, expectedPaths, paths)
 		})
 	}
 }
 
-// The identity attributes the collector config owns, and the pipeline lists the
-// molding's ordered merge produces.
-type collectorConfig struct {
-	Processors struct {
-		Identity *struct {
-			Attributes []struct {
-				Key    string `json:"key"`
-				Value  string `json:"value"`
-				Action string `json:"action"`
-			} `json:"attributes"`
-		} `json:"resource/identity"`
-	} `json:"processors"`
-	Service struct {
-		Pipelines map[string]struct {
-			Processors []string `json:"processors"`
-		} `json:"pipelines"`
-	} `json:"service"`
-}
+// The kubeletstats scrapes authenticate through the API-server proxy with the
+// kubeconfig the ConfigMap carries beside the collector config.
+func TestSurface(t *testing.T) {
+	for _, test := range []struct {
+		name              string
+		template          *domain.Template
+		pass              bool
+		expectedFiles     []string
+		expectedEnv       map[string]string
+		expectedMountPath string
+		expectedStrategy  string
+		expectedResources []string
+	}{
+		{name: "Kustomization_Valid", template: kustomizationTemplate, pass: true, expectedFiles: []string{"deployment.yaml", "kubeconfig.yaml"}},
+		{name: "Workload_Valid", template: deploymentTemplate, pass: true, expectedEnv: map[string]string{"KUBECONFIG": "/conf/kubeconfig.yaml"}, expectedMountPath: "/conf", expectedStrategy: "Recreate"},
+		{name: "Clusterrole_Valid", template: deploymentClusterroleTemplate, pass: true, expectedResources: []string{"nodes/stats", "nodes/proxy", "persistentvolumeclaims", "persistentvolumes"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			data := templateDataFor(castingWithKind(t, collectionagent.CollectorKindDeployment))
 
-type workloadManifest struct {
-	Spec struct {
-		Template struct {
-			Spec struct {
-				Containers []struct {
-					Env []struct {
-						Name  string `json:"name"`
-						Value string `json:"value"`
-					} `json:"env"`
-				} `json:"containers"`
-			} `json:"spec"`
-		} `json:"template"`
-	} `json:"spec"`
-}
+			material, err := test.template.Render(data, "out.yaml")
+			if !test.pass {
+				require.Error(t, err)
 
-// The molding's ordered list merge puts the enricher's processors before the
-// terminal batch, in the order the enricher states them.
-func TestMoldedProcessors(t *testing.T) {
-	cluster := map[string]string{
-		"K8S_CLUSTER_NAME":          "production",
-		"SIGNOZ_INGESTION_ENDPOINT": "http://signoz:4318",
+				return
+			}
+
+			require.NoError(t, err)
+
+			var rendered manifest
+			require.NoError(t, domain.UnmarshalYAML(material.FmtContents(), &rendered))
+
+			var files []string
+			for _, generator := range rendered.ConfigMapGenerator {
+				files = append(files, generator.Files...)
+			}
+
+			assert.Subset(t, files, test.expectedFiles)
+
+			var resources []string
+			for _, rule := range rendered.Rules {
+				resources = append(resources, rule.Resources...)
+			}
+
+			assert.Subset(t, resources, test.expectedResources)
+			assert.Equal(t, test.expectedStrategy, rendered.Spec.Strategy.Type)
+
+			env := map[string]string{}
+			mountPath := ""
+			for _, container := range rendered.Spec.Template.Spec.Containers {
+				for _, entry := range container.Env {
+					if _, ok := test.expectedEnv[entry.Name]; ok {
+						env[entry.Name] = entry.Value
+					}
+				}
+
+				for _, volume := range rendered.Spec.Template.Spec.Volumes {
+					if volume.ConfigMap == nil {
+						continue
+					}
+
+					for _, mount := range container.VolumeMounts {
+						if mount.Name == volume.Name {
+							mountPath = mount.MountPath
+						}
+					}
+				}
+			}
+
+			assert.Equal(t, len(test.expectedEnv), len(env))
+			for name, value := range test.expectedEnv {
+				assert.Equal(t, value, env[name], name)
+			}
+
+			assert.Equal(t, test.expectedMountPath, mountPath)
+		})
 	}
+}
 
+// What EKS Fargate adds rides in the enricher and has to survive the molding's merge.
+func TestMoldedConfig(t *testing.T) {
 	for _, test := range []struct {
 		name               string
-		kind               collectionagent.CollectorKind
 		env                map[string]string
+		pass               bool
 		expectedAttributes map[string]string
 	}{
 		{
-			"DeploymentCluster_Valid", collectionagent.CollectorKindDeployment, cluster,
-			map[string]string{"cloud.provider": "aws", "cloud.platform": "aws_eks", "k8s.cluster.name": "${env:K8S_CLUSTER_NAME}"},
+			name: "ClusterName_Valid",
+			env:  map[string]string{"K8S_CLUSTER_NAME": "production", "SIGNOZ_INGESTION_ENDPOINT": "http://signoz:4318"},
+			pass: true,
+			expectedAttributes: map[string]string{
+				"cloud.provider":   "aws",
+				"cloud.platform":   "aws_eks",
+				"k8s.cluster.name": "${env:K8S_CLUSTER_NAME}",
+			},
 		},
 		{
-			"DeploymentNoCluster_Valid", collectionagent.CollectorKindDeployment, map[string]string{},
-			map[string]string{"cloud.provider": "aws", "cloud.platform": "aws_eks"},
+			name:               "NoClusterName_Valid",
+			env:                map[string]string{},
+			pass:               true,
+			expectedAttributes: map[string]string{"cloud.provider": "aws", "cloud.platform": "aws_eks"},
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 
-			config := collectionagent.Default()
-			config.Spec.Collector.Kind = test.kind
+			config := castingWithKind(t, collectionagent.CollectorKindDeployment)
 			config.Spec.Collector.Spec.Env = test.env
 
-			require.NoError(t, newAwsKubernetesServerlessKustomizeMoldingEnricher().EnrichStatus(ctx, v1alpha1.MoldingKindCollector, config))
-			require.NoError(t, collectormolding.New(slog.New(slog.DiscardHandler)).MoldV1Alpha1(ctx, config))
-			require.NoError(t, config.MergeStatusIntoSpec())
+			err := newAwsKubernetesServerlessKustomizeMoldingEnricher().EnrichStatus(ctx, v1alpha1.MoldingKindCollector, &config)
+			if err == nil {
+				err = collectormolding.New(slog.New(slog.DiscardHandler)).MoldV1Alpha1(ctx, &config)
+			}
 
-			contents := config.Spec.Collector.Spec.Config.Data[test.kind.ConfigKey()]
+			if err == nil {
+				err = config.MergeStatusIntoSpec()
+			}
+
+			if !test.pass {
+				require.Error(t, err)
+
+				return
+			}
+
+			require.NoError(t, err)
+
+			contents := config.Spec.Collector.Spec.Config.Data[collectionagent.CollectorKindDeployment.ConfigKey()]
 			require.NotEmpty(t, contents)
 
-			var molded collectorConfig
-			require.NoError(t, domain.UnmarshalYAML([]byte(contents), &molded))
+			merged := domain.MustNewYAMLMaterial([]byte(contents), "deployment.yaml")
 
-			require.NotNil(t, molded.Processors.Identity)
+			for _, pipeline := range []string{"traces", "metrics", "logs"} {
+				processors, err := merged.GetStringSlice("service.pipelines." + pipeline + ".processors")
+				require.NoError(t, err)
+				assert.Equal(t, []string{"memory_limiter", "resourcedetection", "resource/identity", "k8sattributes", "batch"}, processors, pipeline)
+			}
+
+			raw, err := merged.GetBytes("processors.resource/identity.attributes")
+			require.NoError(t, err)
+
+			var identity []struct {
+				Key    string `json:"key"`
+				Value  string `json:"value"`
+				Action string `json:"action"`
+			}
+			require.NoError(t, json.Unmarshal(raw, &identity))
 
 			attributes := map[string]string{}
-			for _, attribute := range molded.Processors.Identity.Attributes {
-				assert.Equal(t, "insert", attribute.Action)
+			for _, attribute := range identity {
+				assert.Equal(t, "insert", attribute.Action, attribute.Key)
 
 				attributes[attribute.Key] = attribute.Value
 			}
 
 			assert.Equal(t, test.expectedAttributes, attributes)
 
-			for _, pipeline := range []string{"traces", "metrics", "logs"} {
-				assert.Equal(t, []string{"memory_limiter", "resourcedetection", "resource/identity", "k8sattributes", "batch"}, molded.Service.Pipelines[pipeline].Processors, "pipeline %q", pipeline)
-			}
-		})
-	}
-}
+			detectors, err := merged.GetStringSlice("processors.resourcedetection.detectors")
+			require.NoError(t, err)
+			assert.Equal(t, []string{"env"}, detectors)
 
-// What EKS Fargate adds rides in the enricher and has to survive the molding's merge.
-func TestDeploymentConfig(t *testing.T) {
-	ctx := context.Background()
-
-	config := collectionagent.Default()
-	config.Spec.Collector.Kind = collectionagent.CollectorKindDeployment
-
-	require.NoError(t, newAwsKubernetesServerlessKustomizeMoldingEnricher().EnrichStatus(ctx, v1alpha1.MoldingKindCollector, config))
-	require.NoError(t, collectormolding.New(slog.New(slog.DiscardHandler)).MoldV1Alpha1(ctx, config))
-
-	merged := domain.MustNewYAMLMaterial([]byte(config.Spec.Collector.Status.Config.Data[collectionagent.CollectorKindDeployment.ConfigKey()]), "deployment.yaml")
-
-	detectors, err := merged.GetStringSlice("processors.resourcedetection.detectors")
-	require.NoError(t, err)
-	assert.Equal(t, []string{"env"}, detectors)
-
-	for path, expected := range map[string]string{
-		"service.extensions":                  "k8s_observer",
-		"service.pipelines.metrics.receivers": "receiver_creator",
-	} {
-		actual, err := merged.GetStringSlice(path)
-		require.NoError(t, err)
-		assert.Contains(t, actual, expected, path)
-	}
-
-	for _, path := range []string{"receivers.hostmetrics", "receivers.filelog", "receivers.kubeletstats"} {
-		_, err := merged.GetBytes(path)
-		assert.Error(t, err, path)
-	}
-}
-
-// Identity is the collector config's, so the workload only carries what
-// spec.collector.spec.env states.
-func TestWorkloadTemplates_ResourceAttributes(t *testing.T) {
-	workloadTemplates := map[collectionagent.CollectorKind]*domain.Template{
-		collectionagent.CollectorKindDeployment: deploymentTemplate,
-	}
-
-	for _, test := range []struct {
-		name               string
-		env                map[string]string
-		expectedAttributes []string
-	}{
-		{"Unstated_Valid", map[string]string{"K8S_CLUSTER_NAME": "production"}, nil},
-		{
-			"Stated_Valid",
-			map[string]string{"OTEL_RESOURCE_ATTRIBUTES": "deployment.environment=production"},
-			[]string{"deployment.environment=production"},
-		},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			for kind := range workloadTemplates {
-				config := castingWithKind(t, kind)
-				config.Spec.Collector.Spec.Env = test.env
-
-				material, err := workloadTemplates[kind].Render(config, "out.yaml")
+			for path, expected := range map[string]string{
+				"service.extensions":                  "k8s_observer",
+				"service.pipelines.metrics.receivers": "receiver_creator",
+			} {
+				actual, err := merged.GetStringSlice(path)
 				require.NoError(t, err)
+				assert.Contains(t, actual, expected, path)
+			}
 
-				var workload workloadManifest
-				require.NoError(t, domain.UnmarshalYAML(material.FmtContents(), &workload))
-				require.Len(t, workload.Spec.Template.Spec.Containers, 1)
+			for path, expected := range map[string]string{
+				"extensions.k8s_observer.observe_nodes":                                             "true",
+				"extensions.k8s_observer.observe_pods":                                              "false",
+				"receivers.receiver_creator.receivers.kubeletstats.rule":                            `type == "k8s.node" && labels["eks.amazonaws.com/compute-type"] == "fargate"`,
+				"receivers.receiver_creator.receivers.kubeletstats.config.auth_type":                "kubeConfig",
+				"receivers.receiver_creator.receivers.kubeletstats.config.endpoint":                 "`name`",
+				"receivers.receiver_creator.receivers.kubeletstats.config.node":                     "`name`",
+				"receivers.receiver_creator.receivers.kubeletstats.config.k8s_api_config.auth_type": "serviceAccount",
+			} {
+				actual, err := merged.GetBytes(path)
+				require.NoError(t, err, path)
+				assert.Equal(t, expected, string(actual), path)
+			}
 
-				var stated []string
-				for _, entry := range workload.Spec.Template.Spec.Containers[0].Env {
-					if entry.Name == "OTEL_RESOURCE_ATTRIBUTES" {
-						stated = append(stated, entry.Value)
-					}
-				}
-
-				assert.Equal(t, test.expectedAttributes, stated, "workload %q", kind)
+			for _, path := range []string{
+				"receivers.receiver_creator.receivers.kubeletstats.config.insecure_skip_verify",
+				"receivers.hostmetrics",
+				"receivers.filelog",
+				"receivers.kubeletstats",
+			} {
+				_, err := merged.GetBytes(path)
+				assert.Error(t, err, path)
 			}
 		})
 	}

@@ -17,7 +17,7 @@ Fargate schedules no DaemonSet and mounts no host path, and a pod cannot reach t
 
 It collects:
 
-- Pod, container, node and volume metrics for every Fargate node, through the `kubeletstats` receiver. The `k8s_observer` extension discovers the nodes, and `receiver_creator` starts one `kubeletstats` scrape per node, proxied through the API server. The collector's own node is included.
+- Pod, container, node and volume metrics for every Fargate node, through the `kubeletstats` receiver. The `k8s_observer` extension discovers the nodes, and `receiver_creator` starts one `kubeletstats` scrape per node, proxied through the API server. The collector's own node is included. Only nodes labelled `eks.amazonaws.com/compute-type=fargate` are scraped, so in a mixed cluster EC2 nodes get no kubelet metrics from this casting.
 - Cluster metrics (workload status, pod phase, node conditions, allocatables) through the `k8s_cluster` receiver
 - Kubernetes events as logs through the `k8s_events` receiver
 - OTLP traces, metrics and logs from your applications on `signoz-collector-deployment.<namespace>.svc:4317` (gRPC) and `signoz-collector-deployment.<namespace>.svc:4318` (HTTP)
@@ -191,7 +191,7 @@ data:
 
 3. Create an IAM role for the collector's service account (IRSA) with the `CloudWatchReadOnlyAccess` policy, trusted by your cluster's OIDC provider for `system:serviceaccount:<namespace>:signoz-collector-deployment`.
 
-4. Annotate the service account with that role through a patch, and add the `awscloudwatch` receiver to the logs pipeline:
+4. Annotate the service account with that role through a patch, and state the `awscloudwatch` receiver in the logs pipeline. Overrides replace lists wholesale, so the pipeline's receivers are restated in full:
 
 ```yaml
 apiVersion: v1alpha1
@@ -227,6 +227,9 @@ spec:
               pipelines:
                 logs:
                   receivers:
+                    - otlp/http
+                    - otlp/grpc
+                    - k8s_events
                     - awscloudwatch
   patches:
     - target: collectionagent/collector/deployment/serviceaccount.yaml
@@ -239,7 +242,7 @@ spec:
 
 Forge and cast again, then restart your application deployments so the log router starts for their pods.
 
-The Fluent Bit Kubernetes filter records the pod as `kubernetes.pod_id` inside the log record, while `k8sattributes` associates logs by the `k8s.pod.uid` resource attribute, so these logs carry no Kubernetes metadata from the collector unless you lift that field yourself.
+The Fluent Bit Kubernetes filter records the pod as `kubernetes.pod_id` inside the log record, while `k8sattributes` associates logs by pod IP, pod UID or connection, so these logs carry no Kubernetes metadata from the collector unless you lift that field yourself.
 
 Kinesis Data Firehose is an alternative log router output and avoids polling CloudWatch, but Firehose delivers to an HTTP endpoint, so the collector would need an endpoint reachable from AWS.
 
@@ -264,7 +267,7 @@ kubectl auth can-i get nodes/proxy --as=system:serviceaccount:<namespace>:signoz
 
 The collector container must also carry `KUBECONFIG=/conf/kubeconfig.yaml`, which the pour sets by default.
 
-If both are in place and the scrapes still fail, scrape the kubelets directly instead. The override switches the `kubeletstats` scrape to the service account and the kubelet's own address, and skips the node the collector runs on, since a Fargate pod cannot reach the kubelet of its own node:
+If both are in place and the scrapes still fail, scrape the kubelets directly instead. The override switches the `kubeletstats` scrape to the service account and the kubelet's own address, skips certificate verification since the kubelets' certificates are self-signed, and skips the node the collector runs on, since a Fargate pod cannot reach the kubelet of its own node:
 
 ```yaml
 apiVersion: v1alpha1
@@ -292,6 +295,7 @@ spec:
                     config:
                       auth_type: serviceAccount
                       endpoint: '`endpoint`:`kubelet_endpoint_port`'
+                      insecure_skip_verify: true
                     rule: type == "k8s.node" && labels["eks.amazonaws.com/compute-type"] == "fargate" && name != "${env:K8S_NODE_NAME}"
 ```
 

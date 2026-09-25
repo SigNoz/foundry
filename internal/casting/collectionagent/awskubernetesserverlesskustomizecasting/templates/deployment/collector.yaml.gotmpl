@@ -4,6 +4,7 @@ extensions:
   k8s_observer:
     auth_type: serviceAccount
     observe_nodes: true
+    observe_pods: false
 
 receivers:
   # Scrapes every node through the API-server proxy, since a Fargate pod cannot reach its kubelet.
@@ -17,7 +18,6 @@ receivers:
           auth_type: kubeConfig
           collection_interval: 30s
           endpoint: '`name`'
-          insecure_skip_verify: true
           node: '`name`'
           k8s_api_config:
             auth_type: serviceAccount
@@ -122,7 +122,7 @@ processors:
       - sources:
           - from: connection
   resource/identity:
-    # A Fargate pod reaches neither IMDS nor EC2, so the platform is stated rather than detected; insert lets a user-supplied value win.
+    # A Fargate pod cannot reach IMDS, so the platform is stated; insert lets a user value win.
     attributes:
       - key: cloud.provider
         value: aws

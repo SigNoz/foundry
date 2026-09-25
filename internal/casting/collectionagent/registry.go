@@ -74,8 +74,8 @@ func NewRegistry(logger *slog.Logger) *Registry {
 			},
 			{
 				Platform: v1alpha1.PlatformAWS,
-				Mode:     v1alpha1.ModeKubernetesServerless,
 				Flavor:   v1alpha1.FlavorKustomize,
+				Mode:     v1alpha1.ModeKubernetesServerless,
 			}: {
 				Casting: awskubernetesserverlesskustomizecasting.New(logger),
 				Toolers: []tooler.Tooler{kubectltooler.New()},
