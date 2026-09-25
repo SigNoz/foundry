@@ -11,6 +11,8 @@
 
 Deploys one SigNoz Collection Agent on an EKS cluster whose pods run on Fargate, as plain manifests composed by kustomize, exporting to SigNoz Cloud, Self-Hosted Enterprise or Self-Hosted Community.
 
+On the `aws` platform, `mode: kubernetes-serverless` means EKS Fargate.
+
 Fargate schedules no DaemonSet and mounts no host path, and a pod cannot reach the kubelet of the node it runs on. So a single collector runs as a Deployment and reaches every node through the Kubernetes API server instead. Only the `deployment` collector kind is supported.
 
 It collects:
