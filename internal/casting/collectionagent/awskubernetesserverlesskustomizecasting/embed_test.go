@@ -1,4 +1,4 @@
-package awseksfargatekustomizecasting
+package awskubernetesserverlesskustomizecasting
 
 import (
 	"bytes"
@@ -183,7 +183,7 @@ func TestRefusals(t *testing.T) {
 
 			p := pourer.New("collectionagent")
 
-			err := newAwsEksFargateKustomizeMoldingEnricher().EnrichStatus(context.Background(), v1alpha1.MoldingKindCollector, &config)
+			err := newAwsKubernetesServerlessKustomizeMoldingEnricher().EnrichStatus(context.Background(), v1alpha1.MoldingKindCollector, &config)
 			if err == nil {
 				err = New(slog.New(slog.DiscardHandler)).Forge(context.Background(), config, p)
 			}
@@ -276,7 +276,7 @@ func TestMoldedProcessors(t *testing.T) {
 			config.Spec.Collector.Kind = test.kind
 			config.Spec.Collector.Spec.Env = test.env
 
-			require.NoError(t, newAwsEksFargateKustomizeMoldingEnricher().EnrichStatus(ctx, v1alpha1.MoldingKindCollector, config))
+			require.NoError(t, newAwsKubernetesServerlessKustomizeMoldingEnricher().EnrichStatus(ctx, v1alpha1.MoldingKindCollector, config))
 			require.NoError(t, collectormolding.New(slog.New(slog.DiscardHandler)).MoldV1Alpha1(ctx, config))
 			require.NoError(t, config.MergeStatusIntoSpec())
 
@@ -311,7 +311,7 @@ func TestDeploymentConfig(t *testing.T) {
 	config := collectionagent.Default()
 	config.Spec.Collector.Kind = collectionagent.CollectorKindDeployment
 
-	require.NoError(t, newAwsEksFargateKustomizeMoldingEnricher().EnrichStatus(ctx, v1alpha1.MoldingKindCollector, config))
+	require.NoError(t, newAwsKubernetesServerlessKustomizeMoldingEnricher().EnrichStatus(ctx, v1alpha1.MoldingKindCollector, config))
 	require.NoError(t, collectormolding.New(slog.New(slog.DiscardHandler)).MoldV1Alpha1(ctx, config))
 
 	merged := domain.MustNewYAMLMaterial([]byte(config.Spec.Collector.Status.Config.Data[collectionagent.CollectorKindDeployment.ConfigKey()]), "deployment.yaml")

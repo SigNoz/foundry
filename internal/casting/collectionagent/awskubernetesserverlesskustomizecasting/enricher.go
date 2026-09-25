@@ -1,4 +1,4 @@
-package awseksfargatekustomizecasting
+package awskubernetesserverlesskustomizecasting
 
 import (
 	"bytes"
@@ -10,15 +10,15 @@ import (
 	collectionagentmolding "github.com/signoz/foundry/internal/molding/collectionagent"
 )
 
-var _ collectionagentmolding.MoldingEnricher = (*awsEksFargateKustomizeMoldingEnricher)(nil)
+var _ collectionagentmolding.MoldingEnricher = (*awsKubernetesServerlessKustomizeMoldingEnricher)(nil)
 
-type awsEksFargateKustomizeMoldingEnricher struct{}
+type awsKubernetesServerlessKustomizeMoldingEnricher struct{}
 
-func newAwsEksFargateKustomizeMoldingEnricher() *awsEksFargateKustomizeMoldingEnricher {
-	return &awsEksFargateKustomizeMoldingEnricher{}
+func newAwsKubernetesServerlessKustomizeMoldingEnricher() *awsKubernetesServerlessKustomizeMoldingEnricher {
+	return &awsKubernetesServerlessKustomizeMoldingEnricher{}
 }
 
-func (e *awsEksFargateKustomizeMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *collectionagent.Casting) error {
+func (e *awsKubernetesServerlessKustomizeMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *collectionagent.Casting) error {
 	if kind != v1alpha1.MoldingKindCollector {
 		return nil
 	}

@@ -4,7 +4,7 @@
 | --- | --- |
 | **Kind** | `CollectionAgent` |
 | **Platform** | `aws` |
-| **Mode** | `eksfargate` |
+| **Mode** | `kubernetes-serverless` |
 | **Flavor** | `kustomize` |
 
 ## Overview
@@ -48,7 +48,7 @@ metadata:
 spec:
   deployment:
     platform: aws
-    mode: eksfargate
+    mode: kubernetes-serverless
     flavor: kustomize
   collector:
     kind: deployment
@@ -72,7 +72,7 @@ metadata:
 spec:
   deployment:
     platform: aws
-    mode: eksfargate
+    mode: kubernetes-serverless
     flavor: kustomize
   collector:
     kind: deployment
@@ -199,7 +199,7 @@ metadata:
 spec:
   deployment:
     platform: aws
-    mode: eksfargate
+    mode: kubernetes-serverless
     flavor: kustomize
   collector:
     kind: deployment
@@ -272,7 +272,7 @@ metadata:
 spec:
   deployment:
     platform: aws
-    mode: eksfargate
+    mode: kubernetes-serverless
     flavor: kustomize
   collector:
     kind: deployment
@@ -309,7 +309,7 @@ metadata:
 spec:
   deployment:
     platform: aws
-    mode: eksfargate
+    mode: kubernetes-serverless
     flavor: kustomize
   collector:
     kind: deployment
@@ -348,7 +348,7 @@ metadata:
 spec:
   deployment:
     platform: aws
-    mode: eksfargate
+    mode: kubernetes-serverless
     flavor: kustomize
   collector:
     kind: deployment

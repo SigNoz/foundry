@@ -4,7 +4,7 @@ import (
 	"log/slog"
 
 	"github.com/signoz/foundry/api/v1alpha1"
-	"github.com/signoz/foundry/internal/casting/collectionagent/awseksfargatekustomizecasting"
+	"github.com/signoz/foundry/internal/casting/collectionagent/awskubernetesserverlesskustomizecasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockercomposecasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockerswarmcasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/ecsec2terraformcasting"
@@ -74,10 +74,10 @@ func NewRegistry(logger *slog.Logger) *Registry {
 			},
 			{
 				Platform: v1alpha1.PlatformAWS,
-				Mode:     v1alpha1.ModeEKSFargate,
+				Mode:     v1alpha1.ModeKubernetesServerless,
 				Flavor:   v1alpha1.FlavorKustomize,
 			}: {
-				Casting: awseksfargatekustomizecasting.New(logger),
+				Casting: awskubernetesserverlesskustomizecasting.New(logger),
 				Toolers: []tooler.Tooler{kubectltooler.New()},
 			},
 			{

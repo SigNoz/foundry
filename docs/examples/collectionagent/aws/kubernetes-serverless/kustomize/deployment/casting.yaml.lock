@@ -436,5 +436,5 @@ spec:
         SIGNOZ_INGESTION_ENDPOINT: http://<signoz-host>:4318
   deployment:
     flavor: kustomize
-    mode: eksfargate
+    mode: kubernetes-serverless
     platform: aws

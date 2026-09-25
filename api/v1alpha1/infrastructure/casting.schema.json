@@ -96,7 +96,7 @@
         "kubernetes",
         "ec2",
         "fargate",
-        "eksfargate"
+        "kubernetes-serverless"
       ],
       "type": "string"
     },

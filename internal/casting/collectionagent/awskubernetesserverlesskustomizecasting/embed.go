@@ -1,4 +1,4 @@
-package awseksfargatekustomizecasting
+package awskubernetesserverlesskustomizecasting
 
 import (
 	"embed"

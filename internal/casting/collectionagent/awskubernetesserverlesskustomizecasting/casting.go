@@ -1,4 +1,4 @@
-package awseksfargatekustomizecasting
+package awskubernetesserverlesskustomizecasting
 
 import (
 	"bytes"
@@ -17,19 +17,19 @@ import (
 	"github.com/signoz/foundry/internal/pourer"
 )
 
-type awsEksFargateKustomizeCasting struct {
+type awsKubernetesServerlessKustomizeCasting struct {
 	logger *slog.Logger
 }
 
-func New(logger *slog.Logger) *awsEksFargateKustomizeCasting {
-	return &awsEksFargateKustomizeCasting{logger: logger}
+func New(logger *slog.Logger) *awsKubernetesServerlessKustomizeCasting {
+	return &awsKubernetesServerlessKustomizeCasting{logger: logger}
 }
 
-func (c *awsEksFargateKustomizeCasting) Enricher(ctx context.Context, config *collectionagent.Casting) (collectionagentmolding.MoldingEnricher, error) {
-	return newAwsEksFargateKustomizeMoldingEnricher(), nil
+func (c *awsKubernetesServerlessKustomizeCasting) Enricher(ctx context.Context, config *collectionagent.Casting) (collectionagentmolding.MoldingEnricher, error) {
+	return newAwsKubernetesServerlessKustomizeMoldingEnricher(), nil
 }
 
-func (c *awsEksFargateKustomizeCasting) Forge(ctx context.Context, config collectionagent.Casting, p *pourer.Pourer) error {
+func (c *awsKubernetesServerlessKustomizeCasting) Forge(ctx context.Context, config collectionagent.Casting, p *pourer.Pourer) error {
 	tmpls := []*domain.Template{kustomizationTemplate, namespaceTemplate}
 
 	// Fargate schedules no DaemonSet, so the deployment is the one kind a
@@ -72,7 +72,7 @@ func (c *awsEksFargateKustomizeCasting) Forge(ctx context.Context, config collec
 	return nil
 }
 
-func (c *awsEksFargateKustomizeCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
+func (c *awsKubernetesServerlessKustomizeCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
 	c.logger.InfoContext(ctx, "Applying kustomize manifests",
 		slog.String("release", config.Metadata.Name),
 		slog.String("namespace", namespace(config)),
@@ -113,7 +113,7 @@ func namespace(config collectionagent.Casting) string {
 	return ns
 }
 
-func (c *awsEksFargateKustomizeCasting) kubectl(ctx context.Context, args ...string) error {
+func (c *awsKubernetesServerlessKustomizeCasting) kubectl(ctx context.Context, args ...string) error {
 	cmd := exec.CommandContext(ctx, "kubectl", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
