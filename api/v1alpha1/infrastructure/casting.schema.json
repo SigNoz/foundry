@@ -95,7 +95,8 @@
         "systemd",
         "kubernetes",
         "ec2",
-        "fargate"
+        "fargate",
+        "kubernetes-serverless"
       ],
       "type": "string"
     },
