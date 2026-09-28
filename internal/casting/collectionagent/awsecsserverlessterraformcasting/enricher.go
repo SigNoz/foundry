@@ -1,4 +1,4 @@
-package ecsfargateterraformcasting
+package awsecsserverlessterraformcasting
 
 import (
 	"bytes"
@@ -10,15 +10,15 @@ import (
 	collectionagentmolding "github.com/signoz/foundry/internal/molding/collectionagent"
 )
 
-var _ collectionagentmolding.MoldingEnricher = (*ecsFargateMoldingEnricher)(nil)
+var _ collectionagentmolding.MoldingEnricher = (*awsEcsServerlessMoldingEnricher)(nil)
 
-type ecsFargateMoldingEnricher struct{}
+type awsEcsServerlessMoldingEnricher struct{}
 
-func newEcsFargateMoldingEnricher() *ecsFargateMoldingEnricher {
-	return &ecsFargateMoldingEnricher{}
+func newAwsEcsServerlessMoldingEnricher() *awsEcsServerlessMoldingEnricher {
+	return &awsEcsServerlessMoldingEnricher{}
 }
 
-func (e *ecsFargateMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *collectionagent.Casting) error {
+func (e *awsEcsServerlessMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.MoldingKind, config *collectionagent.Casting) error {
 	if kind != v1alpha1.MoldingKindCollector {
 		return nil
 	}

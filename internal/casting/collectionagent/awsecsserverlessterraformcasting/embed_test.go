@@ -1,4 +1,4 @@
-package ecsfargateterraformcasting
+package awsecsserverlessterraformcasting
 
 import (
 	"context"
@@ -55,7 +55,7 @@ func TestRefusals(t *testing.T) {
 			config.Spec.Collector.Kind = test.kind
 			config.Spec.Collector.Spec.Cluster.Replicas = test.replicas
 
-			err := newEcsFargateMoldingEnricher().EnrichStatus(context.Background(), v1alpha1.MoldingKindCollector, config)
+			err := newAwsEcsServerlessMoldingEnricher().EnrichStatus(context.Background(), v1alpha1.MoldingKindCollector, config)
 			if err == nil {
 				err = New(slog.New(slog.DiscardHandler)).Forge(context.Background(), *config, pourer.New("collectionagent"))
 			}
@@ -74,7 +74,7 @@ func TestRefusals(t *testing.T) {
 // What ECS adds rides in the enricher and has to survive the molding's merge.
 func TestSidecarConfig(t *testing.T) {
 	config := sidecarCasting(t)
-	require.NoError(t, newEcsFargateMoldingEnricher().EnrichStatus(context.Background(), v1alpha1.MoldingKindCollector, config))
+	require.NoError(t, newAwsEcsServerlessMoldingEnricher().EnrichStatus(context.Background(), v1alpha1.MoldingKindCollector, config))
 	require.NoError(t, collectormolding.New(slog.New(slog.DiscardHandler)).MoldV1Alpha1(context.Background(), config))
 
 	merged := domain.MustNewYAMLMaterial([]byte(config.Spec.Collector.Status.Config.Data[collectionagent.CollectorKindSidecar.ConfigKey()]), "sidecar.yaml")

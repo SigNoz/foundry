@@ -3,9 +3,12 @@
 | Field | Value |
 | --- | --- |
 | **Kind** | `CollectionAgent` |
-| **Platform** | `ecs` |
-| **Mode** | `ec2` |
+| **Platform** | `aws` |
+| **Mode** | `ecs` |
 | **Flavor** | `terraform` |
+
+> [!IMPORTANT]
+> **Upgrading:** this casting is now `platform: aws` with `mode: ecs`. A `casting.yaml` from v0.3.0 that still says `platform: ecs` with `mode: ec2` keeps working; update it to the new values the next time you edit it. The generated files are the same either way.
 
 ## Overview
 
@@ -46,8 +49,8 @@ metadata:
     foundry.signoz.io/ecs-cluster-arn: arn:aws:ecs:us-east-1:123456789012:cluster/signoz
 spec:
   deployment:
-    platform: ecs
-    mode: ec2
+    platform: aws
+    mode: ecs
     flavor: terraform
   collector:
     kind: agent
@@ -80,8 +83,8 @@ metadata:
     foundry.signoz.io/ecs-cluster-arn: arn:aws:ecs:us-east-1:123456789012:cluster/signoz
 spec:
   deployment:
-    platform: ecs
-    mode: ec2
+    platform: aws
+    mode: ecs
     flavor: terraform
   collector:
     kind: agent
@@ -169,8 +172,8 @@ metadata:
     foundry.signoz.io/ecs-cluster-arn: arn:aws:ecs:us-east-1:123456789012:cluster/signoz
 spec:
   deployment:
-    platform: ecs
-    mode: ec2
+    platform: aws
+    mode: ecs
     flavor: terraform
   collector:
     kind: agent

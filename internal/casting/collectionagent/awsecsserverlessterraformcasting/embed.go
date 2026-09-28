@@ -1,4 +1,4 @@
-package ecsfargateterraformcasting
+package awsecsserverlessterraformcasting
 
 import (
 	"embed"
