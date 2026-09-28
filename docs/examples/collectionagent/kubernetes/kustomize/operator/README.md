@@ -64,10 +64,8 @@ collector needs, and names that service account in `spec.serviceAccount`.
 
 Foundry never installs cert-manager, the operator or its CRDs. Cast checks
 that the `OpenTelemetryCollector` CRD exists and stops with a hint when it
-does not. See the SigNoz guides to
-[install the operator](https://signoz.io/docs/opentelemetry-collection-agents/k8s/otel-operator/install/)
-and to
-[configure collectors with it](https://signoz.io/docs/opentelemetry-collection-agents/k8s/otel-operator/configure/).
+does not. See the SigNoz guides to [install the operator](https://signoz.io/docs/opentelemetry-collection-agents/k8s/otel-operator/install/)
+and to [configure collectors with it](https://signoz.io/docs/opentelemetry-collection-agents/k8s/otel-operator/configure/).
 
 ## Configuration
 
@@ -155,13 +153,17 @@ kubectl get opentelemetrycollectors,daemonsets,deployments -n signoz
 
 ## Customization
 
-Override any collector setting through `spec.collector.spec.config.data`; user keys win over generated ones, and the result lands in the resource's `spec.config`. For changes to the generated `opentelemetrycollector.yaml` itself (other `OpenTelemetryCollector` fields, resource limits, node selectors), use [patches](../../../../../concepts/patches.md).
+Override any collector setting through `spec.collector.spec.config.data`; user
+keys win over generated ones, and the result lands in the resource's
+`spec.config`. For changes to the generated `opentelemetrycollector.yaml`
+itself (other `OpenTelemetryCollector` fields, resource limits, node
+selectors), use [patches](../../../../../concepts/patches.md).
 
 ## Annotations
 
 | Annotation | Default | Description |
 | --- | --- | --- |
-| `foundry.signoz.io/kubernetes-collector-controller` | `default` | Controller that owns the collector workload: `default` pours the DaemonSet or Deployment for the built-in Kubernetes controllers, `opentelemetry-operator` pours an OpenTelemetryCollector resource for the operator to reconcile |
+| `foundry.signoz.io/kubernetes-collector-controller` | `default` | Controller that owns the collector workload: `default` pours the DaemonSet or Deployment for the built-in Kubernetes controllers, `opentelemetry-operator` pours an `OpenTelemetryCollector` resource for the operator to reconcile |
 | `foundry.signoz.io/kubernetes-namespace` | `metadata.name` | Namespace the collector is deployed into |
 
 Example deploying into a namespace of its own:
