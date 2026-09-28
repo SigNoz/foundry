@@ -1,0 +1,23 @@
+package awskubernetesserverlesskustomizecasting
+
+import (
+	"embed"
+
+	"github.com/signoz/foundry/internal/domain"
+)
+
+//go:embed templates/*.gotmpl templates/deployment/*.gotmpl
+var templates embed.FS
+
+var (
+	kustomizationTemplate = domain.MustNewTemplateFromFS(templates, "templates/kustomization.yaml.gotmpl", domain.FormatYAML)
+	namespaceTemplate     = domain.MustNewTemplateFromFS(templates, "templates/namespace.yaml.gotmpl", domain.FormatYAML)
+
+	deploymentServiceaccountTemplate     = domain.MustNewTemplateFromFS(templates, "templates/deployment/serviceaccount.yaml.gotmpl", domain.FormatYAML)
+	deploymentClusterroleTemplate        = domain.MustNewTemplateFromFS(templates, "templates/deployment/clusterrole.yaml.gotmpl", domain.FormatYAML)
+	deploymentClusterrolebindingTemplate = domain.MustNewTemplateFromFS(templates, "templates/deployment/clusterrolebinding.yaml.gotmpl", domain.FormatYAML)
+	deploymentServiceTemplate            = domain.MustNewTemplateFromFS(templates, "templates/deployment/service.yaml.gotmpl", domain.FormatYAML)
+	deploymentTemplate                   = domain.MustNewTemplateFromFS(templates, "templates/deployment/workload.yaml.gotmpl", domain.FormatYAML)
+	deploymentKubeconfigTemplate         = domain.MustNewTemplateFromFS(templates, "templates/deployment/kubeconfig.yaml.gotmpl", domain.FormatYAML)
+	deploymentYAMLTemplate               = domain.MustNewTemplateFromFS(templates, "templates/deployment/collector.yaml.gotmpl", domain.FormatYAML)
+)
