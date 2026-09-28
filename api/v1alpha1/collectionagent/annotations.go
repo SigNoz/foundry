@@ -27,12 +27,26 @@ var (
 	}
 )
 
-var KubernetesNamespace = v1alpha1.Annotation{
-	Key:         "foundry.signoz.io/kubernetes-namespace",
-	Default:     "",
-	Mode:        v1alpha1.ModeKubernetes,
-	Description: "Namespace the collector is deployed into; unstated, the casting's metadata.name.",
-}
+var (
+	KubernetesNamespace = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/kubernetes-namespace",
+		Default:     "",
+		Mode:        v1alpha1.ModeKubernetes,
+		Description: "Namespace the collector is deployed into; unstated, the casting's metadata.name.",
+	}
+
+	KubernetesCollectorController = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/kubernetes-collector-controller",
+		Default:     CollectorControllerDefault,
+		Mode:        v1alpha1.ModeKubernetes,
+		Description: "Controller that owns the collector workload: `default` pours the DaemonSet or Deployment for the built-in Kubernetes controllers, `opentelemetry-operator` pours an OpenTelemetryCollector resource for the operator to reconcile.",
+	}
+)
+
+const (
+	CollectorControllerDefault               = "default"
+	CollectorControllerOpenTelemetryOperator = "opentelemetry-operator"
+)
 
 var (
 	HelmChart = v1alpha1.Annotation{
@@ -69,6 +83,7 @@ func Annotations() []v1alpha1.Annotation {
 		ECSTaskRoleARN,
 		ECSTaskExecutionRoleARN,
 		KubernetesNamespace,
+		KubernetesCollectorController,
 		HelmChart,
 		HelmChartRepoURL,
 		HelmChartVersion,

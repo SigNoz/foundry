@@ -175,6 +175,7 @@ Optional. Applies to `mode: kubernetes`, both flavors.
 | Annotation | Default | Description |
 | --- | --- | --- |
 | `foundry.signoz.io/kubernetes-namespace` | `metadata.name` | Namespace the installation is deployed into |
+| `foundry.signoz.io/kubernetes-collector-controller` | `default` | CollectionAgent, `flavor: kustomize` only. Controller that owns the collector workload: `default` pours the DaemonSet or Deployment for the built-in Kubernetes controllers, `opentelemetry-operator` pours an OpenTelemetryCollector resource for the operator to reconcile |
 
 ### Kubernetes Helm annotations
 

@@ -32,6 +32,10 @@ func (c *kubernetesHelmCasting) Enricher(ctx context.Context, config *collection
 }
 
 func (c *kubernetesHelmCasting) Forge(ctx context.Context, config collectionagent.Casting, p *pourer.Pourer) error {
+	if controller := collectionagent.KubernetesCollectorController.Resolve(config.Metadata.Annotations); controller != collectionagent.CollectorControllerDefault {
+		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "failed to forge: collector controller %q is not supported by this casting yet", controller)
+	}
+
 	buf := bytes.NewBuffer(nil)
 	if err := valuesYAMLTemplate.Execute(buf, templateDataFor(config)); err != nil {
 		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute %s template", valuesYAMLTemplate.Name())

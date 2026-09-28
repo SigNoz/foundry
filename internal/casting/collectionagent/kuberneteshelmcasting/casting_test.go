@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/pourer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,6 +33,35 @@ func TestForge(t *testing.T) {
 
 			assert.Equal(t, test.expectedPath, materials[0].Path())
 			assert.NotEmpty(t, materials[0].FmtContents())
+		})
+	}
+}
+
+func TestForgeCollectorController(t *testing.T) {
+	for _, test := range []struct {
+		name         string
+		annotations  map[string]string
+		pass         bool
+		expectedType int
+	}{
+		{"Unstated_Valid", nil, true, 0},
+		{"DefaultStated_Valid", map[string]string{collectionagent.KubernetesCollectorController.Key: collectionagent.CollectorControllerDefault}, true, 0},
+		{"OpenTelemetryOperator_Invalid", map[string]string{collectionagent.KubernetesCollectorController.Key: collectionagent.CollectorControllerOpenTelemetryOperator}, false, foundryerrors.TypeUnsupported.ExitCode()},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			config := moldedCasting(t, collectionagent.CollectorKindAgent, defaultEnv())
+			config.Metadata.Annotations = test.annotations
+
+			err := New(slog.New(slog.DiscardHandler)).Forge(context.Background(), *config, pourer.New("collectionagent"))
+
+			if !test.pass {
+				require.Error(t, err)
+				assert.Equal(t, test.expectedType, foundryerrors.ExitCode(err))
+
+				return
+			}
+
+			require.NoError(t, err)
 		})
 	}
 }
