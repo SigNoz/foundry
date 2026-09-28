@@ -1,6 +1,6 @@
 configs:
   collector-agent:
-    file: ./collector/agent/agent.yaml
+    file: ./agent.yaml
 services:
   collector-agent:
     command:
