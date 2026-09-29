@@ -122,7 +122,7 @@ foundryctl forge -f deployment/casting.yaml -p deployment/pours
 ```
 
 Each collector kind pours a kustomize root of its own under
-`<kind>/pours/collectionagent/collector/<kind>/`: `kustomization.yaml`, the
+`pours/collectionagent/collector/<kind>/`: `kustomization.yaml`, the
 namespace, RBAC, and `opentelemetrycollector.yaml` with the collector config
 inline. A casting file declaring both kinds pours a root per document, and
 casting applies each.
@@ -130,8 +130,8 @@ casting applies each.
 ## Cast
 
 ```bash
-foundryctl cast -f agent/casting.yaml
-foundryctl cast -f deployment/casting.yaml
+foundryctl cast -f agent/casting.yaml -p agent/pours
+foundryctl cast -f deployment/casting.yaml -p deployment/pours
 ```
 
 This runs `kubectl apply -k` on the collector root using your current
