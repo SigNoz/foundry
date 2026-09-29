@@ -23,7 +23,7 @@ the workload, its Service and its ConfigMap.
 Kubernetes telemetry comes from two collectors with different scopes, one
 casting each:
 
-- `agent/` runs on every node, `spec.mode: daemonset`:
+- the `agent` kind runs on every node, `spec.mode: daemonset`:
   - Pod and container metrics from the kubelet through the `kubeletstats`
     receiver
   - Node metrics from the mounted host filesystem through the `hostmetrics`
@@ -31,12 +31,12 @@ casting each:
   - Pod logs from `/var/log/pods` through the `filelog` receiver
   - OTLP intake for your applications on host ports 4317 (gRPC) and 4318
     (HTTP)
-- `deployment/` runs once per cluster, `spec.mode: deployment`:
+- the `deployment` kind runs once per cluster, `spec.mode: deployment`:
   - Cluster metrics (workload status, pod phase, node conditions,
     allocatables) from the API server through the `k8s_cluster` receiver
   - Kubernetes events as logs through the `k8s_events` receiver
 
-Run both. The SigNoz Kubernetes views require both sources: entity
+Cast both castings. The SigNoz Kubernetes views require both sources: entity
 resolution breaks when either the kubelet metrics or the cluster-level
 metrics are missing. Both castings share the `metadata.name`, so they compose
 into one namespace: `<metadata.name>`, or the namespace the
@@ -69,9 +69,10 @@ and to [configure collectors with it](https://signoz.io/docs/opentelemetry-colle
 
 ## Configuration
 
-The node agent (`agent/casting.yaml`):
+The node agent:
 
 ```yaml
+# casting.yaml
 apiVersion: v1alpha1
 kind: CollectionAgent
 metadata:
@@ -89,9 +90,10 @@ spec:
         K8S_CLUSTER_NAME: <cluster-name>
 ```
 
-The cluster collector (`deployment/casting.yaml`):
+The cluster collector:
 
 ```yaml
+# casting.yaml
 apiVersion: v1alpha1
 kind: CollectionAgent
 metadata:
@@ -117,28 +119,25 @@ fail silently without it.
 ## Forge
 
 ```bash
-foundryctl forge -f agent/casting.yaml -p agent/pours
-foundryctl forge -f deployment/casting.yaml -p deployment/pours
+foundryctl forge -f casting.yaml
 ```
 
-Each collector kind pours a kustomize root of its own under
-`pours/collectionagent/collector/<kind>/`: `kustomization.yaml`, the
-namespace, RBAC, and `opentelemetrycollector.yaml` with the collector config
-inline. A casting file declaring both kinds pours a root per document, and
-casting applies each.
+This pours a kustomize root under `pours/collectionagent/collector/<kind>/`:
+`kustomization.yaml`, the namespace, RBAC, and `opentelemetrycollector.yaml`
+with the collector config inline. A casting file declaring both kinds pours a
+root per document, and casting applies each.
 
 ## Cast
 
 ```bash
-foundryctl cast -f agent/casting.yaml -p agent/pours
-foundryctl cast -f deployment/casting.yaml -p deployment/pours
+foundryctl cast -f casting.yaml
 ```
 
-This runs `kubectl apply -k` on the collector root using your current
+This runs `kubectl apply -k` on each collector root using your current
 kubeconfig context. To inspect what would be applied first:
 
 ```bash
-kubectl kustomize agent/pours/collectionagent/collector/agent
+kubectl kustomize pours/collectionagent/collector/<kind>
 ```
 
 The operator names what it creates after the resource:
