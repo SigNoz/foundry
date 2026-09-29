@@ -31,7 +31,7 @@ func (c *awsKubernetesServerlessKustomizeCasting) Enricher(ctx context.Context, 
 
 func (c *awsKubernetesServerlessKustomizeCasting) Forge(ctx context.Context, config collectionagent.Casting, p *pourer.Pourer) error {
 	if controller := collectionagent.KubernetesCollectorController.Resolve(config.Metadata.Annotations); controller != collectionagent.CollectorControllerDefault {
-		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "failed to forge: collector controller %q is not supported by this casting yet", controller)
+		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "collector controller %q is not supported by this casting", controller)
 	}
 
 	tmpls := []*domain.Template{kustomizationTemplate, namespaceTemplate}

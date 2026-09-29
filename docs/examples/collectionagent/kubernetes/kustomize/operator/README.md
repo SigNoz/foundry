@@ -62,9 +62,9 @@ collector needs, and names that service account in `spec.serviceAccount`.
   kubectl get deployment opentelemetry-operator-controller-manager -n opentelemetry-operator-system
   ```
 
-Foundry never installs cert-manager, the operator or its CRDs. Cast checks
-that the `OpenTelemetryCollector` CRD exists and stops with a hint when it
-does not. See the SigNoz guides to [install the operator](https://signoz.io/docs/opentelemetry-collection-agents/k8s/otel-operator/install/)
+Foundry never installs cert-manager, the operator or its CRDs. Without the
+operator, `foundryctl cast` fails on the `OpenTelemetryCollector` resource with
+kubectl's own "no matches for kind" error. See the SigNoz guides to [install the operator](https://signoz.io/docs/opentelemetry-collection-agents/k8s/otel-operator/install/)
 and to [configure collectors with it](https://signoz.io/docs/opentelemetry-collection-agents/k8s/otel-operator/configure/).
 
 ## Configuration
@@ -130,13 +130,12 @@ casting applies each.
 ## Cast
 
 ```bash
-foundryctl cast -f agent/casting.yaml -p agent/pours
-foundryctl cast -f deployment/casting.yaml -p deployment/pours
+foundryctl cast -f agent/casting.yaml
+foundryctl cast -f deployment/casting.yaml
 ```
 
-This checks that the `OpenTelemetryCollector` CRD exists, then runs
-`kubectl apply -k` on the collector root using your current kubeconfig
-context. To inspect what would be applied first:
+This runs `kubectl apply -k` on the collector root using your current
+kubeconfig context. To inspect what would be applied first:
 
 ```bash
 kubectl kustomize agent/pours/collectionagent/collector/agent

@@ -42,13 +42,10 @@ spec:
     - name: {{ $key }}
       value: {{ $val | quote }}
     {{- end }}
-  # Names match the operator's own (otlp-grpc, otlp-http, metrics), or its derived ports duplicate them.
+  # Names match the operator's own (otlp-grpc, otlp-http), or its derived ports duplicate them.
   ports:
     - name: health-check
       port: 13133
-      protocol: TCP
-    - name: metrics
-      port: 8888
       protocol: TCP
     - name: otlp-grpc
       port: 4317

@@ -66,7 +66,7 @@ func (c *kubernetesKustomizeCasting) Forge(ctx context.Context, config collectio
 	case collectionagent.CollectorControllerOpenTelemetryOperator:
 		tmpls = append(tmpls, collector)
 	default:
-		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "failed to forge: collector controller %q is not supported, state %q or %q", data.Controller, collectionagent.CollectorControllerDefault, collectionagent.CollectorControllerOpenTelemetryOperator)
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "collector controller %q is not supported, state %q or %q", data.Controller, collectionagent.CollectorControllerDefault, collectionagent.CollectorControllerOpenTelemetryOperator)
 	}
 
 	// The kind's directory is a kustomize root of its own, so a casting file
@@ -102,12 +102,6 @@ func (c *kubernetesKustomizeCasting) Cast(ctx context.Context, config collection
 	kustomizeDir := filepath.Join(outputPath, p.Dir(), filepath.Dir(config.Spec.Collector.Kind.ConfigKey()))
 	if _, err := os.Stat(filepath.Join(kustomizeDir, "kustomization.yaml")); os.IsNotExist(err) {
 		return foundryerrors.Newf(foundryerrors.TypeNotFound, "kustomization.yaml does not exist at path: %s, run 'forge' first", kustomizeDir)
-	}
-
-	if collectionagent.KubernetesCollectorController.Resolve(config.Metadata.Annotations) == collectionagent.CollectorControllerOpenTelemetryOperator {
-		if err := c.kubectl(ctx, "get", "crd", "opentelemetrycollectors.opentelemetry.io", "-o", "name"); err != nil {
-			return foundryerrors.Newf(foundryerrors.TypeNotFound, "failed to find the OpenTelemetryCollector CRD: install the OpenTelemetry Operator v0.139.0 (https://signoz.io/docs/opentelemetry-collection-agents/k8s/otel-operator/install/) and rerun")
-		}
 	}
 
 	if err := c.kubectl(ctx, "apply", "-k", kustomizeDir); err != nil {
