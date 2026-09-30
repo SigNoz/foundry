@@ -3,6 +3,7 @@ package kuberneteshelmcasting
 import (
 	"context"
 	"log/slog"
+	"maps"
 	"os"
 	"reflect"
 	"slices"
@@ -12,7 +13,9 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
 	"github.com/signoz/foundry/internal/domain"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding/collectionagent/collectormolding"
+	"github.com/signoz/foundry/internal/pourer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"helm.sh/helm/v3/pkg/chart"
@@ -77,6 +80,21 @@ func moldedCasting(t *testing.T, kind collectionagent.CollectorKind, env map[str
 	return config
 }
 
+// An empty controller leaves the annotation unstated.
+func withController(controller string) func(*collectionagent.Casting) {
+	return func(config *collectionagent.Casting) {
+		if controller == "" {
+			return
+		}
+
+		if config.Metadata.Annotations == nil {
+			config.Metadata.Annotations = map[string]string{}
+		}
+
+		config.Metadata.Annotations[collectionagent.KubernetesCollectorController.Key] = controller
+	}
+}
+
 func defaultEnv() map[string]string {
 	return map[string]string{
 		"K8S_CLUSTER_NAME":          "production",
@@ -114,6 +132,100 @@ func foundryConfig(t *testing.T, config *collectionagent.Casting) map[string]any
 	return parsed
 }
 
+func TestForge(t *testing.T) {
+	for _, test := range []struct {
+		name              string
+		kind              collectionagent.CollectorKind
+		controller        string
+		pass              bool
+		expectedType      int
+		expectedPath      string
+		expectedKubeStack bool
+	}{
+		{"Agent_Valid", collectionagent.CollectorKindAgent, "", true, 0, "collectionagent/collector/agent/values.yaml", false},
+		{"Deployment_Valid", collectionagent.CollectorKindDeployment, "", true, 0, "collectionagent/collector/deployment/values.yaml", false},
+		{"OperatorAgent_Valid", collectionagent.CollectorKindAgent, collectionagent.CollectorControllerOpenTelemetryOperator, true, 0, "collectionagent/collector/agent/values.yaml", true},
+		{"OperatorDeployment_Valid", collectionagent.CollectorKindDeployment, collectionagent.CollectorControllerOpenTelemetryOperator, true, 0, "collectionagent/collector/deployment/values.yaml", true},
+		{"UnknownController_Invalid", collectionagent.CollectorKindAgent, "argo", false, foundryerrors.TypeInvalidInput.ExitCode(), "", false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			config := moldedCasting(t, test.kind, defaultEnv(), withController(test.controller))
+
+			p := pourer.New("collectionagent")
+			err := New(slog.New(slog.DiscardHandler)).Forge(context.Background(), *config, p)
+
+			if !test.pass {
+				require.Error(t, err)
+				assert.Equal(t, test.expectedType, foundryerrors.ExitCode(err))
+
+				return
+			}
+
+			require.NoError(t, err)
+
+			materials, err := p.Pour()
+			require.NoError(t, err)
+			require.Len(t, materials, 1)
+
+			assert.Equal(t, test.expectedPath, materials[0].Path())
+
+			var rendered map[string]any
+			require.NoError(t, domain.UnmarshalYAML(materials[0].FmtContents(), &rendered))
+
+			assert.Equal(t, test.expectedKubeStack, rendered["collectors"] != nil)
+			assert.Equal(t, !test.expectedKubeStack, rendered["otelAgent"] != nil)
+		})
+	}
+}
+
+func TestChartSource(t *testing.T) {
+	operator := collectionagent.CollectorControllerOpenTelemetryOperator
+
+	for _, test := range []struct {
+		name            string
+		controller      string
+		annotations     map[string]string
+		expectedChart   string
+		expectedVersion string
+		expectedRepoURL string
+	}{
+		{"Unstated_Valid", "", nil, "k8s-infra", "", "https://charts.signoz.io"},
+		{
+			"StatedVersion_Valid", "",
+			map[string]string{collectionagent.HelmChartVersion.Key: "0.17.1"},
+			"k8s-infra", "0.17.1", "https://charts.signoz.io",
+		},
+		{
+			"SlashedRef_Valid", "",
+			map[string]string{collectionagent.HelmChart.Key: "./charts/k8s-infra"},
+			"./charts/k8s-infra", "", "",
+		},
+		{"OperatorUnstated_Valid", operator, nil, kubeStackChart, kubeStackChartVersion, kubeStackRepoURL},
+		{
+			"OperatorStatedLatest_Valid", operator,
+			map[string]string{collectionagent.HelmChartVersion.Key: "latest"},
+			kubeStackChart, "", kubeStackRepoURL,
+		},
+		{
+			"OperatorStatedChartName_Valid", operator,
+			map[string]string{collectionagent.HelmChart.Key: "k8s-infra"},
+			"k8s-infra", kubeStackChartVersion, kubeStackRepoURL,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			config := collectionagent.Default()
+			config.Metadata.Annotations = test.annotations
+			withController(test.controller)(config)
+
+			chart, version, repoURL := chartSource(*config)
+
+			assert.Equal(t, test.expectedChart, chart)
+			assert.Equal(t, test.expectedVersion, version)
+			assert.Equal(t, test.expectedRepoURL, repoURL)
+		})
+	}
+}
+
 func TestTemplatesRender(t *testing.T) {
 	for name, test := range map[string]struct {
 		template *domain.Template
@@ -123,6 +235,14 @@ func TestTemplatesRender(t *testing.T) {
 		"DeploymentValues_Valid": {valuesYAMLTemplate, moldedCasting(t, collectionagent.CollectorKindDeployment, defaultEnv())},
 		"AgentConfig_Valid":      {agentYAMLTemplate, collectionagent.Default()},
 		"DeploymentConfig_Valid": {deploymentYAMLTemplate, collectionagent.Default()},
+		"OperatorAgentValues_Valid": {
+			kubeStackValuesYAMLTemplate,
+			moldedCasting(t, collectionagent.CollectorKindAgent, defaultEnv(), withController(collectionagent.CollectorControllerOpenTelemetryOperator)),
+		},
+		"OperatorDeploymentValues_Valid": {
+			kubeStackValuesYAMLTemplate,
+			moldedCasting(t, collectionagent.CollectorKindDeployment, defaultEnv(), withController(collectionagent.CollectorControllerOpenTelemetryOperator)),
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			material, err := test.template.Render(templateDataFor(*test.config), strings.TrimSuffix(test.template.Name(), ".gotmpl"))
@@ -672,4 +792,408 @@ func components(t *testing.T, pipeline map[string]any, class string) []string {
 	}
 
 	return names
+}
+
+type kubeStackValues struct {
+	Operator struct {
+		Enabled *bool `json:"enabled"`
+	} `json:"opentelemetry-operator"`
+	CRDs struct {
+		InstallOtel       *bool `json:"installOtel"`
+		InstallPrometheus *bool `json:"installPrometheus"`
+	} `json:"crds"`
+	CleanupJob struct {
+		Enabled *bool `json:"enabled"`
+	} `json:"cleanupJob"`
+	RewriteDeprecatedComponentNames *bool                         `json:"rewriteDeprecatedComponentNames"`
+	ClusterName                     *string                       `json:"clusterName"`
+	Collectors                      map[string]kubeStackCollector `json:"collectors"`
+}
+
+type kubeStackCollector struct {
+	Enabled          bool   `json:"enabled"`
+	FullnameOverride string `json:"fullnameOverride"`
+	Mode             string `json:"mode"`
+	Replicas         *int   `json:"replicas"`
+	Image            struct {
+		Repository string `json:"repository"`
+		Tag        string `json:"tag"`
+	} `json:"image"`
+	Env     []collectorEnv    `json:"env"`
+	Ports   []collectorPort   `json:"ports"`
+	Volumes []collectorVolume `json:"volumes"`
+	Config  map[string]any    `json:"config"`
+}
+
+type collectorResources struct {
+	Requests map[string]string `json:"requests"`
+	Limits   map[string]string `json:"limits"`
+}
+
+type collectorEnv struct {
+	Name      string  `json:"name"`
+	Value     *string `json:"value"`
+	ValueFrom any     `json:"valueFrom"`
+}
+
+type collectorPort struct {
+	Name     string `json:"name"`
+	HostPort *int   `json:"hostPort"`
+}
+
+type collectorVolume struct {
+	Name string `json:"name"`
+}
+
+func operatorCasting(t *testing.T, kind collectionagent.CollectorKind, env map[string]string, stated ...func(*collectionagent.Casting)) *collectionagent.Casting {
+	t.Helper()
+
+	return moldedCasting(t, kind, env, append([]func(*collectionagent.Casting){withController(collectionagent.CollectorControllerOpenTelemetryOperator)}, stated...)...)
+}
+
+func renderKubeStackValuesYAML(t *testing.T, config *collectionagent.Casting) []byte {
+	t.Helper()
+
+	material, err := kubeStackValuesYAMLTemplate.Render(templateDataFor(*config), "values.yaml")
+	require.NoError(t, err)
+
+	return material.FmtContents()
+}
+
+func renderKubeStackValues(t *testing.T, config *collectionagent.Casting) (kubeStackValues, kubeStackCollector) {
+	t.Helper()
+
+	var rendered kubeStackValues
+	require.NoError(t, domain.UnmarshalYAML(renderKubeStackValuesYAML(t, config), &rendered))
+
+	collector, ok := rendered.Collectors[config.Spec.Collector.Kind.String()]
+	require.True(t, ok, "the %s collector must be stated", config.Spec.Collector.Kind)
+
+	return rendered, collector
+}
+
+func envNames(env []collectorEnv) []string {
+	names := []string{}
+	for _, entry := range env {
+		names = append(names, entry.Name)
+	}
+
+	return names
+}
+
+func portNames(ports []collectorPort) []string {
+	names := []string{}
+	for _, port := range ports {
+		names = append(names, port.Name)
+	}
+
+	return names
+}
+
+func volumeNames(volumes []collectorVolume) []string {
+	names := []string{}
+	for _, volume := range volumes {
+		names = append(names, volume.Name)
+	}
+
+	return names
+}
+
+func TestKubeStackValues(t *testing.T) {
+	agentPorts := []string{"health-check", "metrics", "otlp-grpc", "otlp-http"}
+	deploymentPorts := []string{"health-check", "otlp-grpc", "otlp-http"}
+	unclustered := map[string]string{"SIGNOZ_INGESTION_ENDPOINT": "http://signoz:4318"}
+
+	for _, test := range []struct {
+		name                string
+		kind                collectionagent.CollectorKind
+		env                 map[string]string
+		replicas            *int
+		expectedMode        string
+		expectedFullname    string
+		expectedReplicas    *int
+		expectedPorts       []string
+		expectedHostPorts   bool
+		expectedVolumes     []string
+		expectedClusterName string
+	}{
+		{
+			"Agent_Valid", collectionagent.CollectorKindAgent, defaultEnv(), nil,
+			"daemonset", "signoz-collector-agent", nil, agentPorts, true,
+			[]string{"varlog", "varlibdockercontainers", "hostfs"}, "production",
+		},
+		{
+			"AgentClusterNameUnstated_Valid", collectionagent.CollectorKindAgent, unclustered, nil,
+			"daemonset", "signoz-collector-agent", nil, agentPorts, true,
+			[]string{"varlog", "varlibdockercontainers", "hostfs"}, "",
+		},
+		{
+			"Deployment_Valid", collectionagent.CollectorKindDeployment, defaultEnv(), nil,
+			"deployment", "signoz-collector-deployment", v1alpha1.IntPtr(1), deploymentPorts, false,
+			[]string{}, "production",
+		},
+		{
+			"DeploymentReplicas_Valid", collectionagent.CollectorKindDeployment, defaultEnv(), v1alpha1.IntPtr(3),
+			"deployment", "signoz-collector-deployment", v1alpha1.IntPtr(3), deploymentPorts, false,
+			[]string{}, "production",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			config := operatorCasting(t, test.kind, test.env)
+			config.Spec.Collector.Spec.Cluster.Replicas = test.replicas
+
+			rendered, collector := renderKubeStackValues(t, config)
+
+			for name, flag := range map[string]*bool{
+				"opentelemetry-operator.enabled":  rendered.Operator.Enabled,
+				"crds.installOtel":                rendered.CRDs.InstallOtel,
+				"crds.installPrometheus":          rendered.CRDs.InstallPrometheus,
+				"cleanupJob.enabled":              rendered.CleanupJob.Enabled,
+				"rewriteDeprecatedComponentNames": rendered.RewriteDeprecatedComponentNames,
+			} {
+				require.NotNil(t, flag, "%q must be stated", name)
+				assert.False(t, *flag, "%q must be off", name)
+			}
+
+			// The chart enables its own daemon collector unless stated off.
+			daemon, ok := rendered.Collectors["daemon"]
+			require.True(t, ok)
+			assert.False(t, daemon.Enabled)
+
+			assert.True(t, collector.Enabled)
+			assert.Equal(t, test.expectedMode, collector.Mode)
+			assert.Equal(t, test.expectedFullname, collector.FullnameOverride)
+			assert.Equal(t, test.expectedReplicas, collector.Replicas)
+			assert.Equal(t, test.expectedPorts, portNames(collector.Ports))
+
+			for _, port := range collector.Ports {
+				assert.Equal(t, test.expectedHostPorts, port.HostPort != nil, "%q hostPort", port.Name)
+			}
+
+			assert.Equal(t, test.expectedVolumes, volumeNames(collector.Volumes))
+			assert.Equal(t, foundryConfig(t, config), collector.Config)
+
+			if test.expectedClusterName == "" {
+				assert.Nil(t, rendered.ClusterName)
+			} else {
+				require.NotNil(t, rendered.ClusterName)
+				assert.Equal(t, test.expectedClusterName, *rendered.ClusterName)
+			}
+
+			// The chart's own OTEL_RESOURCE_ATTRIBUTES renders ahead of this list.
+			names := envNames(collector.Env)
+			last := collector.Env[len(collector.Env)-1]
+			assert.Equal(t, "OTEL_RESOURCE_ATTRIBUTES", last.Name)
+			require.NotNil(t, last.Value)
+			assert.Equal(t, `""`, *last.Value)
+
+			// The chart pastes a value unquoted, so the values file carries it quoted.
+			endpoint := collector.Env[slices.Index(names, "SIGNOZ_INGESTION_ENDPOINT")]
+			require.NotNil(t, endpoint.Value)
+			assert.Equal(t, `"http://signoz:4318"`, *endpoint.Value)
+		})
+	}
+}
+
+// The chart takes the image as repository and tag, with no registry of its own.
+func TestKubeStackValuesImage(t *testing.T) {
+	for _, test := range []struct {
+		name               string
+		image              string
+		expectedRepository string
+		expectedTag        string
+	}{
+		{"Qualified_Valid", "ghcr.io/signoz/opentelemetry-collector:0.140.0", "ghcr.io/signoz/opentelemetry-collector", "0.140.0"},
+		{"Unqualified_Valid", "otel/opentelemetry-collector-contrib:0.139.0", "otel/opentelemetry-collector-contrib", "0.139.0"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			config := operatorCasting(t, collectionagent.CollectorKindAgent, defaultEnv())
+			config.Spec.Collector.Spec.Image = test.image
+
+			_, collector := renderKubeStackValues(t, config)
+
+			assert.Equal(t, test.expectedRepository, collector.Image.Repository)
+			assert.Equal(t, test.expectedTag, collector.Image.Tag)
+		})
+	}
+}
+
+type kubeStackManifest struct {
+	Kind     string `json:"kind"`
+	Metadata struct {
+		Name string `json:"name"`
+	} `json:"metadata"`
+	RoleRef struct {
+		Name string `json:"name"`
+	} `json:"roleRef"`
+	Subjects []struct {
+		Name string `json:"name"`
+	} `json:"subjects"`
+	Spec struct {
+		Mode           string             `json:"mode"`
+		Image          string             `json:"image"`
+		Replicas       *int               `json:"replicas"`
+		ServiceAccount string             `json:"serviceAccount"`
+		Resources      collectorResources `json:"resources"`
+		Env            []collectorEnv     `json:"env"`
+		Ports          []collectorPort    `json:"ports"`
+		Config         map[string]any     `json:"config"`
+	} `json:"spec"`
+}
+
+func kubeStackManifests(t *testing.T, manifests map[string]string) map[string][]kubeStackManifest {
+	t.Helper()
+
+	byKind := map[string][]kubeStackManifest{}
+
+	for name, contents := range manifests {
+		if !strings.HasSuffix(name, ".yaml") {
+			continue
+		}
+
+		for doc := range strings.SplitSeq(contents, "\n---") {
+			if strings.TrimSpace(doc) == "" {
+				continue
+			}
+
+			var manifest kubeStackManifest
+			require.NoError(t, domain.UnmarshalYAML([]byte(doc), &manifest), name)
+
+			if manifest.Kind == "" {
+				continue
+			}
+
+			byKind[manifest.Kind] = append(byKind[manifest.Kind], manifest)
+		}
+	}
+
+	return byKind
+}
+
+// TestKubeStackChart runs against a local opentelemetry-kube-stack 0.13.0
+// checkout (helm pull --untar), so nothing here is vendored or fetched.
+func TestKubeStackChart(t *testing.T) {
+	dir := os.Getenv("FOUNDRY_KUBE_STACK_CHART")
+	if dir == "" {
+		t.Skip("set FOUNDRY_KUBE_STACK_CHART to a local opentelemetry-kube-stack chart directory")
+	}
+
+	userEnv := defaultEnv()
+	userEnv["OTEL_RESOURCE_ATTRIBUTES"] = "deployment.environment=production"
+
+	numericEnv := defaultEnv()
+	numericEnv["K8S_CLUSTER_NAME"] = "123"
+
+	for _, test := range []struct {
+		name                       string
+		config                     *collectionagent.Casting
+		expectedMode               string
+		expectedReplicas           *int
+		expectedPorts              []string
+		expectedResourceAttributes string
+	}{
+		{
+			"Fidelity_Agent_Equal", operatorCasting(t, collectionagent.CollectorKindAgent, defaultEnv()),
+			"daemonset", nil, []string{"health-check", "metrics", "otlp-grpc", "otlp-http"}, "",
+		},
+		{
+			"Fidelity_Deployment_Equal", operatorCasting(t, collectionagent.CollectorKindDeployment, defaultEnv()),
+			"deployment", v1alpha1.IntPtr(1), []string{"health-check", "otlp-grpc", "otlp-http"}, "",
+		},
+		{
+			"Fidelity_AgentUserResourceAttributes_Equal", operatorCasting(t, collectionagent.CollectorKindAgent, userEnv),
+			"daemonset", nil, []string{"health-check", "metrics", "otlp-grpc", "otlp-http"}, "deployment.environment=production",
+		},
+		{
+			"Fidelity_AgentNumericEnv_Equal", operatorCasting(t, collectionagent.CollectorKindAgent, numericEnv),
+			"daemonset", nil, []string{"health-check", "metrics", "otlp-grpc", "otlp-http"}, "",
+		},
+		{
+			"Fidelity_DeploymentReplicas_Equal",
+			operatorCasting(t, collectionagent.CollectorKindDeployment, defaultEnv(), func(config *collectionagent.Casting) {
+				config.Spec.Collector.Spec.Cluster.Replicas = v1alpha1.IntPtr(2)
+			}),
+			"deployment", v1alpha1.IntPtr(2), []string{"health-check", "otlp-grpc", "otlp-http"}, "",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			vals := map[string]any{}
+			require.NoError(t, domain.UnmarshalYAML(renderKubeStackValuesYAML(t, test.config), &vals))
+
+			chrt, err := loader.LoadDir(dir)
+			require.NoError(t, err)
+			require.NoError(t, chartutil.ProcessDependencies(chrt, vals))
+
+			release := releaseName(*test.config)
+			manifests := renderChart(t, chrt, vals, release, namespace(*test.config))
+			byKind := kubeStackManifests(t, manifests)
+
+			assert.ElementsMatch(t, []string{"OpenTelemetryCollector", "ClusterRole", "ClusterRoleBinding"}, slices.Collect(maps.Keys(byKind)))
+
+			for kind, manifests := range byKind {
+				require.Len(t, manifests, 1, "the chart renders one %s", kind)
+			}
+
+			collector := byKind["OpenTelemetryCollector"][0]
+			spec := collector.Spec
+
+			// The operator names the workload and its service account <name>-collector.
+			assert.Equal(t, release, collector.Metadata.Name)
+			assert.Equal(t, foundryConfig(t, test.config), spec.Config)
+			assert.Equal(t, test.expectedMode, spec.Mode)
+			assert.Equal(t, test.config.Spec.Collector.Spec.Image, spec.Image)
+			assert.Equal(t, test.expectedReplicas, spec.Replicas)
+			assert.Empty(t, spec.ServiceAccount)
+			assert.Equal(t, test.expectedPorts, portNames(spec.Ports))
+			assert.Equal(t, map[string]string{"cpu": "100m", "memory": "100Mi"}, spec.Resources.Requests)
+			assert.Empty(t, spec.Resources.Limits)
+
+			names := envNames(spec.Env)
+			assert.Contains(t, names, "K8S_HOST_IP")
+			assert.Contains(t, names, "K8S_NODE_NAME")
+
+			// Kubernetes keeps the last entry of a repeated name.
+			last := -1
+			for index, name := range names {
+				if name == "OTEL_RESOURCE_ATTRIBUTES" {
+					last = index
+				}
+			}
+			require.GreaterOrEqual(t, last, 0)
+
+			entry := spec.Env[last]
+			if test.expectedResourceAttributes == "" {
+				assert.True(t, entry.Value == nil || *entry.Value == "")
+				assert.Nil(t, entry.ValueFrom)
+			} else {
+				require.NotNil(t, entry.Value)
+				assert.Equal(t, test.expectedResourceAttributes, *entry.Value)
+			}
+
+			// The chart pastes env values unquoted; a stated value reaches the CR as a YAML string.
+			var raw struct {
+				Spec struct {
+					Env []map[string]any `json:"env"`
+				} `json:"spec"`
+			}
+			require.NoError(t, domain.UnmarshalYAML([]byte(manifests[chrt.Name()+"/templates/collector.yaml"]), &raw))
+
+			for _, key := range []string{"K8S_CLUSTER_NAME", "SIGNOZ_INGESTION_ENDPOINT"} {
+				index := slices.Index(names, key)
+				require.GreaterOrEqual(t, index, 0, "%q must be stated", key)
+
+				value, ok := raw.Spec.Env[index]["value"].(string)
+				require.True(t, ok, "%q must render as a string", key)
+				assert.Equal(t, test.config.Spec.Collector.Spec.Env[key], value)
+			}
+
+			role := byKind["ClusterRole"][0]
+			assert.Equal(t, release+"-collector", role.Metadata.Name)
+
+			binding := byKind["ClusterRoleBinding"][0]
+			assert.Equal(t, role.Metadata.Name, binding.RoleRef.Name)
+			require.Len(t, binding.Subjects, 1)
+			assert.Equal(t, collector.Metadata.Name+"-collector", binding.Subjects[0].Name)
+		})
+	}
 }

@@ -1,0 +1,148 @@
+{{- $kind := $.Spec.Collector.Kind.String }}
+{{- $name := print $.Metadata.Name "-collector-" $kind }}
+{{- $env := fromYaml (toYaml $.Spec.Collector.Spec.Env) }}
+opentelemetry-operator:
+  enabled: false
+crds:
+  installOtel: false
+  installPrometheus: false
+cleanupJob:
+  enabled: false
+rewriteDeprecatedComponentNames: false
+clusterRole:
+  enabled: true
+{{- with index $env "K8S_CLUSTER_NAME" }}
+clusterName: {{ . | quote }}
+{{- end }}
+# Nulled so the chart's default limits do not merge under the stated requests.
+defaultCRConfig:
+  resources: null
+collectors:
+  daemon:
+    enabled: false
+  {{ $kind }}:
+    enabled: true
+    fullnameOverride: {{ $name }}
+    {{- if eq $kind "agent" }}
+    mode: daemonset
+    {{- else }}
+    mode: deployment
+    replicas: {{ derefIntDefault $.Spec.Collector.Spec.Cluster.Replicas 1 }}
+    {{- end }}
+    clusterRoleBinding:
+      enabled: true
+    image:
+      {{- with parseImage $.Spec.Collector.Spec.Image }}
+      repository: {{ with .Registry }}{{ . }}/{{ end }}{{ .Repository }}
+      tag: {{ .Tag | quote }}
+      {{- end }}
+    resources:
+      requests:
+        cpu: 100m
+        memory: 100Mi
+    # The chart states K8S_NODE_NAME, and its own OTEL_RESOURCE_ATTRIBUTES renders
+    # ahead of this list, so foundry's entry is the one the container keeps.
+    env:
+      - name: K8S_POD_IP
+        valueFrom:
+          fieldRef:
+            fieldPath: status.podIP
+      - name: K8S_HOST_IP
+        valueFrom:
+          fieldRef:
+            fieldPath: status.hostIP
+      - name: K8S_POD_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+      - name: K8S_POD_UID
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.uid
+      - name: K8S_NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+      # The chart pastes each value unquoted, so it receives the quoted YAML scalar.
+      {{- range $key, $val := omit $env "OTEL_RESOURCE_ATTRIBUTES" }}
+      - name: {{ $key }}
+        value: {{ printf "%q" $val | quote }}
+      {{- end }}
+      - name: OTEL_RESOURCE_ATTRIBUTES
+        value: {{ printf "%q" (index $env "OTEL_RESOURCE_ATTRIBUTES" | default "") | quote }}
+    {{- if eq $kind "agent" }}
+    tolerations:
+      - operator: Exists
+    # Names match the operator's own (otlp-grpc, otlp-http, metrics), or its derived ports duplicate them.
+    ports:
+      - name: health-check
+        port: 13133
+        hostPort: 13133
+        protocol: TCP
+      - name: metrics
+        port: 8888
+        hostPort: 8888
+        protocol: TCP
+      - name: otlp-grpc
+        port: 4317
+        hostPort: 4317
+        protocol: TCP
+      - name: otlp-http
+        port: 4318
+        hostPort: 4318
+        protocol: TCP
+    volumeMounts:
+      - name: varlog
+        mountPath: /var/log
+        readOnly: true
+      - name: varlibdockercontainers
+        mountPath: /var/lib/docker/containers
+        readOnly: true
+      - name: hostfs
+        mountPath: /hostfs
+        readOnly: true
+        mountPropagation: HostToContainer
+    volumes:
+      - name: varlog
+        hostPath:
+          path: /var/log
+      - name: varlibdockercontainers
+        hostPath:
+          path: /var/lib/docker/containers
+      - name: hostfs
+        hostPath:
+          path: /
+    {{- else }}
+    # Names match the operator's own (otlp-grpc, otlp-http), or its derived ports duplicate them.
+    ports:
+      - name: health-check
+        port: 13133
+        protocol: TCP
+      - name: otlp-grpc
+        port: 4317
+        protocol: TCP
+      - name: otlp-http
+        port: 4318
+        protocol: TCP
+    {{- end }}
+    # Every preset off, so the chart adds nothing the lock does not carry.
+    presets:
+      logsCollection:
+        enabled: false
+      hostMetrics:
+        enabled: false
+      kubernetesAttributes:
+        enabled: false
+      kubeletMetrics:
+        enabled: false
+      kubernetesEvents:
+        enabled: false
+      clusterMetrics:
+        enabled: false
+      annotationDiscovery:
+        logs:
+          enabled: false
+        metrics:
+          enabled: false
+    config:
+      {{- index $.Spec.Collector.Spec.Config.Data $.Spec.Collector.Kind.ConfigKey | fromYaml | toYaml | nindent 6 }}

@@ -175,11 +175,14 @@ Optional. Applies to `mode: kubernetes`, both flavors.
 | Annotation | Default | Description |
 | --- | --- | --- |
 | `foundry.signoz.io/kubernetes-namespace` | `metadata.name` | Namespace the installation is deployed into |
-| `foundry.signoz.io/kubernetes-collector-controller` | `default` | CollectionAgent, `flavor: kustomize` only. Controller that owns the collector workload: `default` pours the DaemonSet or Deployment for the built-in Kubernetes controllers, `opentelemetry-operator` pours an OpenTelemetryCollector resource for the operator to reconcile |
+| `foundry.signoz.io/kubernetes-collector-controller` | `default` | CollectionAgent, `flavor: kustomize` or `flavor: helm`. Controller that owns the collector workload: `default` pours the DaemonSet or Deployment for the built-in Kubernetes controllers, `opentelemetry-operator` pours an OpenTelemetryCollector resource for the operator to reconcile |
 
 ### Kubernetes Helm annotations
 
 Optional. Override the default Helm chart source when using `mode: kubernetes`, `flavor: helm`.
+A CollectionAgent under the `opentelemetry-operator` controller defaults to the
+`opentelemetry-kube-stack` chart, version `0.13.0`, from
+`https://open-telemetry.github.io/opentelemetry-helm-charts`; a stated annotation wins.
 
 | Annotation | Default | Description |
 | --- | --- | --- |
