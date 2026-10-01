@@ -1,6 +1,5 @@
 cleanupJob:
   enabled: false
-clusterName: <cluster-name>
 clusterRole:
   enabled: true
 collectors:
@@ -297,8 +296,6 @@ collectors:
       value: '"agent"'
     - name: SIGNOZ_INGESTION_ENDPOINT
       value: '"http://<signoz-host>:4318"'
-    - name: OTEL_RESOURCE_ATTRIBUTES
-      value: '""'
     fullnameOverride: signoz-collector-agent
     image:
       repository: otel/opentelemetry-collector-contrib

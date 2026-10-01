@@ -11,9 +11,6 @@ cleanupJob:
 rewriteDeprecatedComponentNames: false
 clusterRole:
   enabled: true
-{{- with index $env "K8S_CLUSTER_NAME" }}
-clusterName: {{ . | quote }}
-{{- end }}
 # Nulled so the chart's default limits do not merge under the stated requests.
 defaultCRConfig:
   resources: null
@@ -40,8 +37,7 @@ collectors:
       requests:
         cpu: 100m
         memory: 100Mi
-    # The chart states K8S_NODE_NAME, and its own OTEL_RESOURCE_ATTRIBUTES renders
-    # ahead of this list, so foundry's entry is the one the container keeps.
+    # The chart states K8S_NODE_NAME itself, so it is left out.
     env:
       - name: K8S_POD_IP
         valueFrom:
@@ -64,12 +60,10 @@ collectors:
           fieldRef:
             fieldPath: metadata.namespace
       # The chart pastes each value unquoted, so it receives the quoted YAML scalar.
-      {{- range $key, $val := omit $env "OTEL_RESOURCE_ATTRIBUTES" }}
+      {{- range $key, $val := $env }}
       - name: {{ $key }}
         value: {{ printf "%q" $val | quote }}
       {{- end }}
-      - name: OTEL_RESOURCE_ATTRIBUTES
-        value: {{ printf "%q" (index $env "OTEL_RESOURCE_ATTRIBUTES" | default "") | quote }}
     {{- if eq $kind "agent" }}
     tolerations:
       - operator: Exists

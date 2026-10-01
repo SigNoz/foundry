@@ -99,8 +99,7 @@ spec:
 In both files, set `SIGNOZ_INGESTION_ENDPOINT` to your SigNoz and
 `K8S_CLUSTER_NAME` to the name the cluster shows under in the SigNoz
 Kubernetes views. Every `spec.collector.spec.env` key becomes an entry in the
-collector's `env`, and `K8S_CLUSTER_NAME` also becomes the chart's
-`clusterName`.
+collector's `env`.
 
 ## Forge
 
