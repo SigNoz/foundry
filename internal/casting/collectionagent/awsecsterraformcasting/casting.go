@@ -1,4 +1,4 @@
-package ecsec2terraformcasting
+package awsecsterraformcasting
 
 import (
 	"context"
@@ -20,19 +20,19 @@ import (
 // The sidecar writes the config here and the collector reads it.
 const configMount = "/conf"
 
-type ecsEC2TerraformCasting struct {
+type awsEcsTerraformCasting struct {
 	logger *slog.Logger
 }
 
-func New(logger *slog.Logger) *ecsEC2TerraformCasting {
-	return &ecsEC2TerraformCasting{logger: logger}
+func New(logger *slog.Logger) *awsEcsTerraformCasting {
+	return &awsEcsTerraformCasting{logger: logger}
 }
 
-func (c *ecsEC2TerraformCasting) Enricher(ctx context.Context, config *collectionagent.Casting) (collectionagentmolding.MoldingEnricher, error) {
-	return newEcsEC2MoldingEnricher(), nil
+func (c *awsEcsTerraformCasting) Enricher(ctx context.Context, config *collectionagent.Casting) (collectionagentmolding.MoldingEnricher, error) {
+	return newAwsEcsMoldingEnricher(), nil
 }
 
-func (c *ecsEC2TerraformCasting) Forge(ctx context.Context, config collectionagent.Casting, p *pourer.Pourer) error {
+func (c *awsEcsTerraformCasting) Forge(ctx context.Context, config collectionagent.Casting, p *pourer.Pourer) error {
 	// The kind's directory is a terraform root of its own, so a casting file
 	// holding several collection agents pours a root per document.
 	dir := filepath.Dir(config.Spec.Collector.Kind.ConfigKey())
@@ -59,7 +59,7 @@ func (c *ecsEC2TerraformCasting) Forge(ctx context.Context, config collectionage
 
 const planFile = "tfplan"
 
-func (c *ecsEC2TerraformCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
+func (c *awsEcsTerraformCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
 	root := filepath.Join(outputPath, p.Dir(), filepath.Dir(config.Spec.Collector.Kind.ConfigKey()))
 
 	if err := c.terraform(ctx, root, "init"); err != nil {
@@ -73,7 +73,7 @@ func (c *ecsEC2TerraformCasting) Cast(ctx context.Context, config collectionagen
 	return c.terraform(ctx, root, "apply", planFile)
 }
 
-func (c *ecsEC2TerraformCasting) terraform(ctx context.Context, root, verb string, args ...string) error {
+func (c *awsEcsTerraformCasting) terraform(ctx context.Context, root, verb string, args ...string) error {
 	argv := append([]string{"-chdir=" + root, verb}, args...)
 
 	c.logger.DebugContext(ctx, "Running command", slog.String("command", "terraform "+strings.Join(argv, " ")))
@@ -91,7 +91,7 @@ func (c *ecsEC2TerraformCasting) terraform(ctx context.Context, root, verb strin
 }
 
 // Resolves the annotation-derived identifiers the templates render.
-func (c *ecsEC2TerraformCasting) templateData(config collectionagent.Casting) templateData {
+func (c *awsEcsTerraformCasting) templateData(config collectionagent.Casting) templateData {
 	annotations := config.Metadata.Annotations
 
 	// Several workloads share one cluster, so a cluster-derived name collides on

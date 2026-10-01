@@ -4,11 +4,11 @@ import (
 	"log/slog"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	"github.com/signoz/foundry/internal/casting/collectionagent/awsecsserverlessterraformcasting"
+	"github.com/signoz/foundry/internal/casting/collectionagent/awsecsterraformcasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/awskubernetesserverlesskustomizecasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockercomposecasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockerswarmcasting"
-	"github.com/signoz/foundry/internal/casting/collectionagent/ecsec2terraformcasting"
-	"github.com/signoz/foundry/internal/casting/collectionagent/ecsfargateterraformcasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/kuberneteshelmcasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/kuberneteskustomizecasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/systemdbinarycasting"
@@ -57,11 +57,28 @@ func NewRegistry(logger *slog.Logger) *Registry {
 				Toolers: []tooler.Tooler{kubectltooler.New()},
 			},
 			{
+				Platform: v1alpha1.PlatformAWS,
+				Flavor:   v1alpha1.FlavorTerraform,
+				Mode:     v1alpha1.ModeECS,
+			}: {
+				Casting: awsecsterraformcasting.New(logger),
+				Toolers: []tooler.Tooler{terraformtooler.New()},
+			},
+			{
+				Platform: v1alpha1.PlatformAWS,
+				Flavor:   v1alpha1.FlavorTerraform,
+				Mode:     v1alpha1.ModeECSServerless,
+			}: {
+				Casting: awsecsserverlessterraformcasting.New(logger),
+				Toolers: []tooler.Tooler{terraformtooler.New()},
+			},
+			// platform ecs with mode ec2 or fargate shipped in v0.3.0 and keeps resolving.
+			{
 				Platform: v1alpha1.PlatformECS,
 				Flavor:   v1alpha1.FlavorTerraform,
 				Mode:     v1alpha1.ModeEC2,
 			}: {
-				Casting: ecsec2terraformcasting.New(logger),
+				Casting: awsecsterraformcasting.New(logger),
 				Toolers: []tooler.Tooler{terraformtooler.New()},
 			},
 			{
@@ -69,7 +86,7 @@ func NewRegistry(logger *slog.Logger) *Registry {
 				Flavor:   v1alpha1.FlavorTerraform,
 				Mode:     v1alpha1.ModeFargate,
 			}: {
-				Casting: ecsfargateterraformcasting.New(logger),
+				Casting: awsecsserverlessterraformcasting.New(logger),
 				Toolers: []tooler.Tooler{terraformtooler.New()},
 			},
 			{

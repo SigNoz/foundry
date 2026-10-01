@@ -7,8 +7,8 @@ metadata:
     foundry.signoz.io/ecs-cluster-arn: arn:aws:ecs:us-east-1:123456789012:cluster/signoz
 spec:
   deployment:
-    platform: ecs
-    mode: ec2
+    platform: aws
+    mode: ecs
     flavor: terraform
   collector:
     kind: agent

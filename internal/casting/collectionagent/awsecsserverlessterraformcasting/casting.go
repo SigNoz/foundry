@@ -1,4 +1,4 @@
-package ecsfargateterraformcasting
+package awsecsserverlessterraformcasting
 
 import (
 	"context"
@@ -13,19 +13,19 @@ import (
 	"github.com/signoz/foundry/internal/pourer"
 )
 
-type ecsFargateTerraformCasting struct {
+type awsEcsServerlessTerraformCasting struct {
 	logger *slog.Logger
 }
 
-func New(logger *slog.Logger) *ecsFargateTerraformCasting {
-	return &ecsFargateTerraformCasting{logger: logger}
+func New(logger *slog.Logger) *awsEcsServerlessTerraformCasting {
+	return &awsEcsServerlessTerraformCasting{logger: logger}
 }
 
-func (c *ecsFargateTerraformCasting) Enricher(ctx context.Context, config *collectionagent.Casting) (collectionagentmolding.MoldingEnricher, error) {
-	return newEcsFargateMoldingEnricher(), nil
+func (c *awsEcsServerlessTerraformCasting) Enricher(ctx context.Context, config *collectionagent.Casting) (collectionagentmolding.MoldingEnricher, error) {
+	return newAwsEcsServerlessMoldingEnricher(), nil
 }
 
-func (c *ecsFargateTerraformCasting) Forge(ctx context.Context, config collectionagent.Casting, p *pourer.Pourer) error {
+func (c *awsEcsServerlessTerraformCasting) Forge(ctx context.Context, config collectionagent.Casting, p *pourer.Pourer) error {
 	var tmpls []*domain.Template
 
 	// A fargate task has no container instance, so the collector runs inside the
@@ -61,7 +61,7 @@ func (c *ecsFargateTerraformCasting) Forge(ctx context.Context, config collectio
 	return nil
 }
 
-func (c *ecsFargateTerraformCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
+func (c *awsEcsServerlessTerraformCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
 	c.logger.InfoContext(ctx, "The sidecar is a terraform module; import it from your task definition's terraform.",
 		slog.String("module", filepath.Join(outputPath, p.Dir(), filepath.Dir(config.Spec.Collector.Kind.ConfigKey()))))
 

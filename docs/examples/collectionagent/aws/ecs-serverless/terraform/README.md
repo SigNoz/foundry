@@ -3,9 +3,12 @@
 | Field | Value |
 | --- | --- |
 | **Kind** | `CollectionAgent` |
-| **Platform** | `ecs` |
-| **Mode** | `fargate` |
+| **Platform** | `aws` |
+| **Mode** | `ecs-serverless` |
 | **Flavor** | `terraform` |
+
+> [!IMPORTANT]
+> **Upgrading:** this casting is now `platform: aws` with `mode: ecs-serverless`. A `casting.yaml` from v0.3.0 that still says `platform: ecs` with `mode: fargate` keeps working; update it to the new values the next time you edit it. The generated files are the same either way.
 
 ## Overview
 
@@ -38,8 +41,8 @@ metadata:
     foundry.signoz.io/ecs-task-execution-role-arn: arn:aws:iam::123456789012:role/app-task-exec
 spec:
   deployment:
-    platform: ecs
-    mode: fargate
+    platform: aws
+    mode: ecs-serverless
     flavor: terraform
   collector:
     kind: sidecar
@@ -61,8 +64,8 @@ metadata:
   name: signoz
 spec:
   deployment:
-    platform: ecs
-    mode: fargate
+    platform: aws
+    mode: ecs-serverless
     flavor: terraform
   collector:
     kind: sidecar
@@ -147,8 +150,8 @@ metadata:
   name: signoz
 spec:
   deployment:
-    platform: ecs
-    mode: fargate
+    platform: aws
+    mode: ecs-serverless
     flavor: terraform
   collector:
     kind: sidecar
@@ -181,8 +184,8 @@ metadata:
   name: signoz
 spec:
   deployment:
-    platform: ecs
-    mode: fargate
+    platform: aws
+    mode: ecs-serverless
     flavor: terraform
   collector:
     kind: sidecar

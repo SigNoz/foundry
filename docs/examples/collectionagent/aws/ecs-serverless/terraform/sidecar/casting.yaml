@@ -6,8 +6,8 @@ metadata:
     foundry.signoz.io/ecs-task-execution-role-arn: arn:aws:iam::123456789012:role/app-task-exec
 spec:
   deployment:
-    platform: ecs
-    mode: fargate
+    platform: aws
+    mode: ecs-serverless
     flavor: terraform
   collector:
     kind: sidecar

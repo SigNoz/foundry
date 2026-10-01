@@ -1,4 +1,4 @@
-package ecsec2terraformcasting
+package awsecsterraformcasting
 
 import (
 	"bytes"
@@ -137,7 +137,7 @@ func TestReplicas(t *testing.T) {
 			config := statedCasting(t)
 			config.Spec.Collector.Spec.Cluster.Replicas = test.replicas
 
-			err := newEcsEC2MoldingEnricher().EnrichStatus(context.Background(), v1alpha1.MoldingKindCollector, config)
+			err := newAwsEcsMoldingEnricher().EnrichStatus(context.Background(), v1alpha1.MoldingKindCollector, config)
 
 			if !test.pass {
 				require.Error(t, err)

@@ -485,5 +485,5 @@ spec:
         SIGNOZ_INGESTION_ENDPOINT: https://ingest.us.signoz.cloud:443
   deployment:
     flavor: terraform
-    mode: ec2
-    platform: ecs
+    mode: ecs
+    platform: aws
