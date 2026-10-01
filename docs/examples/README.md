@@ -9,5 +9,6 @@
 | - | systemd | binary | [systemd/binary](systemd/binary/) |
 | ecs | ec2 | terraform | [ecs/ec2/terraform](ecs/ec2/terraform/) |
 | coolify | - | stack | [coolify/stack](coolify/stack/) |
+| dokploy | - | stack | [dokploy/stack](dokploy/stack/) |
 | railway | - | template | [railway/template](railway/template/) |
 | render | - | blueprint | [render/blueprint](render/blueprint/) |
