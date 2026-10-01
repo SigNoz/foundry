@@ -224,22 +224,31 @@ func TestTemplatesRender(t *testing.T) {
 	for name, test := range map[string]struct {
 		template *domain.Template
 		config   *collectionagent.Casting
+		pass     bool
 	}{
-		"AgentValues_Valid":      {valuesYAMLTemplate, moldedCasting(t, collectionagent.CollectorKindAgent, defaultEnv())},
-		"DeploymentValues_Valid": {valuesYAMLTemplate, moldedCasting(t, collectionagent.CollectorKindDeployment, defaultEnv())},
-		"AgentConfig_Valid":      {agentYAMLTemplate, collectionagent.Default()},
-		"DeploymentConfig_Valid": {deploymentYAMLTemplate, collectionagent.Default()},
+		"AgentValues_Valid":      {valuesYAMLTemplate, moldedCasting(t, collectionagent.CollectorKindAgent, defaultEnv()), true},
+		"DeploymentValues_Valid": {valuesYAMLTemplate, moldedCasting(t, collectionagent.CollectorKindDeployment, defaultEnv()), true},
+		"AgentConfig_Valid":      {agentYAMLTemplate, collectionagent.Default(), true},
+		"DeploymentConfig_Valid": {deploymentYAMLTemplate, collectionagent.Default(), true},
 		"OperatorAgentValues_Valid": {
 			kubeStackValuesYAMLTemplate,
 			moldedCasting(t, collectionagent.CollectorKindAgent, defaultEnv()),
+			true,
 		},
 		"OperatorDeploymentValues_Valid": {
 			kubeStackValuesYAMLTemplate,
 			moldedCasting(t, collectionagent.CollectorKindDeployment, defaultEnv()),
+			true,
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			material, err := test.template.Render(templateDataFor(*test.config), strings.TrimSuffix(test.template.Name(), ".gotmpl"))
+
+			if !test.pass {
+				require.Error(t, err)
+
+				return
+			}
 
 			require.NoError(t, err)
 			assert.NotEmpty(t, material.FmtContents())
