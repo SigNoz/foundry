@@ -7,6 +7,7 @@ import (
 	"os"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -806,7 +807,6 @@ type kubeStackValues struct {
 		Enabled *bool `json:"enabled"`
 	} `json:"cleanupJob"`
 	RewriteDeprecatedComponentNames *bool                         `json:"rewriteDeprecatedComponentNames"`
-	ClusterName                     *string                       `json:"clusterName"`
 	Collectors                      map[string]kubeStackCollector `json:"collectors"`
 }
 
@@ -831,9 +831,8 @@ type collectorResources struct {
 }
 
 type collectorEnv struct {
-	Name      string  `json:"name"`
-	Value     *string `json:"value"`
-	ValueFrom any     `json:"valueFrom"`
+	Name  string  `json:"name"`
+	Value *string `json:"value"`
 }
 
 type collectorPort struct {
@@ -902,40 +901,41 @@ func volumeNames(volumes []collectorVolume) []string {
 func TestKubeStackValues(t *testing.T) {
 	agentPorts := []string{"health-check", "metrics", "otlp-grpc", "otlp-http"}
 	deploymentPorts := []string{"health-check", "otlp-grpc", "otlp-http"}
-	unclustered := map[string]string{"SIGNOZ_INGESTION_ENDPOINT": "http://signoz:4318"}
+	attributed := defaultEnv()
+	attributed["OTEL_RESOURCE_ATTRIBUTES"] = "deployment.environment=production"
 
 	for _, test := range []struct {
-		name                string
-		kind                collectionagent.CollectorKind
-		env                 map[string]string
-		replicas            *int
-		expectedMode        string
-		expectedFullname    string
-		expectedReplicas    *int
-		expectedPorts       []string
-		expectedHostPorts   bool
-		expectedVolumes     []string
-		expectedClusterName string
+		name               string
+		kind               collectionagent.CollectorKind
+		env                map[string]string
+		replicas           *int
+		expectedMode       string
+		expectedFullname   string
+		expectedReplicas   *int
+		expectedPorts      []string
+		expectedHostPorts  bool
+		expectedVolumes    []string
+		expectedAttributes string
 	}{
 		{
 			"Agent_Valid", collectionagent.CollectorKindAgent, defaultEnv(), nil,
 			"daemonset", "signoz-collector-agent", nil, agentPorts, true,
-			[]string{"varlog", "varlibdockercontainers", "hostfs"}, "production",
+			[]string{"varlog", "varlibdockercontainers", "hostfs"}, "",
 		},
 		{
-			"AgentClusterNameUnstated_Valid", collectionagent.CollectorKindAgent, unclustered, nil,
+			"AgentResourceAttributesStated_Valid", collectionagent.CollectorKindAgent, attributed, nil,
 			"daemonset", "signoz-collector-agent", nil, agentPorts, true,
-			[]string{"varlog", "varlibdockercontainers", "hostfs"}, "",
+			[]string{"varlog", "varlibdockercontainers", "hostfs"}, "deployment.environment=production",
 		},
 		{
 			"Deployment_Valid", collectionagent.CollectorKindDeployment, defaultEnv(), nil,
 			"deployment", "signoz-collector-deployment", v1alpha1.IntPtr(1), deploymentPorts, false,
-			[]string{}, "production",
+			[]string{}, "",
 		},
 		{
 			"DeploymentReplicas_Valid", collectionagent.CollectorKindDeployment, defaultEnv(), v1alpha1.IntPtr(3),
 			"deployment", "signoz-collector-deployment", v1alpha1.IntPtr(3), deploymentPorts, false,
-			[]string{}, "production",
+			[]string{}, "",
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -973,19 +973,21 @@ func TestKubeStackValues(t *testing.T) {
 			assert.Equal(t, test.expectedVolumes, volumeNames(collector.Volumes))
 			assert.Equal(t, foundryConfig(t, config), collector.Config)
 
-			if test.expectedClusterName == "" {
-				assert.Nil(t, rendered.ClusterName)
-			} else {
-				require.NotNil(t, rendered.ClusterName)
-				assert.Equal(t, test.expectedClusterName, *rendered.ClusterName)
-			}
+			// A root clusterName makes the chart inject an OTEL_RESOURCE_ATTRIBUTES of its own.
+			var root map[string]any
+			require.NoError(t, domain.UnmarshalYAML(renderKubeStackValuesYAML(t, config), &root))
+			assert.NotContains(t, root, "clusterName")
 
-			// The chart's own OTEL_RESOURCE_ATTRIBUTES renders ahead of this list.
 			names := envNames(collector.Env)
-			last := collector.Env[len(collector.Env)-1]
-			assert.Equal(t, "OTEL_RESOURCE_ATTRIBUTES", last.Name)
-			require.NotNil(t, last.Value)
-			assert.Equal(t, `""`, *last.Value)
+			index := slices.Index(names, "OTEL_RESOURCE_ATTRIBUTES")
+
+			if test.expectedAttributes == "" {
+				assert.Equal(t, -1, index)
+			} else {
+				require.GreaterOrEqual(t, index, 0)
+				require.NotNil(t, collector.Env[index].Value)
+				assert.Equal(t, strconv.Quote(test.expectedAttributes), *collector.Env[index].Value)
+			}
 
 			// The chart pastes a value unquoted, so the values file carries it quoted.
 			endpoint := collector.Env[slices.Index(names, "SIGNOZ_INGESTION_ENDPOINT")]
@@ -1085,35 +1087,34 @@ func TestKubeStackChart(t *testing.T) {
 	numericEnv["K8S_CLUSTER_NAME"] = "123"
 
 	for _, test := range []struct {
-		name                       string
-		config                     *collectionagent.Casting
-		expectedMode               string
-		expectedReplicas           *int
-		expectedPorts              []string
-		expectedResourceAttributes string
+		name             string
+		config           *collectionagent.Casting
+		expectedMode     string
+		expectedReplicas *int
+		expectedPorts    []string
 	}{
 		{
 			"Fidelity_Agent_Equal", operatorCasting(t, collectionagent.CollectorKindAgent, defaultEnv()),
-			"daemonset", nil, []string{"health-check", "metrics", "otlp-grpc", "otlp-http"}, "",
+			"daemonset", nil, []string{"health-check", "metrics", "otlp-grpc", "otlp-http"},
 		},
 		{
 			"Fidelity_Deployment_Equal", operatorCasting(t, collectionagent.CollectorKindDeployment, defaultEnv()),
-			"deployment", v1alpha1.IntPtr(1), []string{"health-check", "otlp-grpc", "otlp-http"}, "",
+			"deployment", v1alpha1.IntPtr(1), []string{"health-check", "otlp-grpc", "otlp-http"},
 		},
 		{
 			"Fidelity_AgentUserResourceAttributes_Equal", operatorCasting(t, collectionagent.CollectorKindAgent, userEnv),
-			"daemonset", nil, []string{"health-check", "metrics", "otlp-grpc", "otlp-http"}, "deployment.environment=production",
+			"daemonset", nil, []string{"health-check", "metrics", "otlp-grpc", "otlp-http"},
 		},
 		{
 			"Fidelity_AgentNumericEnv_Equal", operatorCasting(t, collectionagent.CollectorKindAgent, numericEnv),
-			"daemonset", nil, []string{"health-check", "metrics", "otlp-grpc", "otlp-http"}, "",
+			"daemonset", nil, []string{"health-check", "metrics", "otlp-grpc", "otlp-http"},
 		},
 		{
 			"Fidelity_DeploymentReplicas_Equal",
 			operatorCasting(t, collectionagent.CollectorKindDeployment, defaultEnv(), func(config *collectionagent.Casting) {
 				config.Spec.Collector.Spec.Cluster.Replicas = v1alpha1.IntPtr(2)
 			}),
-			"deployment", v1alpha1.IntPtr(2), []string{"health-check", "otlp-grpc", "otlp-http"}, "",
+			"deployment", v1alpha1.IntPtr(2), []string{"health-check", "otlp-grpc", "otlp-http"},
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -1152,22 +1153,24 @@ func TestKubeStackChart(t *testing.T) {
 			assert.Contains(t, names, "K8S_HOST_IP")
 			assert.Contains(t, names, "K8S_NODE_NAME")
 
-			// Kubernetes keeps the last entry of a repeated name.
-			last := -1
-			for index, name := range names {
-				if name == "OTEL_RESOURCE_ATTRIBUTES" {
-					last = index
+			// The chart injects an entry of its own when it is handed a clusterName.
+			stated, ok := test.config.Spec.Collector.Spec.Env["OTEL_RESOURCE_ATTRIBUTES"]
+			count := 0
+			for _, entry := range spec.Env {
+				if entry.Name != "OTEL_RESOURCE_ATTRIBUTES" {
+					continue
 				}
-			}
-			require.GreaterOrEqual(t, last, 0)
 
-			entry := spec.Env[last]
-			if test.expectedResourceAttributes == "" {
-				assert.True(t, entry.Value == nil || *entry.Value == "")
-				assert.Nil(t, entry.ValueFrom)
-			} else {
+				count++
+
 				require.NotNil(t, entry.Value)
-				assert.Equal(t, test.expectedResourceAttributes, *entry.Value)
+				assert.Equal(t, stated, *entry.Value)
+			}
+
+			if ok {
+				assert.Equal(t, 1, count)
+			} else {
+				assert.Zero(t, count)
 			}
 
 			// The chart pastes env values unquoted; a stated value reaches the CR as a YAML string.
