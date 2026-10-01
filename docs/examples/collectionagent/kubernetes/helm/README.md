@@ -159,15 +159,16 @@ helm template signoz-collector-agent k8s-infra --repo https://charts.signoz.io \
 
 ## Annotations
 
-Optional annotations naming the namespace and the chart source. These are not
-required for standard deployments.
+Optional annotations naming the collector controller, the namespace and the
+chart source. These are not required for standard deployments.
 
 | Annotation | Default | Description |
 | --- | --- | --- |
+| `foundry.signoz.io/kubernetes-collector-controller` | `default` | Controller that owns the collector workload: `default` installs the `k8s-infra` chart, `opentelemetry-operator` installs the `opentelemetry-kube-stack` chart rendering an `OpenTelemetryCollector` resource for the operator to reconcile; see the [operator example](../helm-opentelemetry-operator/README.md) |
 | `foundry.signoz.io/kubernetes-namespace` | `metadata.name` | Namespace the collector is deployed into |
-| `foundry.signoz.io/kubernetes-helm-chart` | `k8s-infra` | Chart name in the repository, a URL to a chart archive, or a local chart path |
-| `foundry.signoz.io/kubernetes-helm-repo-url` | `https://charts.signoz.io` | Chart repository the chart name is resolved against; unused when the chart states its own location |
-| `foundry.signoz.io/kubernetes-helm-chart-version` | `latest` | Chart version to install; `latest` installs the newest chart in the repository |
+| `foundry.signoz.io/kubernetes-helm-chart` | `k8s-infra` | Chart name in the repository, a URL to a chart archive, or a local chart path; `opentelemetry-kube-stack` under the `opentelemetry-operator` controller |
+| `foundry.signoz.io/kubernetes-helm-repo-url` | `https://charts.signoz.io` | Chart repository the chart name is resolved against; unused when the chart states its own location. `https://open-telemetry.github.io/opentelemetry-helm-charts` under the `opentelemetry-operator` controller |
+| `foundry.signoz.io/kubernetes-helm-chart-version` | `latest` | Chart version to install; `latest` installs the newest chart in the repository. Under the `opentelemetry-operator` controller the version defaults to `0.13.0` when the chart is unstated |
 
 Example pinning the chart version:
 

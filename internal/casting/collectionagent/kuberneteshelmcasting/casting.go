@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
+	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	collectionagentmolding "github.com/signoz/foundry/internal/molding/collectionagent"
 	"github.com/signoz/foundry/internal/pourer"
@@ -17,6 +18,12 @@ import (
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
 	"sigs.k8s.io/yaml"
+)
+
+const (
+	kubeStackChart        = "opentelemetry-kube-stack"
+	kubeStackRepoURL      = "https://open-telemetry.github.io/opentelemetry-helm-charts"
+	kubeStackChartVersion = "0.13.0"
 )
 
 type kubernetesHelmCasting struct {
@@ -32,13 +39,20 @@ func (c *kubernetesHelmCasting) Enricher(ctx context.Context, config *collection
 }
 
 func (c *kubernetesHelmCasting) Forge(ctx context.Context, config collectionagent.Casting, p *pourer.Pourer) error {
-	if controller := collectionagent.KubernetesCollectorController.Resolve(config.Metadata.Annotations); controller != collectionagent.CollectorControllerDefault {
-		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "collector controller %q is not supported by this casting", controller)
+	var tmpl *domain.Template
+
+	switch ctrl := controller(config); ctrl {
+	case collectionagent.CollectorControllerDefault:
+		tmpl = valuesYAMLTemplate
+	case collectionagent.CollectorControllerOpenTelemetryOperator:
+		tmpl = kubeStackValuesYAMLTemplate
+	default:
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "collector controller %q is not supported, state %q or %q", ctrl, collectionagent.CollectorControllerDefault, collectionagent.CollectorControllerOpenTelemetryOperator)
 	}
 
 	buf := bytes.NewBuffer(nil)
-	if err := valuesYAMLTemplate.Execute(buf, templateDataFor(config)); err != nil {
-		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute %s template", valuesYAMLTemplate.Name())
+	if err := tmpl.Execute(buf, templateDataFor(config)); err != nil {
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute %s template", tmpl.Name())
 	}
 
 	// A values file per kind, so a casting file of several agents pours one per document.
@@ -169,10 +183,32 @@ func releaseName(config collectionagent.Casting) string {
 	return fmt.Sprintf("%s-collector-%s", config.Metadata.Name, config.Spec.Collector.Kind)
 }
 
+func controller(config collectionagent.Casting) string {
+	return collectionagent.KubernetesCollectorController.Resolve(config.Metadata.Annotations)
+}
+
 // The repository applies to a bare chart name only: helm looks a slashed reference up in the index.
+// Under the operator an unstated chart or repository names the kube-stack chart, and the version follows foundry's chart choice.
 func chartSource(config collectionagent.Casting) (chart, version, repoURL string) {
-	chart = collectionagent.HelmChart.Resolve(config.Metadata.Annotations)
-	version = collectionagent.HelmChartVersion.Resolve(config.Metadata.Annotations)
+	annotations := config.Metadata.Annotations
+
+	chart = collectionagent.HelmChart.Resolve(annotations)
+	version = collectionagent.HelmChartVersion.Resolve(annotations)
+	repoURL = collectionagent.HelmChartRepoURL.Resolve(annotations)
+
+	if controller(config) == collectionagent.CollectorControllerOpenTelemetryOperator {
+		if annotations[collectionagent.HelmChart.Key] == "" {
+			chart = kubeStackChart
+
+			if annotations[collectionagent.HelmChartVersion.Key] == "" {
+				version = kubeStackChartVersion
+			}
+		}
+
+		if annotations[collectionagent.HelmChartRepoURL.Key] == "" {
+			repoURL = kubeStackRepoURL
+		}
+	}
 
 	// Helm has no "latest" token: only an empty version means the repository's newest chart.
 	if version == "latest" {
@@ -183,5 +219,5 @@ func chartSource(config collectionagent.Casting) (chart, version, repoURL string
 		return chart, version, ""
 	}
 
-	return chart, version, collectionagent.HelmChartRepoURL.Resolve(config.Metadata.Annotations)
+	return chart, version, repoURL
 }

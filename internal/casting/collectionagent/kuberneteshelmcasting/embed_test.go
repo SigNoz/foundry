@@ -1,6 +1,7 @@
 package kuberneteshelmcasting
 
 import (
+	"bytes"
 	"context"
 	"log/slog"
 	"os"
@@ -118,14 +119,31 @@ func TestTemplatesRender(t *testing.T) {
 	for name, test := range map[string]struct {
 		template *domain.Template
 		config   *collectionagent.Casting
+		pass     bool
 	}{
-		"AgentValues_Valid":      {valuesYAMLTemplate, moldedCasting(t, collectionagent.CollectorKindAgent, defaultEnv())},
-		"DeploymentValues_Valid": {valuesYAMLTemplate, moldedCasting(t, collectionagent.CollectorKindDeployment, defaultEnv())},
-		"AgentConfig_Valid":      {agentYAMLTemplate, collectionagent.Default()},
-		"DeploymentConfig_Valid": {deploymentYAMLTemplate, collectionagent.Default()},
+		"AgentValues_Valid":      {valuesYAMLTemplate, moldedCasting(t, collectionagent.CollectorKindAgent, defaultEnv()), true},
+		"DeploymentValues_Valid": {valuesYAMLTemplate, moldedCasting(t, collectionagent.CollectorKindDeployment, defaultEnv()), true},
+		"AgentConfig_Valid":      {agentYAMLTemplate, collectionagent.Default(), true},
+		"DeploymentConfig_Valid": {deploymentYAMLTemplate, collectionagent.Default(), true},
+		"OperatorAgentValues_Valid": {
+			kubeStackValuesYAMLTemplate,
+			moldedCasting(t, collectionagent.CollectorKindAgent, defaultEnv()),
+			true,
+		},
+		"OperatorDeploymentValues_Valid": {
+			kubeStackValuesYAMLTemplate,
+			moldedCasting(t, collectionagent.CollectorKindDeployment, defaultEnv()),
+			true,
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			material, err := test.template.Render(templateDataFor(*test.config), strings.TrimSuffix(test.template.Name(), ".gotmpl"))
+
+			if !test.pass {
+				require.Error(t, err)
+
+				return
+			}
 
 			require.NoError(t, err)
 			assert.NotEmpty(t, material.FmtContents())
@@ -672,4 +690,125 @@ func components(t *testing.T, pipeline map[string]any, class string) []string {
 	}
 
 	return names
+}
+
+type kubeStackValues struct {
+	RewriteDeprecatedComponentNames *bool   `json:"rewriteDeprecatedComponentNames"`
+	ClusterName                     *string `json:"clusterName"`
+	DefaultCRConfig                 struct {
+		Resources *map[string]any `json:"resources"`
+	} `json:"defaultCRConfig"`
+	Collectors map[string]struct {
+		Env []struct {
+			Name  string  `json:"name"`
+			Value *string `json:"value"`
+		} `json:"env"`
+	} `json:"collectors"`
+}
+
+func TestKubeStackValuesFixes(t *testing.T) {
+	attributed := defaultEnv()
+	attributed["OTEL_RESOURCE_ATTRIBUTES"] = "deployment.environment=production"
+
+	for _, test := range []struct {
+		name                        string
+		pass                        bool
+		env                         map[string]string
+		expectedEnv                 map[string]string
+		expectedAbsentEnv           []string
+		expectedRewriteOff          bool
+		expectedClusterNameUnstated bool
+		expectedLimitsNulled        bool
+	}{
+		{
+			name: "EnvQuoted_Valid",
+			pass: true,
+			env:  map[string]string{"K8S_CLUSTER_NAME": "123", "SIGNOZ_INGESTION_ENDPOINT": "http://signoz:4318"},
+			expectedEnv: map[string]string{
+				"K8S_CLUSTER_NAME":          `"123"`,
+				"SIGNOZ_INGESTION_ENDPOINT": `"http://signoz:4318"`,
+			},
+		},
+		{
+			name:                        "ClusterNameUnstated_Valid",
+			pass:                        true,
+			env:                         map[string]string{"SIGNOZ_INGESTION_ENDPOINT": "http://signoz:4318"},
+			expectedAbsentEnv:           []string{"OTEL_RESOURCE_ATTRIBUTES"},
+			expectedClusterNameUnstated: true,
+		},
+		{
+			name:        "ResourceAttributesStated_Valid",
+			pass:        true,
+			env:         attributed,
+			expectedEnv: map[string]string{"OTEL_RESOURCE_ATTRIBUTES": `"deployment.environment=production"`},
+		},
+		{
+			name:               "RenamePassOff_Valid",
+			pass:               true,
+			env:                defaultEnv(),
+			expectedRewriteOff: true,
+		},
+		{
+			name:                 "LimitsNulled_Valid",
+			pass:                 true,
+			env:                  defaultEnv(),
+			expectedLimitsNulled: true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			config := moldedCasting(t, collectionagent.CollectorKindAgent, test.env)
+			config.Metadata.Annotations = map[string]string{collectionagent.KubernetesCollectorController.Key: collectionagent.CollectorControllerOpenTelemetryOperator}
+
+			buf := bytes.NewBuffer(nil)
+			err := kubeStackValuesYAMLTemplate.Execute(buf, templateDataFor(*config))
+
+			if !test.pass {
+				require.Error(t, err)
+
+				return
+			}
+
+			require.NoError(t, err)
+
+			var rendered kubeStackValues
+			require.NoError(t, domain.UnmarshalYAML(buf.Bytes(), &rendered))
+
+			env := map[string]string{}
+
+			for _, entry := range rendered.Collectors["agent"].Env {
+				require.NotContains(t, env, entry.Name, "%q is stated twice", entry.Name)
+
+				if entry.Value != nil {
+					env[entry.Name] = *entry.Value
+				}
+			}
+
+			for name, expected := range test.expectedEnv {
+				assert.Equal(t, expected, env[name], name)
+			}
+
+			for _, name := range test.expectedAbsentEnv {
+				assert.NotContains(t, env, name)
+			}
+
+			if test.expectedRewriteOff {
+				require.NotNil(t, rendered.RewriteDeprecatedComponentNames)
+				assert.False(t, *rendered.RewriteDeprecatedComponentNames)
+			}
+
+			if test.expectedClusterNameUnstated {
+				assert.Nil(t, rendered.ClusterName)
+			}
+
+			if test.expectedLimitsNulled {
+				var raw map[string]any
+				require.NoError(t, domain.UnmarshalYAML(buf.Bytes(), &raw))
+
+				defaults, ok := raw["defaultCRConfig"].(map[string]any)
+				require.True(t, ok)
+				assert.Contains(t, defaults, "resources")
+				assert.Nil(t, rendered.DefaultCRConfig.Resources)
+			}
+		})
+	}
 }
