@@ -1,8 +1,10 @@
 package kuberneteshelmcasting
 
 import (
+	"bytes"
 	"context"
 	"log/slog"
+	"maps"
 	"os"
 	"reflect"
 	"slices"
@@ -79,21 +81,6 @@ func moldedCasting(t *testing.T, kind collectionagent.CollectorKind, env map[str
 	return config
 }
 
-// An empty controller leaves the annotation unstated.
-func withController(controller string) func(*collectionagent.Casting) {
-	return func(config *collectionagent.Casting) {
-		if controller == "" {
-			return
-		}
-
-		if config.Metadata.Annotations == nil {
-			config.Metadata.Annotations = map[string]string{}
-		}
-
-		config.Metadata.Annotations[collectionagent.KubernetesCollectorController.Key] = controller
-	}
-}
-
 func defaultEnv() map[string]string {
 	return map[string]string{
 		"K8S_CLUSTER_NAME":          "production",
@@ -148,7 +135,10 @@ func TestForge(t *testing.T) {
 		{"UnknownController_Invalid", collectionagent.CollectorKindAgent, "argo", false, foundryerrors.TypeInvalidInput.ExitCode(), "", false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			config := moldedCasting(t, test.kind, defaultEnv(), withController(test.controller))
+			config := moldedCasting(t, test.kind, defaultEnv())
+			if test.controller != "" {
+				config.Metadata.Annotations = map[string]string{collectionagent.KubernetesCollectorController.Key: test.controller}
+			}
 
 			p := pourer.New("collectionagent")
 			err := New(slog.New(slog.DiscardHandler)).Forge(context.Background(), *config, p)
@@ -184,37 +174,42 @@ func TestChartSource(t *testing.T) {
 		name            string
 		controller      string
 		annotations     map[string]string
+		pass            bool
 		expectedChart   string
 		expectedVersion string
 		expectedRepoURL string
 	}{
-		{"Unstated_Valid", "", nil, "k8s-infra", "", "https://charts.signoz.io"},
+		{"Unstated_Valid", "", nil, true, "k8s-infra", "", "https://charts.signoz.io"},
 		{
 			"StatedVersion_Valid", "",
 			map[string]string{collectionagent.HelmChartVersion.Key: "0.17.1"},
-			"k8s-infra", "0.17.1", "https://charts.signoz.io",
+			true, "k8s-infra", "0.17.1", "https://charts.signoz.io",
 		},
 		{
 			"SlashedRef_Valid", "",
 			map[string]string{collectionagent.HelmChart.Key: "./charts/k8s-infra"},
-			"./charts/k8s-infra", "", "",
+			true, "./charts/k8s-infra", "", "",
 		},
-		{"OperatorUnstated_Valid", operator, nil, kubeStackChart, kubeStackChartVersion, kubeStackRepoURL},
+		{"OperatorUnstated_Valid", operator, nil, true, kubeStackChart, kubeStackChartVersion, kubeStackRepoURL},
 		{
 			"OperatorStatedLatest_Valid", operator,
 			map[string]string{collectionagent.HelmChartVersion.Key: "latest"},
-			kubeStackChart, "", kubeStackRepoURL,
+			true, kubeStackChart, "", kubeStackRepoURL,
 		},
 		{
 			"OperatorStatedChartName_Valid", operator,
 			map[string]string{collectionagent.HelmChart.Key: "k8s-infra"},
-			"k8s-infra", "", kubeStackRepoURL,
+			true, "k8s-infra", "", kubeStackRepoURL,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			config := collectionagent.Default()
-			config.Metadata.Annotations = test.annotations
-			withController(test.controller)(config)
+			config.Metadata.Annotations = map[string]string{}
+			maps.Copy(config.Metadata.Annotations, test.annotations)
+
+			if test.controller != "" {
+				config.Metadata.Annotations[collectionagent.KubernetesCollectorController.Key] = test.controller
+			}
 
 			chart, version, repoURL := chartSource(*config)
 
@@ -236,11 +231,11 @@ func TestTemplatesRender(t *testing.T) {
 		"DeploymentConfig_Valid": {deploymentYAMLTemplate, collectionagent.Default()},
 		"OperatorAgentValues_Valid": {
 			kubeStackValuesYAMLTemplate,
-			moldedCasting(t, collectionagent.CollectorKindAgent, defaultEnv(), withController(collectionagent.CollectorControllerOpenTelemetryOperator)),
+			moldedCasting(t, collectionagent.CollectorKindAgent, defaultEnv()),
 		},
 		"OperatorDeploymentValues_Valid": {
 			kubeStackValuesYAMLTemplate,
-			moldedCasting(t, collectionagent.CollectorKindDeployment, defaultEnv(), withController(collectionagent.CollectorControllerOpenTelemetryOperator)),
+			moldedCasting(t, collectionagent.CollectorKindDeployment, defaultEnv()),
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -793,33 +788,18 @@ func components(t *testing.T, pipeline map[string]any, class string) []string {
 	return names
 }
 
-func renderKubeStackValues(t *testing.T, config *collectionagent.Casting) map[string]any {
-	t.Helper()
-
-	material, err := kubeStackValuesYAMLTemplate.Render(templateDataFor(*config), "values.yaml")
-	require.NoError(t, err)
-
-	var rendered map[string]any
-	require.NoError(t, domain.UnmarshalYAML(material.FmtContents(), &rendered))
-
-	return rendered
-}
-
-func lookup(values map[string]any, path string) (any, bool) {
-	var node any = values
-
-	for key := range strings.SplitSeq(path, ".") {
-		parent, ok := node.(map[string]any)
-		if !ok {
-			return nil, false
-		}
-
-		if node, ok = parent[key]; !ok {
-			return nil, false
-		}
-	}
-
-	return node, true
+type kubeStackValues struct {
+	RewriteDeprecatedComponentNames *bool   `json:"rewriteDeprecatedComponentNames"`
+	ClusterName                     *string `json:"clusterName"`
+	DefaultCRConfig                 struct {
+		Resources *map[string]any `json:"resources"`
+	} `json:"defaultCRConfig"`
+	Collectors map[string]struct {
+		Env []struct {
+			Name  string  `json:"name"`
+			Value *string `json:"value"`
+		} `json:"env"`
+	} `json:"collectors"`
 }
 
 func TestKubeStackValuesFixes(t *testing.T) {
@@ -827,72 +807,102 @@ func TestKubeStackValuesFixes(t *testing.T) {
 	attributed["OTEL_RESOURCE_ATTRIBUTES"] = "deployment.environment=production"
 
 	for _, test := range []struct {
-		name           string
-		env            map[string]string
-		expectedPaths  map[string]any
-		expectedAbsent []string
-		expectedEnv    map[string][]any
+		name                        string
+		pass                        bool
+		env                         map[string]string
+		expectedEnv                 map[string]string
+		expectedAbsentEnv           []string
+		expectedRewriteOff          bool
+		expectedClusterNameUnstated bool
+		expectedLimitsNulled        bool
 	}{
 		{
 			name: "EnvQuoted_Valid",
+			pass: true,
 			env:  map[string]string{"K8S_CLUSTER_NAME": "123", "SIGNOZ_INGESTION_ENDPOINT": "http://signoz:4318"},
-			expectedEnv: map[string][]any{
-				"K8S_CLUSTER_NAME":          {`"123"`},
-				"SIGNOZ_INGESTION_ENDPOINT": {`"http://signoz:4318"`},
+			expectedEnv: map[string]string{
+				"K8S_CLUSTER_NAME":          `"123"`,
+				"SIGNOZ_INGESTION_ENDPOINT": `"http://signoz:4318"`,
 			},
 		},
 		{
-			name:           "ClusterNameUnstated_Valid",
-			env:            map[string]string{"SIGNOZ_INGESTION_ENDPOINT": "http://signoz:4318"},
-			expectedAbsent: []string{"clusterName"},
-			expectedEnv:    map[string][]any{"OTEL_RESOURCE_ATTRIBUTES": nil},
+			name:                        "ClusterNameUnstated_Valid",
+			pass:                        true,
+			env:                         map[string]string{"SIGNOZ_INGESTION_ENDPOINT": "http://signoz:4318"},
+			expectedAbsentEnv:           []string{"OTEL_RESOURCE_ATTRIBUTES"},
+			expectedClusterNameUnstated: true,
 		},
 		{
 			name:        "ResourceAttributesStated_Valid",
+			pass:        true,
 			env:         attributed,
-			expectedEnv: map[string][]any{"OTEL_RESOURCE_ATTRIBUTES": {`"deployment.environment=production"`}},
+			expectedEnv: map[string]string{"OTEL_RESOURCE_ATTRIBUTES": `"deployment.environment=production"`},
 		},
 		{
-			name:          "RenamePassOff_Valid",
-			env:           defaultEnv(),
-			expectedPaths: map[string]any{"rewriteDeprecatedComponentNames": false},
+			name:               "RenamePassOff_Valid",
+			pass:               true,
+			env:                defaultEnv(),
+			expectedRewriteOff: true,
 		},
 		{
-			name:          "LimitsNulled_Valid",
-			env:           defaultEnv(),
-			expectedPaths: map[string]any{"defaultCRConfig.resources": nil},
+			name:                 "LimitsNulled_Valid",
+			pass:                 true,
+			env:                  defaultEnv(),
+			expectedLimitsNulled: true,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			config := moldedCasting(t, collectionagent.CollectorKindAgent, test.env, withController(collectionagent.CollectorControllerOpenTelemetryOperator))
-			rendered := renderKubeStackValues(t, config)
+			config := moldedCasting(t, collectionagent.CollectorKindAgent, test.env)
+			config.Metadata.Annotations = map[string]string{collectionagent.KubernetesCollectorController.Key: collectionagent.CollectorControllerOpenTelemetryOperator}
 
-			for path, expected := range test.expectedPaths {
-				value, ok := lookup(rendered, path)
-				require.True(t, ok, "%q must be stated", path)
+			buf := bytes.NewBuffer(nil)
+			err := kubeStackValuesYAMLTemplate.Execute(buf, templateDataFor(*config))
 
-				assert.Equal(t, expected, value, path)
+			if !test.pass {
+				require.Error(t, err)
+
+				return
 			}
 
-			for _, path := range test.expectedAbsent {
-				_, ok := lookup(rendered, path)
+			require.NoError(t, err)
 
-				assert.False(t, ok, "%q must not be stated", path)
+			var rendered kubeStackValues
+			require.NoError(t, domain.UnmarshalYAML(buf.Bytes(), &rendered))
+
+			env := map[string]string{}
+			for _, entry := range rendered.Collectors["agent"].Env {
+				require.NotContains(t, env, entry.Name, "%q is stated twice", entry.Name)
+
+				if entry.Value != nil {
+					env[entry.Name] = *entry.Value
+				}
 			}
-
-			entries, ok := lookup(rendered, "collectors.agent.env")
-			require.True(t, ok)
 
 			for name, expected := range test.expectedEnv {
-				var values []any
+				assert.Equal(t, expected, env[name], name)
+			}
 
-				for _, entry := range entries.([]any) {
-					if env := entry.(map[string]any); env["name"] == name {
-						values = append(values, env["value"])
-					}
-				}
+			for _, name := range test.expectedAbsentEnv {
+				assert.NotContains(t, env, name)
+			}
 
-				assert.Equal(t, expected, values, name)
+			if test.expectedRewriteOff {
+				require.NotNil(t, rendered.RewriteDeprecatedComponentNames)
+				assert.False(t, *rendered.RewriteDeprecatedComponentNames)
+			}
+
+			if test.expectedClusterNameUnstated {
+				assert.Nil(t, rendered.ClusterName)
+			}
+
+			if test.expectedLimitsNulled {
+				var raw map[string]any
+				require.NoError(t, domain.UnmarshalYAML(buf.Bytes(), &raw))
+
+				defaults, ok := raw["defaultCRConfig"].(map[string]any)
+				require.True(t, ok)
+				assert.Contains(t, defaults, "resources")
+				assert.Nil(t, rendered.DefaultCRConfig.Resources)
 			}
 		})
 	}
