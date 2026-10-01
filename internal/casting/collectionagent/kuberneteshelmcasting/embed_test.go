@@ -210,7 +210,7 @@ func TestChartSource(t *testing.T) {
 		{
 			"OperatorStatedChartName_Valid", operator,
 			map[string]string{collectionagent.HelmChart.Key: "k8s-infra"},
-			"k8s-infra", kubeStackChartVersion, kubeStackRepoURL,
+			"k8s-infra", "", kubeStackRepoURL,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {

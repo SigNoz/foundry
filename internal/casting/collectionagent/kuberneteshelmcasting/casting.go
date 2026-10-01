@@ -188,7 +188,7 @@ func controller(config collectionagent.Casting) string {
 }
 
 // The repository applies to a bare chart name only: helm looks a slashed reference up in the index.
-// Under the operator an unstated chart, repository or version names the kube-stack chart; a stated one wins.
+// Under the operator an unstated chart or repository names the kube-stack chart, and the version follows foundry's chart choice.
 func chartSource(config collectionagent.Casting) (chart, version, repoURL string) {
 	annotations := config.Metadata.Annotations
 
@@ -199,10 +199,10 @@ func chartSource(config collectionagent.Casting) (chart, version, repoURL string
 	if controller(config) == collectionagent.CollectorControllerOpenTelemetryOperator {
 		if annotations[collectionagent.HelmChart.Key] == "" {
 			chart = kubeStackChart
-		}
 
-		if annotations[collectionagent.HelmChartVersion.Key] == "" {
-			version = kubeStackChartVersion
+			if annotations[collectionagent.HelmChartVersion.Key] == "" {
+				version = kubeStackChartVersion
+			}
 		}
 
 		if annotations[collectionagent.HelmChartRepoURL.Key] == "" {

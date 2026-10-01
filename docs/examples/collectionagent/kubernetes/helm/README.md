@@ -168,7 +168,7 @@ chart source. These are not required for standard deployments.
 | `foundry.signoz.io/kubernetes-namespace` | `metadata.name` | Namespace the collector is deployed into |
 | `foundry.signoz.io/kubernetes-helm-chart` | `k8s-infra` | Chart name in the repository, a URL to a chart archive, or a local chart path; `opentelemetry-kube-stack` under the `opentelemetry-operator` controller |
 | `foundry.signoz.io/kubernetes-helm-repo-url` | `https://charts.signoz.io` | Chart repository the chart name is resolved against; unused when the chart states its own location. `https://open-telemetry.github.io/opentelemetry-helm-charts` under the `opentelemetry-operator` controller |
-| `foundry.signoz.io/kubernetes-helm-chart-version` | `latest` | Chart version to install; `latest` installs the newest chart in the repository. `0.13.0` under the `opentelemetry-operator` controller |
+| `foundry.signoz.io/kubernetes-helm-chart-version` | `latest` | Chart version to install; `latest` installs the newest chart in the repository. Under the `opentelemetry-operator` controller the version defaults to `0.13.0` when the chart is unstated |
 
 Example pinning the chart version:
 

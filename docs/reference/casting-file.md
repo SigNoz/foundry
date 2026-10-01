@@ -181,8 +181,9 @@ Optional. Applies to `mode: kubernetes`, both flavors.
 
 Optional. Override the default Helm chart source when using `mode: kubernetes`, `flavor: helm`.
 A CollectionAgent under the `opentelemetry-operator` controller defaults to the
-`opentelemetry-kube-stack` chart, version `0.13.0`, from
+`opentelemetry-kube-stack` chart from
 `https://open-telemetry.github.io/opentelemetry-helm-charts`; a stated annotation wins.
+The version defaults to `0.13.0` when the chart is unstated.
 
 | Annotation | Default | Description |
 | --- | --- | --- |
