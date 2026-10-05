@@ -63,11 +63,11 @@ func castingWithKind(t *testing.T, kind collectionagent.CollectorKind) collectio
 // Fargate schedules no DaemonSet, and one collector scrapes every node.
 func TestForge(t *testing.T) {
 	for _, test := range []struct {
-		name         string
-		kind         collectionagent.CollectorKind
-		replicas     *int
-		pass         bool
-		expectedType int
+		name              string
+		kind              collectionagent.CollectorKind
+		replicas          *int
+		pass              bool
+		expectedErrorType int
 	}{
 		{"Deployment_Valid", collectionagent.CollectorKindDeployment, nil, true, 0},
 		{"Agent_Invalid", collectionagent.CollectorKindAgent, nil, false, foundryerrors.TypeUnsupported.ExitCode()},
@@ -87,7 +87,7 @@ func TestForge(t *testing.T) {
 
 			if !test.pass {
 				require.Error(t, err)
-				assert.Equal(t, test.expectedType, foundryerrors.ExitCode(err))
+				assert.Equal(t, test.expectedErrorType, foundryerrors.ExitCode(err))
 
 				return
 			}
@@ -116,10 +116,10 @@ func TestForge(t *testing.T) {
 
 func TestForgeCollectorController(t *testing.T) {
 	for _, test := range []struct {
-		name         string
-		annotations  map[string]string
-		pass         bool
-		expectedType int
+		name              string
+		annotations       map[string]string
+		pass              bool
+		expectedErrorType int
 	}{
 		{"Unstated_Valid", nil, true, 0},
 		{"DefaultStated_Valid", map[string]string{collectionagent.KubernetesCollectorController.Key: collectionagent.CollectorControllerDefault}, true, 0},
@@ -131,14 +131,14 @@ func TestForgeCollectorController(t *testing.T) {
 
 			err := New(slog.New(slog.DiscardHandler)).Forge(context.Background(), config, pourer.New("collectionagent"))
 
-			if !test.pass {
-				require.Error(t, err)
-				assert.Equal(t, test.expectedType, foundryerrors.ExitCode(err))
+			if test.pass {
+				require.NoError(t, err)
 
 				return
 			}
 
-			require.NoError(t, err)
+			require.Error(t, err)
+			assert.Equal(t, test.expectedErrorType, foundryerrors.ExitCode(err))
 		})
 	}
 }

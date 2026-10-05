@@ -186,13 +186,13 @@ func TestForge(t *testing.T) {
 	operator := []string{"kustomization.yaml", "namespace.yaml", "serviceaccount.yaml", "clusterrole.yaml", "clusterrolebinding.yaml", "opentelemetrycollector.yaml"}
 
 	for _, test := range []struct {
-		name          string
-		kind          collectionagent.CollectorKind
-		controller    string
-		pass          bool
-		expectedType  int
-		expectedFiles []string
-		expectedPour  bool
+		name              string
+		kind              collectionagent.CollectorKind
+		controller        string
+		pass              bool
+		expectedErrorType int
+		expectedFiles     []string
+		expectedPour      bool
 	}{
 		{"Agent_Valid", collectionagent.CollectorKindAgent, "", true, 0, native, true},
 		{"Deployment_Valid", collectionagent.CollectorKindDeployment, "", true, 0, native, true},
@@ -218,35 +218,35 @@ func TestForge(t *testing.T) {
 			p := pourer.New("collectionagent")
 			err := New(slog.New(slog.DiscardHandler)).Forge(ctx, *config, p)
 
-			if !test.pass {
-				require.Error(t, err)
-				assert.Equal(t, test.expectedType, foundryerrors.ExitCode(err))
+			if test.pass {
+				require.NoError(t, err)
+
+				materials, err := p.Pour()
+				require.NoError(t, err)
+
+				var paths []string
+				for _, material := range materials {
+					paths = append(paths, material.Path())
+				}
+
+				dir := filepath.Join("collectionagent", filepath.Dir(test.kind.ConfigKey()))
+
+				var expectedPaths []string
+				for _, file := range test.expectedFiles {
+					expectedPaths = append(expectedPaths, filepath.Join(dir, file))
+				}
+
+				if test.expectedPour {
+					expectedPaths = append(expectedPaths, filepath.Join("collectionagent", test.kind.ConfigKey()))
+				}
+
+				assert.ElementsMatch(t, expectedPaths, paths)
 
 				return
 			}
 
-			require.NoError(t, err)
-
-			materials, err := p.Pour()
-			require.NoError(t, err)
-
-			var paths []string
-			for _, material := range materials {
-				paths = append(paths, material.Path())
-			}
-
-			dir := filepath.Join("collectionagent", filepath.Dir(test.kind.ConfigKey()))
-
-			var expectedPaths []string
-			for _, file := range test.expectedFiles {
-				expectedPaths = append(expectedPaths, filepath.Join(dir, file))
-			}
-
-			if test.expectedPour {
-				expectedPaths = append(expectedPaths, filepath.Join("collectionagent", test.kind.ConfigKey()))
-			}
-
-			assert.ElementsMatch(t, expectedPaths, paths)
+			require.Error(t, err)
+			assert.Equal(t, test.expectedErrorType, foundryerrors.ExitCode(err))
 		})
 	}
 }
