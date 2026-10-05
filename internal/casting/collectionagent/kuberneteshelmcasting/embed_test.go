@@ -3,6 +3,7 @@ package kuberneteshelmcasting
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"reflect"
@@ -484,7 +485,7 @@ func TestChart(t *testing.T) {
 			require.NoError(t, domain.UnmarshalYAML(renderValuesYAML(t, test.config), &vals))
 
 			kind := test.config.Spec.Collector.Kind
-			manifests := renderChart(t, chrt, vals, releaseName(*test.config), namespace(*test.config))
+			manifests := renderChart(t, chrt, vals, fmt.Sprintf("%s-collector-%s", test.config.Metadata.Name, kind), templateDataFor(*test.config).Namespace)
 
 			assert.Equal(t, foundryConfig(t, test.config), chartConfig(t, manifests, chrt, kind))
 

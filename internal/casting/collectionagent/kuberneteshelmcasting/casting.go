@@ -41,13 +41,13 @@ func (c *kubernetesHelmCasting) Enricher(ctx context.Context, config *collection
 func (c *kubernetesHelmCasting) Forge(ctx context.Context, config collectionagent.Casting, p *pourer.Pourer) error {
 	var tmpl *domain.Template
 
-	switch ctrl := controller(config); ctrl {
+	switch controller := collectionagent.KubernetesCollectorController.Resolve(config.Metadata.Annotations); controller {
 	case collectionagent.CollectorControllerDefault:
 		tmpl = valuesYAMLTemplate
 	case collectionagent.CollectorControllerOpenTelemetryOperator:
 		tmpl = kubeStackValuesYAMLTemplate
 	default:
-		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "collector controller %q is not supported, state %q or %q", ctrl, collectionagent.CollectorControllerDefault, collectionagent.CollectorControllerOpenTelemetryOperator)
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "collector controller %q is not supported, state %q or %q", controller, collectionagent.CollectorControllerDefault, collectionagent.CollectorControllerOpenTelemetryOperator)
 	}
 
 	buf := bytes.NewBuffer(nil)
@@ -77,8 +77,13 @@ func (c *kubernetesHelmCasting) Cast(ctx context.Context, config collectionagent
 		return foundryerrors.Wrapf(err, foundryerrors.TypeInvalidInput, "failed to parse values")
 	}
 
-	release := releaseName(config)
-	ns := namespace(config)
+	// The kind keeps a file's agent and deployment two releases in one namespace.
+	release := fmt.Sprintf("%s-collector-%s", config.Metadata.Name, config.Spec.Collector.Kind)
+	ns := collectionagent.KubernetesNamespace.Resolve(config.Metadata.Annotations)
+
+	if ns == "" {
+		ns = config.Metadata.Name
+	}
 
 	settings := cli.New()
 	settings.SetNamespace(ns)
@@ -165,26 +170,14 @@ type templateData struct {
 }
 
 func templateDataFor(config collectionagent.Casting) templateData {
-	return templateData{Casting: config, Namespace: namespace(config)}
-}
-
-// The annotation's default cannot name metadata.name, so the fallback lives here.
-func namespace(config collectionagent.Casting) string {
 	ns := collectionagent.KubernetesNamespace.Resolve(config.Metadata.Annotations)
+
+	// The annotation's default cannot name metadata.name, so the fallback lives here.
 	if ns == "" {
 		ns = config.Metadata.Name
 	}
 
-	return ns
-}
-
-// The kind keeps a file's agent and deployment two releases in one namespace.
-func releaseName(config collectionagent.Casting) string {
-	return fmt.Sprintf("%s-collector-%s", config.Metadata.Name, config.Spec.Collector.Kind)
-}
-
-func controller(config collectionagent.Casting) string {
-	return collectionagent.KubernetesCollectorController.Resolve(config.Metadata.Annotations)
+	return templateData{Casting: config, Namespace: ns}
 }
 
 // The repository applies to a bare chart name only: helm looks a slashed reference up in the index.
@@ -196,7 +189,7 @@ func chartSource(config collectionagent.Casting) (chart, version, repoURL string
 	version = collectionagent.HelmChartVersion.Resolve(annotations)
 	repoURL = collectionagent.HelmChartRepoURL.Resolve(annotations)
 
-	if controller(config) == collectionagent.CollectorControllerOpenTelemetryOperator {
+	if collectionagent.KubernetesCollectorController.Resolve(annotations) == collectionagent.CollectorControllerOpenTelemetryOperator {
 		if annotations[collectionagent.HelmChart.Key] == "" {
 			chart = kubeStackChart
 
