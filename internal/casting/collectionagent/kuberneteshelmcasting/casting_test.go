@@ -65,6 +65,7 @@ func TestForge(t *testing.T) {
 }
 
 func TestChartSource(t *testing.T) {
+	casting := New(slog.New(slog.DiscardHandler))
 	operator := collectionagent.CollectorControllerOpenTelemetryOperator
 
 	for _, test := range []struct {
@@ -108,7 +109,7 @@ func TestChartSource(t *testing.T) {
 				config.Metadata.Annotations[collectionagent.KubernetesCollectorController.Key] = test.controller
 			}
 
-			chart, version, repoURL := chartSource(*config)
+			chart, version, repoURL := casting.chartSource(*config)
 
 			assert.Equal(t, test.expectedChart, chart)
 			assert.Equal(t, test.expectedVersion, version)

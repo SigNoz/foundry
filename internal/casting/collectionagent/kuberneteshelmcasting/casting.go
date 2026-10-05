@@ -95,7 +95,7 @@ func (c *kubernetesHelmCasting) Cast(ctx context.Context, config collectionagent
 		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to initialize helm action config")
 	}
 
-	chartRef, version, repoURL := chartSource(config)
+	chartRef, version, repoURL := c.chartSource(config)
 
 	c.logger.InfoContext(ctx, "Deploying with Helm",
 		slog.String("release", release),
@@ -182,7 +182,7 @@ func templateDataFor(config collectionagent.Casting) templateData {
 
 // The repository applies to a bare chart name only: helm looks a slashed reference up in the index.
 // Under the operator an unstated chart or repository names the kube-stack chart, and the version follows foundry's chart choice.
-func chartSource(config collectionagent.Casting) (chart, version, repoURL string) {
+func (c *kubernetesHelmCasting) chartSource(config collectionagent.Casting) (chart, version, repoURL string) {
 	annotations := config.Metadata.Annotations
 
 	chart = collectionagent.HelmChart.Resolve(annotations)
