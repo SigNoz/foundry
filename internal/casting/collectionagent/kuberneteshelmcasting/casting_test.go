@@ -20,7 +20,7 @@ func TestForge(t *testing.T) {
 		kind              collectionagent.CollectorKind
 		controller        string
 		pass              bool
-		expectedType      int
+		expectedErrorType int
 		expectedPath      string
 		expectedKubeStack bool
 	}{
@@ -40,26 +40,26 @@ func TestForge(t *testing.T) {
 			p := pourer.New("collectionagent")
 			err := New(slog.New(slog.DiscardHandler)).Forge(context.Background(), *config, p)
 
-			if !test.pass {
-				require.Error(t, err)
-				assert.Equal(t, test.expectedType, foundryerrors.ExitCode(err))
+			if test.pass {
+				require.NoError(t, err)
+
+				materials, err := p.Pour()
+				require.NoError(t, err)
+				require.Len(t, materials, 1)
+
+				assert.Equal(t, test.expectedPath, materials[0].Path())
+
+				var rendered map[string]any
+				require.NoError(t, domain.UnmarshalYAML(materials[0].FmtContents(), &rendered))
+
+				assert.Equal(t, test.expectedKubeStack, rendered["collectors"] != nil)
+				assert.Equal(t, !test.expectedKubeStack, rendered["otelAgent"] != nil)
 
 				return
 			}
 
-			require.NoError(t, err)
-
-			materials, err := p.Pour()
-			require.NoError(t, err)
-			require.Len(t, materials, 1)
-
-			assert.Equal(t, test.expectedPath, materials[0].Path())
-
-			var rendered map[string]any
-			require.NoError(t, domain.UnmarshalYAML(materials[0].FmtContents(), &rendered))
-
-			assert.Equal(t, test.expectedKubeStack, rendered["collectors"] != nil)
-			assert.Equal(t, !test.expectedKubeStack, rendered["otelAgent"] != nil)
+			require.Error(t, err)
+			assert.Equal(t, test.expectedErrorType, foundryerrors.ExitCode(err))
 		})
 	}
 }

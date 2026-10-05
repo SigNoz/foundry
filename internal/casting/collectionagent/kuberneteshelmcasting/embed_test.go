@@ -140,14 +140,14 @@ func TestTemplatesRender(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			material, err := test.template.Render(templateDataFor(*test.config), strings.TrimSuffix(test.template.Name(), ".gotmpl"))
 
-			if !test.pass {
-				require.Error(t, err)
+			if test.pass {
+				require.NoError(t, err)
+				assert.NotEmpty(t, material.FmtContents())
 
 				return
 			}
 
-			require.NoError(t, err)
-			assert.NotEmpty(t, material.FmtContents())
+			require.Error(t, err)
 		})
 	}
 }
@@ -763,53 +763,53 @@ func TestKubeStackValuesFixes(t *testing.T) {
 			buf := bytes.NewBuffer(nil)
 			err := kubeStackValuesYAMLTemplate.Execute(buf, templateDataFor(*config))
 
-			if !test.pass {
-				require.Error(t, err)
+			if test.pass {
+				require.NoError(t, err)
+
+				var rendered kubeStackValues
+				require.NoError(t, domain.UnmarshalYAML(buf.Bytes(), &rendered))
+
+				env := map[string]string{}
+
+				for _, entry := range rendered.Collectors["agent"].Env {
+					require.NotContains(t, env, entry.Name, "%q is stated twice", entry.Name)
+
+					if entry.Value != nil {
+						env[entry.Name] = *entry.Value
+					}
+				}
+
+				for name, expected := range test.expectedEnv {
+					assert.Equal(t, expected, env[name], name)
+				}
+
+				for _, name := range test.expectedAbsentEnv {
+					assert.NotContains(t, env, name)
+				}
+
+				if test.expectedRewriteOff {
+					require.NotNil(t, rendered.RewriteDeprecatedComponentNames)
+					assert.False(t, *rendered.RewriteDeprecatedComponentNames)
+				}
+
+				if test.expectedClusterNameUnstated {
+					assert.Nil(t, rendered.ClusterName)
+				}
+
+				if test.expectedLimitsNulled {
+					var raw map[string]any
+					require.NoError(t, domain.UnmarshalYAML(buf.Bytes(), &raw))
+
+					defaults, ok := raw["defaultCRConfig"].(map[string]any)
+					require.True(t, ok)
+					assert.Contains(t, defaults, "resources")
+					assert.Nil(t, rendered.DefaultCRConfig.Resources)
+				}
 
 				return
 			}
 
-			require.NoError(t, err)
-
-			var rendered kubeStackValues
-			require.NoError(t, domain.UnmarshalYAML(buf.Bytes(), &rendered))
-
-			env := map[string]string{}
-
-			for _, entry := range rendered.Collectors["agent"].Env {
-				require.NotContains(t, env, entry.Name, "%q is stated twice", entry.Name)
-
-				if entry.Value != nil {
-					env[entry.Name] = *entry.Value
-				}
-			}
-
-			for name, expected := range test.expectedEnv {
-				assert.Equal(t, expected, env[name], name)
-			}
-
-			for _, name := range test.expectedAbsentEnv {
-				assert.NotContains(t, env, name)
-			}
-
-			if test.expectedRewriteOff {
-				require.NotNil(t, rendered.RewriteDeprecatedComponentNames)
-				assert.False(t, *rendered.RewriteDeprecatedComponentNames)
-			}
-
-			if test.expectedClusterNameUnstated {
-				assert.Nil(t, rendered.ClusterName)
-			}
-
-			if test.expectedLimitsNulled {
-				var raw map[string]any
-				require.NoError(t, domain.UnmarshalYAML(buf.Bytes(), &raw))
-
-				defaults, ok := raw["defaultCRConfig"].(map[string]any)
-				require.True(t, ok)
-				assert.Contains(t, defaults, "resources")
-				assert.Nil(t, rendered.DefaultCRConfig.Resources)
-			}
+			require.Error(t, err)
 		})
 	}
 }
