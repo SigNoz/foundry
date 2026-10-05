@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
+	"path/filepath"
 	"testing"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
 	"github.com/signoz/foundry/internal/domain"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding/collectionagent/collectormolding"
+	"github.com/signoz/foundry/internal/pourer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -96,6 +99,8 @@ func TestTemplates_RenderValidYAML(t *testing.T) {
 		{name: "DeploymentClusterrolebindingTemplate_RendersValidYAML", template: deploymentClusterrolebindingTemplate, kind: collectionagent.CollectorKindDeployment},
 		{name: "DeploymentServiceTemplate_RendersValidYAML", template: deploymentServiceTemplate, kind: collectionagent.CollectorKindDeployment},
 		{name: "DeploymentTemplate_RendersValidYAML", template: deploymentTemplate, kind: collectionagent.CollectorKindDeployment},
+		{name: "AgentOpenTelemetryCollectorTemplate_RendersValidYAML", template: agentOpenTelemetryCollectorTemplate, kind: collectionagent.CollectorKindAgent},
+		{name: "DeploymentOpenTelemetryCollectorTemplate_RendersValidYAML", template: deploymentOpenTelemetryCollectorTemplate, kind: collectionagent.CollectorKindDeployment},
 	}
 
 	for _, tt := range tests {
@@ -170,6 +175,78 @@ func TestTemplatesNamespace(t *testing.T) {
 				workload := render(t, workloadTemplates[kind], kindData)
 				require.Len(t, workload.Spec.Template.Spec.Containers, 1)
 			}
+		})
+	}
+}
+
+// Under the operator the config is inline in the OpenTelemetryCollector
+// resource, so no config file pours beside it.
+func TestForge(t *testing.T) {
+	native := []string{"kustomization.yaml", "namespace.yaml", "serviceaccount.yaml", "clusterrole.yaml", "clusterrolebinding.yaml", "service.yaml", "workload.yaml"}
+	operator := []string{"kustomization.yaml", "namespace.yaml", "serviceaccount.yaml", "clusterrole.yaml", "clusterrolebinding.yaml", "opentelemetrycollector.yaml"}
+
+	for _, test := range []struct {
+		name              string
+		kind              collectionagent.CollectorKind
+		controller        string
+		pass              bool
+		expectedErrorType int
+		expectedFiles     []string
+		expectedPour      bool
+	}{
+		{"Agent_Valid", collectionagent.CollectorKindAgent, "", true, 0, native, true},
+		{"Deployment_Valid", collectionagent.CollectorKindDeployment, "", true, 0, native, true},
+		{"DefaultStated_Valid", collectionagent.CollectorKindAgent, collectionagent.CollectorControllerDefault, true, 0, native, true},
+		{"OperatorAgent_Valid", collectionagent.CollectorKindAgent, collectionagent.CollectorControllerOpenTelemetryOperator, true, 0, operator, false},
+		{"OperatorDeployment_Valid", collectionagent.CollectorKindDeployment, collectionagent.CollectorControllerOpenTelemetryOperator, true, 0, operator, false},
+		{"UnknownController_Invalid", collectionagent.CollectorKindAgent, "argo", false, foundryerrors.TypeInvalidInput.ExitCode(), nil, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			config := collectionagent.Default()
+			config.Spec.Collector.Kind = test.kind
+
+			if test.controller != "" {
+				config.Metadata.Annotations = map[string]string{collectionagent.KubernetesCollectorController.Key: test.controller}
+			}
+
+			require.NoError(t, newKubernetesKustomizeMoldingEnricher().EnrichStatus(ctx, v1alpha1.MoldingKindCollector, config))
+			require.NoError(t, collectormolding.New(slog.New(slog.DiscardHandler)).MoldV1Alpha1(ctx, config))
+			require.NoError(t, config.MergeStatusIntoSpec())
+
+			p := pourer.New("collectionagent")
+			err := New(slog.New(slog.DiscardHandler)).Forge(ctx, *config, p)
+
+			if test.pass {
+				require.NoError(t, err)
+
+				materials, err := p.Pour()
+				require.NoError(t, err)
+
+				var paths []string
+				for _, material := range materials {
+					paths = append(paths, material.Path())
+				}
+
+				dir := filepath.Join("collectionagent", filepath.Dir(test.kind.ConfigKey()))
+
+				var expectedPaths []string
+				for _, file := range test.expectedFiles {
+					expectedPaths = append(expectedPaths, filepath.Join(dir, file))
+				}
+
+				if test.expectedPour {
+					expectedPaths = append(expectedPaths, filepath.Join("collectionagent", test.kind.ConfigKey()))
+				}
+
+				assert.ElementsMatch(t, expectedPaths, paths)
+
+				return
+			}
+
+			require.Error(t, err)
+			assert.Equal(t, test.expectedErrorType, foundryerrors.ExitCode(err))
 		})
 	}
 }

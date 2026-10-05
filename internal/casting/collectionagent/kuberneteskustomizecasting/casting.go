@@ -30,36 +30,48 @@ func (c *kubernetesKustomizeCasting) Enricher(ctx context.Context, config *colle
 }
 
 func (c *kubernetesKustomizeCasting) Forge(ctx context.Context, config collectionagent.Casting, p *pourer.Pourer) error {
+	data := templateDataFor(config)
+
 	tmpls := []*domain.Template{kustomizationTemplate, namespaceTemplate}
 
-	// The workload follows the collector kind's scope: the agent runs on
-	// every node, the deployment runs replicated behind the service.
+	var workload []*domain.Template
+	var collector *domain.Template
+
+	// The workload follows the collector kind's scope. The operator's resource
+	// stands in for the workload and carries the config inline.
 	switch config.Spec.Collector.Kind {
 	case collectionagent.CollectorKindAgent:
 		tmpls = append(tmpls,
 			agentServiceaccountTemplate,
 			agentClusterroleTemplate,
 			agentClusterrolebindingTemplate,
-			agentServiceTemplate,
-			daemonsetTemplate,
 		)
+		workload = []*domain.Template{agentServiceTemplate, daemonsetTemplate}
+		collector = agentOpenTelemetryCollectorTemplate
 	case collectionagent.CollectorKindDeployment:
 		tmpls = append(tmpls,
 			deploymentServiceaccountTemplate,
 			deploymentClusterroleTemplate,
 			deploymentClusterrolebindingTemplate,
-			deploymentServiceTemplate,
-			deploymentTemplate,
 		)
+		workload = []*domain.Template{deploymentServiceTemplate, deploymentTemplate}
+		collector = deploymentOpenTelemetryCollectorTemplate
 	default:
 		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported collector kind %q", config.Spec.Collector.Kind)
+	}
+
+	switch data.Controller {
+	case collectionagent.CollectorControllerDefault:
+		tmpls = append(tmpls, workload...)
+	case collectionagent.CollectorControllerOpenTelemetryOperator:
+		tmpls = append(tmpls, collector)
+	default:
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "collector controller %q is not supported, state %q or %q", data.Controller, collectionagent.CollectorControllerDefault, collectionagent.CollectorControllerOpenTelemetryOperator)
 	}
 
 	// The kind's directory is a kustomize root of its own, so a casting file
 	// holding several collection agents pours a tree per document.
 	dir := filepath.Dir(config.Spec.Collector.Kind.ConfigKey())
-
-	data := templateDataFor(config)
 
 	for _, tmpl := range tmpls {
 		buf := bytes.NewBuffer(nil)
@@ -72,8 +84,10 @@ func (c *kubernetesKustomizeCasting) Forge(ctx context.Context, config collectio
 
 	// The collector config, inside the kustomize root so the configMapGenerator
 	// reaches it by relative path.
-	for path, content := range config.Spec.Collector.Spec.Config.Data {
-		p.AddYAML([]byte(content), path)
+	if data.Controller == collectionagent.CollectorControllerDefault {
+		for path, content := range config.Spec.Collector.Spec.Config.Data {
+			p.AddYAML([]byte(content), path)
+		}
 	}
 
 	return nil
@@ -103,11 +117,16 @@ func (c *kubernetesKustomizeCasting) Cast(ctx context.Context, config collection
 type templateData struct {
 	collectionagent.Casting
 
-	Namespace string
+	Namespace  string
+	Controller string
 }
 
 func templateDataFor(config collectionagent.Casting) templateData {
-	return templateData{Casting: config, Namespace: namespace(config)}
+	return templateData{
+		Casting:    config,
+		Namespace:  namespace(config),
+		Controller: collectionagent.KubernetesCollectorController.Resolve(config.Metadata.Annotations),
+	}
 }
 
 // The annotation's default cannot name metadata.name, so the fallback lives here.

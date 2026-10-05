@@ -30,6 +30,10 @@ func (c *awsKubernetesServerlessKustomizeCasting) Enricher(ctx context.Context, 
 }
 
 func (c *awsKubernetesServerlessKustomizeCasting) Forge(ctx context.Context, config collectionagent.Casting, p *pourer.Pourer) error {
+	if controller := collectionagent.KubernetesCollectorController.Resolve(config.Metadata.Annotations); controller != collectionagent.CollectorControllerDefault {
+		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "collector controller %q is not supported by this casting", controller)
+	}
+
 	tmpls := []*domain.Template{kustomizationTemplate, namespaceTemplate}
 
 	// Fargate schedules no DaemonSet, so the deployment is the one kind a
