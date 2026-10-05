@@ -1,0 +1,223 @@
+cleanupJob:
+  enabled: false
+clusterRole:
+  enabled: true
+collectors:
+  daemon:
+    enabled: false
+  deployment:
+    clusterRoleBinding:
+      enabled: true
+    config:
+      exporters:
+        otlphttp/signoz:
+          endpoint: ${env:SIGNOZ_INGESTION_ENDPOINT}
+      extensions:
+        health_check:
+          endpoint: 0.0.0.0:13133
+          path: /healthz
+      processors:
+        batch:
+          send_batch_max_size: 2048
+          send_batch_size: 1000
+          timeout: 10s
+        k8sattributes:
+          extract:
+            metadata:
+            - k8s.namespace.name
+            - k8s.deployment.name
+            - k8s.statefulset.name
+            - k8s.daemonset.name
+            - k8s.cronjob.name
+            - k8s.job.name
+            - k8s.node.name
+            - k8s.node.uid
+            - k8s.pod.name
+            - k8s.pod.uid
+            - k8s.pod.start_time
+          passthrough: false
+          pod_association:
+          - sources:
+            - from: resource_attribute
+              name: k8s.pod.ip
+          - sources:
+            - from: resource_attribute
+              name: k8s.pod.uid
+          - sources:
+            - from: connection
+        memory_limiter:
+          check_interval: 5s
+          limit_mib: 4000
+          spike_limit_mib: 800
+        resource/identity:
+          attributes:
+          - action: insert
+            key: k8s.cluster.name
+            value: ${env:K8S_CLUSTER_NAME}
+        resourcedetection:
+          detectors:
+          - env
+          override: false
+          timeout: 2s
+      receivers:
+        k8s_cluster:
+          allocatable_types_to_report:
+          - cpu
+          - memory
+          collection_interval: 30s
+          metrics:
+            k8s.container.status.reason:
+              enabled: true
+            k8s.container.status.state:
+              enabled: true
+            k8s.node.condition:
+              enabled: true
+            k8s.pod.status_reason:
+              enabled: true
+          node_conditions_to_report:
+          - Ready
+          - MemoryPressure
+          - DiskPressure
+          - PIDPressure
+          - NetworkUnavailable
+          resource_attributes:
+            container.runtime:
+              enabled: true
+            container.runtime.version:
+              enabled: true
+            k8s.container.status.last_terminated_reason:
+              enabled: true
+            k8s.kubelet.version:
+              enabled: true
+            k8s.pod.qos_class:
+              enabled: true
+        k8s_events:
+          auth_type: serviceAccount
+        otlp/grpc:
+          protocols:
+            grpc:
+              endpoint: 0.0.0.0:4317
+              max_recv_msg_size_mib: 16
+        otlp/http:
+          protocols:
+            http:
+              endpoint: 0.0.0.0:4318
+      service:
+        extensions:
+        - health_check
+        pipelines:
+          logs:
+            exporters:
+            - otlphttp/signoz
+            processors:
+            - memory_limiter
+            - resourcedetection
+            - resource/identity
+            - k8sattributes
+            - batch
+            receivers:
+            - otlp/http
+            - otlp/grpc
+            - k8s_events
+          metrics:
+            exporters:
+            - otlphttp/signoz
+            processors:
+            - memory_limiter
+            - resourcedetection
+            - resource/identity
+            - k8sattributes
+            - batch
+            receivers:
+            - otlp/http
+            - otlp/grpc
+            - k8s_cluster
+          traces:
+            exporters:
+            - otlphttp/signoz
+            processors:
+            - memory_limiter
+            - resourcedetection
+            - resource/identity
+            - k8sattributes
+            - batch
+            receivers:
+            - otlp/http
+            - otlp/grpc
+        telemetry:
+          logs:
+            encoding: json
+    enabled: true
+    env:
+    - name: K8S_POD_IP
+      valueFrom:
+        fieldRef:
+          fieldPath: status.podIP
+    - name: K8S_HOST_IP
+      valueFrom:
+        fieldRef:
+          fieldPath: status.hostIP
+    - name: K8S_POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: K8S_POD_UID
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.uid
+    - name: K8S_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: K8S_CLUSTER_NAME
+      value: '"<cluster-name>"'
+    - name: OTEL_COLLECTOR_ROLE
+      value: '"deployment"'
+    - name: SIGNOZ_INGESTION_ENDPOINT
+      value: '"http://<signoz-host>:4318"'
+    fullnameOverride: signoz-collector-deployment
+    image:
+      repository: otel/opentelemetry-collector-contrib
+      tag: 0.139.0
+    mode: deployment
+    ports:
+    - name: health-check
+      port: 13133
+      protocol: TCP
+    - name: otlp-grpc
+      port: 4317
+      protocol: TCP
+    - name: otlp-http
+      port: 4318
+      protocol: TCP
+    presets:
+      annotationDiscovery:
+        logs:
+          enabled: false
+        metrics:
+          enabled: false
+      clusterMetrics:
+        enabled: false
+      hostMetrics:
+        enabled: false
+      kubeletMetrics:
+        enabled: false
+      kubernetesAttributes:
+        enabled: false
+      kubernetesEvents:
+        enabled: false
+      logsCollection:
+        enabled: false
+    replicas: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 100Mi
+crds:
+  installOtel: false
+  installPrometheus: false
+defaultCRConfig:
+  resources: null
+opentelemetry-operator:
+  enabled: false
+rewriteDeprecatedComponentNames: false
