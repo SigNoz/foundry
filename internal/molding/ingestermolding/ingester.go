@@ -7,11 +7,17 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
+	"github.com/signoz/foundry/internal/compat"
+	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 )
 
 var _ molding.Molding = (*ingester)(nil)
+
+// configV01446Floor is the first collector release that carries the
+// signozspanmapper and signozllmpricing processors.
+const configV01446Floor = ">=0.144.6"
 
 type ingester struct {
 	logger *slog.Logger
@@ -36,7 +42,7 @@ func (molding *ingester) MoldV1Alpha1(ctx context.Context, config *installation.
 	}
 
 	configBuf := bytes.NewBuffer(nil)
-	if err := ConfigV0129xTemplate.Execute(configBuf, data); err != nil {
+	if err := configTemplate(config.Spec.Ingester.Spec).Execute(configBuf, data); err != nil {
 		return err
 	}
 
@@ -79,4 +85,13 @@ func (molding *ingester) getData(config *installation.Casting) (Data, error) {
 		TelemetryStoreMeterAddress:    telemetryStoreAddress + "/signoz_meter",
 		TelemetryStoreMetadataAddress: telemetryStoreAddress + "/signoz_metadata",
 	}, nil
+}
+
+// A floating image tag such as "latest" gets the newest config.
+func configTemplate(spec v1alpha1.MoldingSpec) *domain.Template {
+	if compat.NewResolved(spec.Image, spec.IsEnabled()).Satisfies(configV01446Floor) {
+		return ConfigV01446Template
+	}
+
+	return ConfigV0129xTemplate
 }

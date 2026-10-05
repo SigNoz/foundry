@@ -1,0 +1,73 @@
+{{- $kind := $.Spec.Collector.Kind -}}
+{{- $label := printf "collector_%s" $kind.String -}}
+{
+  "locals": {
+    "execution_role_arn": "{{ if $.ExecutionRole.IsStated }}{{ $.ExecutionRole.Stated }}{{ else }}${aws_iam_role.exec.arn}{{ end }}",
+    "container_{{ $label }}": {
+      "name": "{{ $.Container }}",
+      "image": "{{ $.Spec.Collector.Spec.Image }}",
+      "essential": false,
+      "restartPolicy": {"enabled": true},
+      {{- /* ECS validates the router type, not the image, so it mounts the
+             fluent socket into the collector and no fluent-bit rides along. */}}
+      "firelensConfiguration": {"type": "fluentbit"},
+      "command": ["--config=env:FOUNDRY_CONFIG"],
+      "secrets": [
+        {"name": "FOUNDRY_CONFIG", "valueFrom": "${aws_ssm_parameter.{{ $label }}.arn}"}
+      ],
+      {{- $env := list (dict "name" "FOUNDRY_CONFIG_VERSION" "value" (printf "${tostring(aws_ssm_parameter.%s.version)}" $label)) }}
+      {{- range $key, $value := $.Spec.Collector.Spec.Env }}
+      {{- $env = append $env (dict "name" $key "value" $value) }}
+      {{- end }}
+      "environment": {{ toJson $env }},
+      "portMappings": [
+        {"containerPort": 4317, "protocol": "tcp"},
+        {"containerPort": 4318, "protocol": "tcp"}
+      ],
+      "cpu": 256,
+      "memoryReservation": 256
+    },
+    "containers_{{ $label }}": ["${local.container_{{ $label }}}"],
+    {{- /* FireLens requires an output plugin name and nothing reads it,
+           because the collector owns the socket. */}}
+    "log_configuration_{{ $label }}": {
+      "logDriver": "awsfirelens",
+      "options": {"Name": "signoz"}
+    }
+  },
+  "resource": {
+    {{- if not $.ExecutionRole.IsStated }}
+    "aws_iam_role": {
+      "exec": {
+        "name": "{{ $.ExecutionRole.Name }}",
+        "assume_role_policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Action\" = \"sts:AssumeRole\", \"Effect\" = \"Allow\", \"Principal\" = {\"Service\" = \"ecs-tasks.amazonaws.com\"}}]})}",
+        "tags": {{ toJson $.Labels }}
+      }
+    },
+    "aws_iam_role_policy_attachment": {
+      "exec": {
+        "policy_arn": "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+        "role": "${aws_iam_role.exec.name}"
+      }
+    },
+    {{- end }}
+    "aws_ssm_parameter": {
+      "{{ $label }}": {
+        "name": "{{ $.Parameter }}",
+        "description": "SigNoz collection agent sidecar collector configuration",
+        "type": "String",
+        "value": "${file(\"${path.module}/{{ $.Source }}\")}",
+        "tags": {{ toJson $.Labels }}
+      }
+    },
+    {{- /* The ECS agent, not the task, resolves the secret, so the read
+           belongs to the execution role, whose name is last in a path. */}}
+    "aws_iam_role_policy": {
+      "{{ $label }}": {
+        "name": "{{ $.Policy }}",
+        "role": "${element(split(\"/\", local.execution_role_arn), length(split(\"/\", local.execution_role_arn)) - 1)}",
+        "policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Effect\" = \"Allow\", \"Action\" = [\"ssm:GetParameter\", \"ssm:GetParameters\"], \"Resource\" = [aws_ssm_parameter.{{ $label }}.arn]}]})}"
+      }
+    }
+  }
+}

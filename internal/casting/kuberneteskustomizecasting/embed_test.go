@@ -53,15 +53,34 @@ func TestNotEmptyAndValid(t *testing.T) {
 	}
 
 	// The clickhouse templates index Spec.Config.Data, which the default casting types as an empty map; nil cannot be indexed.
-	cfg := installation.Default(&installation.Casting{})
+	data := templateDataFor(*installation.Default(&installation.Casting{}))
 
 	for name, tmpl := range templates {
 		assert.NotEmpty(t, tmpl, "%s should not be empty", name)
 		buf := bytes.NewBuffer(nil)
-		err := tmpl.Execute(buf, cfg)
+		err := tmpl.Execute(buf, data)
 		assert.NoError(t, err, "error executing %s", name)
 		assert.NotEmpty(t, buf.String(), "%s output should not be empty", name)
 	}
+}
+
+func assertPlacement(t *testing.T, materials map[string]domain.StructuredMaterial, expectedNamespace string) {
+	t.Helper()
+
+	for path, field := range map[string]string{
+		"deployment/kustomization.yaml":                                    "namespace",
+		"deployment/namespace.yaml":                                        "metadata.name",
+		"deployment/operators/clickhouse-operator/kustomization.yaml":      "namespace",
+		"deployment/operators/clickhouse-operator/namespace.yaml":          "metadata.name",
+		"deployment/operators/clickhouse-operator/clusterrolebinding.yaml": "subjects.0.namespace",
+	} {
+		value, err := materials[path].GetBytes(field)
+		require.NoError(t, err, "%s %s", path, field)
+		assert.Equal(t, expectedNamespace, string(value), "%s %s", path, field)
+	}
+
+	operator := string(materials["deployment/operators/clickhouse-operator/configmap.yaml"].FmtContents())
+	assert.Contains(t, operator, `namespace: "`+expectedNamespace+`"`)
 }
 
 func TestForge(t *testing.T) {
@@ -171,6 +190,37 @@ func TestForge(t *testing.T) {
 				assert.Contains(t, string(materials["deployment/signoz/statefulset.yaml"].JSONContents()), `"value":"true"`)
 
 				assert.Contains(t, string(materials["deployment/ingester/deployment.yaml"].JSONContents()), `"value":"4317"`)
+			},
+			pass: true,
+		},
+		{
+			name:   "UnstatedNamespace_Valid",
+			mutate: func(cfg *installation.Casting) {},
+			check: func(t *testing.T, materials map[string]domain.StructuredMaterial) {
+				t.Helper()
+
+				assertPlacement(t, materials, "signoz")
+			},
+			pass: true,
+		},
+		{
+			name: "StatedNamespace_Valid",
+			mutate: func(cfg *installation.Casting) {
+				cfg.Metadata.Annotations = map[string]string{installation.KubernetesNamespace.Key: "observability"}
+			},
+			check: func(t *testing.T, materials map[string]domain.StructuredMaterial) {
+				t.Helper()
+
+				assertPlacement(t, materials, "observability")
+
+				// Names stay on metadata.name wherever the namespace moves.
+				signoz, err := materials["deployment/signoz/statefulset.yaml"].GetBytes("metadata.name")
+				require.NoError(t, err)
+				assert.Equal(t, "signoz-signoz", string(signoz))
+
+				binding, err := materials["deployment/operators/clickhouse-operator/clusterrolebinding.yaml"].GetBytes("subjects.0.name")
+				require.NoError(t, err)
+				assert.Equal(t, "signoz-telemetrystore-clickhouse-operator", string(binding))
 			},
 			pass: true,
 		},

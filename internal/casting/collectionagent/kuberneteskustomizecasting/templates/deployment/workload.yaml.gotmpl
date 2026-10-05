@@ -59,10 +59,6 @@ spec:
             - name: {{ $key }}
               value: {{ $val | quote }}
             {{- end }}
-            {{- if and (not (index $.Spec.Collector.Spec.Env "OTEL_RESOURCE_ATTRIBUTES")) (index $.Spec.Collector.Spec.Env "K8S_CLUSTER_NAME") }}
-            - name: OTEL_RESOURCE_ATTRIBUTES
-              value: "k8s.cluster.name=$(K8S_CLUSTER_NAME)"
-            {{- end }}
           ports:
             - name: health-check
               containerPort: 13133

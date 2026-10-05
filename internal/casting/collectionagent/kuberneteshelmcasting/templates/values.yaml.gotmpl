@@ -1,0 +1,112 @@
+{{- $kind := $.Spec.Collector.Kind.String }}
+{{- $env := fromYaml (toYaml $.Spec.Collector.Spec.Env) }}
+{{- $config := fromYaml (index $.Spec.Collector.Spec.Config.Data $.Spec.Collector.Kind.ConfigKey) }}
+{{- /* Helm drops a nulled key only when the chart ships it, so nulling a key
+       absent from this kind's chart defaults leaves a literal null. */}}
+{{- $chartOnly := dict "extensions" (dict "zpages" nil "pprof" nil) }}
+{{- if eq $kind "agent" }}
+{{- $_ := set $chartOnly "receivers" (dict "otlp" nil) }}
+{{- end }}
+{{- $collector := mergeOverwrite $chartOnly $config }}
+fullnameOverride: {{ $.Metadata.Name }}
+{{- with index $env "K8S_CLUSTER_NAME" }}
+clusterName: {{ . | quote }}
+{{- end }}
+presets:
+  debugExporter:
+    enabled: false
+  otlpExporter:
+    enabled: false
+  otlphttpExporter:
+    enabled: false
+  selfTelemetry:
+    traces:
+      enabled: false
+    metrics:
+      enabled: false
+    logs:
+      enabled: false
+  logsCollection:
+    enabled: false
+  hostMetrics:
+    enabled: false
+  kubeletMetrics:
+    enabled: false
+  kubernetesAttributes:
+    enabled: false
+  clusterMetrics:
+    enabled: false
+  prometheus:
+    enabled: false
+  resourceDetection:
+    enabled: false
+  k8sEvents:
+    enabled: false
+otelAgent:
+  enabled: {{ eq $kind "agent" }}
+  name: collector-agent
+  {{- if eq $kind "agent" }}
+  image:
+    {{- with parseImage $.Spec.Collector.Spec.Image }}
+    {{- with .Registry }}
+    registry: {{ . }}
+    {{- end }}
+    repository: {{ .Repository }}
+    tag: {{ .Tag | quote }}
+    {{- end }}
+  livenessProbe:
+    path: /healthz
+  readinessProbe:
+    path: /healthz
+  {{- with omit $env "K8S_CLUSTER_NAME" }}
+  additionalEnvs:
+{{ toYaml . | indent 4 }}
+  {{- end }}
+  # The chart mounts /hostfs only under its hostMetrics preset, which is off.
+  extraVolumes:
+    - name: hostfs
+      hostPath:
+        path: /
+  extraVolumeMounts:
+    - name: hostfs
+      mountPath: /hostfs
+      readOnly: true
+      mountPropagation: HostToContainer
+  config:
+{{ toYaml $collector | indent 4 }}
+  {{- end }}
+otelDeployment:
+  enabled: {{ eq $kind "deployment" }}
+  name: collector-deployment
+  {{- if eq $kind "deployment" }}
+  image:
+    {{- with parseImage $.Spec.Collector.Spec.Image }}
+    {{- with .Registry }}
+    registry: {{ . }}
+    {{- end }}
+    repository: {{ .Repository }}
+    tag: {{ .Tag | quote }}
+    {{- end }}
+  replicaCount: {{ derefIntDefault $.Spec.Collector.Spec.Cluster.Replicas 1 }}
+  ports:
+    otlp:
+      enabled: true
+      containerPort: 4317
+      servicePort: 4317
+      protocol: TCP
+    otlp-http:
+      enabled: true
+      containerPort: 4318
+      servicePort: 4318
+      protocol: TCP
+  livenessProbe:
+    path: /healthz
+  readinessProbe:
+    path: /healthz
+  {{- with omit $env "K8S_CLUSTER_NAME" }}
+  additionalEnvs:
+{{ toYaml . | indent 4 }}
+  {{- end }}
+  config:
+{{ toYaml $collector | indent 4 }}
+  {{- end }}

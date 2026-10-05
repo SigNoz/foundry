@@ -17,10 +17,14 @@ var _ fmt.Stringer = (*Mode)(nil)
 var _ jsonschema.Enum = (*Mode)(nil)
 
 var (
-	ModeDocker     Mode = Mode{s: "docker"}
-	ModeSystemd    Mode = Mode{s: "systemd"}
-	ModeKubernetes Mode = Mode{s: "kubernetes"}
-	ModeEC2        Mode = Mode{s: "ec2"}
+	ModeDocker               Mode = Mode{s: "docker"}
+	ModeSystemd              Mode = Mode{s: "systemd"}
+	ModeKubernetes           Mode = Mode{s: "kubernetes"}
+	ModeEC2                  Mode = Mode{s: "ec2"}
+	ModeFargate              Mode = Mode{s: "fargate"}
+	ModeKubernetesServerless Mode = Mode{s: "kubernetes-serverless"}
+	ModeECS                  Mode = Mode{s: "ecs"}
+	ModeECSServerless        Mode = Mode{s: "ecs-serverless"}
 )
 
 type Mode struct {
@@ -32,7 +36,7 @@ func (mode Mode) String() string {
 }
 
 func Modes() []Mode {
-	return []Mode{ModeDocker, ModeSystemd, ModeKubernetes, ModeEC2}
+	return []Mode{ModeDocker, ModeSystemd, ModeKubernetes, ModeEC2, ModeFargate, ModeKubernetesServerless, ModeECS, ModeECSServerless}
 }
 
 func (mode Mode) MarshalJSON() ([]byte, error) {

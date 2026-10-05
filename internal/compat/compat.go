@@ -46,6 +46,22 @@ func NewResolved(image string, present bool) Resolved {
 	return resolved
 }
 
+// Satisfies reports whether the resolved version meets the semver constraint.
+// An unknown version, such as a floating tag, is assumed to be current and
+// satisfies; an unparseable constraint never does.
+func (r Resolved) Satisfies(constraint string) bool {
+	constraints, err := semver.NewConstraint(constraint)
+	if err != nil {
+		return false
+	}
+
+	if !r.known {
+		return true
+	}
+
+	return r.version.Satisfies(constraints)
+}
+
 // Check evaluates rules against the resolved component versions. A provably
 // incompatible concrete pairing is a hard error; a floating subject tag that
 // could become incompatible is a warning.
@@ -56,8 +72,7 @@ func Check(versions map[v1alpha1.MoldingKind]Resolved, rules []Rule, logger *slo
 			return errors.Wrapf(err, errors.TypeInternal, "invalid 'when' constraint %q for %s", rule.When, rule.Subject)
 		}
 
-		requires, err := semver.NewConstraint(rule.Requires)
-		if err != nil {
+		if _, err := semver.NewConstraint(rule.Requires); err != nil {
 			return errors.Wrapf(err, errors.TypeInternal, "invalid 'requires' constraint %q for %s", rule.Requires, rule.Target)
 		}
 
@@ -67,7 +82,7 @@ func Check(versions map[v1alpha1.MoldingKind]Resolved, rules []Rule, logger *slo
 			continue // a disabled or absent component cannot conflict
 		}
 
-		if !target.known || target.version.Satisfies(requires) {
+		if target.Satisfies(rule.Requires) {
 			continue // target version is unknown, or already meets the requirement
 		}
 

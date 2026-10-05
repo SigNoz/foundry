@@ -79,7 +79,7 @@ data:
         scheme: auto
         secret:
           name: "clickhouse-operator"
-          namespace: "{{ $.Metadata.Name }}"
+          namespace: "{{ $.Namespace }}"
         timeouts:
           connect: 1
           query: 4

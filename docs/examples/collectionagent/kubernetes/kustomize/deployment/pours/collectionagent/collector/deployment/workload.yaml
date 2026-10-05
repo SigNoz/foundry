@@ -57,8 +57,6 @@ spec:
           value: deployment
         - name: SIGNOZ_INGESTION_ENDPOINT
           value: http://<signoz-host>:4318
-        - name: OTEL_RESOURCE_ATTRIBUTES
-          value: k8s.cluster.name=$(K8S_CLUSTER_NAME)
         image: otel/opentelemetry-collector-contrib:0.139.0
         livenessProbe:
           failureThreshold: 6

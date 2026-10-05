@@ -200,3 +200,28 @@ patches:
 ```bash
 kubectl apply -k overlays/prod/
 ```
+
+## Annotations
+
+Optional annotation to place the manifests. It is not required for standard deployments.
+
+| Annotation | Default | Description |
+| --- | --- | --- |
+| `foundry.signoz.io/kubernetes-namespace` | `metadata.name` | Namespace the manifests are applied into |
+
+Example deploying into an existing namespace:
+
+```yaml
+apiVersion: v1alpha1
+kind: Installation
+metadata:
+  name: signoz
+  annotations:
+    foundry.signoz.io/kubernetes-namespace: observability
+spec:
+  deployment:
+    flavor: kustomize
+    mode: kubernetes
+```
+
+Resource names stay on `metadata.name`, so the SigNoz StatefulSet is still `signoz-signoz`; only the namespace moves.

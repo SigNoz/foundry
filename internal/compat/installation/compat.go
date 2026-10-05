@@ -20,6 +20,13 @@ var compatRules = []compat.Rule{
 		Requires: "=25.12.5",
 		Advice:   "pin ingester to 0.144.5, or upgrade telemetrystore clickhouse to 25.12.5",
 	},
+	{
+		Subject:  v1alpha1.MoldingKindSignoz,
+		When:     ">=0.143.0",
+		Target:   v1alpha1.MoldingKindIngester,
+		Requires: ">=0.144.6",
+		Advice:   "upgrade ingester to 0.144.11, or pin signoz to 0.142.x",
+	},
 }
 
 // Compatibility resolves every molding's version from its image and

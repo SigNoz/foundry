@@ -11,6 +11,7 @@ var templates embed.FS
 
 var (
 	ConfigV0129xTemplate *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/config.v0129x.yaml.gotmpl", domain.FormatYAML)
+	ConfigV01446Template *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/config.v01446.yaml.gotmpl", domain.FormatYAML)
 	OpampV0129xTemplate  *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/opamp.v0129x.yaml.gotmpl", domain.FormatYAML)
 )
 

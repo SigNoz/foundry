@@ -1,0 +1,27 @@
+[Unit]
+Description=SigNoz OpenTelemetry Collector (CollectionAgent)
+Documentation=https://signoz.io/docs
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User={{ .Metadata.Name }}-collector-{{ .Spec.Collector.Kind }}
+Group={{ .Metadata.Name }}-collector-{{ .Spec.Collector.Kind }}
+SyslogIdentifier={{ .Metadata.Name }}-collector-{{ .Spec.Collector.Kind }}
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+NoNewPrivileges=yes
+AmbientCapabilities=CAP_DAC_READ_SEARCH
+RestrictSUIDSGID=yes
+RemoveIPC=yes
+EnvironmentFile=/etc/{{ .Metadata.Name }}-collector-{{ .Spec.Collector.Kind }}/{{ .Metadata.Name }}-collector-{{ .Spec.Collector.Kind }}.conf
+ExecStart={{ index .Metadata.Annotations "foundry.signoz.io/collector-binary-path" }} $OTELCOL_OPTIONS
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+Restart=on-failure
+RestartSec=5
+Type=simple
+
+[Install]
+WantedBy=multi-user.target

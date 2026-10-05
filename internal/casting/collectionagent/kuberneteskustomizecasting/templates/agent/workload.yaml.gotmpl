@@ -59,12 +59,6 @@ spec:
             - name: {{ $key }}
               value: {{ $val | quote }}
             {{- end }}
-            {{- if not (index $.Spec.Collector.Spec.Env "OTEL_RESOURCE_ATTRIBUTES") }}
-            # host.name on every signal is the real node's name; the env
-            # detector picks these up first.
-            - name: OTEL_RESOURCE_ATTRIBUTES
-              value: "{{ if index $.Spec.Collector.Spec.Env "K8S_CLUSTER_NAME" }}k8s.cluster.name=$(K8S_CLUSTER_NAME),{{ end }}k8s.node.name=$(K8S_NODE_NAME),host.name=$(K8S_NODE_NAME)"
-            {{- end }}
           ports:
             - name: health-check
               containerPort: 13133

@@ -1,0 +1,17 @@
+{{- $label := printf "collector_%s" $.Spec.Collector.Kind.String -}}
+{
+  "output": {
+    "container_definitions": {
+      "description": "The collector, to concat into the task definition's container_definitions",
+      "value": "${local.containers_{{ $label }}}"
+    },
+    "log_configuration": {
+      "description": "The awsfirelens logConfiguration that applies to application containers that opt in; without it the container's stdout is not collected",
+      "value": "${local.log_configuration_{{ $label }}}"
+    },
+    "execution_role_arn": {
+      "description": "The role the task definition states as its execution role, adopted when stated and created otherwise",
+      "value": "${local.execution_role_arn}"
+    }
+  }
+}

@@ -1,0 +1,13 @@
+apiVersion: v1alpha1
+kind: CollectionAgent
+metadata:
+  name: signoz
+spec:
+  deployment:
+    flavor: binary
+    mode: systemd
+  collector:
+    kind: agent
+    spec:
+      env:
+        SIGNOZ_INGESTION_ENDPOINT: "http://<signoz-host>:4318"

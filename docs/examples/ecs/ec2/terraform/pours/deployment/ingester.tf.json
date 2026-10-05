@@ -49,7 +49,7 @@
         "user": "0",
         "entryPoint": ["/bin/sh", "-c"],
         "command": ["/signoz-otel-collector migrate sync check && /signoz-otel-collector --config=/conf/ingester.yaml --manager-config=/conf/opamp.yaml --copy-path=/var/tmp/collector-config.yaml"],
-        "environment": [{"name":"FOUNDRY_CONFIG_DIGEST","value":"22aace76e36835ba8a7472b621d87518e77cc63261f8f8ae4e1b4180d60b1ac0"},{"name":"SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN","value":"tcp://telemetrystore-clickhouse-0-0.signoz-installation.local:9000"},{"name":"SIGNOZ_OTEL_COLLECTOR_TIMEOUT","value":"10m"}],
+        "environment": [{"name":"FOUNDRY_CONFIG_DIGEST","value":"60ffba2a5c5ef80105d1a0573d1434ce0e401ccb05d378dd4454c928208de6ec"},{"name":"SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN","value":"tcp://telemetrystore-clickhouse-0-0.signoz-installation.local:9000"},{"name":"SIGNOZ_OTEL_COLLECTOR_TIMEOUT","value":"10m"}],
         "portMappings": [
           {"name": "grpc", "containerPort": 4317, "protocol": "tcp", "appProtocol": "grpc"},
           {"name": "http", "containerPort": 4318, "protocol": "tcp", "appProtocol": "http"}

@@ -1,0 +1,27 @@
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+AmbientCapabilities=CAP_DAC_READ_SEARCH
+EnvironmentFile=/etc/signoz-collector-agent/signoz-collector-agent.conf
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStart=/opt/signoz-collector-agent/bin/otelcol-contrib $OTELCOL_OPTIONS
+Group=signoz-collector-agent
+KillMode=mixed
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=read-only
+ProtectSystem=strict
+RemoveIPC=yes
+Restart=on-failure
+RestartSec=5
+RestrictSUIDSGID=yes
+SyslogIdentifier=signoz-collector-agent
+Type=simple
+User=signoz-collector-agent
+
+[Unit]
+After=network-online.target
+Description=SigNoz OpenTelemetry Collector (CollectionAgent)
+Documentation=https://signoz.io/docs
+Wants=network-online.target
