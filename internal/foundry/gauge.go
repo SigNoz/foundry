@@ -14,6 +14,7 @@ import (
 // tool gauge it once, so a machine is neither probed nor reported twice.
 func (foundry *Foundry) Gauge(ctx context.Context, machineries []v1alpha1.Machinery) error {
 	toolers := []tooler.Tooler{}
+
 	for _, machinery := range machineries {
 		p, err := foundry.Plan(ctx, machinery)
 		if err != nil {

@@ -67,6 +67,7 @@ func (p Properties) Merge(other Properties) Properties {
 		}
 
 		list, _ := p.values[key].([]string)
+
 		for _, element := range more {
 			if !slices.Contains(list, element) {
 				list = append(list, element)

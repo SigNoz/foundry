@@ -12,6 +12,7 @@ import (
 // the one after them; what already cast stays cast.
 func (foundry *Foundry) Cast(ctx context.Context, machineries []v1alpha1.Machinery, poursPath string) ([]v1alpha1.Machinery, error) {
 	passed := make([]v1alpha1.Machinery, 0, len(machineries))
+
 	for _, machinery := range machineries {
 		p, err := foundry.Plan(ctx, machinery)
 		if err != nil {
