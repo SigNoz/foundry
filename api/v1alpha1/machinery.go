@@ -7,4 +7,5 @@ type Machinery interface {
 	Kind() Kind
 	Name() string
 	TrackableProperties() domain.Properties
+	FailedProperties() domain.Properties
 }

@@ -60,9 +60,16 @@ func (c *Casting) MergeStatusIntoSpec() error {
 // TrackableProperties returns analytics tags for the casting.
 func (c *Casting) TrackableProperties() domain.Properties {
 	return domain.NewProperties().
-		Set("kind", v1alpha1.KindInfrastructure.String()).
-		Set("platform", c.Spec.Deployment.Platform.String()).
-		Set("mode", c.Spec.Deployment.Mode.String()).
-		Set("flavor", c.Spec.Deployment.Flavor.String()).
-		Set("patches_count", len(c.Spec.Patches))
+		Set("kinds", []string{v1alpha1.KindInfrastructure.String()}).
+		Set("infrastructure_platform", c.Spec.Deployment.Platform.String()).
+		Set("infrastructure_mode", c.Spec.Deployment.Mode.String()).
+		Set("infrastructure_flavor", c.Spec.Deployment.Flavor.String()).
+		Set("infrastructure_patches_count", len(c.Spec.Patches))
+}
+
+// FailedProperties returns analytics tags naming the casting as the one that
+// failed.
+func (c *Casting) FailedProperties() domain.Properties {
+	return domain.NewProperties().
+		Set("failed_kind", v1alpha1.KindInfrastructure.String())
 }
