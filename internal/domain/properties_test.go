@@ -11,36 +11,42 @@ func TestPropertiesMerge(t *testing.T) {
 		name     string
 		base     Properties
 		other    Properties
+		pass     bool
 		expected map[string]any
 	}{
 		{
 			name:     "MissingScalar_Copied",
 			base:     NewProperties(),
 			other:    NewProperties().Set("platform", "docker"),
+			pass:     true,
 			expected: map[string]any{"platform": "docker"},
 		},
 		{
 			name:     "ExistingScalar_Replaced",
 			base:     NewProperties().Set("mode", "docker"),
 			other:    NewProperties().Set("mode", "kubernetes"),
+			pass:     true,
 			expected: map[string]any{"mode": "kubernetes"},
 		},
 		{
 			name:     "DistinctKinds_Appended",
 			base:     NewProperties().Set("kinds", []string{"Installation"}),
 			other:    NewProperties().Set("kinds", []string{"CollectionAgent"}),
+			pass:     true,
 			expected: map[string]any{"kinds": []string{"Installation", "CollectionAgent"}},
 		},
 		{
 			name:     "RepeatedKind_NotDuplicated",
 			base:     NewProperties().Set("kinds", []string{"Installation", "CollectionAgent"}),
 			other:    NewProperties().Set("kinds", []string{"CollectionAgent"}),
+			pass:     true,
 			expected: map[string]any{"kinds": []string{"Installation", "CollectionAgent"}},
 		},
 		{
 			name:     "ListIntoMissingKey_Copied",
 			base:     NewProperties().Set("platform", "docker"),
 			other:    NewProperties().Set("kinds", []string{"Infrastructure"}),
+			pass:     true,
 			expected: map[string]any{"platform": "docker", "kinds": []string{"Infrastructure"}},
 		},
 		{
@@ -62,6 +68,7 @@ func TestPropertiesMerge(t *testing.T) {
 				Set("collectionagent_agent_mode", "docker").
 				Set("collectionagent_agent_flavor", "compose").
 				Set("collectionagent_agent_patches_count", 1),
+			pass: true,
 			expected: map[string]any{
 				"kinds":                               []string{"Installation", "CollectionAgent"},
 				"platform":                            "",
@@ -79,12 +86,31 @@ func TestPropertiesMerge(t *testing.T) {
 				"collectionagent_agent_patches_count": 1,
 			},
 		},
+		{
+			name:     "RepeatedKind_Duplicated",
+			base:     NewProperties().Set("kinds", []string{"Installation", "CollectionAgent"}),
+			other:    NewProperties().Set("kinds", []string{"CollectionAgent"}),
+			pass:     false,
+			expected: map[string]any{"kinds": []string{"Installation", "CollectionAgent", "CollectionAgent"}},
+		},
+		{
+			name:     "ExistingScalar_Kept",
+			base:     NewProperties().Set("mode", "docker"),
+			other:    NewProperties().Set("mode", "kubernetes"),
+			pass:     false,
+			expected: map[string]any{"mode": "docker"},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			merged := tt.base.Merge(tt.other)
-			assert.Equal(t, tt.expected, merged.Map())
+			merged := tt.base.Merge(tt.other).Map()
+			if !tt.pass {
+				assert.NotEqual(t, tt.expected, merged)
+				return
+			}
+
+			assert.Equal(t, tt.expected, merged)
 		})
 	}
 }
