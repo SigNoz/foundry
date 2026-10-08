@@ -125,7 +125,7 @@ func TestTemplateDataResolution(t *testing.T) {
 			expectedBound: true,
 			pass:          true,
 		},
-		{name: "BoundNameMalformed_Invalid", infrastructure: "Foundry_", expectedMessage: "failed to resolve the substrate the installation is bound to"},
+		{name: "BoundNameMalformed_Invalid", infrastructure: "Foundry_", expectedMessage: "failed to resolve the infrastructure the installation is bound to"},
 	}
 
 	for _, test := range tests {
@@ -476,10 +476,10 @@ func TestBindingDerivesEveryClusterObject(t *testing.T) {
 			casting:       boundCasting(&installation.Casting{}),
 			expectedBound: true,
 			expectedLocals: map[string]string{
-				"cluster_arn":        "${data.aws_ecs_cluster.substrate.arn}",
-				"vpc_id":             "${data.aws_vpc.substrate.id}",
-				"subnet_ids":         "${data.aws_subnets.substrate.ids}",
-				"security_group_ids": "${data.aws_security_group.substrate.id}",
+				"cluster_arn":        "${data.aws_ecs_cluster.infrastructure.arn}",
+				"vpc_id":             "${data.aws_vpc.infrastructure.id}",
+				"subnet_ids":         "${data.aws_subnets.infrastructure.ids}",
+				"security_group_ids": "${data.aws_security_group.infrastructure.id}",
 			},
 			pass: true,
 		},
@@ -523,7 +523,7 @@ func TestBindingDerivesEveryClusterObject(t *testing.T) {
 					require.NoError(t, err, variable)
 					assert.Contains(t, string(local), test.expectedLocals[variable], variable)
 
-					_, lookupErr := rendered["main.tf.json"].GetBytes("data." + dataSource + ".substrate")
+					_, lookupErr := rendered["main.tf.json"].GetBytes("data." + dataSource + ".infrastructure")
 					_, declaredErr := rendered["variables.tf.json"].GetBytes("variable." + variable)
 					_, carriedErr := rendered["terraform.tfvars.json"].GetBytes(variable)
 

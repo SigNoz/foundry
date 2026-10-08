@@ -192,13 +192,13 @@ func (c *ecsCasting) templateData(config installation.Casting) (templateData, er
 
 	for _, object := range objects {
 		if _, ok := data.Stated[object.key]; ok && object.cluster {
-			return templateData{}, foundryerrors.Newf(foundryerrors.TypeInvalidInput, "the installation is bound to substrate %q and states the %q annotation: state none of the cluster annotations, or unbind and state all four", name, object.annotation.Key)
+			return templateData{}, foundryerrors.Newf(foundryerrors.TypeInvalidInput, "the installation is bound to infrastructure %q and states the %q annotation: state none of the cluster annotations, or unbind and state all four", name, object.annotation.Key)
 		}
 	}
 
 	bound, err := contract.NewSubstrate(name)
 	if err != nil {
-		return templateData{}, foundryerrors.Wrapf(err, foundryerrors.TypeInvalidInput, "failed to resolve the substrate the installation is bound to")
+		return templateData{}, foundryerrors.Wrapf(err, foundryerrors.TypeInvalidInput, "failed to resolve the infrastructure the installation is bound to")
 	}
 
 	persistent, ephemeral := contract.StorageClassPersistent.String(), contract.StorageClassEphemeral.String()

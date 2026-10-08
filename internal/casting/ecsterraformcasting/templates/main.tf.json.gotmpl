@@ -3,17 +3,17 @@
   {{- if $.Substrate }}
   "data": {
     "aws_ecs_cluster": {
-      "substrate": {
+      "infrastructure": {
         "cluster_name": "{{ $.Substrate.ClusterName }}"
       }
     },
     "aws_vpc": {
-      "substrate": {
+      "infrastructure": {
         "tags": {{ toJson $.Substrate.VPC }}
       }
     },
     "aws_subnets": {
-      "substrate": {
+      "infrastructure": {
         "filter": [
           {
             "name": "vpc-id",
@@ -31,10 +31,10 @@
         }
       }
     },
-    {{- /* Every group of the substrate carries its tags, so the derived name
+    {{- /* Every group of the infrastructure carries its tags, so the derived name
            is what singles out the one tasks join. */}}
     "aws_security_group": {
-      "substrate": {
+      "infrastructure": {
         "name": "{{ $.Substrate.SecurityGroupName }}",
         "vpc_id": "${local.vpc_id}",
         "tags": {{ toJson $.Substrate.SecurityGroup }}
@@ -92,10 +92,10 @@
   {{- end }}
   {{- /* A component reads `local.cluster_arn`, never the variable. */}}
   "locals": {
-    "cluster_arn": "{{ if $.Substrate }}${data.aws_ecs_cluster.substrate.arn}{{ else }}${var.cluster_arn}{{ end }}",
-    "subnet_ids": "{{ if $.Substrate }}${data.aws_subnets.substrate.ids}{{ else }}${var.subnet_ids}{{ end }}",
-    "security_group_ids": {{ if $.Substrate }}["${data.aws_security_group.substrate.id}"]{{ else }}"${var.security_group_ids}"{{ end }},
-    "vpc_id": "{{ if $.Substrate }}${data.aws_vpc.substrate.id}{{ else }}${var.vpc_id}{{ end }}",
+    "cluster_arn": "{{ if $.Substrate }}${data.aws_ecs_cluster.infrastructure.arn}{{ else }}${var.cluster_arn}{{ end }}",
+    "subnet_ids": "{{ if $.Substrate }}${data.aws_subnets.infrastructure.ids}{{ else }}${var.subnet_ids}{{ end }}",
+    "security_group_ids": {{ if $.Substrate }}["${data.aws_security_group.infrastructure.id}"]{{ else }}"${var.security_group_ids}"{{ end }},
+    "vpc_id": "{{ if $.Substrate }}${data.aws_vpc.infrastructure.id}{{ else }}${var.vpc_id}{{ end }}",
     "task_role_arn": "{{ if $.Stated.TaskRoleARN }}${var.task_role_arn}{{ else }}${aws_iam_role.task.arn}{{ end }}",
     "execution_role_arn": "{{ if $.Stated.ExecutionRoleARN }}${var.execution_role_arn}{{ else }}${aws_iam_role.exec.arn}{{ end }}"
     {{- if $.Substrate }},
