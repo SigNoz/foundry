@@ -5,7 +5,7 @@ An Infrastructure casting provisions what SigNoz runs on: the network, the machi
 The two can share one casting file or live in separate ones.
 
 > [!IMPORTANT]
-> Cast follows document order, so put the Infrastructure document first in a shared file, or cast the Infrastructure file before the Installation's.
+> Foundry casts the Infrastructure document before the Installation whatever order they are written in a shared file. With separate files, cast the Infrastructure file first.
 
 ## The casting
 
