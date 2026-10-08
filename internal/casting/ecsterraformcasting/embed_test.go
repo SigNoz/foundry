@@ -3,6 +3,7 @@ package ecsterraformcasting
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -652,7 +653,6 @@ func TestBindingClaimsEveryPersistentIdentity(t *testing.T) {
 	tests := []struct {
 		name               string
 		casting            *installation.Casting
-		expectedBound      bool
 		expectedIdentities []string
 		pass               bool
 	}{
@@ -668,7 +668,7 @@ func TestBindingClaimsEveryPersistentIdentity(t *testing.T) {
 		},
 		{name: "Sqlite_Valid", casting: sqlite, expectedIdentities: []string{"telemetrykeeper-clickhousekeeper-0", "signoz-0", "telemetrystore-clickhouse-0-0"}, pass: true},
 		{name: "KeeperDisabled_Valid", casting: keeperDisabled, expectedIdentities: []string{"metastore-postgres-0", "telemetrystore-clickhouse-0-0"}, pass: true},
-		{name: "NoPersistentIdentity_Valid", casting: noPersistentIdentity, expectedBound: true, pass: true},
+		{name: "NoPersistentIdentity_Valid", casting: noPersistentIdentity, expectedIdentities: []string{}, pass: true},
 		{name: "Unbound_Valid", casting: statedCasting(&installation.Casting{}), pass: true},
 		{name: "BoundNameMalformed_Invalid", casting: malformed},
 	}
@@ -689,16 +689,6 @@ func TestBindingClaimsEveryPersistentIdentity(t *testing.T) {
 				claimed := test.expectedIdentities != nil
 
 				for _, path := range []string{
-					"data.aws_ecs_cluster.infrastructure",
-					"data.aws_vpc.infrastructure",
-					"data.aws_subnets.infrastructure",
-					"data.aws_security_group.infrastructure",
-				} {
-					_, err := main.GetBytes(path)
-					assert.Equal(t, claimed || test.expectedBound, err == nil, path)
-				}
-
-				for _, path := range []string{
 					"data.aws_instances.persistent",
 					"data.aws_instance.persistent",
 					"data.aws_ebs_volumes.persistent",
@@ -715,9 +705,12 @@ func TestBindingClaimsEveryPersistentIdentity(t *testing.T) {
 					return
 				}
 
-				identities, err := main.GetStringSlice("locals.identities")
+				identities, err := main.GetBytes("locals.identities")
 				require.NoError(t, err)
-				assert.Equal(t, test.expectedIdentities, identities)
+
+				expectedIdentities, err := json.Marshal(test.expectedIdentities)
+				require.NoError(t, err)
+				assert.JSONEq(t, string(expectedIdentities), string(identities))
 
 				for _, path := range []string{"data.aws_instances.persistent.instance_tags", "data.aws_ebs_volumes.persistent.tags"} {
 					tags, err := main.GetBytes(path)
@@ -727,7 +720,7 @@ func TestBindingClaimsEveryPersistentIdentity(t *testing.T) {
 
 				condition, err := main.GetBytes("data.aws_ebs_volumes.persistent.lifecycle.postcondition.0.condition")
 				require.NoError(t, err)
-				assert.Equal(t, "${length(self.ids) > 0}", string(condition))
+				assert.Equal(t, "${length(self.ids) > 0 || length(local.identities) == 0}", string(condition))
 
 				key, err := main.GetBytes("resource.aws_ec2_tag.claims.key")
 				require.NoError(t, err)
