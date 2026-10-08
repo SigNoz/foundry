@@ -47,23 +47,6 @@ Each row is a valid combination. Mixing values across rows is not supported.
 | Railway | - | `template` | `railway` |
 | AWS ECS (EC2) | `ec2` | `terraform` | `ecs` |
 
-## Infrastructure
-
-`spec.infrastructure.name` names the Infrastructure document this installation
-runs on, by its `metadata.name`. The installation's casting derives whatever its
-platform needs from that substrate, through the substrate's names and tags, so
-the objects a bound installation runs on are stated once, in the Infrastructure
-document.
-
-Document order is cast order: the Infrastructure document comes first in a
-multi-document file, or is cast first from its own file. Binding and stating a
-platform's cluster objects are exclusive; each platform's annotation section
-says which annotations a bound installation leaves out.
-
-| Field | Description |
-| --- | --- |
-| `spec.infrastructure.name` | `metadata.name` of the Infrastructure document whose substrate the installation runs on. The installation then states none of that platform's cluster annotations |
-
 ## Molding spec
 
 Each molding (`signoz`, `ingester`, `telemetrystore`, `telemetrykeeper`, `mcp`) accepts a `spec` block:
@@ -212,11 +195,11 @@ The version defaults to `0.13.0` when the chart is unstated.
 
 Required when using `platform: ecs`, `mode: ec2`, `flavor: terraform` on a
 cluster you bring: every object the cluster is made of is named here. Leave one
-out and terraform refuses at plan. A [bound](#infrastructure) installation
-leaves out the four cluster annotations, `ecs-cluster-arn`,
-`ecs-private-subnet-ids`, `ecs-security-group-ids` and `ecs-vpc-id`, and the
-forge refuses a casting that states one beside `spec.infrastructure.name`.
-`ecs-region` stays required either way.
+out and terraform refuses at plan. A bound installation leaves out the four
+cluster annotations, `ecs-cluster-arn`, `ecs-private-subnet-ids`,
+`ecs-security-group-ids` and `ecs-vpc-id`, and the forge refuses a casting that
+states one beside `spec.infrastructure.name`. `ecs-region` stays required either
+way.
 
 | Annotation | Maps to tfvar | Description |
 | --- | --- | --- |

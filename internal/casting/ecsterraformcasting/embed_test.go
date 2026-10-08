@@ -549,6 +549,12 @@ func TestBoundServicesArePlacedByStorageClass(t *testing.T) {
 	zookeeper := boundCasting(&installation.Casting{})
 	zookeeper.Spec.TelemetryKeeper.Kind = installation.TelemetryKeeperKindZookeeper
 
+	clickhouseKeeper := boundCasting(&installation.Casting{})
+	clickhouseKeeper.Spec.TelemetryKeeper.Kind = installation.TelemetryKeeperKindClickhouseKeeper
+
+	mcp := boundCasting(&installation.Casting{})
+	mcp.Spec.MCP.Spec.Enabled = v1alpha1.BoolPtr(true)
+
 	tests := []struct {
 		name          string
 		template      *domain.Template
@@ -556,11 +562,14 @@ func TestBoundServicesArePlacedByStorageClass(t *testing.T) {
 		expectedClass string
 		pass          bool
 	}{
+		{name: "TelemetryStore_Valid", template: telemetryStoreTF, casting: boundCasting(&installation.Casting{}), expectedClass: "persistent", pass: true},
+		{name: "TelemetryKeeper_Valid", template: telemetryKeeperTF, casting: clickhouseKeeper, expectedClass: "persistent", pass: true},
 		{name: "MetaStore_Valid", template: metaStoreTF, casting: boundCasting(&installation.Casting{}), expectedClass: "persistent", pass: true},
 		{name: "Zookeeper_Valid", template: telemetryKeeperTF, casting: zookeeper, expectedClass: "persistent", pass: true},
 		{name: "SignozOnSqlite_Valid", template: signozTF, casting: sqlite, expectedClass: "persistent", pass: true},
 		{name: "SignozOnPostgres_Valid", template: signozTF, casting: boundCasting(&installation.Casting{}), expectedClass: "ephemeral", pass: true},
 		{name: "Ingester_Valid", template: ingesterTF, casting: boundCasting(&installation.Casting{}), expectedClass: "ephemeral", pass: true},
+		{name: "MCP_Valid", template: mcpTF, casting: mcp, expectedClass: "ephemeral", pass: true},
 		{name: "Unbound_Valid", template: metaStoreTF, casting: statedCasting(&installation.Casting{}), pass: true},
 	}
 
