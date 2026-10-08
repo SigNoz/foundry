@@ -234,7 +234,10 @@
             "tags": {"Name":"foundry-lt-ephemeral","foundry.signoz.io/kind":"Infrastructure","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry","foundry.signoz.io/owner":"owned","foundry.signoz.io/storage":"ephemeral"}
           }
         ],
-        "tags": {"Name":"foundry-lt-ephemeral","foundry.signoz.io/kind":"Infrastructure","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry","foundry.signoz.io/owner":"owned","foundry.signoz.io/storage":"ephemeral"}
+        "tags": {"Name":"foundry-lt-ephemeral","foundry.signoz.io/kind":"Infrastructure","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry","foundry.signoz.io/owner":"owned","foundry.signoz.io/storage":"ephemeral"},
+        "lifecycle": {
+          "ignore_changes": ["image_id"]
+        }
       }
     },
     "aws_autoscaling_group": {

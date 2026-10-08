@@ -203,7 +203,12 @@
             "tags": {{ toJson $group.LaunchTemplate.Tags }}
           }
         ],
-        "tags": {{ toJson $group.LaunchTemplate.Tags }}
+        "tags": {{ toJson $group.LaunchTemplate.Tags }},
+        {{- /* The AMI is pinned so SSM rotation does not roll the pool as a side
+               effect. A refresh follows a machine type or boot change only. */}}
+        "lifecycle": {
+          "ignore_changes": ["image_id"]
+        }
       }
       {{- end }}
     },
