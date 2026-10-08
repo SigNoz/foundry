@@ -193,9 +193,12 @@ The version defaults to `0.13.0` when the chart is unstated.
 
 ### ECS annotations
 
-Required when using `platform: ecs`, `mode: ec2`, `flavor: terraform`. The
-casting places tasks onto a cluster it does not provision, so every object the
-cluster is made of is named here. Leave one out and terraform refuses at plan.
+Required when using `platform: ecs`, `mode: ec2`, `flavor: terraform` on a
+cluster you bring: every object the cluster is made of is named here. Leave one
+out and terraform refuses at plan. Binding is all or nothing: set
+`spec.infrastructure.name` and state none of the four cluster annotations, or
+state all four and leave `spec.infrastructure` out. The forge refuses a casting
+that does both. The region stays required either way.
 
 | Annotation | Maps to tfvar | Description |
 | --- | --- | --- |
@@ -204,6 +207,10 @@ cluster is made of is named here. Leave one out and terraform refuses at plan.
 | `foundry.signoz.io/ecs-private-subnet-ids` | `subnet_ids` | Comma-separated IDs of the private subnets tasks are placed in; they need a NAT route or the ECR, ECS, S3, AppConfig and logs VPC endpoints, since tasks on the EC2 launch type take no public IP |
 | `foundry.signoz.io/ecs-security-group-ids` | `security_group_ids` | Comma-separated security group IDs |
 | `foundry.signoz.io/ecs-vpc-id` | `vpc_id` | VPC ID for the Cloud Map namespace |
+
+| Field | Description |
+| --- | --- |
+| `spec.infrastructure.name` | `metadata.name` of the Infrastructure document whose substrate the installation runs on; its cluster, VPC, private subnets and task security group are looked up at plan, and every service is placed by the `foundry.signoz.io/storage` attribute of its container instances. State none of the four cluster annotations beside it |
 
 The two IAM roles are this stack's own identity, so an absent one is created
 rather than looked up.

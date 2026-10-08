@@ -1,16 +1,9 @@
-{{- $name := $.Metadata.Name -}}
-{{- $kind := $.Spec.MetaStore.Kind.String -}}
-{{- $replicas := derefIntDefault $.Spec.MetaStore.Spec.Cluster.Replicas 1 -}}
-{{- if lt $replicas 1 }}{{- $replicas = 1 -}}{{- end -}}
 {
   "locals": {
-    {{- range $i := until $replicas }}{{ if $i }},{{ end }}
-    {{- $label := printf "metastore_%s_%d" $kind $i }}
-    {{- $family := printf "%s-metastore-%s-%d" $name $kind $i }}
-    "containers_{{ $label }}": [
+    "containers_metastore_postgres_0": [
       {
-        "name": "{{ $family }}",
-        "image": "{{ $.Spec.MetaStore.Spec.Image }}",
+        "name": "signoz-metastore-postgres-0",
+        "image": "postgres:16",
         "logConfiguration": {
           "logDriver": "json-file",
           "options": {
@@ -20,11 +13,7 @@
           }
         },
         "essential": true,
-        {{- $env := list }}
-        {{- range $key, $value := $.Spec.MetaStore.Spec.Env }}
-        {{- $env = append $env (dict "name" $key "value" $value) }}
-        {{- end }}
-        "environment": {{ toJson $env }},
+        "environment": [{"name":"POSTGRES_DB","value":"signoz"},{"name":"POSTGRES_PASSWORD","value":"signoz"},{"name":"POSTGRES_USER","value":"signoz"}],
         "portMappings": [
           {"name": "postgres", "containerPort": 5432, "protocol": "tcp"}
         ],
@@ -45,36 +34,29 @@
         }
       }
     ]
-    {{- end }}
   },
   "resource": {
     "aws_ecs_task_definition": {
-      {{- range $i := until $replicas }}{{ if $i }},{{ end }}
-      {{- $label := printf "metastore_%s_%d" $kind $i }}
-      {{- $family := printf "%s-metastore-%s-%d" $name $kind $i }}
-      "{{ $label }}": {
-        "family": "{{ $family }}",
-        "tags": {{ toJson $.Labels }},
+      "metastore_postgres_0": {
+        "family": "signoz-metastore-postgres-0",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"},
         "network_mode": "awsvpc",
         "requires_compatibilities": ["EC2"],
         "task_role_arn": "${local.task_role_arn}",
         "execution_role_arn": "${local.execution_role_arn}",
-        "container_definitions": "${jsonencode(local.containers_{{ $label }})}",
+        "container_definitions": "${jsonencode(local.containers_metastore_postgres_0)}",
         "volume": [
           {
             "name": "metastore-data",
-            "host_path": "/var/lib/foundry/{{ $name }}/metastore/{{ $kind }}/{{ $i }}"
+            "host_path": "/var/lib/foundry/signoz/metastore/postgres/0"
           }
         ]
       }
-      {{- end }}
     },
     "aws_service_discovery_service": {
-      {{- range $i := until $replicas }}{{ if $i }},{{ end }}
-      {{- $label := printf "metastore_%s_%d" $kind $i }}
-      "{{ $label }}": {
-        "name": "metastore-{{ $kind }}-{{ $i }}",
-        "tags": {{ toJson $.Labels }},
+      "metastore_postgres_0": {
+        "name": "metastore-postgres-0",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"},
         "dns_config": {
           "namespace_id": "${aws_service_discovery_private_dns_namespace.main.id}",
           "dns_records": [
@@ -86,42 +68,35 @@
           "routing_policy": "MULTIVALUE"
         }
       }
-      {{- end }}
     },
     "aws_ecs_service": {
-      {{- range $i := until $replicas }}{{ if $i }},{{ end }}
-      {{- $label := printf "metastore_%s_%d" $kind $i }}
-      {{- $family := printf "%s-metastore-%s-%d" $name $kind $i }}
-      "{{ $label }}": {
-        "name": "{{ $family }}",
+      "metastore_postgres_0": {
+        "name": "signoz-metastore-postgres-0",
         "cluster": "${local.cluster_arn}",
-        "task_definition": "${aws_ecs_task_definition.{{ $label }}.arn}",
+        "task_definition": "${aws_ecs_task_definition.metastore_postgres_0.arn}",
         "desired_count": 1,
         "deployment_minimum_healthy_percent": 0,
         "deployment_maximum_percent": 100,
         "launch_type": "EC2",
-        {{- if $.Substrate }}
         "placement_constraints": [
           {
             "type": "memberOf",
-            "expression": "ec2InstanceId == '${local.seats[\"metastore-{{ $kind }}-{{ $i }}\"]}' and attribute:{{ $.Substrate.StorageKey }} == {{ index $.Substrate.Storage "metastore" }}"
+            "expression": "ec2InstanceId == '${local.seats[\"metastore-postgres-0\"]}' and attribute:foundry.signoz.io/storage == persistent"
           }
         ],
-        {{- end }}
         "deployment_circuit_breaker": {
           "enable": true,
           "rollback": true
         },
-        "tags": {{ toJson $.Labels }},
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"},
         "network_configuration": {
           "subnets": "${local.subnet_ids}",
           "security_groups": "${local.security_group_ids}"
         },
         "service_registries": {
-          "registry_arn": "${aws_service_discovery_service.{{ $label }}.arn}"
+          "registry_arn": "${aws_service_discovery_service.metastore_postgres_0.arn}"
         }
       }
-      {{- end }}
     }
   }
 }

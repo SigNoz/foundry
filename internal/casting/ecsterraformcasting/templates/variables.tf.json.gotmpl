@@ -10,6 +10,7 @@
       "description": "AWS region holding the cluster",
       "type": "string"
     },
+    {{- if not $.Substrate }}
     "cluster_arn": {
       "nullable": false,
       "validation": {
@@ -46,9 +47,10 @@
       "description": "ID of the VPC the Cloud Map namespace is created in",
       "type": "string"
     },
+    {{- end }}
     {{- /* Several workloads share one cluster, so a bare role name collides
            on the second apply. */}}
-    {{- if $.TaskRole.IsStated }}
+    {{- if $.Stated.TaskRoleARN }}
     "task_role_arn": {
       "nullable": false,
       "validation": {
@@ -65,7 +67,7 @@
       "type": "string"
     },
     {{- end }}
-    {{- if $.ExecutionRole.IsStated }}
+    {{- if $.Stated.ExecutionRoleARN }}
     "execution_role_arn": {
       "nullable": false,
       "validation": {

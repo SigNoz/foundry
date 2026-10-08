@@ -12,6 +12,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	"github.com/signoz/foundry/internal/domain"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -25,6 +26,16 @@ func statedCasting(declared *installation.Casting) *installation.Casting {
 		installation.ECSPrivateSubnetIDs.Key: "subnet-abc123, subnet-def456",
 		installation.ECSSecurityGroupIDs.Key: "sg-abc123",
 	}
+
+	return c
+}
+
+func boundCasting(declared *installation.Casting) *installation.Casting {
+	c := installation.Default(declared)
+	c.Metadata.Annotations = map[string]string{
+		installation.ECSRegion.Key: "us-east-1",
+	}
+	c.Spec.Infrastructure.Name = "foundry"
 
 	return c
 }
@@ -74,39 +85,69 @@ func TestTemplateDataResolution(t *testing.T) {
 	maps.Copy(malformed, complete)
 	malformed[installation.ECSPrivateSubnetIDs.Key] = " , ,"
 
+	roles := map[string]string{
+		installation.ECSTaskRoleARN.Key:          "arn:aws:iam::123456789012:role/task",
+		installation.ECSTaskExecutionRoleARN.Key: "arn:aws:iam::123456789012:role/exec",
+	}
+
 	tests := []struct {
 		name            string
 		annotations     map[string]string
+		infrastructure  string
 		expectedRegion  string
-		expectedStated  bool
+		expectedStated  map[string]any
+		expectedBound   bool
 		expectedMessage string
 		pass            bool
 	}{
-		{name: "AllStated_Valid", annotations: complete, expectedRegion: "us-east-1", expectedStated: true, pass: true},
-		{name: "NothingStated_Valid", annotations: nil, pass: true},
+		{
+			name:           "AllStated_Valid",
+			annotations:    complete,
+			expectedRegion: "us-east-1",
+			expectedStated: map[string]any{
+				"ClusterARN":       "arn:aws:ecs:us-east-1:123456789012:cluster/test",
+				"VPCID":            "vpc-abc123",
+				"SubnetIDs":        []string{"subnet-abc123", "subnet-def456"},
+				"SecurityGroupIDs": []string{"sg-abc123"},
+			},
+			pass: true,
+		},
+		{name: "NothingStated_Valid", annotations: nil, expectedStated: map[string]any{}, pass: true},
 		{name: "SubnetIDsMalformed_Invalid", annotations: malformed, expectedMessage: "no ids found"},
+		{name: "Bound_Valid", infrastructure: "foundry", expectedStated: map[string]any{}, expectedBound: true, pass: true},
+		{
+			name:           "BoundRolesStated_Valid",
+			annotations:    roles,
+			infrastructure: "foundry",
+			expectedStated: map[string]any{
+				"TaskRoleARN":      "arn:aws:iam::123456789012:role/task",
+				"ExecutionRoleARN": "arn:aws:iam::123456789012:role/exec",
+			},
+			expectedBound: true,
+			pass:          true,
+		},
+		{name: "BoundNameMalformed_Invalid", infrastructure: "Foundry_", expectedMessage: "failed to resolve the substrate the installation is bound to"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
 			casting := installation.Default(&installation.Casting{})
-			casting.Metadata.Annotations = tt.annotations
+			casting.Metadata.Annotations = test.annotations
+			casting.Spec.Infrastructure.Name = test.infrastructure
 
 			data, err := New(slog.New(slog.DiscardHandler)).templateData(*casting)
-			if !tt.pass {
-				assert.ErrorContains(t, err, tt.expectedMessage)
+
+			if test.pass {
+				require.NoError(t, err)
+				assert.Equal(t, test.expectedRegion, data.Region)
+				assert.Equal(t, test.expectedStated, data.Stated)
+				assert.Equal(t, test.expectedBound, data.Substrate != nil)
 
 				return
 			}
 
-			require.NoError(t, err)
-			assert.Equal(t, tt.expectedRegion, data.Region)
-
-			for _, reference := range []Reference{data.Cluster, data.VPC, data.Subnets, data.SecurityGroup} {
-				assert.Equal(t, tt.expectedStated, reference.IsStated())
-			}
-
-			assert.False(t, data.TaskRole.IsStated())
+			require.Error(t, err)
+			assert.ErrorContains(t, err, test.expectedMessage)
 		})
 	}
 }
@@ -409,5 +450,352 @@ func TestOutputsEnumerateEveryNode(t *testing.T) {
 	for _, path := range []string{"output.metastore_service_name.value", "output.signoz_service_name.value", "output.signoz_service_arn.value"} {
 		_, err := material.GetBytes(path)
 		assert.NoError(t, err, "reading %s", path)
+	}
+}
+
+func TestBindingDerivesEveryClusterObject(t *testing.T) {
+	boundAndStated := boundCasting(&installation.Casting{})
+	boundAndStated.Metadata.Annotations[installation.ECSVPCID.Key] = "vpc-abc123"
+
+	lookups := map[string]string{
+		"cluster_arn":        "aws_ecs_cluster",
+		"vpc_id":             "aws_vpc",
+		"subnet_ids":         "aws_subnets",
+		"security_group_ids": "aws_security_group",
+	}
+
+	tests := []struct {
+		name            string
+		casting         *installation.Casting
+		expectedBound   bool
+		expectedLocals  map[string]string
+		expectedMessage string
+		pass            bool
+	}{
+		{
+			name:          "Bound_Valid",
+			casting:       boundCasting(&installation.Casting{}),
+			expectedBound: true,
+			expectedLocals: map[string]string{
+				"cluster_arn":        "${data.aws_ecs_cluster.substrate.arn}",
+				"vpc_id":             "${data.aws_vpc.substrate.id}",
+				"subnet_ids":         "${data.aws_subnets.substrate.ids}",
+				"security_group_ids": "${data.aws_security_group.substrate.id}",
+			},
+			pass: true,
+		},
+		{
+			name:    "Unbound_Valid",
+			casting: installation.Default(&installation.Casting{}),
+			expectedLocals: map[string]string{
+				"cluster_arn":        "${var.cluster_arn}",
+				"vpc_id":             "${var.vpc_id}",
+				"subnet_ids":         "${var.subnet_ids}",
+				"security_group_ids": "${var.security_group_ids}",
+			},
+			pass: true,
+		},
+		{
+			name:            "BoundAndStated_Invalid",
+			casting:         boundAndStated,
+			expectedMessage: `states the "foundry.signoz.io/ecs-vpc-id" annotation`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			data, err := New(slog.New(slog.DiscardHandler)).templateData(*test.casting)
+
+			if test.pass {
+				require.NoError(t, err)
+
+				main := bytes.NewBuffer(nil)
+				require.NoError(t, mainTF.Execute(main, data))
+
+				mainMaterial, err := domain.NewJSONMaterial(main.Bytes(), "main.tf.json")
+				require.NoError(t, err)
+
+				variables := bytes.NewBuffer(nil)
+				require.NoError(t, variablesTF.Execute(variables, data))
+
+				variablesMaterial, err := domain.NewJSONMaterial(variables.Bytes(), "variables.tf.json")
+				require.NoError(t, err)
+
+				tfvars := bytes.NewBuffer(nil)
+				require.NoError(t, tfarsTF.Execute(tfvars, data))
+
+				tfvarsMaterial, err := domain.NewJSONMaterial(tfvars.Bytes(), "terraform.tfvars.json")
+				require.NoError(t, err)
+
+				if !test.expectedBound {
+					_, err := mainMaterial.GetBytes("data")
+					assert.Error(t, err, "an unbound casting stating nothing looks nothing up")
+				}
+
+				for variable, dataSource := range lookups {
+					local, err := mainMaterial.GetBytes("locals." + variable)
+					require.NoError(t, err, variable)
+					assert.Contains(t, string(local), test.expectedLocals[variable], variable)
+
+					_, lookupErr := mainMaterial.GetBytes("data." + dataSource + ".substrate")
+					_, declaredErr := variablesMaterial.GetBytes("variable." + variable)
+					_, carriedErr := tfvarsMaterial.GetBytes(variable)
+
+					assert.Equal(t, test.expectedBound, lookupErr == nil, "%s is looked up", variable)
+					assert.Equal(t, !test.expectedBound, declaredErr == nil, "%s is declared", variable)
+					assert.Equal(t, !test.expectedBound, carriedErr == nil, "%s is carried", variable)
+				}
+
+				return
+			}
+
+			require.Error(t, err)
+			assert.ErrorContains(t, err, test.expectedMessage)
+			assert.Equal(t, foundryerrors.TypeInvalidInput.ExitCode(), foundryerrors.ExitCode(err))
+		})
+	}
+}
+
+// A task with no node of its storage class stays pending, so a casting bound
+// to nothing places nothing.
+func TestBoundServicesArePlacedByStorageClass(t *testing.T) {
+	sqlite := boundCasting(&installation.Casting{})
+	sqlite.Spec.MetaStore.Kind = installation.MetaStoreKindSQLite
+
+	zookeeper := boundCasting(&installation.Casting{})
+	zookeeper.Spec.TelemetryKeeper.Kind = installation.TelemetryKeeperKindZookeeper
+
+	cluster := boundCasting(&installation.Casting{})
+	cluster.Spec.TelemetryStore.Spec.Cluster.Shards = v1alpha1.IntPtr(2)
+	cluster.Spec.TelemetryStore.Spec.Cluster.Replicas = v1alpha1.IntPtr(1)
+	cluster.Spec.TelemetryKeeper.Spec.Cluster.Replicas = v1alpha1.IntPtr(3)
+	cluster.Spec.MetaStore.Spec.Cluster.Replicas = v1alpha1.IntPtr(2)
+
+	sqliteCluster := boundCasting(&installation.Casting{})
+	sqliteCluster.Spec.MetaStore.Kind = installation.MetaStoreKindSQLite
+	sqliteCluster.Spec.TelemetryKeeper.Kind = installation.TelemetryKeeperKindZookeeper
+	sqliteCluster.Spec.TelemetryKeeper.Spec.Cluster.Replicas = v1alpha1.IntPtr(3)
+	sqliteCluster.Spec.Signoz.Spec.Cluster.Replicas = v1alpha1.IntPtr(2)
+
+	tests := []struct {
+		name          string
+		template      *domain.Template
+		casting       *installation.Casting
+		expectedClass string
+		pass          bool
+	}{
+		{name: "TelemetryStoreOnPostgres_Persistent", template: telemetryStoreTF, casting: boundCasting(&installation.Casting{}), expectedClass: "persistent", pass: true},
+		{name: "TelemetryStoreOnSqlite_Persistent", template: telemetryStoreTF, casting: sqlite, expectedClass: "persistent", pass: true},
+		{name: "TelemetryKeeperOnPostgres_Persistent", template: telemetryKeeperTF, casting: boundCasting(&installation.Casting{}), expectedClass: "persistent", pass: true},
+		{name: "TelemetryKeeperOnSqlite_Persistent", template: telemetryKeeperTF, casting: sqlite, expectedClass: "persistent", pass: true},
+		{name: "Zookeeper_Persistent", template: telemetryKeeperTF, casting: zookeeper, expectedClass: "persistent", pass: true},
+		{name: "MetaStoreOnPostgres_Persistent", template: metaStoreTF, casting: boundCasting(&installation.Casting{}), expectedClass: "persistent", pass: true},
+		{name: "SignozOnPostgres_Ephemeral", template: signozTF, casting: boundCasting(&installation.Casting{}), expectedClass: "ephemeral", pass: true},
+		{name: "SignozOnSqlite_Persistent", template: signozTF, casting: sqlite, expectedClass: "persistent", pass: true},
+		{name: "IngesterOnPostgres_Ephemeral", template: ingesterTF, casting: boundCasting(&installation.Casting{}), expectedClass: "ephemeral", pass: true},
+		{name: "IngesterOnSqlite_Ephemeral", template: ingesterTF, casting: sqlite, expectedClass: "ephemeral", pass: true},
+		{name: "MCPOnPostgres_Ephemeral", template: mcpTF, casting: boundCasting(&installation.Casting{}), expectedClass: "ephemeral", pass: true},
+		{name: "MCPOnSqlite_Ephemeral", template: mcpTF, casting: sqlite, expectedClass: "ephemeral", pass: true},
+		{name: "TelemetryStoreCluster_Persistent", template: telemetryStoreTF, casting: cluster, expectedClass: "persistent", pass: true},
+		{name: "TelemetryKeeperCluster_Persistent", template: telemetryKeeperTF, casting: cluster, expectedClass: "persistent", pass: true},
+		{name: "ZookeeperCluster_Persistent", template: telemetryKeeperTF, casting: sqliteCluster, expectedClass: "persistent", pass: true},
+		{name: "MetaStoreCluster_Persistent", template: metaStoreTF, casting: cluster, expectedClass: "persistent", pass: true},
+		{name: "SignozClusterOnPostgres_Ephemeral", template: signozTF, casting: cluster, expectedClass: "ephemeral", pass: true},
+		{name: "SignozClusterOnSqlite_Persistent", template: signozTF, casting: sqliteCluster, expectedClass: "persistent", pass: true},
+		{name: "TelemetryStoreUnbound_Valid", template: telemetryStoreTF, casting: statedCasting(&installation.Casting{}), pass: true},
+		{name: "TelemetryKeeperUnbound_Valid", template: telemetryKeeperTF, casting: statedCasting(&installation.Casting{}), pass: true},
+		{name: "MetaStoreUnbound_Valid", template: metaStoreTF, casting: statedCasting(&installation.Casting{}), pass: true},
+		{name: "SignozUnbound_Valid", template: signozTF, casting: statedCasting(&installation.Casting{}), pass: true},
+		{name: "IngesterUnbound_Valid", template: ingesterTF, casting: statedCasting(&installation.Casting{}), pass: true},
+		{name: "MCPUnbound_Valid", template: mcpTF, casting: statedCasting(&installation.Casting{}), pass: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			data := templateDataFor(t, test.casting)
+
+			buf := bytes.NewBuffer(nil)
+			err := test.template.Execute(buf, data)
+
+			if test.pass {
+				require.NoError(t, err)
+
+				if test.expectedClass == "" {
+					assert.NotContains(t, buf.String(), "placement_constraints")
+					assert.NotContains(t, buf.String(), "local.seats")
+
+					return
+				}
+
+				material, err := domain.NewJSONMaterial(buf.Bytes(), "component.tf.json")
+				require.NoError(t, err)
+
+				services, err := material.GetStringSlice("resource.aws_ecs_service.@values.#.name")
+				require.NoError(t, err)
+
+				types, err := material.GetStringSlice("resource.aws_ecs_service.@values.#.placement_constraints.0.type")
+				require.NoError(t, err)
+
+				expressions, err := material.GetStringSlice("resource.aws_ecs_service.@values.#.placement_constraints.0.expression")
+				require.NoError(t, err)
+
+				require.Len(t, expressions, len(services), "every service is placed")
+
+				for i, service := range services {
+					expectedExpression := "attribute:foundry.signoz.io/storage == " + test.expectedClass
+
+					identity := strings.TrimPrefix(service, test.casting.Metadata.Name+"-")
+					if test.expectedClass == "persistent" {
+						assert.Contains(t, data.Substrate["Identities"], identity, "%s has a seat", service)
+						expectedExpression = fmt.Sprintf("ec2InstanceId == '${local.seats[%q]}' and %s", identity, expectedExpression)
+					}
+
+					assert.Equal(t, "memberOf", types[i])
+					assert.Equal(t, expectedExpression, expressions[i], service)
+				}
+
+				return
+			}
+
+			require.Error(t, err)
+		})
+	}
+}
+
+func TestBindingClaimsEveryPersistentIdentity(t *testing.T) {
+	sqlite := boundCasting(&installation.Casting{})
+	sqlite.Spec.MetaStore.Kind = installation.MetaStoreKindSQLite
+
+	cluster := boundCasting(&installation.Casting{})
+	cluster.Spec.TelemetryStore.Spec.Cluster.Shards = v1alpha1.IntPtr(2)
+	cluster.Spec.TelemetryStore.Spec.Cluster.Replicas = v1alpha1.IntPtr(1)
+	cluster.Spec.TelemetryKeeper.Spec.Cluster.Replicas = v1alpha1.IntPtr(3)
+	cluster.Spec.MetaStore.Spec.Cluster.Replicas = v1alpha1.IntPtr(2)
+
+	sqliteCluster := boundCasting(&installation.Casting{})
+	sqliteCluster.Spec.MetaStore.Kind = installation.MetaStoreKindSQLite
+	sqliteCluster.Spec.TelemetryKeeper.Kind = installation.TelemetryKeeperKindZookeeper
+	sqliteCluster.Spec.Signoz.Spec.Cluster.Replicas = v1alpha1.IntPtr(2)
+	sqliteCluster.Spec.TelemetryStore.Spec.Cluster.Replicas = v1alpha1.IntPtr(1)
+
+	keeperDisabled := boundCasting(&installation.Casting{})
+	keeperDisabled.Spec.TelemetryKeeper.Spec.Enabled = v1alpha1.BoolPtr(false)
+
+	malformed := boundCasting(&installation.Casting{})
+	malformed.Spec.Infrastructure.Name = "Foundry_"
+
+	tests := []struct {
+		name               string
+		casting            *installation.Casting
+		expectedClaims     bool
+		expectedIdentities []string
+		pass               bool
+	}{
+		{
+			name:               "Postgres_Valid",
+			casting:            boundCasting(&installation.Casting{}),
+			expectedClaims:     true,
+			expectedIdentities: []string{"telemetrykeeper-clickhousekeeper-0", "metastore-postgres-0", "telemetrystore-clickhouse-0-0"},
+			pass:               true,
+		},
+		{
+			name:               "Sqlite_Valid",
+			casting:            sqlite,
+			expectedClaims:     true,
+			expectedIdentities: []string{"telemetrykeeper-clickhousekeeper-0", "signoz-0", "telemetrystore-clickhouse-0-0"},
+			pass:               true,
+		},
+		{
+			name:           "PostgresCluster_Valid",
+			casting:        cluster,
+			expectedClaims: true,
+			expectedIdentities: []string{
+				"telemetrykeeper-clickhousekeeper-0", "telemetrykeeper-clickhousekeeper-1", "telemetrykeeper-clickhousekeeper-2",
+				"metastore-postgres-0", "metastore-postgres-1",
+				"telemetrystore-clickhouse-0-0", "telemetrystore-clickhouse-0-1", "telemetrystore-clickhouse-1-0", "telemetrystore-clickhouse-1-1",
+			},
+			pass: true,
+		},
+		{
+			name:           "SqliteCluster_Valid",
+			casting:        sqliteCluster,
+			expectedClaims: true,
+			expectedIdentities: []string{
+				"telemetrykeeper-zookeeper-0",
+				"signoz-0", "signoz-1",
+				"telemetrystore-clickhouse-0-0", "telemetrystore-clickhouse-0-1",
+			},
+			pass: true,
+		},
+		{
+			name:               "KeeperDisabled_Valid",
+			casting:            keeperDisabled,
+			expectedClaims:     true,
+			expectedIdentities: []string{"metastore-postgres-0", "telemetrystore-clickhouse-0-0"},
+			pass:               true,
+		},
+		{name: "Unbound_Valid", casting: statedCasting(&installation.Casting{}), pass: true},
+		{name: "BoundNameMalformed_Invalid", casting: malformed},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			data, err := New(slog.New(slog.DiscardHandler)).templateData(*test.casting)
+
+			if test.pass {
+				require.NoError(t, err)
+
+				buf := bytes.NewBuffer(nil)
+				require.NoError(t, mainTF.Execute(buf, data))
+
+				main, err := domain.NewJSONMaterial(buf.Bytes(), "main.tf.json")
+				require.NoError(t, err)
+
+				for _, path := range []string{
+					"data.aws_instances.persistent",
+					"data.aws_instance.persistent",
+					"data.aws_ebs_volumes.persistent",
+					"data.aws_ebs_volume.persistent",
+					"locals.identities",
+					"locals.seats",
+					"resource.aws_ec2_tag.claims",
+				} {
+					_, err := main.GetBytes(path)
+					assert.Equal(t, test.expectedClaims, err == nil, path)
+				}
+
+				if !test.expectedClaims {
+					return
+				}
+
+				assert.Equal(t, test.expectedIdentities, data.Substrate["Identities"])
+
+				identities, err := main.GetStringSlice("locals.identities")
+				require.NoError(t, err)
+				assert.Equal(t, test.expectedIdentities, identities)
+
+				for _, path := range []string{"data.aws_instances.persistent.instance_tags", "data.aws_ebs_volumes.persistent.tags"} {
+					tags, err := main.GetBytes(path)
+					require.NoError(t, err, path)
+					assert.JSONEq(t, `{"foundry.signoz.io/name":"foundry","foundry.signoz.io/storage":"persistent"}`, string(tags), path)
+				}
+
+				condition, err := main.GetBytes("data.aws_ebs_volumes.persistent.lifecycle.postcondition.0.condition")
+				require.NoError(t, err)
+				assert.Equal(t, "${length(self.ids) > 0}", string(condition))
+
+				key, err := main.GetBytes("resource.aws_ec2_tag.claims.key")
+				require.NoError(t, err)
+				assert.Equal(t, "foundry.signoz.io/identities", string(key))
+
+				preventDestroy, err := main.GetBytes("resource.aws_ec2_tag.claims.lifecycle.prevent_destroy")
+				require.NoError(t, err)
+				assert.Equal(t, "true", string(preventDestroy))
+
+				return
+			}
+
+			require.Error(t, err)
+		})
 	}
 }

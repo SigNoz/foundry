@@ -19,7 +19,7 @@ Components:
 - Schema migrator, run once on Fargate
 
 > [!IMPORTANT]
-> Mount a durable volume at `/var/lib/foundry` on the instances that run stateful services, otherwise data lives on the instance's root disk. This deployment sets no placement constraints; pin stateful services to their instances yourself.
+> On a cluster you bring, mount a durable volume at `/var/lib/foundry` on the instances that run stateful services, otherwise data lives on the instance's root disk. Pin each stateful service to the instance that holds its data yourself. A [bound substrate](#binding-to-a-provisioned-substrate) does both: it mounts that volume on its persistent instances and pins each stateful service to the instance holding its volume.
 >
 > Cluster shard and replica counts are honoured: every node is its own service.
 
@@ -32,7 +32,7 @@ Components:
 
 ## Configuration
 
-Nothing about the cluster is discovered. Name every object on the casting through an annotation:
+On a cluster you bring, nothing about the cluster is discovered. Name every object on the casting through an annotation:
 
 ```yaml
 apiVersion: v1alpha1
@@ -86,6 +86,107 @@ spec:
 ```
 
 Nothing spreads the nodes across instances, so pin them yourself if that matters.
+
+## Binding to a provisioned substrate
+
+An [Infrastructure](../../../infrastructure/aws/ecs/terraform/) document can provision the cluster instead. Bind the installation to it by setting `spec.infrastructure.name` to the Infrastructure's `metadata.name`. Binding is all or nothing: bind and state none of the four cluster annotations, or state all four and leave `spec.infrastructure` out. The forge refuses a casting that does both. Both documents go in one casting file with the Infrastructure first: document order is cast order, so the substrate is up before the installation looks it up.
+
+The [`substrate/`](substrate/) directory's `casting.yaml`:
+
+```yaml
+apiVersion: v1alpha1
+kind: Infrastructure
+metadata:
+  name: foundry
+  annotations:
+    foundry.signoz.io/ecs-region: us-east-1
+spec:
+  deployment:
+    platform: aws
+    mode: ecs
+    flavor: terraform
+  resource:
+    spec:
+      config:
+        data:
+          resource.yaml: |
+            networking:
+              networkCIDR: 10.0.0.0/16
+              subnets:
+                private-a:
+                  type: private
+                  zone: us-east-1a
+                  cidr: 10.0.0.0/19
+                public-a:
+                  type: public
+                  zone: us-east-1a
+                  cidr: 10.0.96.0/22
+---
+apiVersion: v1alpha1
+kind: Installation
+metadata:
+  name: signoz
+  annotations:
+    foundry.signoz.io/ecs-region: us-east-1
+spec:
+  deployment:
+    flavor: terraform
+    mode: ec2
+    platform: ecs
+  infrastructure:
+    name: foundry
+```
+
+Each cluster object is looked up at plan, by the name or tags the Infrastructure gave it:
+
+| Object | Looked up by |
+| --- | --- |
+| ECS cluster | Name `<infrastructure>-cls` |
+| VPC | Tag `foundry.signoz.io/name: <infrastructure>` |
+| Private subnets | Tags `foundry.signoz.io/name: <infrastructure>` and `foundry.signoz.io/subnet-type: private`, in that VPC |
+| Task security group | Name `<infrastructure>-sg-task` and tag `foundry.signoz.io/name: <infrastructure>`, in that VPC |
+
+A lookup that matches nothing fails the plan. `foundry.signoz.io/ecs-region` stays stated.
+
+Every service is placed by the `foundry.signoz.io/storage` attribute the substrate's container instances advertise:
+
+| `foundry.signoz.io/storage` | Components |
+| --- | --- |
+| `persistent` | ClickHouse, ClickHouse Keeper or ZooKeeper, PostgreSQL, and SigNoz under `sqlite` |
+| `ephemeral` | Ingester, MCP, and SigNoz under `postgres` |
+
+A persistent instance registers with the cluster only once its data volume is mounted at `/var/lib/foundry`, so stateful data lands on a disk that outlives the instance. A task with no instance of its class stays pending.
+
+Each stateful node claims one of the substrate's persistent data volumes, and its service is pinned to the instance that volume is attached to. The claim is the volume's `foundry.signoz.io/identities` tag: a comma-separated list of the nodes it holds, such as `telemetrystore-clickhouse-0-0`. Every plan reads the claims off the volumes and looks up the instance each claimed volume is attached to now, so a replacement instance takes over the nodes whose volume it holds. A new node takes an unclaimed volume first, and shares a claimed one once none is left. A node whose volume is attached to no instance stays pending until the volume is attached again.
+
+The forge writes one root per document:
+
+```text
+pours/
+  infrastructure/
+  deployment/
+```
+
+`foundryctl cast -f casting.yaml` applies `pours/infrastructure` first, then `pours/deployment`. A document that fails stops the run, and what already cast stays cast.
+
+Claims outlive the installation, so `terraform destroy` in `pours/deployment` refuses while they are in its state. Remove them from the state first:
+
+```bash
+cd pours/deployment
+terraform state rm aws_ec2_tag.claims
+terraform destroy
+```
+
+The claims stay on the volumes, and the next cast pins each node back to its own data. Destroying the substrate removes the volumes and their claims together.
+
+A change that removes a stateful node, such as fewer shards or replicas, can leave a volume holding no current node. The plan refuses the same way, because releasing a claim is deliberate. Remove that volume's claim from the state first, at the address the plan names, then cast:
+
+```bash
+cd pours/deployment
+terraform state rm 'aws_ec2_tag.claims["<volume id>"]'
+```
+
+The claim stays on the volume until the substrate removes it.
 
 ## Deploy
 

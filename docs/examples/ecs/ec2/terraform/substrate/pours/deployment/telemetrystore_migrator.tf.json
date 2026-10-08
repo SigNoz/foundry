@@ -1,21 +1,13 @@
-{{- $name := $.Metadata.Name -}}
 {
   "locals": {
     "containers_telemetrystore_migrator": [
       {
-        "name": "{{ $name }}-telemetrystore-migrator",
-        "image": "{{ $.Spec.Ingester.Spec.Image }}",
+        "name": "signoz-telemetrystore-migrator",
+        "image": "signoz/signoz-otel-collector:latest",
         "essential": true,
         "entryPoint": ["/bin/sh", "-c"],
         "command": ["/signoz-otel-collector migrate ready && /signoz-otel-collector migrate bootstrap && /signoz-otel-collector migrate sync up && /signoz-otel-collector migrate async up"],
-        {{- $env := list }}
-        {{- if and (derefBool $.Spec.TelemetryStore.Spec.Enabled) $.Spec.TelemetryStore.Status.Addresses.TCP (index $.Spec.TelemetryStore.Status.Addresses.TCP 0) }}
-        {{- $env = append $env (dict "name" "SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN" "value" (index $.Spec.TelemetryStore.Status.Addresses.TCP 0)) }}
-        {{- end }}
-        {{- range $key, $value := $.Spec.Ingester.Spec.Env }}
-        {{- $env = append $env (dict "name" $key "value" $value) }}
-        {{- end }}
-        "environment": {{ toJson $env }},
+        "environment": [{"name":"SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN","value":"tcp://telemetrystore-clickhouse-0-0.signoz-installation.local:9000"},{"name":"SIGNOZ_OTEL_COLLECTOR_TIMEOUT","value":"10m"}],
         "cpu": 256,
         "memory": 512
       }
@@ -24,8 +16,8 @@
   "resource": {
     "aws_ecs_task_definition": {
       "telemetrystore_migrator": {
-        "family": "{{ $name }}-telemetrystore-migrator",
-        "tags": {{ toJson $.Labels }},
+        "family": "signoz-telemetrystore-migrator",
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"},
         "network_mode": "awsvpc",
         "requires_compatibilities": ["FARGATE"],
         "cpu": 256,
@@ -49,13 +41,9 @@
           "assign_public_ip": false
         },
         "depends_on": [
-          "aws_ecs_task_definition.telemetrystore_migrator"
-          {{- if not $.Stated.ExecutionRoleARN }},
-          "aws_iam_role_policy_attachment.exec"
-          {{- end }}
-          {{- if not $.Stated.TaskRoleARN }},
+          "aws_ecs_task_definition.telemetrystore_migrator",
+          "aws_iam_role_policy_attachment.exec",
           "aws_iam_role_policy.task_appconfig_read"
-          {{- end }}
         ]
       }
     }

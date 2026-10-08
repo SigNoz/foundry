@@ -1,0 +1,136 @@
+{
+  "variable": {
+    "aws_region": {
+      "description": "AWS region to deploy resources; it must be the region the declared zones belong to",
+      "type": "string",
+      "default": "us-east-1",
+      "nullable": false,
+      "validation": {
+        "condition": "${can(regex(\"^[a-z]{2}(-gov)?-[a-z]+-[0-9]$\", var.aws_region))}",
+        "error_message": "aws_region must be a region identifier such as us-east-1."
+      }
+    },
+    "network_cidr": {
+      "description": "CIDR block for the network",
+      "type": "string",
+      "default": "10.0.0.0/16",
+      "nullable": false,
+      "validation": {
+        "condition": "${can(cidrhost(var.network_cidr, 0))}",
+        "error_message": "network_cidr must be a valid IPv4 CIDR."
+      }
+    },
+    "subnet_private_a_zone": {
+      "description": "Availability zone the private-a subnet lives in; a volume can only attach to a machine in its own zone",
+      "type": "string",
+      "default": "us-east-1a",
+      "nullable": false
+    },
+    "subnet_private_a_cidr": {
+      "description": "CIDR block for the private-a subnet, carved out of the network",
+      "type": "string",
+      "default": "10.0.0.0/19",
+      "nullable": false,
+      "validation": {
+        "condition": "${can(cidrhost(var.subnet_private_a_cidr, 0))}",
+        "error_message": "subnet_private_a_cidr must be a valid IPv4 CIDR."
+      }
+    },
+    "subnet_public_a_zone": {
+      "description": "Availability zone the public-a subnet lives in; a volume can only attach to a machine in its own zone",
+      "type": "string",
+      "default": "us-east-1a",
+      "nullable": false
+    },
+    "subnet_public_a_cidr": {
+      "description": "CIDR block for the public-a subnet, carved out of the network",
+      "type": "string",
+      "default": "10.0.96.0/22",
+      "nullable": false,
+      "validation": {
+        "condition": "${can(cidrhost(var.subnet_public_a_cidr, 0))}",
+        "error_message": "subnet_public_a_cidr must be a valid IPv4 CIDR."
+      }
+    },
+    "group_persistent_machine_type": {
+      "description": "Provider machine type for each node in the persistent group",
+      "type": "string",
+      "default": "m5.large",
+      "nullable": false
+    },
+    "group_persistent_root_volume_size": {
+      "description": "Root volume size (GB) for each persistent node; at least the ECS-optimized AMI snapshot size (30)",
+      "type": "number",
+      "default": 30,
+      "nullable": false,
+      "validation": {
+        "condition": "${var.group_persistent_root_volume_size >= 30}",
+        "error_message": "group_persistent_root_volume_size must be at least 30 GB, the ECS-optimized AMI snapshot size."
+      }
+    },
+    "group_persistent_root_volume_type": {
+      "description": "Root volume type for each persistent node",
+      "type": "string",
+      "default": "gp3",
+      "nullable": false
+    },
+    "group_persistent_data_volume_size": {
+      "description": "Data volume size (GB) attached to each persistent node; it outlives the node",
+      "type": "number",
+      "default": 50,
+      "nullable": false,
+      "validation": {
+        "condition": "${var.group_persistent_data_volume_size >= 1}",
+        "error_message": "group_persistent_data_volume_size must be at least 1 GB."
+      }
+    },
+    "group_persistent_data_volume_type": {
+      "description": "Data volume type for each persistent node",
+      "type": "string",
+      "default": "gp3",
+      "nullable": false
+    },
+    "group_ephemeral_machine_type": {
+      "description": "Provider machine type for each node in the ephemeral group",
+      "type": "string",
+      "default": "c5.large",
+      "nullable": false
+    },
+    "group_ephemeral_root_volume_size": {
+      "description": "Root volume size (GB) for each ephemeral node; at least the ECS-optimized AMI snapshot size (30)",
+      "type": "number",
+      "default": 30,
+      "nullable": false,
+      "validation": {
+        "condition": "${var.group_ephemeral_root_volume_size >= 30}",
+        "error_message": "group_ephemeral_root_volume_size must be at least 30 GB, the ECS-optimized AMI snapshot size."
+      }
+    },
+    "group_ephemeral_root_volume_type": {
+      "description": "Root volume type for each ephemeral node",
+      "type": "string",
+      "default": "gp3",
+      "nullable": false
+    },
+    "group_ephemeral_min_size": {
+      "description": "Smallest the ephemeral group may be",
+      "type": "number",
+      "default": 1,
+      "nullable": false,
+      "validation": {
+        "condition": "${var.group_ephemeral_min_size >= 0}",
+        "error_message": "group_ephemeral_min_size cannot be negative."
+      }
+    },
+    "group_ephemeral_max_size": {
+      "description": "Largest the ephemeral group may grow to",
+      "type": "number",
+      "default": 1,
+      "nullable": false,
+      "validation": {
+        "condition": "${var.group_ephemeral_max_size >= var.group_ephemeral_min_size}",
+        "error_message": "group_ephemeral_max_size cannot be below group_ephemeral_min_size."
+      }
+    }
+  }
+}

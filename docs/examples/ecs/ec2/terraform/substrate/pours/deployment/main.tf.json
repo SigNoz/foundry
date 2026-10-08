@@ -1,15 +1,13 @@
-{{- $name := $.Metadata.Name -}}
 {
-  {{- if $.Substrate }}
   "data": {
     "aws_ecs_cluster": {
       "substrate": {
-        "cluster_name": "{{ $.Substrate.ClusterName }}"
+        "cluster_name": "foundry-cls"
       }
     },
     "aws_vpc": {
       "substrate": {
-        "tags": {{ toJson $.Substrate.VPC }}
+        "tags": {"foundry.signoz.io/name":"foundry"}
       }
     },
     "aws_subnets": {
@@ -20,29 +18,27 @@
             "values": ["${local.vpc_id}"]
           }
         ],
-        "tags": {{ toJson $.Substrate.Subnets }},
+        "tags": {"foundry.signoz.io/name":"foundry","foundry.signoz.io/subnet-type":"private"},
         "lifecycle": {
           "postcondition": [
             {
               "condition": "${length(self.ids) > 0}",
-              "error_message": "infrastructure {{ $.Spec.Infrastructure.Name }} has no private subnet in this VPC to place tasks in."
+              "error_message": "infrastructure foundry has no private subnet in this VPC to place tasks in."
             }
           ]
         }
       }
     },
-    {{- /* Every group of the substrate carries its tags, so the derived name
-           is what singles out the one tasks join. */}}
     "aws_security_group": {
       "substrate": {
-        "name": "{{ $.Substrate.SecurityGroupName }}",
+        "name": "foundry-sg-task",
         "vpc_id": "${local.vpc_id}",
-        "tags": {{ toJson $.Substrate.SecurityGroup }}
+        "tags": {"foundry.signoz.io/name":"foundry"}
       }
     },
     "aws_instances": {
       "persistent": {
-        "instance_tags": {{ toJson $.Substrate.Persistent }},
+        "instance_tags": {"foundry.signoz.io/name":"foundry","foundry.signoz.io/storage":"persistent"},
         "instance_state_names": ["running", "pending"]
       }
     },
@@ -54,12 +50,12 @@
     },
     "aws_ebs_volumes": {
       "persistent": {
-        "tags": {{ toJson $.Substrate.Persistent }},
+        "tags": {"foundry.signoz.io/name":"foundry","foundry.signoz.io/storage":"persistent"},
         "lifecycle": {
           "postcondition": [
             {
               "condition": "${length(self.ids) > 0}",
-              "error_message": "infrastructure {{ $.Spec.Infrastructure.Name }} has no persistent volume to claim."
+              "error_message": "infrastructure foundry has no persistent volume to claim."
             }
           ]
         }
@@ -77,86 +73,53 @@
       }
     }
   },
-  {{- else if $.Stated.SubnetIDs }}
-  {{- /* An awsvpc task on the EC2 launch type takes no public IP, so a public
-         subnet gives it a route it cannot use. */}}
-  "data": {
-    "aws_subnet": {
-      {{- range $index, $id := $.Stated.SubnetIDs }}{{ if $index }},{{ end }}
-      "tasks_{{ $index }}": {
-        "id": "${var.subnet_ids[{{ $index }}]}"
-      }
-      {{- end }}
-    }
-  },
-  {{- end }}
-  {{- /* A component reads `local.cluster_arn`, never the variable. */}}
   "locals": {
-    "cluster_arn": "{{ if $.Substrate }}${data.aws_ecs_cluster.substrate.arn}{{ else }}${var.cluster_arn}{{ end }}",
-    "subnet_ids": "{{ if $.Substrate }}${data.aws_subnets.substrate.ids}{{ else }}${var.subnet_ids}{{ end }}",
-    "security_group_ids": {{ if $.Substrate }}["${data.aws_security_group.substrate.id}"]{{ else }}"${var.security_group_ids}"{{ end }},
-    "vpc_id": "{{ if $.Substrate }}${data.aws_vpc.substrate.id}{{ else }}${var.vpc_id}{{ end }}",
-    "task_role_arn": "{{ if $.Stated.TaskRoleARN }}${var.task_role_arn}{{ else }}${aws_iam_role.task.arn}{{ end }}",
-    "execution_role_arn": "{{ if $.Stated.ExecutionRoleARN }}${var.execution_role_arn}{{ else }}${aws_iam_role.exec.arn}{{ end }}"
-    {{- if $.Substrate }},
-    "identities": {{ toJson $.Substrate.Identities }},
+    "cluster_arn": "${data.aws_ecs_cluster.substrate.arn}",
+    "subnet_ids": "${data.aws_subnets.substrate.ids}",
+    "security_group_ids": ["${data.aws_security_group.substrate.id}"],
+    "vpc_id": "${data.aws_vpc.substrate.id}",
+    "task_role_arn": "${aws_iam_role.task.arn}",
+    "execution_role_arn": "${aws_iam_role.exec.arn}",
+    "identities": ["telemetrykeeper-clickhousekeeper-0","metastore-postgres-0","telemetrystore-clickhouse-0-0"],
     "volume_instance": "${ merge([ for id, instance in data.aws_instance.persistent : { for device in instance.ebs_block_device : device.volume_id => id } ]...) }",
-    "claims": "${ merge([ for id, volume in data.aws_ebs_volume.persistent : { for identity in split(\",\", volume.tags[\"{{ $.Substrate.IdentitiesKey }}\"]) : identity => id } if contains(keys(volume.tags), \"{{ $.Substrate.IdentitiesKey }}\") ]...) }",
+    "claims": "${ merge([ for id, volume in data.aws_ebs_volume.persistent : { for identity in split(\",\", volume.tags[\"foundry.signoz.io/identities\"]) : identity => id } if contains(keys(volume.tags), \"foundry.signoz.io/identities\") ]...) }",
     "unclaimed_volume_ids": "${ sort([ for id, volume in data.aws_ebs_volume.persistent : id if !contains(values(local.claims), id) ]) }",
     "claimed_volume_ids": "${ sort([ for id, volume in data.aws_ebs_volume.persistent : id if contains(values(local.claims), id) ]) }",
     "assignment_pool": "${ concat(local.unclaimed_volume_ids, local.claimed_volume_ids) }",
     "new_identities": "${ [ for identity in local.identities : identity if !contains(keys(local.claims), identity) ] }",
     "volumes": "${ { for identity in local.identities : identity => contains(keys(local.claims), identity) ? local.claims[identity] : element(local.assignment_pool, index(local.new_identities, identity)) } }",
     "seats": "${ { for identity, volume in local.volumes : identity => lookup(local.volume_instance, volume, \"unattached\") } }"
-    {{- end }}
   },
   "resource": {
-    {{- if $.Substrate }}
-    {{- /* A claim lives on the volume, which outlives any instance it is
-           attached to and this stack too. The seat is whichever instance holds
-           the claimed volume, derived again on every plan. */}}
     "aws_ec2_tag": {
       "claims": {
         "for_each": "${ toset(values(local.volumes)) }",
         "resource_id": "${each.value}",
-        "key": "{{ $.Substrate.IdentitiesKey }}",
+        "key": "foundry.signoz.io/identities",
         "value": "${ join(\",\", sort([ for identity, volume in local.volumes : identity if volume == each.value ])) }",
         "lifecycle": {
           "prevent_destroy": true
         }
       }
     },
-    {{- end }}
-    {{- /* A role holds no data and dies with this stack. */}}
-    {{- if or (not $.Stated.TaskRoleARN) (not $.Stated.ExecutionRoleARN) }}
     "aws_iam_role": {
-      {{- $first := true }}
-      {{- if not $.Stated.TaskRoleARN }}{{ if not $first }},{{ end }}{{ $first = false }}
       "task": {
         "name": "${var.task_role_name}",
         "assume_role_policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Action\" = \"sts:AssumeRole\", \"Effect\" = \"Allow\", \"Principal\" = {\"Service\" = \"ecs-tasks.amazonaws.com\"}}]})}",
-        "tags": {{ toJson $.Labels }}
-      }
-      {{- end }}
-      {{- if not $.Stated.ExecutionRoleARN }}{{ if not $first }},{{ end }}{{ $first = false }}
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"}
+      },
       "exec": {
         "name": "${var.execution_role_name}",
         "assume_role_policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Action\" = \"sts:AssumeRole\", \"Effect\" = \"Allow\", \"Principal\" = {\"Service\" = \"ecs-tasks.amazonaws.com\"}}]})}",
-        "tags": {{ toJson $.Labels }}
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"}
       }
-      {{- end }}
     },
-    {{- end }}
-    {{- if not $.Stated.ExecutionRoleARN }}
     "aws_iam_role_policy_attachment": {
       "exec": {
         "policy_arn": "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
         "role": "${aws_iam_role.exec.name}"
       }
     },
-    {{- end }}
-    {{- if not $.Stated.TaskRoleARN }}
-    {{- /* GetLatestConfiguration acts on a session token, so it is unscoped. */}}
     "aws_iam_role_policy": {
       "task_appconfig_read": {
         "name": "${var.task_role_name}-appconfig-read",
@@ -164,50 +127,35 @@
         "policy": "${jsonencode({\"Version\" = \"2012-10-17\", \"Statement\" = [{\"Effect\" = \"Allow\", \"Action\" = [\"appconfig:StartConfigurationSession\"], \"Resource\" = [format(\"%s/environment/*/configuration/*\", aws_appconfig_application.main.arn)]}, {\"Effect\" = \"Allow\", \"Action\" = [\"appconfig:GetLatestConfiguration\"], \"Resource\" = \"*\"}]})}"
       }
     },
-    {{- end }}
     "aws_service_discovery_private_dns_namespace": {
       "main": {
-        "name": "{{ $name }}-installation.local",
+        "name": "signoz-installation.local",
         "vpc": "${local.vpc_id}",
-        "tags": {{ toJson $.Labels }}{{ if $.Stated.SubnetIDs }},
-        "lifecycle": {
-          "precondition": [
-            {{- range $index, $id := $.Stated.SubnetIDs }}{{ if $index }},{{ end }}
-            {
-              "condition": "${!data.aws_subnet.tasks_{{ $index }}.map_public_ip_on_launch}",
-              "error_message": "subnet {{ $id }} assigns public IPs on launch; tasks on the EC2 launch type take no public IP, so state private subnets with a NAT route or VPC endpoints."
-            }
-            {{- end }}
-          ]
-        }{{ end }}
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"}
       }
     },
-    {{- /* The sidecar rewrites the config in place, so a component that
-           reloads it does not need the task replaced. */}}
     "aws_appconfig_application": {
       "main": {
-        "name": "{{ $name }}-installation-appconfig",
+        "name": "signoz-installation-appconfig",
         "description": "SigNoz component configuration",
-        "tags": {{ toJson $.Labels }}
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"}
       }
     },
     "aws_appconfig_environment": {
       "main": {
         "name": "default",
         "application_id": "${aws_appconfig_application.main.id}",
-        "tags": {{ toJson $.Labels }}
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"}
       }
     },
-    {{- /* AppConfig serializes deployments per environment, so bake time is
-           paid once per component on every apply. */}}
     "aws_appconfig_deployment_strategy": {
       "main": {
-        "name": "{{ $name }}-installation-appconfig-strategy",
+        "name": "signoz-installation-appconfig-strategy",
         "deployment_duration_in_minutes": 0,
         "final_bake_time_in_minutes": 0,
         "growth_factor": 100,
         "replicate_to": "NONE",
-        "tags": {{ toJson $.Labels }}
+        "tags": {"foundry.signoz.io/kind":"Installation","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"signoz"}
       }
     }
   }
