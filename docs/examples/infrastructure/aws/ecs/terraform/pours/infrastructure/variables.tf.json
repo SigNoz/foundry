@@ -55,7 +55,7 @@
     "group_persistent_machine_type": {
       "description": "Provider machine type for each node in the persistent group",
       "type": "string",
-      "default": "m5.large",
+      "default": "c5.large",
       "nullable": false
     },
     "group_persistent_root_volume_size": {
@@ -93,7 +93,7 @@
     "group_ephemeral_machine_type": {
       "description": "Provider machine type for each node in the ephemeral group",
       "type": "string",
-      "default": "c5.large",
+      "default": "t3.medium",
       "nullable": false
     },
     "group_ephemeral_root_volume_size": {

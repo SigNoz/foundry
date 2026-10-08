@@ -11,11 +11,11 @@ import (
 	"github.com/signoz/foundry/internal/molding/infrastructure/resourcemolding"
 )
 
-// Neither machine type is burstable: a store that throttles under sustained
-// ingest reads as an outage.
+// Each class takes the smallest size of its SigNoz capacity guide family, so a
+// substrate boots cheaply in any region; the casting states production sizing.
 const (
-	machineTypePersistent = "m5.large"
-	machineTypeEphemeral  = "c5.large"
+	machineTypePersistent = "c5.large"
+	machineTypeEphemeral  = "t3.medium"
 	volumeType            = "gp3"
 )
 
