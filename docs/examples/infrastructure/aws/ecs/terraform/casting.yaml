@@ -1,0 +1,27 @@
+apiVersion: v1alpha1
+kind: Infrastructure
+metadata:
+  name: foundry
+  annotations:
+    foundry.signoz.io/ecs-region: us-east-1
+spec:
+  deployment:
+    platform: aws
+    mode: ecs
+    flavor: terraform
+  resource:
+    spec:
+      config:
+        data:
+          resource.yaml: |
+            networking:
+              networkCIDR: 10.0.0.0/16
+              subnets:
+                private-a:
+                  type: private
+                  zone: us-east-1a
+                  cidr: 10.0.0.0/19
+                public-a:
+                  type: public
+                  zone: us-east-1a
+                  cidr: 10.0.96.0/22

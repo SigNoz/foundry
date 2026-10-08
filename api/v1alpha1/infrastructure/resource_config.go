@@ -58,7 +58,7 @@ type ResourceConfigIAM struct {
 type ResourceConfigInstanceGroup struct {
 	Storage string `json:"storage,omitempty" description:"Durability of the group's storage, persistent or ephemeral, and the only fact about it a consuming casting can select on"`
 
-	MachineType string `json:"machineType,omitempty" description:"Provider machine type for each node in the group" example:"m5.large"`
+	MachineType string `json:"machineType,omitempty" description:"Provider machine type for each node in the group" example:"c5.large"`
 
 	// MinSize and MaxSize are equal on a pinned group.
 	MinSize *int `json:"minSize,omitempty" minimum:"0" description:"Minimum number of nodes in the group"`
