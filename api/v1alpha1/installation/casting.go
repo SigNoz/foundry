@@ -16,7 +16,7 @@ type Casting struct {
 type Spec struct {
 	Deployment      v1alpha1.TypeDeployment `json:"deployment" yaml:"deployment" required:"true" description:"Deployment configuration for the platform"`
 	Patches         []v1alpha1.PatchEntry   `json:"patches,omitempty" yaml:"patches,omitempty" description:"Patch operations to apply to generated materials"`
-	Infrastructure  Infrastructure          `json:"infrastructure,omitzero" yaml:"infrastructure,omitzero" description:"Infrastructure configuration for generating infrastructure manifests (e.g., Terraform)."`
+	Infrastructure  Infrastructure          `json:"infrastructure,omitzero" yaml:"infrastructure,omitzero" description:"Binding to the Infrastructure document this installation runs on."`
 	Signoz          SigNoz                  `json:"signoz,omitzero" yaml:"signoz,omitempty" description:"The configuration for the SigNoz molding"`
 	TelemetryStore  TelemetryStore          `json:"telemetrystore,omitzero" yaml:"telemetrystore,omitempty" description:"The configuration for the telemetry store molding"`
 	TelemetryKeeper TelemetryKeeper         `json:"telemetrykeeper,omitzero" yaml:"telemetrykeeper,omitempty" description:"The configuration for the telemetry keeper molding"`

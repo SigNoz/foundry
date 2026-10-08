@@ -279,7 +279,7 @@
         },
         "infrastructure": {
           "$ref": "#/definitions/InstallationInfrastructure",
-          "description": "Infrastructure configuration for generating infrastructure manifests (e.g., Terraform)."
+          "description": "Binding to the Infrastructure document this installation runs on."
         },
         "ingester": {
           "$ref": "#/definitions/InstallationIngester",
