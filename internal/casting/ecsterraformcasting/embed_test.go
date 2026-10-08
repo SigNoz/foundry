@@ -641,12 +641,18 @@ func TestBindingClaimsEveryPersistentIdentity(t *testing.T) {
 	keeperDisabled := boundCasting(&installation.Casting{})
 	keeperDisabled.Spec.TelemetryKeeper.Spec.Enabled = v1alpha1.BoolPtr(false)
 
+	noPersistentIdentity := boundCasting(&installation.Casting{})
+	noPersistentIdentity.Spec.TelemetryKeeper.Spec.Enabled = v1alpha1.BoolPtr(false)
+	noPersistentIdentity.Spec.TelemetryStore.Spec.Enabled = v1alpha1.BoolPtr(false)
+	noPersistentIdentity.Spec.MetaStore.Spec.Enabled = v1alpha1.BoolPtr(false)
+
 	malformed := boundCasting(&installation.Casting{})
 	malformed.Spec.Infrastructure.Name = "Foundry_"
 
 	tests := []struct {
 		name               string
 		casting            *installation.Casting
+		expectedBound      bool
 		expectedIdentities []string
 		pass               bool
 	}{
@@ -662,6 +668,7 @@ func TestBindingClaimsEveryPersistentIdentity(t *testing.T) {
 		},
 		{name: "Sqlite_Valid", casting: sqlite, expectedIdentities: []string{"telemetrykeeper-clickhousekeeper-0", "signoz-0", "telemetrystore-clickhouse-0-0"}, pass: true},
 		{name: "KeeperDisabled_Valid", casting: keeperDisabled, expectedIdentities: []string{"metastore-postgres-0", "telemetrystore-clickhouse-0-0"}, pass: true},
+		{name: "NoPersistentIdentity_Valid", casting: noPersistentIdentity, expectedBound: true, pass: true},
 		{name: "Unbound_Valid", casting: statedCasting(&installation.Casting{}), pass: true},
 		{name: "BoundNameMalformed_Invalid", casting: malformed},
 	}
@@ -682,10 +689,21 @@ func TestBindingClaimsEveryPersistentIdentity(t *testing.T) {
 				claimed := test.expectedIdentities != nil
 
 				for _, path := range []string{
+					"data.aws_ecs_cluster.infrastructure",
+					"data.aws_vpc.infrastructure",
+					"data.aws_subnets.infrastructure",
+					"data.aws_security_group.infrastructure",
+				} {
+					_, err := main.GetBytes(path)
+					assert.Equal(t, claimed || test.expectedBound, err == nil, path)
+				}
+
+				for _, path := range []string{
 					"data.aws_instances.persistent",
 					"data.aws_instance.persistent",
 					"data.aws_ebs_volumes.persistent",
 					"data.aws_ebs_volume.persistent",
+					"locals.identities",
 					"locals.seats",
 					"resource.aws_ec2_tag.claims",
 				} {
