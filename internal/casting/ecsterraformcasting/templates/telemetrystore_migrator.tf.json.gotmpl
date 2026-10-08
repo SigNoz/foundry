@@ -50,10 +50,10 @@
         },
         "depends_on": [
           "aws_ecs_task_definition.telemetrystore_migrator"
-          {{- if not $.ExecutionRole.IsStated }},
+          {{- if not $.Stated.ExecutionRoleARN }},
           "aws_iam_role_policy_attachment.exec"
           {{- end }}
-          {{- if not $.TaskRole.IsStated }},
+          {{- if not $.Stated.TaskRoleARN }},
           "aws_iam_role_policy.task_appconfig_read"
           {{- end }}
         ]

@@ -1,17 +1,19 @@
 {{- $name := $.Metadata.Name -}}
 {
   "aws_region": "{{ $.Region }}",
-  "cluster_arn": "{{ $.Cluster.Stated }}",
-  "subnet_ids": {{ toJson (default (list) $.Subnets.StatedIDs) }},
-  "security_group_ids": {{ toJson (default (list) $.SecurityGroup.StatedIDs) }},
-  "vpc_id": "{{ $.VPC.Stated }}",
-  {{- if $.TaskRole.IsStated }}
-  "task_role_arn": "{{ $.TaskRole.Stated }}",
+  {{- if not $.Substrate }}
+  "cluster_arn": "{{ default "" $.Stated.ClusterARN }}",
+  "subnet_ids": {{ toJson (default (list) $.Stated.SubnetIDs) }},
+  "security_group_ids": {{ toJson (default (list) $.Stated.SecurityGroupIDs) }},
+  "vpc_id": "{{ default "" $.Stated.VPCID }}",
+  {{- end }}
+  {{- if $.Stated.TaskRoleARN }}
+  "task_role_arn": "{{ $.Stated.TaskRoleARN }}",
   {{- else }}
   "task_role_name": "{{ $name }}-installation-iam-task",
   {{- end }}
-  {{- if $.ExecutionRole.IsStated }}
-  "execution_role_arn": "{{ $.ExecutionRole.Stated }}"
+  {{- if $.Stated.ExecutionRoleARN }}
+  "execution_role_arn": "{{ $.Stated.ExecutionRoleARN }}"
   {{- else }}
   "execution_role_name": "{{ $name }}-installation-iam-exec"
   {{- end }}

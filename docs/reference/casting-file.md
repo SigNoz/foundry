@@ -193,9 +193,13 @@ The version defaults to `0.13.0` when the chart is unstated.
 
 ### ECS annotations
 
-Required when using `platform: ecs`, `mode: ec2`, `flavor: terraform`. The
-casting places tasks onto a cluster it does not provision, so every object the
-cluster is made of is named here. Leave one out and terraform refuses at plan.
+Required when using `platform: ecs`, `mode: ec2`, `flavor: terraform` on a
+cluster you bring: every object the cluster is made of is named here. Leave one
+out and terraform refuses at plan. A bound installation leaves out the four
+cluster annotations, `ecs-cluster-arn`, `ecs-private-subnet-ids`,
+`ecs-security-group-ids` and `ecs-vpc-id`, and the forge refuses a casting that
+states one beside `spec.infrastructure.name`. `ecs-region` stays required either
+way.
 
 | Annotation | Maps to tfvar | Description |
 | --- | --- | --- |
