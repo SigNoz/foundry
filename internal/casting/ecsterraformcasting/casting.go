@@ -185,6 +185,7 @@ func (c *ecsCasting) templateData(config installation.Casting) (templateData, er
 	}
 
 	name := config.Spec.Infrastructure.Name
+
 	if name == "" {
 		return data, nil
 	}
