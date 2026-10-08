@@ -127,7 +127,7 @@ aws ecs list-container-instances --cluster foundry-cls --region us-east-1 \
 
 A persistent node registers a few minutes after it starts, once Terraform has attached its data volume and the node has mounted it.
 
-To change the substrate, edit `casting.yaml`, forge again, and cast. A changed machine type replaces the persistent nodes it applies to, and each data volume moves to its node's replacement.
+To change the substrate, edit `casting.yaml`, forge again, and cast. A changed machine type replaces the persistent nodes it applies to, and each data volume moves to its node's replacement. The ephemeral group rolls instead: a changed machine type or boot config starts an instance refresh of its autoscaling group that lets the pool drain fully, so ingestion pauses, along with every other service placed on the group, until the replacement node registers.
 
 ## Teardown
 

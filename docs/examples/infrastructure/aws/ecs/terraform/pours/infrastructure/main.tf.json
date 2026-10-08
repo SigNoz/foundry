@@ -107,6 +107,7 @@
           {
             "volume_size": "${var.group_persistent_root_volume_size}",
             "volume_type": "${var.group_persistent_root_volume_type}",
+            "encrypted": true,
             "delete_on_termination": true
           }
         ],
@@ -129,6 +130,7 @@
           {
             "volume_size": "${var.group_persistent_root_volume_size}",
             "volume_type": "${var.group_persistent_root_volume_type}",
+            "encrypted": true,
             "delete_on_termination": true
           }
         ],
@@ -151,6 +153,7 @@
           {
             "volume_size": "${var.group_persistent_root_volume_size}",
             "volume_type": "${var.group_persistent_root_volume_type}",
+            "encrypted": true,
             "delete_on_termination": true
           }
         ],
@@ -167,18 +170,21 @@
         "availability_zone": "${var.subnet_private_a_zone}",
         "size": "${var.group_persistent_data_volume_size}",
         "type": "${var.group_persistent_data_volume_type}",
+        "encrypted": true,
         "tags": {"Name":"foundry-vol-persistent-0","foundry.signoz.io/kind":"Infrastructure","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry","foundry.signoz.io/owner":"owned","foundry.signoz.io/storage":"persistent"}
       },
       "persistent-1": {
         "availability_zone": "${var.subnet_private_a_zone}",
         "size": "${var.group_persistent_data_volume_size}",
         "type": "${var.group_persistent_data_volume_type}",
+        "encrypted": true,
         "tags": {"Name":"foundry-vol-persistent-1","foundry.signoz.io/kind":"Infrastructure","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry","foundry.signoz.io/owner":"owned","foundry.signoz.io/storage":"persistent"}
       },
       "persistent-2": {
         "availability_zone": "${var.subnet_private_a_zone}",
         "size": "${var.group_persistent_data_volume_size}",
         "type": "${var.group_persistent_data_volume_type}",
+        "encrypted": true,
         "tags": {"Name":"foundry-vol-persistent-2","foundry.signoz.io/kind":"Infrastructure","foundry.signoz.io/managed-by":"foundry","foundry.signoz.io/name":"foundry","foundry.signoz.io/owner":"owned","foundry.signoz.io/storage":"persistent"}
       }
     },
@@ -216,6 +222,7 @@
               {
                 "volume_size": "${var.group_ephemeral_root_volume_size}",
                 "volume_type": "${var.group_ephemeral_root_volume_type}",
+                "encrypted": true,
                 "delete_on_termination": true
               }
             ]
@@ -240,7 +247,17 @@
         "launch_template": [
           {
             "id": "${aws_launch_template.ephemeral.id}",
-            "version": "$Latest"
+            "version": "${aws_launch_template.ephemeral.latest_version}"
+          }
+        ],
+        "instance_refresh": [
+          {
+            "strategy": "Rolling",
+            "preferences": [
+              {
+                "min_healthy_percentage": 0
+              }
+            ]
           }
         ],
         "tag": [

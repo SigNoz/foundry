@@ -134,6 +134,7 @@
           {
             "volume_size": "${var.group_{{ identifier $key }}_root_volume_size}",
             "volume_type": "${var.group_{{ identifier $key }}_root_volume_type}",
+            "encrypted": true,
             "delete_on_termination": true
           }
         ],
@@ -156,6 +157,7 @@
         "availability_zone": "${var.subnet_{{ identifier $node.Subnet }}_zone}",
         "size": "${var.group_{{ identifier $key }}_data_volume_size}",
         "type": "${var.group_{{ identifier $key }}_data_volume_type}",
+        "encrypted": true,
         "tags": {{ toJson $node.Volume.Tags }}
       }
       {{- end }}{{ end }}
@@ -189,6 +191,7 @@
               {
                 "volume_size": "${var.group_{{ identifier $key }}_root_volume_size}",
                 "volume_type": "${var.group_{{ identifier $key }}_root_volume_type}",
+                "encrypted": true,
                 "delete_on_termination": true
               }
             ]
@@ -212,15 +215,27 @@
         "min_size": "${var.group_{{ identifier $key }}_min_size}",
         "max_size": "${var.group_{{ identifier $key }}_max_size}",
         "vpc_zone_identifier": [{{ range $i, $subnet := $group.Subnets }}{{ if $i }}, {{ end }}"${local.subnet_ids[\"{{ $subnet }}\"]}"{{ end }}],
+        {{- /* A refresh starts only on a pinned version, never on $Latest.
+               Ephemeral nodes keep nothing, so a pool of one may roll to zero. */}}
         "launch_template": [
           {
             "id": "${aws_launch_template.{{ $key }}.id}",
-            "version": "$Latest"
+            "version": "${aws_launch_template.{{ $key }}.latest_version}"
+          }
+        ],
+        "instance_refresh": [
+          {
+            "strategy": "Rolling",
+            "preferences": [
+              {
+                "min_healthy_percentage": 0
+              }
+            ]
           }
         ],
         "tag": [
           {{- $first := true }}{{ range $tag, $value := $group.AutoscalingGroup.Tags }}{{ if not $first }},{{ end }}{{ $first = false }}
-          {"key": "{{ $tag }}", "value": "{{ $value }}", "propagate_at_launch": true}
+          {"key": {{ toJson $tag }}, "value": {{ toJson $value }}, "propagate_at_launch": true}
           {{- end }}
         ],
         "depends_on": ["aws_ecs_cluster.main"]
