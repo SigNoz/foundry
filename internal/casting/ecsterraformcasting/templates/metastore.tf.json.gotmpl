@@ -107,6 +107,7 @@
             "expression": "ec2InstanceId == '${local.seats[\"metastore-{{ $kind }}-{{ $i }}\"]}' and attribute:{{ $.Substrate.StorageKey }} == {{ index $.Substrate.Storage "metastore" }}"
           }
         ],
+        "depends_on": ["aws_ec2_tag.claims"],
         {{- end }}
         "deployment_circuit_breaker": {
           "enable": true,

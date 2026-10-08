@@ -89,39 +89,13 @@ Nothing spreads the nodes across instances, so pin them yourself if that matters
 
 ## Binding to a provisioned substrate
 
-An [Infrastructure](../../../infrastructure/aws/ecs/terraform/) document can provision the cluster instead. Bind the installation to it by setting `spec.infrastructure.name` to the Infrastructure's `metadata.name`. Binding is all or nothing: bind and state none of the four cluster annotations, or state all four and leave `spec.infrastructure` out. The forge refuses a casting that does both. Both documents go in one casting file with the Infrastructure first: document order is cast order, so the substrate is up before the installation looks it up.
+An Infrastructure document can provision the cluster instead. Bind the installation to it by setting `spec.infrastructure.name` to the Infrastructure's `metadata.name`. Binding is all or nothing: bind and state none of the four cluster annotations, or state all four and leave `spec.infrastructure` out. The forge refuses a casting that does both.
 
-The [`substrate/`](substrate/) directory's `casting.yaml`:
+The [Infrastructure example](../../../infrastructure/aws/ecs/terraform/) provisions a substrate named `foundry`. Forge and cast it first, or put its document first in the same casting file: document order is cast order, so the substrate is up before the installation looks it up.
+
+The bound installation's `casting.yaml`, whose `spec.infrastructure.name` must equal the Infrastructure document's `metadata.name`:
 
 ```yaml
-apiVersion: v1alpha1
-kind: Infrastructure
-metadata:
-  name: foundry
-  annotations:
-    foundry.signoz.io/ecs-region: us-east-1
-spec:
-  deployment:
-    platform: aws
-    mode: ecs
-    flavor: terraform
-  resource:
-    spec:
-      config:
-        data:
-          resource.yaml: |
-            networking:
-              networkCIDR: 10.0.0.0/16
-              subnets:
-                private-a:
-                  type: private
-                  zone: us-east-1a
-                  cidr: 10.0.0.0/19
-                public-a:
-                  type: public
-                  zone: us-east-1a
-                  cidr: 10.0.96.0/22
----
 apiVersion: v1alpha1
 kind: Installation
 metadata:
@@ -159,7 +133,7 @@ A persistent instance registers with the cluster only once its data volume is mo
 
 Each stateful node claims one of the substrate's persistent data volumes, and its service is pinned to the instance that volume is attached to. The claim is the volume's `foundry.signoz.io/identities` tag: a comma-separated list of the nodes it holds, such as `telemetrystore-clickhouse-0-0`. Every plan reads the claims off the volumes and looks up the instance each claimed volume is attached to now, so a replacement instance takes over the nodes whose volume it holds. A new node takes an unclaimed volume first, and shares a claimed one once none is left. A node whose volume is attached to no instance stays pending until the volume is attached again.
 
-The forge writes one root per document:
+With both documents in one casting file, the forge writes one root per document:
 
 ```text
 pours/
@@ -179,7 +153,7 @@ terraform destroy
 
 The claims stay on the volumes, and the next cast pins each node back to its own data. Destroying the substrate removes the volumes and their claims together.
 
-A change that removes a stateful node, such as fewer shards or replicas, can leave a volume holding no current node. The plan refuses the same way, because releasing a claim is deliberate. Remove that volume's claim from the state first, at the address the plan names, then cast:
+A change that removes a stateful node, such as fewer shards or replicas, keeps that node's claim, so the node comes back to its own volume if it is added again. On a volume shared with current nodes, the removed node stays in the tag until you remove it from the tag. A volume left holding no current node makes the plan refuse the same way, because releasing a claim is deliberate. Remove that volume's claim from the state first, at the address the plan names, then cast:
 
 ```bash
 cd pours/deployment

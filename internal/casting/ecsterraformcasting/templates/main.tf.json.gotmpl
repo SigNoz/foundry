@@ -120,7 +120,7 @@
         "for_each": "${ toset(values(local.volumes)) }",
         "resource_id": "${each.value}",
         "key": "{{ $.Substrate.IdentitiesKey }}",
-        "value": "${ join(\",\", sort([ for identity, volume in local.volumes : identity if volume == each.value ])) }",
+        "value": "${ join(\",\", sort(distinct(concat([ for identity, volume in local.claims : identity if volume == each.value ], [ for identity, volume in local.volumes : identity if volume == each.value ])))) }",
         "lifecycle": {
           "prevent_destroy": true
         }

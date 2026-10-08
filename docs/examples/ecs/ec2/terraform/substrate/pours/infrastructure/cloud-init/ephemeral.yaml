@@ -1,6 +1,0 @@
-#cloud-config
-write_files:
-  - path: /etc/ecs/ecs.config
-    content: |
-      ECS_CLUSTER=${cluster}
-      ECS_INSTANCE_ATTRIBUTES={"foundry.signoz.io/name":"foundry","foundry.signoz.io/storage":"ephemeral"}

@@ -114,6 +114,9 @@
             "expression": "{{ if $sqlite }}ec2InstanceId == '${local.seats[\"signoz-{{ $i }}\"]}' and {{ end }}attribute:{{ $.Substrate.StorageKey }} == {{ index $.Substrate.Storage "signoz" }}"
           }
         ],
+        {{- if $sqlite }}
+        "depends_on": ["aws_ec2_tag.claims"],
+        {{- end }}
         {{- end }}
         "deployment_circuit_breaker": {
           "enable": true,

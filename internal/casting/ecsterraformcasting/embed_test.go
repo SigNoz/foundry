@@ -3,16 +3,31 @@ package ecsterraformcasting
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"maps"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
+	"text/template"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
+	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
+	"github.com/signoz/foundry/internal/molding"
+	"github.com/signoz/foundry/internal/molding/ingestermolding"
+	"github.com/signoz/foundry/internal/molding/mcpmolding"
+	"github.com/signoz/foundry/internal/molding/metastoremolding"
+	"github.com/signoz/foundry/internal/molding/signozmolding"
+	"github.com/signoz/foundry/internal/molding/telemetrykeepermolding"
+	"github.com/signoz/foundry/internal/molding/telemetrystoremolding"
+	"github.com/signoz/foundry/internal/writer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -47,6 +62,67 @@ func templateDataFor(t *testing.T, casting *installation.Casting) templateData {
 	require.NoError(t, err)
 
 	return data
+}
+
+func requireTerraform(t *testing.T) {
+	t.Helper()
+
+	if testing.Short() {
+		t.Skip("skipping terraform test in short mode")
+	}
+
+	if _, err := exec.LookPath("terraform"); err != nil {
+		t.Skip("terraform is not available")
+	}
+}
+
+// The moldings write the config files the roots read with file(), so a plan
+// needs the casting molded as forge molds it.
+func moldedCasting(t *testing.T, casting *installation.Casting) *installation.Casting {
+	t.Helper()
+
+	ctx := context.Background()
+	logger := slog.New(slog.DiscardHandler)
+
+	enricher, err := New(logger).Enricher(ctx, casting)
+	require.NoError(t, err)
+
+	moldings := []molding.Molding{
+		telemetrykeepermolding.New(logger),
+		telemetrystoremolding.New(logger),
+		metastoremolding.New(logger),
+		signozmolding.New(logger),
+		ingestermolding.New(logger),
+		mcpmolding.New(logger),
+	}
+
+	for _, m := range moldings {
+		require.NoError(t, enricher.EnrichStatus(ctx, m.Kind(), casting))
+	}
+
+	for _, m := range moldings {
+		require.NoError(t, m.MoldV1Alpha1(ctx, casting))
+	}
+
+	require.NoError(t, casting.MergeStatusIntoSpec())
+
+	return casting
+}
+
+// One cache serves every root, and no root carries a lock file to pin it.
+func terraform(t *testing.T, root, cache string, args ...string) (string, error) {
+	t.Helper()
+
+	out := bytes.NewBuffer(nil)
+
+	cmd := exec.Command("terraform", append([]string{"-chdir=" + root}, args...)...)
+	cmd.Env = append(os.Environ(), "TF_PLUGIN_CACHE_DIR="+cache, "TF_PLUGIN_CACHE_MAY_BREAK_DEPENDENCY_LOCK_FILE=true", "TF_IN_AUTOMATION=1")
+	cmd.Stdout = out
+	cmd.Stderr = out
+
+	err := cmd.Run()
+
+	return out.String(), err
 }
 
 func TestEveryTemplateRendersValidJSON(t *testing.T) {
@@ -623,6 +699,7 @@ func TestBoundServicesArePlacedByStorageClass(t *testing.T) {
 				if test.expectedClass == "" {
 					assert.NotContains(t, buf.String(), "placement_constraints")
 					assert.NotContains(t, buf.String(), "local.seats")
+					assert.NotContains(t, buf.String(), "aws_ec2_tag.claims")
 
 					return
 				}
@@ -644,14 +721,20 @@ func TestBoundServicesArePlacedByStorageClass(t *testing.T) {
 				for i, service := range services {
 					expectedExpression := "attribute:foundry.signoz.io/storage == " + test.expectedClass
 
+					var expectedDependencies []string
+
 					identity := strings.TrimPrefix(service, test.casting.Metadata.Name+"-")
 					if test.expectedClass == "persistent" {
 						assert.Contains(t, data.Substrate["Identities"], identity, "%s has a seat", service)
 						expectedExpression = fmt.Sprintf("ec2InstanceId == '${local.seats[%q]}' and %s", identity, expectedExpression)
+						expectedDependencies = []string{"aws_ec2_tag.claims"}
 					}
 
 					assert.Equal(t, "memberOf", types[i])
 					assert.Equal(t, expectedExpression, expressions[i], service)
+
+					dependencies, _ := material.GetStringSlice(fmt.Sprintf("resource.aws_ecs_service.@values.%d.depends_on", i))
+					assert.Equal(t, expectedDependencies, dependencies, "%s waits for its claim", service)
 				}
 
 				return
@@ -796,6 +879,214 @@ func TestBindingClaimsEveryPersistentIdentity(t *testing.T) {
 			}
 
 			require.Error(t, err)
+		})
+	}
+}
+
+var claimsTest = template.Must(template.New("claims.tftest.hcl").Funcs(template.FuncMap{
+	"json": func(v any) (string, error) {
+		b, err := json.Marshal(v)
+		return string(b), err
+	},
+}).Parse(`mock_provider "aws" {}
+
+override_data {
+  target = data.aws_subnets.substrate
+  values = {
+    ids = ["subnet-0a1b2c3d"]
+  }
+}
+
+override_data {
+  target = data.aws_instances.persistent
+  values = {
+    ids = {{ json .Instances }}
+  }
+}
+{{ range $id, $volumes := .Attached }}
+override_data {
+  target = data.aws_instance.persistent["{{ $id }}"]
+  values = {
+    ebs_block_device = [{{ range $i, $volume := $volumes }}{{ if $i }}, {{ end }}{ volume_id = "{{ $volume }}" }{{ end }}]
+  }
+}
+{{ end }}
+override_data {
+  target = data.aws_ebs_volumes.persistent
+  values = {
+    ids = {{ json .VolumeIDs }}
+  }
+}
+{{ range .Volumes }}
+override_data {
+  target = data.aws_ebs_volume.persistent["{{ .ID }}"]
+  values = {
+    tags = {{ if .Claim }}{ "foundry.signoz.io/identities" = "{{ .Claim }}" }{{ else }}{}{{ end }}
+  }
+}
+{{ end }}
+run "claims" {
+  command = plan
+{{ if .Pass }}
+  assert {
+    condition     = jsonencode(local.volumes) == jsonencode({{ json .ExpectedVolumes }})
+    error_message = "volumes are ${jsonencode(local.volumes)}"
+  }
+
+  assert {
+    condition     = jsonencode(local.seats) == jsonencode({{ json .ExpectedSeats }})
+    error_message = "seats are ${jsonencode(local.seats)}"
+  }
+
+  assert {
+    condition     = jsonencode({ for volume, claim in aws_ec2_tag.claims : volume => claim.value }) == jsonencode({{ json .ExpectedClaims }})
+    error_message = "claims are ${jsonencode({ for volume, claim in aws_ec2_tag.claims : volume => claim.value })}"
+  }
+{{ end -}}
+}
+`))
+
+func TestClaimsAssignEveryIdentityAVolume(t *testing.T) {
+	requireTerraform(t)
+
+	const (
+		keeper0   = "telemetrykeeper-clickhousekeeper-0"
+		keeper1   = "telemetrykeeper-clickhousekeeper-1"
+		keeper2   = "telemetrykeeper-clickhousekeeper-2"
+		metastore = "metastore-postgres-0"
+		store     = "telemetrystore-clickhouse-0-0"
+	)
+
+	bound := moldedCasting(t, boundCasting(&installation.Casting{}))
+
+	keepers := boundCasting(&installation.Casting{})
+	keepers.Spec.TelemetryKeeper.Spec.Cluster.Replicas = v1alpha1.IntPtr(3)
+	keepers = moldedCasting(t, keepers)
+
+	type volume struct {
+		ID    string
+		Claim string
+	}
+
+	// Five nodes over three volumes leave keeper 1 beside the store and keeper
+	// 2 alone, which is what scaling the keepers down to one finds.
+	scaledDown := []volume{{"vol-a", metastore + "," + keeper0}, {"vol-b", keeper1 + "," + store}, {"vol-c", keeper2}}
+
+	tests := []struct {
+		name            string
+		casting         *installation.Casting
+		volumes         []volume
+		attached        map[string][]string
+		expectedVolumes map[string]string
+		expectedSeats   map[string]string
+		expectedClaims  map[string]string
+		expectedMessage string
+		pass            bool
+	}{
+		{
+			name:            "FirstAllocation_SortedUnclaimed",
+			casting:         bound,
+			volumes:         []volume{{ID: "vol-c"}, {ID: "vol-a"}, {ID: "vol-b"}},
+			attached:        map[string][]string{"i-1": {"vol-a", "vol-b"}, "i-2": {"vol-c"}},
+			expectedVolumes: map[string]string{keeper0: "vol-a", metastore: "vol-b", store: "vol-c"},
+			expectedSeats:   map[string]string{keeper0: "i-1", metastore: "i-1", store: "i-2"},
+			expectedClaims:  map[string]string{"vol-a": keeper0, "vol-b": metastore, "vol-c": store},
+			pass:            true,
+		},
+		{
+			name:            "MoreIdentitiesThanVolumes_Shared",
+			casting:         bound,
+			volumes:         []volume{{ID: "vol-b"}, {ID: "vol-a"}},
+			attached:        map[string][]string{"i-1": {"vol-a"}, "i-2": {"vol-b"}},
+			expectedVolumes: map[string]string{keeper0: "vol-a", metastore: "vol-b", store: "vol-a"},
+			expectedSeats:   map[string]string{keeper0: "i-1", metastore: "i-2", store: "i-1"},
+			expectedClaims:  map[string]string{"vol-a": keeper0 + "," + store, "vol-b": metastore},
+			pass:            true,
+		},
+		{
+			name:            "PartialClaimsRetried_Stable",
+			casting:         bound,
+			volumes:         []volume{{ID: "vol-a"}, {"vol-b", metastore}, {ID: "vol-c"}},
+			attached:        map[string][]string{"i-1": {"vol-a", "vol-b"}},
+			expectedVolumes: map[string]string{keeper0: "vol-a", metastore: "vol-b", store: "vol-c"},
+			expectedSeats:   map[string]string{keeper0: "i-1", metastore: "i-1", store: "unattached"},
+			expectedClaims:  map[string]string{"vol-a": keeper0, "vol-b": metastore, "vol-c": store},
+			pass:            true,
+		},
+		{
+			name:            "Shrink_RemovedClaimKept",
+			casting:         bound,
+			volumes:         scaledDown,
+			attached:        map[string][]string{"i-1": {"vol-a", "vol-b", "vol-c"}},
+			expectedVolumes: map[string]string{keeper0: "vol-a", metastore: "vol-a", store: "vol-b"},
+			expectedSeats:   map[string]string{keeper0: "i-1", metastore: "i-1", store: "i-1"},
+			expectedClaims:  map[string]string{"vol-a": metastore + "," + keeper0, "vol-b": keeper1 + "," + store},
+			pass:            true,
+		},
+		{
+			name:            "GrowAfterShrink_ReturnsToItsVolume",
+			casting:         keepers,
+			volumes:         scaledDown,
+			attached:        map[string][]string{"i-1": {"vol-a", "vol-b", "vol-c"}},
+			expectedVolumes: map[string]string{keeper0: "vol-a", keeper1: "vol-b", keeper2: "vol-c", metastore: "vol-a", store: "vol-b"},
+			expectedSeats:   map[string]string{keeper0: "i-1", keeper1: "i-1", keeper2: "i-1", metastore: "i-1", store: "i-1"},
+			expectedClaims:  map[string]string{"vol-a": metastore + "," + keeper0, "vol-b": keeper1 + "," + store, "vol-c": keeper2},
+			pass:            true,
+		},
+		{
+			name:            "NoVolume_Invalid",
+			casting:         bound,
+			attached:        map[string][]string{"i-1": {}},
+			expectedMessage: "infrastructure foundry has no persistent volume to claim.",
+		},
+	}
+
+	cache := t.TempDir()
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			materials, err := New(slog.New(slog.DiscardHandler)).Forge(context.Background(), *test.casting, "")
+			require.NoError(t, err)
+
+			pours := t.TempDir()
+
+			w, err := writer.New(slog.New(slog.DiscardHandler), &writer.Options{Output: &os.File{}, TargetDirectory: pours})
+			require.NoError(t, err)
+			require.NoError(t, w.WriteMany(context.Background(), materials...))
+
+			root := filepath.Join(pours, rootcasting.DeploymentDir)
+
+			volumeIDs := []string{}
+			for _, volume := range test.volumes {
+				volumeIDs = append(volumeIDs, volume.ID)
+			}
+
+			hcl := bytes.NewBuffer(nil)
+			require.NoError(t, claimsTest.Execute(hcl, map[string]any{
+				"Instances":       slices.Sorted(maps.Keys(test.attached)),
+				"Attached":        test.attached,
+				"VolumeIDs":       volumeIDs,
+				"Volumes":         test.volumes,
+				"Pass":            test.pass,
+				"ExpectedVolumes": test.expectedVolumes,
+				"ExpectedSeats":   test.expectedSeats,
+				"ExpectedClaims":  test.expectedClaims,
+			}))
+			require.NoError(t, os.WriteFile(filepath.Join(root, "claims.tftest.hcl"), hcl.Bytes(), 0o644))
+
+			out, err := terraform(t, root, cache, "init", "-backend=false", "-input=false", "-no-color")
+			require.NoError(t, err, out)
+
+			out, err = terraform(t, root, cache, "test", "-no-color")
+
+			if test.pass {
+				require.NoError(t, err, out)
+
+				return
+			}
+
+			require.Error(t, err, out)
+			assert.Contains(t, out, test.expectedMessage)
 		})
 	}
 }
