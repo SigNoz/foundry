@@ -1,0 +1,51 @@
+{{- $private := list -}}
+{{- $public := list -}}
+{{- range $key, $subnet := $.Network.Subnets }}{{ if $subnet.Public }}{{ $public = append $public $key }}{{ else }}{{ $private = append $private $key }}{{ end }}{{ end -}}
+{
+  "output": {
+    "cluster_name": {
+      "description": "Name of the ECS cluster",
+      "value": "${aws_ecs_cluster.main.name}"
+    },
+    "cluster_arn": {
+      "description": "ARN of the ECS cluster",
+      "value": "${aws_ecs_cluster.main.arn}"
+    },
+    "vpc_id": {
+      "description": "ID of the VPC",
+      "value": "${local.vpc_id}"
+    },
+    "private_subnet_ids": {
+      "description": "IDs of the private subnets, which is where workloads are placed",
+      "value": [{{ range $i, $key := $private }}{{ if $i }}, {{ end }}"${local.subnet_ids[\"{{ $key }}\"]}"{{ end }}]
+    },
+    "public_subnet_ids": {
+      "description": "IDs of the public subnets",
+      "value": [{{ range $i, $key := $public }}{{ if $i }}, {{ end }}"${local.subnet_ids[\"{{ $key }}\"]}"{{ end }}]
+    },
+    "security_group_ids": {
+      "description": "IDs of the tasks security group",
+      "value": ["${aws_security_group.tasks.id}"]
+    },
+    "node_role_arn": {
+      "description": "ARN of the ECS container-instance role",
+      "value": "${aws_iam_role.node.arn}"
+    }
+    {{- range $key, $group := $.Pinned }},
+    "instance_group_{{ identifier $key }}_instance_ids": {
+      "description": "IDs of the pinned {{ $key }} instances, by ordinal",
+      "value": [{{ range $i, $node := $group.Nodes }}{{ if $i }}, {{ end }}"${aws_instance.{{ $key }}-{{ $node.Ordinal }}.id}"{{ end }}]
+    },
+    "instance_group_{{ identifier $key }}_volume_ids": {
+      "description": "IDs of the {{ $key }} data volumes, by ordinal",
+      "value": [{{ range $i, $node := $group.Nodes }}{{ if $i }}, {{ end }}"${aws_ebs_volume.{{ $key }}-{{ $node.Ordinal }}.id}"{{ end }}]
+    }
+    {{- end }}
+    {{- range $key, $group := $.Pools }},
+    "instance_group_{{ identifier $key }}_asg_name": {
+      "description": "Name of the {{ $key }} autoscaling group",
+      "value": "${aws_autoscaling_group.{{ $key }}.name}"
+    }
+    {{- end }}
+  }
+}

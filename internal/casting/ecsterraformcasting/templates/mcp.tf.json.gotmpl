@@ -66,6 +66,14 @@
         "deployment_minimum_healthy_percent": 100,
         "deployment_maximum_percent": 200,
         "launch_type": "EC2",
+        {{- if $.Substrate }}
+        "placement_constraints": [
+          {
+            "type": "memberOf",
+            "expression": "attribute:{{ $.Substrate.StorageKey }} == {{ index $.Substrate.Storage "mcp" }}"
+          }
+        ],
+        {{- end }}
         "deployment_circuit_breaker": {
           "enable": true,
           "rollback": true

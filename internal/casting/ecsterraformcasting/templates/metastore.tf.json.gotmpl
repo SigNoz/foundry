@@ -100,6 +100,15 @@
         "deployment_minimum_healthy_percent": 0,
         "deployment_maximum_percent": 100,
         "launch_type": "EC2",
+        {{- if $.Substrate }}
+        "placement_constraints": [
+          {
+            "type": "memberOf",
+            "expression": "ec2InstanceId == '${local.seats[\"metastore-{{ $kind }}-{{ $i }}\"]}' and attribute:{{ $.Substrate.StorageKey }} == {{ index $.Substrate.Storage "metastore" }}"
+          }
+        ],
+        "depends_on": ["aws_ec2_tag.claims"],
+        {{- end }}
         "deployment_circuit_breaker": {
           "enable": true,
           "rollback": true

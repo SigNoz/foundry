@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTemplateRender(t *testing.T) {
@@ -83,6 +84,51 @@ func TestTemplateRender(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, tt.path, material.Path())
 			assert.Equal(t, tt.expectedFmt, material.FmtContents())
+		})
+	}
+}
+
+func TestTemplateIdentifierFunc(t *testing.T) {
+	tests := []struct {
+		name        string
+		key         string
+		pass        bool
+		expectedFmt []byte
+	}{
+		{
+			name:        "Hyphenated_Underscored",
+			key:         "private-a",
+			pass:        true,
+			expectedFmt: []byte("subnet_private_a_cidr"),
+		},
+		{
+			name:        "NoHyphens_Unchanged",
+			key:         "ephemeral",
+			pass:        true,
+			expectedFmt: []byte("subnet_ephemeral_cidr"),
+		},
+		{
+			name:        "ManyHyphens_AllUnderscored",
+			key:         "a-b-c",
+			pass:        true,
+			expectedFmt: []byte("subnet_a_b_c_cidr"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tmpl := MustNewTemplate(test.name, []byte("subnet_{{ identifier .Key }}_cidr"), FormatText)
+
+			material, err := tmpl.Render(map[string]string{"Key": test.key}, "out.txt")
+
+			if test.pass {
+				require.NoError(t, err)
+				assert.Equal(t, test.expectedFmt, material.FmtContents())
+
+				return
+			}
+
+			require.Error(t, err)
 		})
 	}
 }

@@ -2,6 +2,7 @@ package ecsterraformcasting
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -11,6 +12,8 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
+	"github.com/signoz/foundry/internal/contract"
+	"github.com/signoz/foundry/internal/contract/aws"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
@@ -142,29 +145,135 @@ func (c *ecsCasting) terraform(ctx context.Context, root, verb string, args ...s
 func (c *ecsCasting) templateData(config installation.Casting) (templateData, error) {
 	annotations := config.Metadata.Annotations
 
+	objects := []struct {
+		key        string
+		annotation v1alpha1.Annotation
+		list       bool
+		cluster    bool
+	}{
+		{"ClusterARN", installation.ECSClusterARN, false, true},
+		{"VPCID", installation.ECSVPCID, false, true},
+		{"SubnetIDs", installation.ECSPrivateSubnetIDs, true, true},
+		{"SecurityGroupIDs", installation.ECSSecurityGroupIDs, true, true},
+		{"TaskRoleARN", installation.ECSTaskRoleARN, false, false},
+		{"ExecutionRoleARN", installation.ECSTaskExecutionRoleARN, false, false},
+	}
+
 	data := templateData{
 		Casting: config,
 		Region:  installation.ECSRegion.Resolve(annotations),
-
-		Cluster:       Reference{Stated: installation.ECSClusterARN.Resolve(annotations)},
-		VPC:           Reference{Stated: installation.ECSVPCID.Resolve(annotations)},
-		TaskRole:      Reference{Stated: installation.ECSTaskRoleARN.Resolve(annotations)},
-		ExecutionRole: Reference{Stated: installation.ECSTaskExecutionRoleARN.Resolve(annotations)},
+		Stated:  map[string]any{},
 	}
 
-	subnets, err := statedIDs(installation.ECSPrivateSubnetIDs, annotations)
+	for _, object := range objects {
+		if object.list {
+			ids, err := statedIDs(object.annotation, annotations)
+			if err != nil {
+				return templateData{}, err
+			}
+
+			if len(ids) > 0 {
+				data.Stated[object.key] = ids
+			}
+
+			continue
+		}
+
+		if value := object.annotation.Resolve(annotations); value != "" {
+			data.Stated[object.key] = value
+		}
+	}
+
+	name := config.Spec.Infrastructure.Name
+
+	if name == "" {
+		return data, nil
+	}
+
+	for _, object := range objects {
+		if _, ok := data.Stated[object.key]; ok && object.cluster {
+			return templateData{}, foundryerrors.Newf(foundryerrors.TypeInvalidInput, "the installation is bound to infrastructure %q and states the %q annotation: state none of the cluster annotations, or unbind and state all four", name, object.annotation.Key)
+		}
+	}
+
+	bound, err := contract.NewSubstrate(name)
 	if err != nil {
-		return templateData{}, err
+		return templateData{}, foundryerrors.Wrapf(err, foundryerrors.TypeInvalidInput, "failed to resolve the infrastructure the installation is bound to")
 	}
 
-	data.Subnets = Reference{StatedIDs: subnets}
+	persistent, ephemeral := contract.StorageClassPersistent.String(), contract.StorageClassEphemeral.String()
 
-	securityGroups, err := statedIDs(installation.ECSSecurityGroupIDs, annotations)
-	if err != nil {
-		return templateData{}, err
+	// Sqlite is a file the signoz task holds, so it needs a persistent node.
+	signoz := ephemeral
+	if config.Spec.MetaStore.Kind == installation.MetaStoreKindSQLite {
+		signoz = persistent
 	}
 
-	data.SecurityGroup = Reference{StatedIDs: securityGroups}
+	// Spelled and counted as each component template names its nodes, so every service finds its own seat.
+	nodes := []struct {
+		enabled  bool
+		prefix   string
+		replicas *int
+	}{
+		{config.Spec.TelemetryKeeper.Spec.IsEnabled(), "telemetrykeeper-" + config.Spec.TelemetryKeeper.Kind.String(), config.Spec.TelemetryKeeper.Spec.Cluster.Replicas},
+		{config.Spec.MetaStore.Spec.IsEnabled() && config.Spec.MetaStore.Kind == installation.MetaStoreKindPostgres, "metastore-" + config.Spec.MetaStore.Kind.String(), config.Spec.MetaStore.Spec.Cluster.Replicas},
+		{config.Spec.Signoz.Spec.IsEnabled() && signoz == persistent, "signoz", config.Spec.Signoz.Spec.Cluster.Replicas},
+	}
+
+	identities := []string{}
+
+	for _, node := range nodes {
+		if !node.enabled {
+			continue
+		}
+
+		count := 1
+		if node.replicas != nil {
+			count = max(1, *node.replicas)
+		}
+
+		for i := range count {
+			identities = append(identities, fmt.Sprintf("%s-%d", node.prefix, i))
+		}
+	}
+
+	if store := config.Spec.TelemetryStore; store.Spec.IsEnabled() {
+		shards := 1
+		if store.Spec.Cluster.Shards != nil {
+			shards = max(1, *store.Spec.Cluster.Shards)
+		}
+
+		perShard := 1
+		if store.Spec.Cluster.Replicas != nil {
+			perShard = *store.Spec.Cluster.Replicas + 1
+		}
+
+		for s := range shards {
+			for r := range perShard {
+				identities = append(identities, fmt.Sprintf("telemetrystore-%s-%d-%d", store.Kind, s, r))
+			}
+		}
+	}
+
+	data.Substrate = map[string]any{
+		"ClusterName":       aws.Cluster(bound).Name(),
+		"VPC":               aws.VPC(bound).Filter(),
+		"Subnets":           aws.Filter(bound.Select().WithSubnetType(contract.SubnetTypePrivate)),
+		"SecurityGroupName": aws.SecurityGroup(bound, aws.RoleTask).Name(),
+		"SecurityGroup":     aws.SecurityGroup(bound, aws.RoleTask).Filter(),
+		"Persistent":        aws.Filter(bound.Select().WithStorage(contract.StorageClassPersistent)),
+		"StorageKey":        aws.Tag(contract.TagKeyStorage),
+		"IdentitiesKey":     aws.Tag(contract.TagKeyIdentities),
+		"Identities":        identities,
+		"Storage": map[string]string{
+			v1alpha1.MoldingKindTelemetryStore.String():  persistent,
+			v1alpha1.MoldingKindTelemetryKeeper.String(): persistent,
+			v1alpha1.MoldingKindMetaStore.String():       persistent,
+			v1alpha1.MoldingKindSignoz.String():          signoz,
+			v1alpha1.MoldingKindIngester.String():        ephemeral,
+			v1alpha1.MoldingKindMCP.String():             ephemeral,
+		},
+	}
 
 	return data, nil
 }
@@ -190,31 +299,17 @@ func statedIDs(annotation v1alpha1.Annotation, annotations map[string]string) ([
 	return ids, nil
 }
 
-// Reference is one object the casting names: lists through StatedIDs, the
-// rest through Stated.
-type Reference struct {
-	Stated    string
-	StatedIDs []string
-}
-
-func (r Reference) IsStated() bool {
-	return r.Stated != "" || len(r.StatedIDs) > 0
-}
-
 // templateData embeds the casting, so `.Spec` and `.Metadata` stay as they were.
 type templateData struct {
 	installation.Casting
 
 	Region string
 
-	Cluster       Reference
-	VPC           Reference
-	Subnets       Reference
-	SecurityGroup Reference
+	// What the operator states: the cluster objects (none when bound) and the roles (created when absent).
+	Stated map[string]any
 
-	// The roles are this stack's own identity, so an absent one is created.
-	TaskRole      Reference
-	ExecutionRole Reference
+	// Nil unless spec.infrastructure names the substrate.
+	Substrate map[string]any
 }
 
 // getMaterials renders the component templates, keyed by the molding kind the
