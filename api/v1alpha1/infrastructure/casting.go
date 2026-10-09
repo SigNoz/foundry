@@ -61,9 +61,9 @@ func (c *Casting) MergeStatusIntoSpec() error {
 func (c *Casting) TrackableProperties() domain.Properties {
 	return domain.NewProperties().
 		Set("kind_infrastructure_count", 1).
-		Set("kind_infrastructure_deployment_platform", c.Spec.Deployment.Platform.String()).
-		Set("kind_infrastructure_deployment_mode", c.Spec.Deployment.Mode.String()).
-		Set("kind_infrastructure_deployment_flavor", c.Spec.Deployment.Flavor.String()).
+		Set("kind_infrastructure_platform", c.Spec.Deployment.Platform.String()).
+		Set("kind_infrastructure_mode", c.Spec.Deployment.Mode.String()).
+		Set("kind_infrastructure_flavor", c.Spec.Deployment.Flavor.String()).
 		Set("kind_infrastructure_patches_count", len(c.Spec.Patches))
 }
 

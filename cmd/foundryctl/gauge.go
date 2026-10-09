@@ -37,6 +37,10 @@ func runGauge(ctx context.Context, logger *slog.Logger, path string) (domain.Pro
 		props = props.Merge(machinery.TrackableProperties())
 	}
 
-	err = foundry.Gauge(ctx, machineries)
+	n, err := foundry.Gauge(ctx, machineries)
+	if n < len(machineries) {
+		props = props.Merge(machineries[n].FailedProperties())
+	}
+
 	return props, err
 }

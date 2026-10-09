@@ -11,14 +11,16 @@ import (
 )
 
 // Gauge checks the tools the whole casting file needs. Documents that share a
-// tool gauge it once, so a machine is neither probed nor reported twice.
-func (foundry *Foundry) Gauge(ctx context.Context, machineries []v1alpha1.Machinery) error {
+// tool gauge it once, so a machine is neither probed nor reported twice. A
+// document that cannot plan stops the run at machineries[n]; a tool that is
+// not available stops it after every document, so n is len(machineries).
+func (foundry *Foundry) Gauge(ctx context.Context, machineries []v1alpha1.Machinery) (int, error) {
 	toolers := []tooler.Tooler{}
 
-	for _, machinery := range machineries {
+	for i, machinery := range machineries {
 		p, err := foundry.Plan(ctx, machinery)
 		if err != nil {
-			return err
+			return i, err
 		}
 
 		toolers = append(toolers, p.Toolers()...)
@@ -34,9 +36,9 @@ func (foundry *Foundry) Gauge(ctx context.Context, machineries []v1alpha1.Machin
 		foundry.Logger.InfoContext(ctx, "tool is available", slog.String("tool.name", tooler.Name()))
 	}
 	if len(unavailableTools) > 0 {
-		return foundryerrors.Newf(foundryerrors.TypeNotFound, "tools are not available, please install them and try again: %s", strings.Join(unavailableTools, ", "))
+		return len(machineries), foundryerrors.Newf(foundryerrors.TypeNotFound, "tools are not available, please install them and try again: %s", strings.Join(unavailableTools, ", "))
 	}
-	return nil
+	return len(machineries), nil
 }
 
 // dedupeByName keeps the first tooler of each name, in the order the documents

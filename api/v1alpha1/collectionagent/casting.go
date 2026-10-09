@@ -70,9 +70,9 @@ func (c *Casting) TrackableProperties() domain.Properties {
 	return domain.NewProperties().
 		Set("kind_collectionagent_count", 1).
 		Set(prefix+"count", 1).
-		Set(prefix+"deployment_platform", c.Spec.Deployment.Platform.String()).
-		Set(prefix+"deployment_mode", c.Spec.Deployment.Mode.String()).
-		Set(prefix+"deployment_flavor", c.Spec.Deployment.Flavor.String()).
+		Set(prefix+"platform", c.Spec.Deployment.Platform.String()).
+		Set(prefix+"mode", c.Spec.Deployment.Mode.String()).
+		Set(prefix+"flavor", c.Spec.Deployment.Flavor.String()).
 		Set(prefix+"patches_count", len(c.Spec.Patches))
 }
 

@@ -8,44 +8,37 @@ import (
 
 func TestPropertiesMerge(t *testing.T) {
 	tests := []struct {
-		name     string
-		base     Properties
-		other    Properties
-		pass     bool
-		expected map[string]any
+		name           string
+		base           Properties
+		other          Properties
+		pass           bool
+		expectedValues map[string]any
 	}{
 		{
-			name:     "MissingKey_Copied",
-			base:     NewProperties(),
-			other:    NewProperties().Set("platform", "docker"),
-			pass:     true,
-			expected: map[string]any{"platform": "docker"},
+			name:           "Value_Valid",
+			base:           NewProperties().Set("mode", "docker"),
+			other:          NewProperties().Set("mode", "kubernetes").Set("platform", ""),
+			pass:           true,
+			expectedValues: map[string]any{"mode": "kubernetes", "platform": ""},
 		},
 		{
-			name:     "ExistingKey_Replaced",
-			base:     NewProperties().Set("mode", "docker"),
-			other:    NewProperties().Set("mode", "kubernetes"),
-			pass:     true,
-			expected: map[string]any{"mode": "kubernetes"},
-		},
-		{
-			name:     "ExistingInt_Summed",
-			base:     NewProperties().Set("kind_collectionagent_count", 1),
-			other:    NewProperties().Set("kind_collectionagent_count", 1),
-			pass:     true,
-			expected: map[string]any{"kind_collectionagent_count": 2},
+			name:           "Count_Valid",
+			base:           NewProperties().Set("kind_collectionagent_count", 1),
+			other:          NewProperties().Set("kind_collectionagent_count", 1),
+			pass:           true,
+			expectedValues: map[string]any{"kind_collectionagent_count": 2},
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			merged := tt.base.Merge(tt.other).Map()
-			if !tt.pass {
-				assert.NotEqual(t, tt.expected, merged)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			values := test.base.Merge(test.other).Map()
+			if test.pass {
+				assert.Equal(t, test.expectedValues, values)
 				return
 			}
 
-			assert.Equal(t, tt.expected, merged)
+			assert.NotEqual(t, test.expectedValues, values)
 		})
 	}
 }

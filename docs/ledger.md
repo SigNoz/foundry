@@ -30,9 +30,9 @@ A CollectionAgent document sends, where `<collector>` is `agent`, `deployment` o
 |---|---|---|
 | `kind_collectionagent_count` | Number of CollectionAgent documents in the file | `1`, `2` |
 | `kind_collectionagent_collector_<collector>_count` | Number of CollectionAgent documents with that collector kind | `1` |
-| `kind_collectionagent_collector_<collector>_deployment_platform` | Deployment platform of that CollectionAgent | `aws` |
-| `kind_collectionagent_collector_<collector>_deployment_mode` | Deployment mode of that CollectionAgent | `docker`, `kubernetes`, `ecs` |
-| `kind_collectionagent_collector_<collector>_deployment_flavor` | Deployment flavor of that CollectionAgent | `compose`, `kustomize`, `terraform` |
+| `kind_collectionagent_collector_<collector>_platform` | Deployment platform of that CollectionAgent | `aws` |
+| `kind_collectionagent_collector_<collector>_mode` | Deployment mode of that CollectionAgent | `docker`, `kubernetes`, `ecs` |
+| `kind_collectionagent_collector_<collector>_flavor` | Deployment flavor of that CollectionAgent | `compose`, `kustomize`, `terraform` |
 | `kind_collectionagent_collector_<collector>_patches_count` | Number of patch entries of that CollectionAgent | `0`, `1` |
 | `kind_collectionagent_collector_<collector>_failed` | Set when that CollectionAgent failed the command (on failure only) | `true` |
 
@@ -41,9 +41,9 @@ An Infrastructure document sends:
 | Property | Description | Example |
 |---|---|---|
 | `kind_infrastructure_count` | Number of Infrastructure documents in the file | `1` |
-| `kind_infrastructure_deployment_platform` | Infrastructure deployment platform | `ecs` |
-| `kind_infrastructure_deployment_mode` | Infrastructure deployment mode | `ec2` |
-| `kind_infrastructure_deployment_flavor` | Infrastructure deployment flavor | `terraform` |
+| `kind_infrastructure_platform` | Infrastructure deployment platform | `ecs` |
+| `kind_infrastructure_mode` | Infrastructure deployment mode | `ec2` |
+| `kind_infrastructure_flavor` | Infrastructure deployment flavor | `terraform` |
 | `kind_infrastructure_patches_count` | Number of Infrastructure patch entries | `0`, `1` |
 | `kind_infrastructure_failed` | Set when the Infrastructure failed the command (on failure only) | `true` |
 
