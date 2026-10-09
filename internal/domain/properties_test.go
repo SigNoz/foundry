@@ -21,13 +21,6 @@ func TestPropertiesMerge(t *testing.T) {
 			pass:           true,
 			expectedValues: map[string]any{"mode": "kubernetes", "platform": ""},
 		},
-		{
-			name:           "Count_Valid",
-			base:           NewProperties().Set("kind_collectionagent_count", 1),
-			other:          NewProperties().Set("kind_collectionagent_count", 1),
-			pass:           true,
-			expectedValues: map[string]any{"kind_collectionagent_count": 2},
-		},
 	}
 
 	for _, test := range tests {

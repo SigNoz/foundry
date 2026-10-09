@@ -28,7 +28,6 @@ A CollectionAgent document sends, where `<collector>` is `agent`, `deployment` o
 
 | Property | Description | Example |
 |---|---|---|
-| `kind_collectionagent_count` | Number of CollectionAgent documents in the file | `1`, `2` |
 | `kind_collectionagent_collector_<collector>_count` | Number of CollectionAgent documents with that collector kind | `1` |
 | `kind_collectionagent_collector_<collector>_platform` | Deployment platform of that CollectionAgent | `aws` |
 | `kind_collectionagent_collector_<collector>_mode` | Deployment mode of that CollectionAgent | `docker`, `kubernetes`, `ecs` |

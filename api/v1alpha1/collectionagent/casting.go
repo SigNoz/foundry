@@ -68,7 +68,6 @@ func (c *Casting) TrackableProperties() domain.Properties {
 	prefix := "kind_collectionagent_collector_" + c.Spec.Collector.Kind.String() + "_"
 
 	return domain.NewProperties().
-		Set("kind_collectionagent_count", 1).
 		Set(prefix+"count", 1).
 		Set(prefix+"platform", c.Spec.Deployment.Platform.String()).
 		Set(prefix+"mode", c.Spec.Deployment.Mode.String()).

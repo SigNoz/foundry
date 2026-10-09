@@ -55,20 +55,9 @@ func (p Properties) WithError(err error) Properties {
 	return p
 }
 
-// Merge copies other into p, adding ints that share a key.
+// Merge copies other into p; a key both hold takes other's value.
 func (p Properties) Merge(other Properties) Properties {
-	for key, value := range other.values {
-
-		if more, ok := value.(int); ok {
-
-			if held, ok := p.values[key].(int); ok {
-				p.values[key] = held + more
-				continue
-			}
-		}
-
-		p.values[key] = value
-	}
+	maps.Copy(p.values, other.values)
 
 	return p
 }
