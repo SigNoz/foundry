@@ -60,9 +60,9 @@ func runCast(ctx context.Context, logger *slog.Logger, poursPath string, configP
 		props = props.Merge(machinery.TrackableProperties())
 	}
 
-	passed, err := foundry.Cast(ctx, machineries, poursPath)
-	if len(passed) < len(machineries) {
-		props = props.Merge(machineries[len(passed)].FailedProperties())
+	n, err := foundry.Cast(ctx, machineries, poursPath)
+	if n < len(machineries) {
+		props = props.Merge(machineries[n].FailedProperties())
 	}
 
 	return props, err

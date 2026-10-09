@@ -8,9 +8,11 @@ Each command execution sends a single event. The event carries the properties of
 
 ### Casting documents
 
+An Installation document sends:
+
 | Property | Description | Example |
 |---|---|---|
-| `kinds` | Kinds of the casting documents in the file | `["Installation", "CollectionAgent"]` |
+| `kind_installation_count` | Number of Installation documents in the file | `1` |
 | `platform` | Installation deployment platform | `aws`, `docker`, `linux` |
 | `mode` | Installation deployment mode | `docker`, `systemd`, `kubernetes` |
 | `flavor` | Installation deployment flavor | `compose`, `binary`, `helm` |
@@ -20,16 +22,32 @@ Each command execution sends a single event. The event carries the properties of
 | `telemetrystore_kind` | TelemetryStore backend type | `clickhouse` |
 | `telemetrykeeper_kind` | TelemetryKeeper backend type | `clickhousekeeper` |
 | `mcp_enabled` | Whether the MCP server molding is enabled | `true` / `false` |
-| `collectionagent_<collector>_platform` | Deployment platform of the CollectionAgent with that collector kind (`agent`, `deployment` or `sidecar`) | `aws` |
-| `collectionagent_<collector>_mode` | Deployment mode of that CollectionAgent | `docker`, `kubernetes`, `ecs` |
-| `collectionagent_<collector>_flavor` | Deployment flavor of that CollectionAgent | `compose`, `kustomize`, `terraform` |
-| `collectionagent_<collector>_patches_count` | Number of patch entries of that CollectionAgent | `0`, `1` |
-| `infrastructure_platform` | Infrastructure deployment platform | `ecs` |
-| `infrastructure_mode` | Infrastructure deployment mode | `ec2` |
-| `infrastructure_flavor` | Infrastructure deployment flavor | `terraform` |
-| `infrastructure_patches_count` | Number of Infrastructure patch entries | `0`, `1` |
+| `kind_installation_failed` | Set when the Installation failed the command (on failure only) | `true` |
 
-Each casting document sends its own properties: the Installation's unprefixed, each CollectionAgent's under its collector kind, and the Infrastructure's under `infrastructure_`.
+A CollectionAgent document sends, where `<collector>` is `agent`, `deployment` or `sidecar`:
+
+| Property | Description | Example |
+|---|---|---|
+| `kind_collectionagent_count` | Number of CollectionAgent documents in the file | `1`, `2` |
+| `kind_collectionagent_collector_<collector>_count` | Number of CollectionAgent documents with that collector kind | `1` |
+| `kind_collectionagent_collector_<collector>_deployment_platform` | Deployment platform of that CollectionAgent | `aws` |
+| `kind_collectionagent_collector_<collector>_deployment_mode` | Deployment mode of that CollectionAgent | `docker`, `kubernetes`, `ecs` |
+| `kind_collectionagent_collector_<collector>_deployment_flavor` | Deployment flavor of that CollectionAgent | `compose`, `kustomize`, `terraform` |
+| `kind_collectionagent_collector_<collector>_patches_count` | Number of patch entries of that CollectionAgent | `0`, `1` |
+| `kind_collectionagent_collector_<collector>_failed` | Set when that CollectionAgent failed the command (on failure only) | `true` |
+
+An Infrastructure document sends:
+
+| Property | Description | Example |
+|---|---|---|
+| `kind_infrastructure_count` | Number of Infrastructure documents in the file | `1` |
+| `kind_infrastructure_deployment_platform` | Infrastructure deployment platform | `ecs` |
+| `kind_infrastructure_deployment_mode` | Infrastructure deployment mode | `ec2` |
+| `kind_infrastructure_deployment_flavor` | Infrastructure deployment flavor | `terraform` |
+| `kind_infrastructure_patches_count` | Number of Infrastructure patch entries | `0`, `1` |
+| `kind_infrastructure_failed` | Set when the Infrastructure failed the command (on failure only) | `true` |
+
+A document type absent from the file sends none of its keys.
 
 ### Outcome
 
@@ -39,8 +57,6 @@ Each casting document sends its own properties: the Installation's unprefixed, e
 | `error` | Error message (on failure only) | `missing tool: docker` |
 | `error_type` | Error type (on failure only) | `invalid-input` |
 | `error_cause` | Underlying error message (on failure only) | `missing tool: docker` |
-| `failed_kind` | Kind of the casting document that failed the command (on failure only) | `CollectionAgent` |
-| `failed_collector_kind` | Collector kind of the CollectionAgent that failed the command (on failure only) | `deployment` |
 
 ### Environment
 

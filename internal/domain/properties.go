@@ -2,7 +2,6 @@ package domain
 
 import (
 	"maps"
-	"slices"
 
 	"github.com/signoz/foundry/internal/errors"
 )
@@ -56,25 +55,17 @@ func (p Properties) WithError(err error) Properties {
 	return p
 }
 
-// Merge folds other into p: a list gains the elements p does not hold yet, and
-// any other value is copied.
+// Merge copies other into p, adding ints that share a key.
 func (p Properties) Merge(other Properties) Properties {
 	for key, value := range other.values {
-		more, ok := value.([]string)
-		if !ok {
-			p.values[key] = value
-			continue
-		}
-
-		list, _ := p.values[key].([]string)
-
-		for _, element := range more {
-			if !slices.Contains(list, element) {
-				list = append(list, element)
+		if more, ok := value.(int); ok {
+			if held, ok := p.values[key].(int); ok {
+				p.values[key] = held + more
+				continue
 			}
 		}
 
-		p.values[key] = list
+		p.values[key] = value
 	}
 
 	return p

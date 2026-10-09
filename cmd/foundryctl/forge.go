@@ -46,9 +46,9 @@ func runForge(ctx context.Context, logger *slog.Logger, path string, poursPath s
 		return props, err
 	}
 
-	passed, err := foundry.Forge(ctx, machineries, path, &writer.Options{Output: &os.File{}, TargetDirectory: poursAbsPath})
-	if len(passed) < len(machineries) {
-		props = props.Merge(machineries[len(passed)].FailedProperties())
+	n, err := foundry.Forge(ctx, machineries, path, &writer.Options{Output: &os.File{}, TargetDirectory: poursAbsPath})
+	if n < len(machineries) {
+		props = props.Merge(machineries[n].FailedProperties())
 	}
 
 	return props, err
