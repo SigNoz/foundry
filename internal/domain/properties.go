@@ -58,7 +58,9 @@ func (p Properties) WithError(err error) Properties {
 // Merge copies other into p, adding ints that share a key.
 func (p Properties) Merge(other Properties) Properties {
 	for key, value := range other.values {
+
 		if more, ok := value.(int); ok {
+
 			if held, ok := p.values[key].(int); ok {
 				p.values[key] = held + more
 				continue

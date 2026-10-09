@@ -76,7 +76,6 @@ func (c *Casting) TrackableProperties() domain.Properties {
 		Set(prefix+"patches_count", len(c.Spec.Patches))
 }
 
-// FailedProperties returns the analytics tag naming the casting as failed.
 func (c *Casting) FailedProperties() domain.Properties {
 	return domain.NewProperties().
 		Set("kind_collectionagent_collector_"+c.Spec.Collector.Kind.String()+"_failed", true)

@@ -105,7 +105,6 @@ func (c *Casting) TrackableProperties() domain.Properties {
 		Set("mcp_enabled", c.Spec.MCP.Spec.IsEnabled())
 }
 
-// FailedProperties returns the analytics tag naming the casting as failed.
 func (c *Casting) FailedProperties() domain.Properties {
 	return domain.NewProperties().Set("kind_installation_failed", true)
 }
