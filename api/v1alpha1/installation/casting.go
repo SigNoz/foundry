@@ -93,7 +93,7 @@ func (c *Casting) MergeStatusIntoSpec() error {
 // TrackableProperties returns analytics tags for the casting.
 func (c *Casting) TrackableProperties() domain.Properties {
 	return domain.NewProperties().
-		Set("kind", v1alpha1.KindInstallation.String()).
+		Set("kind_installation_count", 1).
 		Set("platform", c.Spec.Deployment.Platform.String()).
 		Set("mode", c.Spec.Deployment.Mode.String()).
 		Set("flavor", c.Spec.Deployment.Flavor.String()).
@@ -103,4 +103,8 @@ func (c *Casting) TrackableProperties() domain.Properties {
 		Set("telemetrystore_kind", c.Spec.TelemetryStore.Kind.String()).
 		Set("telemetrykeeper_kind", c.Spec.TelemetryKeeper.Kind.String()).
 		Set("mcp_enabled", c.Spec.MCP.Spec.IsEnabled())
+}
+
+func (c *Casting) FailedProperties() domain.Properties {
+	return domain.NewProperties().Set("kind_installation_failed", true)
 }

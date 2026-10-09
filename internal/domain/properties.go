@@ -55,6 +55,13 @@ func (p Properties) WithError(err error) Properties {
 	return p
 }
 
+// Merge copies other into p; a key both hold takes other's value.
+func (p Properties) Merge(other Properties) Properties {
+	maps.Copy(p.values, other.values)
+
+	return p
+}
+
 // Map returns a copy of the underlying values, safe for callers to mutate.
 func (p Properties) Map() map[string]any {
 	out := make(map[string]any, len(p.values))
