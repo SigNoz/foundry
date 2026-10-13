@@ -66,6 +66,9 @@ spec:
 
 `foundry.signoz.io/ecs-region` sets the AWS region, and is required. The subnet zones must belong to it.
 
+> [!NOTE]
+> `platform: ecs`, `mode: ec2`, `flavor: terraform` also works for this casting.
+
 The casting above provisions two instance groups with these defaults:
 
 | Group | Nodes | Machine type | Root volume | Data volume |

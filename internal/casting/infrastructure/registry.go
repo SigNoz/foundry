@@ -30,6 +30,15 @@ func NewRegistry(logger *slog.Logger) *Registry {
 				Casting: awsecsterraformcasting.New(logger),
 				Toolers: []tooler.Tooler{terraformtooler.New()},
 			},
+			// platform ecs with mode ec2 is the installation's key and resolves here too.
+			{
+				Platform: v1alpha1.PlatformECS,
+				Mode:     v1alpha1.ModeEC2,
+				Flavor:   v1alpha1.FlavorTerraform,
+			}: {
+				Casting: awsecsterraformcasting.New(logger),
+				Toolers: []tooler.Tooler{terraformtooler.New()},
+			},
 		},
 	}
 }
