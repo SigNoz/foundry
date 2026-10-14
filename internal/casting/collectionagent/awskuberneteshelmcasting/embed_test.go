@@ -11,13 +11,14 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
 	"github.com/signoz/foundry/internal/casting/collectionagent/kuberneteshelmcasting"
 	"github.com/signoz/foundry/internal/domain"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding/collectionagent/collectormolding"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // The molded detector list, and per detector the attributes it turns off.
-func moldedDetection(t *testing.T, casting helmCasting, kind collectionagent.CollectorKind) ([]string, map[string][]string) {
+func moldedDetection(t *testing.T, casting helmCasting, kind collectionagent.CollectorKind) ([]string, map[string][]string, error) {
 	t.Helper()
 
 	ctx := context.Background()
@@ -28,7 +29,10 @@ func moldedDetection(t *testing.T, casting helmCasting, kind collectionagent.Col
 	enricher, err := casting.Enricher(ctx, config)
 	require.NoError(t, err)
 
-	require.NoError(t, enricher.EnrichStatus(ctx, v1alpha1.MoldingKindCollector, config))
+	if err := enricher.EnrichStatus(ctx, v1alpha1.MoldingKindCollector, config); err != nil {
+		return nil, nil, err
+	}
+
 	require.NoError(t, collectormolding.New(slog.New(slog.DiscardHandler)).MoldV1Alpha1(ctx, config))
 	require.NoError(t, config.MergeStatusIntoSpec())
 
@@ -68,19 +72,28 @@ func moldedDetection(t *testing.T, casting helmCasting, kind collectionagent.Col
 		slices.Sort(disabled[name])
 	}
 
-	return detectors, disabled
+	return detectors, disabled, nil
 }
 
 func TestTemplatesRender(t *testing.T) {
-	for name, tmpl := range map[string]*domain.Template{
-		"Agent_Valid":      agentYAMLTemplate,
-		"Deployment_Valid": deploymentYAMLTemplate,
+	for name, test := range map[string]struct {
+		template *domain.Template
+		pass     bool
+	}{
+		"Agent_Valid":      {agentYAMLTemplate, true},
+		"Deployment_Valid": {deploymentYAMLTemplate, true},
 	} {
 		t.Run(name, func(t *testing.T) {
-			material, err := tmpl.Render(nil, "collector.yaml")
-			require.NoError(t, err)
+			material, err := test.template.Render(nil, "collector.yaml")
 
-			assert.NotEmpty(t, material.FmtContents())
+			if test.pass {
+				require.NoError(t, err)
+				assert.NotEmpty(t, material.FmtContents())
+
+				return
+			}
+
+			require.Error(t, err)
 		})
 	}
 }
@@ -89,22 +102,34 @@ func TestMoldedResourceDetection(t *testing.T) {
 	for _, test := range []struct {
 		name              string
 		kind              collectionagent.CollectorKind
+		pass              bool
+		expectedErrorType int
 		expectedDetectors []string
 		expectedDisabled  map[string][]string
 	}{
 		{
-			"Agent_Valid", collectionagent.CollectorKindAgent,
+			"Agent_Valid", collectionagent.CollectorKindAgent, true, 0,
 			[]string{"k8snode", "env", "eks", "ec2", "system"},
 			map[string][]string{"ec2": {"host.id", "host.name"}, "system": {"host.id", "host.name"}},
 		},
 		{
-			"Deployment_Valid", collectionagent.CollectorKindDeployment,
+			"Deployment_Valid", collectionagent.CollectorKindDeployment, true, 0,
 			[]string{"env", "eks", "ec2"},
 			map[string][]string{"ec2": {"host.id", "host.image.id", "host.name", "host.type"}},
 		},
+		{"Sidecar_Invalid", collectionagent.CollectorKindSidecar, false, foundryerrors.TypeUnsupported.ExitCode(), nil, nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			detectors, disabled := moldedDetection(t, New(slog.New(slog.DiscardHandler)), test.kind)
+			detectors, disabled, err := moldedDetection(t, New(slog.New(slog.DiscardHandler)), test.kind)
+
+			if !test.pass {
+				require.Error(t, err)
+				assert.Equal(t, test.expectedErrorType, foundryerrors.ExitCode(err))
+
+				return
+			}
+
+			require.NoError(t, err)
 
 			assert.Equal(t, test.expectedDetectors, detectors)
 			assert.Equal(t, test.expectedDisabled, disabled)
@@ -117,15 +142,26 @@ func TestMoldedDetectorsKeepGeneric(t *testing.T) {
 	for _, test := range []struct {
 		name string
 		kind collectionagent.CollectorKind
+		pass bool
 	}{
-		{"Agent_Valid", collectionagent.CollectorKindAgent},
-		{"Deployment_Valid", collectionagent.CollectorKindDeployment},
+		{"Agent_Valid", collectionagent.CollectorKindAgent, true},
+		{"Deployment_Valid", collectionagent.CollectorKindDeployment, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			logger := slog.New(slog.DiscardHandler)
 
-			generic, _ := moldedDetection(t, kuberneteshelmcasting.New(logger), test.kind)
-			platform, _ := moldedDetection(t, New(logger), test.kind)
+			generic, _, err := moldedDetection(t, kuberneteshelmcasting.New(logger), test.kind)
+			require.NoError(t, err)
+
+			platform, _, err := moldedDetection(t, New(logger), test.kind)
+
+			if !test.pass {
+				require.Error(t, err)
+
+				return
+			}
+
+			require.NoError(t, err)
 
 			kept := slices.DeleteFunc(platform, func(detector string) bool { return !slices.Contains(generic, detector) })
 			assert.Equal(t, generic, kept)
