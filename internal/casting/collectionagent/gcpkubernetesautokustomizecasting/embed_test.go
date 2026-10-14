@@ -85,29 +85,37 @@ func TestTemplates_RenderValidYAML(t *testing.T) {
 		name     string
 		template *domain.Template
 		kind     collectionagent.CollectorKind
+		pass     bool
 	}{
-		{name: "KustomizationTemplate_AgentRendersValidYAML", template: kustomizationTemplate, kind: collectionagent.CollectorKindAgent},
-		{name: "KustomizationTemplate_DeploymentRendersValidYAML", template: kustomizationTemplate, kind: collectionagent.CollectorKindDeployment},
-		{name: "NamespaceTemplate_RendersValidYAML", template: namespaceTemplate, kind: collectionagent.CollectorKindAgent},
-		{name: "AgentServiceaccountTemplate_RendersValidYAML", template: agentServiceaccountTemplate, kind: collectionagent.CollectorKindAgent},
-		{name: "AgentClusterroleTemplate_RendersValidYAML", template: agentClusterroleTemplate, kind: collectionagent.CollectorKindAgent},
-		{name: "AgentClusterrolebindingTemplate_RendersValidYAML", template: agentClusterrolebindingTemplate, kind: collectionagent.CollectorKindAgent},
-		{name: "AgentServiceTemplate_RendersValidYAML", template: agentServiceTemplate, kind: collectionagent.CollectorKindAgent},
-		{name: "DaemonsetTemplate_RendersValidYAML", template: daemonsetTemplate, kind: collectionagent.CollectorKindAgent},
-		{name: "DeploymentServiceaccountTemplate_RendersValidYAML", template: deploymentServiceaccountTemplate, kind: collectionagent.CollectorKindDeployment},
-		{name: "DeploymentClusterroleTemplate_RendersValidYAML", template: deploymentClusterroleTemplate, kind: collectionagent.CollectorKindDeployment},
-		{name: "DeploymentClusterrolebindingTemplate_RendersValidYAML", template: deploymentClusterrolebindingTemplate, kind: collectionagent.CollectorKindDeployment},
-		{name: "DeploymentServiceTemplate_RendersValidYAML", template: deploymentServiceTemplate, kind: collectionagent.CollectorKindDeployment},
-		{name: "DeploymentTemplate_RendersValidYAML", template: deploymentTemplate, kind: collectionagent.CollectorKindDeployment},
-		{name: "AgentOpenTelemetryCollectorTemplate_RendersValidYAML", template: agentOpenTelemetryCollectorTemplate, kind: collectionagent.CollectorKindAgent},
-		{name: "DeploymentOpenTelemetryCollectorTemplate_RendersValidYAML", template: deploymentOpenTelemetryCollectorTemplate, kind: collectionagent.CollectorKindDeployment},
+		{name: "KustomizationTemplate_AgentRendersValidYAML", template: kustomizationTemplate, kind: collectionagent.CollectorKindAgent, pass: true},
+		{name: "KustomizationTemplate_DeploymentRendersValidYAML", template: kustomizationTemplate, kind: collectionagent.CollectorKindDeployment, pass: true},
+		{name: "NamespaceTemplate_RendersValidYAML", template: namespaceTemplate, kind: collectionagent.CollectorKindAgent, pass: true},
+		{name: "AgentServiceaccountTemplate_RendersValidYAML", template: agentServiceaccountTemplate, kind: collectionagent.CollectorKindAgent, pass: true},
+		{name: "AgentClusterroleTemplate_RendersValidYAML", template: agentClusterroleTemplate, kind: collectionagent.CollectorKindAgent, pass: true},
+		{name: "AgentClusterrolebindingTemplate_RendersValidYAML", template: agentClusterrolebindingTemplate, kind: collectionagent.CollectorKindAgent, pass: true},
+		{name: "AgentServiceTemplate_RendersValidYAML", template: agentServiceTemplate, kind: collectionagent.CollectorKindAgent, pass: true},
+		{name: "DaemonsetTemplate_RendersValidYAML", template: daemonsetTemplate, kind: collectionagent.CollectorKindAgent, pass: true},
+		{name: "DeploymentServiceaccountTemplate_RendersValidYAML", template: deploymentServiceaccountTemplate, kind: collectionagent.CollectorKindDeployment, pass: true},
+		{name: "DeploymentClusterroleTemplate_RendersValidYAML", template: deploymentClusterroleTemplate, kind: collectionagent.CollectorKindDeployment, pass: true},
+		{name: "DeploymentClusterrolebindingTemplate_RendersValidYAML", template: deploymentClusterrolebindingTemplate, kind: collectionagent.CollectorKindDeployment, pass: true},
+		{name: "DeploymentServiceTemplate_RendersValidYAML", template: deploymentServiceTemplate, kind: collectionagent.CollectorKindDeployment, pass: true},
+		{name: "DeploymentTemplate_RendersValidYAML", template: deploymentTemplate, kind: collectionagent.CollectorKindDeployment, pass: true},
+		{name: "AgentOpenTelemetryCollectorTemplate_RendersValidYAML", template: agentOpenTelemetryCollectorTemplate, kind: collectionagent.CollectorKindAgent, pass: true},
+		{name: "DeploymentOpenTelemetryCollectorTemplate_RendersValidYAML", template: deploymentOpenTelemetryCollectorTemplate, kind: collectionagent.CollectorKindDeployment, pass: true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			material, err := tt.template.Render(dataWithKind(t, tt.kind), "out.yaml")
-			assert.NoError(t, err)
-			assert.NotEmpty(t, material.FmtContents())
+
+			if tt.pass {
+				require.NoError(t, err)
+				assert.NotEmpty(t, material.FmtContents())
+
+				return
+			}
+
+			require.Error(t, err)
 		})
 	}
 }
@@ -117,20 +125,28 @@ func TestEnricherConfigTemplates_RenderValidYAML(t *testing.T) {
 		name     string
 		template *domain.Template
 		kind     collectionagent.CollectorKind
+		pass     bool
 	}{
-		{name: "AgentTemplate_RendersValidYAML", template: agentYAMLTemplate, kind: collectionagent.CollectorKindAgent},
-		{name: "DeploymentTemplate_RendersValidYAML", template: deploymentYAMLTemplate, kind: collectionagent.CollectorKindDeployment},
+		{name: "AgentTemplate_RendersValidYAML", template: agentYAMLTemplate, kind: collectionagent.CollectorKindAgent, pass: true},
+		{name: "DeploymentTemplate_RendersValidYAML", template: deploymentYAMLTemplate, kind: collectionagent.CollectorKindDeployment, pass: true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			buf := bytes.NewBuffer(nil)
 			err := tt.template.Execute(buf, dataWithKind(t, tt.kind))
-			assert.NoError(t, err)
 
-			var parsed map[string]any
-			assert.NoError(t, domain.UnmarshalYAML(buf.Bytes(), &parsed))
-			assert.Contains(t, parsed, "service")
+			if tt.pass {
+				require.NoError(t, err)
+
+				var parsed map[string]any
+				assert.NoError(t, domain.UnmarshalYAML(buf.Bytes(), &parsed))
+				assert.Contains(t, parsed, "service")
+
+				return
+			}
+
+			require.Error(t, err)
 		})
 	}
 }
@@ -140,10 +156,11 @@ func TestTemplatesNamespace(t *testing.T) {
 		name              string
 		annotations       map[string]string
 		env               map[string]string
+		pass              bool
 		expectedNamespace string
 	}{
-		{"Unstated_Valid", nil, nil, "signoz"},
-		{"Stated_Valid", map[string]string{collectionagent.KubernetesNamespace.Key: "observability"}, nil, "observability"},
+		{"Unstated_Valid", nil, nil, true, "signoz"},
+		{"Stated_Valid", map[string]string{collectionagent.KubernetesNamespace.Key: "observability"}, nil, true, "observability"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			config := castingWithKind(t, collectionagent.CollectorKindAgent)
@@ -152,29 +169,40 @@ func TestTemplatesNamespace(t *testing.T) {
 
 			data := templateDataFor(config)
 
-			kustomization := render(t, kustomizationTemplate, data)
-			assert.Equal(t, test.expectedNamespace, kustomization.Namespace)
-			require.Len(t, kustomization.ConfigMapGenerator, 1)
-			assert.Equal(t, "signoz-collector-agent", kustomization.ConfigMapGenerator[0].Name)
+			material, err := kustomizationTemplate.Render(data, "out.yaml")
 
-			assert.Equal(t, test.expectedNamespace, render(t, namespaceTemplate, data).Metadata.Name)
+			if test.pass {
+				require.NoError(t, err)
 
-			buf := bytes.NewBuffer(nil)
-			require.NoError(t, agentYAMLTemplate.Execute(buf, data))
-			assert.Contains(t, buf.String(), "/var/log/pods/"+test.expectedNamespace+"_signoz-collector-*/*/*.log")
+				var kustomization manifest
+				require.NoError(t, domain.UnmarshalYAML(material.FmtContents(), &kustomization))
+				assert.Equal(t, test.expectedNamespace, kustomization.Namespace)
+				require.Len(t, kustomization.ConfigMapGenerator, 1)
+				assert.Equal(t, "signoz-collector-agent", kustomization.ConfigMapGenerator[0].Name)
 
-			for kind := range workloadTemplates {
-				config.Spec.Collector.Kind = kind
-				kindData := templateDataFor(config)
+				assert.Equal(t, test.expectedNamespace, render(t, namespaceTemplate, data).Metadata.Name)
 
-				binding := render(t, clusterrolebindingTemplates[kind], kindData)
-				require.Len(t, binding.Subjects, 1)
-				assert.Equal(t, test.expectedNamespace, binding.Subjects[0].Namespace)
-				assert.Equal(t, "signoz-collector-"+kind.String(), binding.Metadata.Name)
+				buf := bytes.NewBuffer(nil)
+				require.NoError(t, agentYAMLTemplate.Execute(buf, data))
+				assert.Contains(t, buf.String(), "/var/log/pods/"+test.expectedNamespace+"_signoz-collector-*/*/*.log")
 
-				workload := render(t, workloadTemplates[kind], kindData)
-				require.Len(t, workload.Spec.Template.Spec.Containers, 1)
+				for kind := range workloadTemplates {
+					config.Spec.Collector.Kind = kind
+					kindData := templateDataFor(config)
+
+					binding := render(t, clusterrolebindingTemplates[kind], kindData)
+					require.Len(t, binding.Subjects, 1)
+					assert.Equal(t, test.expectedNamespace, binding.Subjects[0].Namespace)
+					assert.Equal(t, "signoz-collector-"+kind.String(), binding.Metadata.Name)
+
+					workload := render(t, workloadTemplates[kind], kindData)
+					require.Len(t, workload.Spec.Template.Spec.Containers, 1)
+				}
+
+				return
 			}
+
+			require.Error(t, err)
 		})
 	}
 }
@@ -332,26 +360,27 @@ func TestMoldedProcessors(t *testing.T) {
 		name               string
 		kind               collectionagent.CollectorKind
 		env                map[string]string
+		pass               bool
 		expectedAttributes []string
 		expectedProcessors []string
 	}{
 		{
-			"AgentCluster_Valid", collectionagent.CollectorKindAgent, cluster,
+			"AgentCluster_Valid", collectionagent.CollectorKindAgent, cluster, true,
 			[]string{"host.name", "k8s.node.name", "k8s.cluster.name"},
 			[]string{"memory_limiter", "resourcedetection", "resource/identity", "k8sattributes", "batch"},
 		},
 		{
-			"AgentNoCluster_Valid", collectionagent.CollectorKindAgent, map[string]string{},
+			"AgentNoCluster_Valid", collectionagent.CollectorKindAgent, map[string]string{}, true,
 			[]string{"host.name", "k8s.node.name"},
 			[]string{"memory_limiter", "resourcedetection", "resource/identity", "k8sattributes", "batch"},
 		},
 		{
-			"DeploymentCluster_Valid", collectionagent.CollectorKindDeployment, cluster,
+			"DeploymentCluster_Valid", collectionagent.CollectorKindDeployment, cluster, true,
 			[]string{"k8s.cluster.name"},
 			[]string{"memory_limiter", "resourcedetection", "resource/identity", "k8sattributes", "batch"},
 		},
 		{
-			"DeploymentNoCluster_Valid", collectionagent.CollectorKindDeployment, map[string]string{},
+			"DeploymentNoCluster_Valid", collectionagent.CollectorKindDeployment, map[string]string{}, true,
 			nil,
 			[]string{"memory_limiter", "resourcedetection", "k8sattributes", "batch"},
 		},
@@ -363,34 +392,47 @@ func TestMoldedProcessors(t *testing.T) {
 			config.Spec.Collector.Kind = test.kind
 			config.Spec.Collector.Spec.Env = test.env
 
-			require.NoError(t, newGcpKubernetesAutoKustomizeMoldingEnricher().EnrichStatus(ctx, v1alpha1.MoldingKindCollector, config))
-			require.NoError(t, collectormolding.New(slog.New(slog.DiscardHandler)).MoldV1Alpha1(ctx, config))
-			require.NoError(t, config.MergeStatusIntoSpec())
+			err := newGcpKubernetesAutoKustomizeMoldingEnricher().EnrichStatus(ctx, v1alpha1.MoldingKindCollector, config)
+			if err == nil {
+				err = collectormolding.New(slog.New(slog.DiscardHandler)).MoldV1Alpha1(ctx, config)
+			}
 
-			contents := config.Spec.Collector.Spec.Config.Data[test.kind.ConfigKey()]
-			require.NotEmpty(t, contents)
+			if err == nil {
+				err = config.MergeStatusIntoSpec()
+			}
 
-			var molded collectorConfig
-			require.NoError(t, domain.UnmarshalYAML([]byte(contents), &molded))
+			if test.pass {
+				require.NoError(t, err)
 
-			if test.expectedAttributes == nil {
-				assert.Nil(t, molded.Processors.Identity)
-			} else {
-				require.NotNil(t, molded.Processors.Identity)
+				contents := config.Spec.Collector.Spec.Config.Data[test.kind.ConfigKey()]
+				require.NotEmpty(t, contents)
 
-				var keys []string
-				for _, attribute := range molded.Processors.Identity.Attributes {
-					assert.Equal(t, "insert", attribute.Action)
+				var molded collectorConfig
+				require.NoError(t, domain.UnmarshalYAML([]byte(contents), &molded))
 
-					keys = append(keys, attribute.Key)
+				if test.expectedAttributes == nil {
+					assert.Nil(t, molded.Processors.Identity)
+				} else {
+					require.NotNil(t, molded.Processors.Identity)
+
+					var keys []string
+					for _, attribute := range molded.Processors.Identity.Attributes {
+						assert.Equal(t, "insert", attribute.Action)
+
+						keys = append(keys, attribute.Key)
+					}
+
+					assert.Equal(t, test.expectedAttributes, keys)
 				}
 
-				assert.Equal(t, test.expectedAttributes, keys)
+				for _, pipeline := range []string{"traces", "metrics", "logs"} {
+					assert.Equal(t, test.expectedProcessors, molded.Service.Pipelines[pipeline].Processors, "pipeline %q", pipeline)
+				}
+
+				return
 			}
 
-			for _, pipeline := range []string{"traces", "metrics", "logs"} {
-				assert.Equal(t, test.expectedProcessors, molded.Service.Pipelines[pipeline].Processors, "pipeline %q", pipeline)
-			}
+			require.Error(t, err)
 		})
 	}
 }
@@ -406,12 +448,14 @@ func TestWorkloadTemplates_ResourceAttributes(t *testing.T) {
 	for _, test := range []struct {
 		name               string
 		env                map[string]string
+		pass               bool
 		expectedAttributes []string
 	}{
-		{"Unstated_Valid", map[string]string{"K8S_CLUSTER_NAME": "production"}, nil},
+		{"Unstated_Valid", map[string]string{"K8S_CLUSTER_NAME": "production"}, true, nil},
 		{
 			"Stated_Valid",
 			map[string]string{"OTEL_RESOURCE_ATTRIBUTES": "deployment.environment=production"},
+			true,
 			[]string{"deployment.environment=production"},
 		},
 	} {
@@ -421,20 +465,27 @@ func TestWorkloadTemplates_ResourceAttributes(t *testing.T) {
 				config.Spec.Collector.Spec.Env = test.env
 
 				material, err := workloadTemplates[kind].Render(config, "out.yaml")
-				require.NoError(t, err)
 
-				var workload workloadManifest
-				require.NoError(t, domain.UnmarshalYAML(material.FmtContents(), &workload))
-				require.Len(t, workload.Spec.Template.Spec.Containers, 1)
+				if test.pass {
+					require.NoError(t, err)
 
-				var stated []string
-				for _, entry := range workload.Spec.Template.Spec.Containers[0].Env {
-					if entry.Name == "OTEL_RESOURCE_ATTRIBUTES" {
-						stated = append(stated, entry.Value)
+					var workload workloadManifest
+					require.NoError(t, domain.UnmarshalYAML(material.FmtContents(), &workload))
+					require.Len(t, workload.Spec.Template.Spec.Containers, 1)
+
+					var stated []string
+					for _, entry := range workload.Spec.Template.Spec.Containers[0].Env {
+						if entry.Name == "OTEL_RESOURCE_ATTRIBUTES" {
+							stated = append(stated, entry.Value)
+						}
 					}
+
+					assert.Equal(t, test.expectedAttributes, stated, "workload %q", kind)
+
+					continue
 				}
 
-				assert.Equal(t, test.expectedAttributes, stated, "workload %q", kind)
+				require.Error(t, err)
 			}
 		})
 	}
