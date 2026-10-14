@@ -122,6 +122,9 @@ foundryctl cast -f deployment/casting.yaml -p deployment/pours
 ```
 
 The generated output, the Helm releases and the annotations are those of the
-[`kubernetes/helm` casting](../../../kubernetes/helm/README.md). The
-`foundry.signoz.io/kubernetes-collector-controller` annotation takes `default`
-only, and forge refuses any other value.
+[`kubernetes/helm` casting](../../../kubernetes/helm/README.md). With
+`foundry.signoz.io/kubernetes-collector-controller: opentelemetry-operator`
+stated, the collectors run as `OpenTelemetryCollector` resources that the
+[OpenTelemetry Operator](../../../kubernetes/helm-opentelemetry-operator/README.md)
+reconciles, with the same Autopilot shape (no host ports, and `/var/log` as
+the agent's only host path) and the same collector config.

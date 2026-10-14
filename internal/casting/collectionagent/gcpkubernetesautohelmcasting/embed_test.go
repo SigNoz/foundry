@@ -67,6 +67,8 @@ func TestTemplatesRender(t *testing.T) {
 
 // On gcp/autogke the chart mounts no host root; a stated hostfs volume would bring one back.
 func TestForge(t *testing.T) {
+	operator := collectionagent.CollectorControllerOpenTelemetryOperator
+
 	for _, test := range []struct {
 		name              string
 		kind              collectionagent.CollectorKind
@@ -74,10 +76,13 @@ func TestForge(t *testing.T) {
 		pass              bool
 		expectedErrorType int
 		expectedPath      string
+		expectedHostPaths []string
 	}{
-		{"Agent_Valid", collectionagent.CollectorKindAgent, "", true, 0, "collectionagent/collector/agent/values.yaml"},
-		{"Deployment_Valid", collectionagent.CollectorKindDeployment, "", true, 0, "collectionagent/collector/deployment/values.yaml"},
-		{"OpenTelemetryOperator_Invalid", collectionagent.CollectorKindAgent, collectionagent.CollectorControllerOpenTelemetryOperator, false, foundryerrors.TypeInvalidInput.ExitCode(), ""},
+		{"Agent_Valid", collectionagent.CollectorKindAgent, "", true, 0, "collectionagent/collector/agent/values.yaml", nil},
+		{"Deployment_Valid", collectionagent.CollectorKindDeployment, "", true, 0, "collectionagent/collector/deployment/values.yaml", nil},
+		{"OpenTelemetryOperator_Agent_Valid", collectionagent.CollectorKindAgent, operator, true, 0, "collectionagent/collector/agent/values.yaml", []string{"/var/log"}},
+		{"OpenTelemetryOperator_Deployment_Valid", collectionagent.CollectorKindDeployment, operator, true, 0, "collectionagent/collector/deployment/values.yaml", []string{}},
+		{"UnknownController_Invalid", collectionagent.CollectorKindAgent, "argo", false, foundryerrors.TypeInvalidInput.ExitCode(), "", nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			config := moldedCasting(t, test.kind)
@@ -103,6 +108,32 @@ func TestForge(t *testing.T) {
 			require.Len(t, materials, 1)
 
 			assert.Equal(t, test.expectedPath, materials[0].Path())
+
+			if test.controller == operator {
+				var rendered struct {
+					Collectors map[string]struct {
+						Volumes []struct {
+							HostPath *struct {
+								Path string `json:"path"`
+							} `json:"hostPath"`
+						} `json:"volumes"`
+					} `json:"collectors"`
+				}
+				require.NoError(t, domain.UnmarshalYAML(materials[0].FmtContents(), &rendered))
+				require.Contains(t, rendered.Collectors, test.kind.String())
+
+				hostPaths := []string{}
+				for _, volume := range rendered.Collectors[test.kind.String()].Volumes {
+					if volume.HostPath != nil {
+						hostPaths = append(hostPaths, volume.HostPath.Path)
+					}
+				}
+
+				assert.Equal(t, test.expectedHostPaths, hostPaths)
+				assert.NotContains(t, string(materials[0].FmtContents()), "hostPort")
+
+				return
+			}
 
 			var rendered struct {
 				Global struct {
