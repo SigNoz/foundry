@@ -1,0 +1,22 @@
+processors:
+  resourcedetection:
+    # Cloud detectors follow env so a stated OTEL_RESOURCE_ATTRIBUTES wins; the
+    # cluster-scoped collector takes no host or cluster identity from them.
+    detectors:
+      - env
+      - aks
+      - azure
+    azure:
+      resource_attributes:
+        azure.resourcegroup.name:
+          enabled: false
+        azure.vm.name:
+          enabled: false
+        azure.vm.scaleset.name:
+          enabled: false
+        azure.vm.size:
+          enabled: false
+        host.id:
+          enabled: false
+        host.name:
+          enabled: false

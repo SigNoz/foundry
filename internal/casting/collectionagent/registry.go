@@ -6,9 +6,15 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/internal/casting/collectionagent/awsecsserverlessterraformcasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/awsecsterraformcasting"
+	"github.com/signoz/foundry/internal/casting/collectionagent/awskuberneteshelmcasting"
+	"github.com/signoz/foundry/internal/casting/collectionagent/awskuberneteskustomizecasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/awskubernetesserverlesskustomizecasting"
+	"github.com/signoz/foundry/internal/casting/collectionagent/azurekuberneteshelmcasting"
+	"github.com/signoz/foundry/internal/casting/collectionagent/azurekuberneteskustomizecasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockercomposecasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockerswarmcasting"
+	"github.com/signoz/foundry/internal/casting/collectionagent/gcpkuberneteshelmcasting"
+	"github.com/signoz/foundry/internal/casting/collectionagent/gcpkuberneteskustomizecasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/kuberneteshelmcasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/kuberneteskustomizecasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/systemdbinarycasting"
@@ -58,6 +64,30 @@ func NewRegistry(logger *slog.Logger) *Registry {
 			},
 			{
 				Platform: v1alpha1.PlatformAWS,
+				Mode:     v1alpha1.ModeKubernetes,
+				Flavor:   v1alpha1.FlavorKustomize,
+			}: {
+				Casting: awskuberneteskustomizecasting.New(logger),
+				Toolers: []tooler.Tooler{kubectltooler.New()},
+			},
+			{
+				Platform: v1alpha1.PlatformGCP,
+				Mode:     v1alpha1.ModeKubernetes,
+				Flavor:   v1alpha1.FlavorKustomize,
+			}: {
+				Casting: gcpkuberneteskustomizecasting.New(logger),
+				Toolers: []tooler.Tooler{kubectltooler.New()},
+			},
+			{
+				Platform: v1alpha1.PlatformAzure,
+				Mode:     v1alpha1.ModeKubernetes,
+				Flavor:   v1alpha1.FlavorKustomize,
+			}: {
+				Casting: azurekuberneteskustomizecasting.New(logger),
+				Toolers: []tooler.Tooler{kubectltooler.New()},
+			},
+			{
+				Platform: v1alpha1.PlatformAWS,
 				Flavor:   v1alpha1.FlavorTerraform,
 				Mode:     v1alpha1.ModeECS,
 			}: {
@@ -102,6 +132,30 @@ func NewRegistry(logger *slog.Logger) *Registry {
 				Flavor: v1alpha1.FlavorHelm,
 			}: {
 				Casting: kuberneteshelmcasting.New(logger),
+				Toolers: []tooler.Tooler{helmtooler.New()},
+			},
+			{
+				Platform: v1alpha1.PlatformAWS,
+				Mode:     v1alpha1.ModeKubernetes,
+				Flavor:   v1alpha1.FlavorHelm,
+			}: {
+				Casting: awskuberneteshelmcasting.New(logger),
+				Toolers: []tooler.Tooler{helmtooler.New()},
+			},
+			{
+				Platform: v1alpha1.PlatformGCP,
+				Mode:     v1alpha1.ModeKubernetes,
+				Flavor:   v1alpha1.FlavorHelm,
+			}: {
+				Casting: gcpkuberneteshelmcasting.New(logger),
+				Toolers: []tooler.Tooler{helmtooler.New()},
+			},
+			{
+				Platform: v1alpha1.PlatformAzure,
+				Mode:     v1alpha1.ModeKubernetes,
+				Flavor:   v1alpha1.FlavorHelm,
+			}: {
+				Casting: azurekuberneteshelmcasting.New(logger),
 				Toolers: []tooler.Tooler{helmtooler.New()},
 			},
 			{

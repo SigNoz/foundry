@@ -1,0 +1,16 @@
+processors:
+  resourcedetection:
+    # Cloud detectors follow env so a stated OTEL_RESOURCE_ATTRIBUTES wins;
+    # host and cluster identity stay resource/identity's.
+    detectors:
+      - k8snode
+      - env
+      - aks
+      - azure
+      - system
+    azure:
+      resource_attributes:
+        host.id:
+          enabled: false
+        host.name:
+          enabled: false
