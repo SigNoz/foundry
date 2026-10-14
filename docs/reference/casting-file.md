@@ -187,7 +187,7 @@ The version defaults to `0.13.0` when the chart is unstated.
 
 | Annotation | Default | Description |
 | --- | --- | --- |
-| `foundry.signoz.io/kubernetes-helm-chart` | `signoz` | Chart name in the repository, a URL to a chart archive, or a local chart path |
+| `foundry.signoz.io/kubernetes-helm-chart` | `signoz` (Installation), `k8s-infra` (CollectionAgent) | Chart name in the repository, a URL to a chart archive, or a local chart path |
 | `foundry.signoz.io/kubernetes-helm-repo-url` | `https://charts.signoz.io` | Chart repository the chart name is resolved against |
 | `foundry.signoz.io/kubernetes-helm-chart-version` | `latest` | Helm chart version to install; `latest` installs the repository's latest chart |
 
