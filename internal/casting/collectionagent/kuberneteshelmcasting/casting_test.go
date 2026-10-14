@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"maps"
+	"strings"
 	"testing"
 
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
@@ -15,23 +16,31 @@ import (
 )
 
 func TestForge(t *testing.T) {
+	unrooted := `receivers: {hostmetrics: {root_path: ""}}`
+
 	for _, test := range []struct {
 		name              string
 		kind              collectionagent.CollectorKind
 		controller        string
+		config            string
 		pass              bool
 		expectedErrorType int
 		expectedPath      string
 		expectedKubeStack bool
+		expectedHostRoot  bool
 	}{
-		{"Agent_Valid", collectionagent.CollectorKindAgent, "", true, 0, "collectionagent/collector/agent/values.yaml", false},
-		{"Deployment_Valid", collectionagent.CollectorKindDeployment, "", true, 0, "collectionagent/collector/deployment/values.yaml", false},
-		{"OperatorAgent_Valid", collectionagent.CollectorKindAgent, collectionagent.CollectorControllerOpenTelemetryOperator, true, 0, "collectionagent/collector/agent/values.yaml", true},
-		{"OperatorDeployment_Valid", collectionagent.CollectorKindDeployment, collectionagent.CollectorControllerOpenTelemetryOperator, true, 0, "collectionagent/collector/deployment/values.yaml", true},
-		{"UnknownController_Invalid", collectionagent.CollectorKindAgent, "argo", false, foundryerrors.TypeInvalidInput.ExitCode(), "", false},
+		{"Agent_Valid", collectionagent.CollectorKindAgent, "", "", true, 0, "collectionagent/collector/agent/values.yaml", false, true},
+		{"Deployment_Valid", collectionagent.CollectorKindDeployment, "", "", true, 0, "collectionagent/collector/deployment/values.yaml", false, false},
+		{"OperatorAgent_Valid", collectionagent.CollectorKindAgent, collectionagent.CollectorControllerOpenTelemetryOperator, "", true, 0, "collectionagent/collector/agent/values.yaml", true, true},
+		{"OperatorDeployment_Valid", collectionagent.CollectorKindDeployment, collectionagent.CollectorControllerOpenTelemetryOperator, "", true, 0, "collectionagent/collector/deployment/values.yaml", true, false},
+		{"UnknownController_Invalid", collectionagent.CollectorKindAgent, "argo", "", false, foundryerrors.TypeInvalidInput.ExitCode(), "", false, false},
+		{"AgentRootPathEmpty_Valid", collectionagent.CollectorKindAgent, "", unrooted, true, 0, "collectionagent/collector/agent/values.yaml", false, false},
+		{"OperatorAgentRootPathEmpty_Valid", collectionagent.CollectorKindAgent, collectionagent.CollectorControllerOpenTelemetryOperator, unrooted, true, 0, "collectionagent/collector/agent/values.yaml", true, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			config := moldedCasting(t, test.kind, defaultEnv())
+			config := moldedCasting(t, test.kind, defaultEnv(), func(config *collectionagent.Casting) {
+				config.Spec.Collector.Spec.Config.Set(test.kind.ConfigKey(), []byte(test.config))
+			})
 
 			if test.controller != "" {
 				config.Metadata.Annotations = map[string]string{collectionagent.KubernetesCollectorController.Key: test.controller}
@@ -54,6 +63,14 @@ func TestForge(t *testing.T) {
 
 				assert.Equal(t, test.expectedKubeStack, rendered["collectors"] != nil)
 				assert.Equal(t, !test.expectedKubeStack, rendered["otelAgent"] != nil)
+
+				contents := string(materials[0].(domain.StructuredMaterial).JSONContents())
+
+				for _, hostRoot := range []string{`"name":"hostfs"`, `{"hostPath":{"path":"/"},"name":"hostfs"}`, `{"mountPath":"/hostfs","mountPropagation":"HostToContainer","name":"hostfs","readOnly":true}`} {
+					assert.Equal(t, test.expectedHostRoot, strings.Contains(contents, hostRoot), hostRoot)
+				}
+
+				assert.Equal(t, test.expectedHostRoot && !test.expectedKubeStack, strings.Contains(contents, `"extraVolume`))
 
 				return
 			}

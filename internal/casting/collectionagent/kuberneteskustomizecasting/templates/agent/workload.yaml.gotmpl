@@ -1,4 +1,5 @@
 {{- $name := print $.Metadata.Name "-collector-" $.Spec.Collector.Kind -}}
+{{- $rootPath := index $.Spec.Collector.Spec.Config.Data $.Spec.Collector.Kind.ConfigKey | fromYaml | dig "receivers" "hostmetrics" "root_path" "" -}}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -107,10 +108,13 @@ spec:
             - name: varlibdockercontainers
               mountPath: /var/lib/docker/containers
               readOnly: true
+            # The host root is mounted only when hostmetrics reads it, as the chart does.
+            {{- if $rootPath }}
             - name: hostfs
-              mountPath: /hostfs
+              mountPath: {{ $rootPath | quote }}
               readOnly: true
               mountPropagation: HostToContainer
+            {{- end }}
       volumes:
         - name: config
           configMap:
@@ -121,6 +125,8 @@ spec:
         - name: varlibdockercontainers
           hostPath:
             path: /var/lib/docker/containers
+        {{- if $rootPath }}
         - name: hostfs
           hostPath:
             path: /
+        {{- end }}
