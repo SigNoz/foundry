@@ -1,9 +1,10 @@
-package collectionagent
+package casting
 
 import (
 	"log/slog"
 
 	"github.com/signoz/foundry/api/v1alpha1"
+	collectionagentcasting "github.com/signoz/foundry/internal/casting/collectionagent"
 	"github.com/signoz/foundry/internal/casting/collectionagent/awsecsserverlessterraformcasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/awsecsterraformcasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/awskuberneteshelmcasting"
@@ -30,7 +31,7 @@ import (
 )
 
 type CastingItem struct {
-	Casting Casting
+	Casting collectionagentcasting.Casting
 	Toolers []tooler.Tooler
 }
 
@@ -180,7 +181,7 @@ func (registry *Registry) lookup(deployment v1alpha1.TypeDeployment) (CastingIte
 	return CastingItem{}, false
 }
 
-func (registry *Registry) Casting(deployment v1alpha1.TypeDeployment) (Casting, error) {
+func (registry *Registry) Casting(deployment v1alpha1.TypeDeployment) (collectionagentcasting.Casting, error) {
 	item, ok := registry.lookup(deployment)
 	if !ok {
 		return nil, foundryerrors.Newf(foundryerrors.TypeUnsupported, "collectionagent deployment '%+v' is not supported", deployment)

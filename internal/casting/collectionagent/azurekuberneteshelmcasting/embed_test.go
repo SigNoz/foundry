@@ -9,6 +9,7 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
+	collectionagentcasting "github.com/signoz/foundry/internal/casting/collectionagent"
 	"github.com/signoz/foundry/internal/casting/collectionagent/kuberneteshelmcasting"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
@@ -18,7 +19,7 @@ import (
 )
 
 // The molded detector list, and per detector the attributes it turns off.
-func moldedDetection(t *testing.T, casting helmCasting, kind collectionagent.CollectorKind) ([]string, map[string][]string, error) {
+func moldedDetection(t *testing.T, casting collectionagentcasting.Casting, kind collectionagent.CollectorKind) ([]string, map[string][]string, error) {
 	t.Helper()
 
 	ctx := context.Background()

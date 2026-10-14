@@ -1,4 +1,4 @@
-package collectionagent
+package casting
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
+	collectionagentcasting "github.com/signoz/foundry/internal/casting/collectionagent"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	collectionagentmolding "github.com/signoz/foundry/internal/molding/collectionagent"
@@ -24,7 +25,7 @@ var _ planner.Planner = (*Planner)(nil)
 type Planner struct {
 	config   *collectionagent.Casting
 	logger   *slog.Logger
-	casting  Casting
+	casting  collectionagentcasting.Casting
 	toolers  []tooler.Tooler
 	enricher collectionagentmolding.MoldingEnricher
 	moldings []collectionagentmolding.Molding

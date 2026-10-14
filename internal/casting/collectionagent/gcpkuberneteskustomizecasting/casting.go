@@ -5,20 +5,16 @@ import (
 	"log/slog"
 
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
+	collectionagentcasting "github.com/signoz/foundry/internal/casting/collectionagent"
 	"github.com/signoz/foundry/internal/casting/collectionagent/kuberneteskustomizecasting"
 	collectionagentmolding "github.com/signoz/foundry/internal/molding/collectionagent"
 	"github.com/signoz/foundry/internal/pourer"
 )
 
-// The registry's package imports this one, so its Casting interface is restated here.
-type kustomizeCasting interface {
-	Enricher(ctx context.Context, config *collectionagent.Casting) (collectionagentmolding.MoldingEnricher, error)
-	Forge(ctx context.Context, config collectionagent.Casting, p *pourer.Pourer) error
-	Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error
-}
+var _ collectionagentcasting.Casting = (*gcpKubernetesKustomizeCasting)(nil)
 
 type gcpKubernetesKustomizeCasting struct {
-	kustomizeCasting kustomizeCasting
+	kustomizeCasting collectionagentcasting.Casting
 }
 
 func New(logger *slog.Logger) *gcpKubernetesKustomizeCasting {
