@@ -62,16 +62,18 @@ otelAgent:
   additionalEnvs:
 {{ toYaml . | indent 4 }}
   {{- end }}
-  # The chart mounts /hostfs only under its hostMetrics preset, which is off.
+  # The chart's hostMetrics preset is off, so the host root is mounted here when hostmetrics reads it, as the chart does.
+  {{- with dig "receivers" "hostmetrics" "root_path" "" $config }}
   extraVolumes:
     - name: hostfs
       hostPath:
         path: /
   extraVolumeMounts:
     - name: hostfs
-      mountPath: /hostfs
+      mountPath: {{ . | quote }}
       readOnly: true
       mountPropagation: HostToContainer
+  {{- end }}
   config:
 {{ toYaml $collector | indent 4 }}
   {{- end }}

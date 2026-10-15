@@ -498,7 +498,8 @@
         "fargate",
         "kubernetes-serverless",
         "ecs",
-        "ecs-serverless"
+        "ecs-serverless",
+        "kubernetes-auto"
       ],
       "type": "string"
     },

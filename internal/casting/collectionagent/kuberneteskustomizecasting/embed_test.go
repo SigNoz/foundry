@@ -5,6 +5,7 @@ import (
 	"context"
 	"log/slog"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/signoz/foundry/api/v1alpha1"
@@ -184,28 +185,34 @@ func TestTemplatesNamespace(t *testing.T) {
 func TestForge(t *testing.T) {
 	native := []string{"kustomization.yaml", "namespace.yaml", "serviceaccount.yaml", "clusterrole.yaml", "clusterrolebinding.yaml", "service.yaml", "workload.yaml"}
 	operator := []string{"kustomization.yaml", "namespace.yaml", "serviceaccount.yaml", "clusterrole.yaml", "clusterrolebinding.yaml", "opentelemetrycollector.yaml"}
+	unrooted := `receivers: {hostmetrics: {root_path: ""}}`
 
 	for _, test := range []struct {
 		name              string
 		kind              collectionagent.CollectorKind
 		controller        string
+		config            string
 		pass              bool
 		expectedErrorType int
 		expectedFiles     []string
 		expectedPour      bool
+		expectedHostRoot  bool
 	}{
-		{"Agent_Valid", collectionagent.CollectorKindAgent, "", true, 0, native, true},
-		{"Deployment_Valid", collectionagent.CollectorKindDeployment, "", true, 0, native, true},
-		{"DefaultStated_Valid", collectionagent.CollectorKindAgent, collectionagent.CollectorControllerDefault, true, 0, native, true},
-		{"OperatorAgent_Valid", collectionagent.CollectorKindAgent, collectionagent.CollectorControllerOpenTelemetryOperator, true, 0, operator, false},
-		{"OperatorDeployment_Valid", collectionagent.CollectorKindDeployment, collectionagent.CollectorControllerOpenTelemetryOperator, true, 0, operator, false},
-		{"UnknownController_Invalid", collectionagent.CollectorKindAgent, "argo", false, foundryerrors.TypeInvalidInput.ExitCode(), nil, false},
+		{"Agent_Valid", collectionagent.CollectorKindAgent, "", "", true, 0, native, true, true},
+		{"Deployment_Valid", collectionagent.CollectorKindDeployment, "", "", true, 0, native, true, false},
+		{"DefaultStated_Valid", collectionagent.CollectorKindAgent, collectionagent.CollectorControllerDefault, "", true, 0, native, true, true},
+		{"OperatorAgent_Valid", collectionagent.CollectorKindAgent, collectionagent.CollectorControllerOpenTelemetryOperator, "", true, 0, operator, false, true},
+		{"OperatorDeployment_Valid", collectionagent.CollectorKindDeployment, collectionagent.CollectorControllerOpenTelemetryOperator, "", true, 0, operator, false, false},
+		{"UnknownController_Invalid", collectionagent.CollectorKindAgent, "argo", "", false, foundryerrors.TypeInvalidInput.ExitCode(), nil, false, false},
+		{"AgentRootPathEmpty_Valid", collectionagent.CollectorKindAgent, "", unrooted, true, 0, native, true, false},
+		{"OperatorAgentRootPathEmpty_Valid", collectionagent.CollectorKindAgent, collectionagent.CollectorControllerOpenTelemetryOperator, unrooted, true, 0, operator, false, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 
 			config := collectionagent.Default()
 			config.Spec.Collector.Kind = test.kind
+			config.Spec.Collector.Spec.Config.Set(test.kind.ConfigKey(), []byte(test.config))
 
 			if test.controller != "" {
 				config.Metadata.Annotations = map[string]string{collectionagent.KubernetesCollectorController.Key: test.controller}
@@ -225,8 +232,10 @@ func TestForge(t *testing.T) {
 				require.NoError(t, err)
 
 				var paths []string
+				var contents strings.Builder
 				for _, material := range materials {
 					paths = append(paths, material.Path())
+					contents.Write(material.(domain.StructuredMaterial).JSONContents())
 				}
 
 				dir := filepath.Join("collectionagent", filepath.Dir(test.kind.ConfigKey()))
@@ -241,6 +250,10 @@ func TestForge(t *testing.T) {
 				}
 
 				assert.ElementsMatch(t, expectedPaths, paths)
+
+				for _, hostRoot := range []string{`"name":"hostfs"`, `{"hostPath":{"path":"/"},"name":"hostfs"}`, `{"mountPath":"/hostfs","mountPropagation":"HostToContainer","name":"hostfs","readOnly":true}`} {
+					assert.Equal(t, test.expectedHostRoot, strings.Contains(contents.String(), hostRoot), hostRoot)
+				}
 
 				return
 			}

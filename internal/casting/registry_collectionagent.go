@@ -14,6 +14,8 @@ import (
 	"github.com/signoz/foundry/internal/casting/collectionagent/azurekuberneteskustomizecasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockercomposecasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/dockerswarmcasting"
+	"github.com/signoz/foundry/internal/casting/collectionagent/gcpkubernetesautohelmcasting"
+	"github.com/signoz/foundry/internal/casting/collectionagent/gcpkubernetesautokustomizecasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/gcpkuberneteshelmcasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/gcpkuberneteskustomizecasting"
 	"github.com/signoz/foundry/internal/casting/collectionagent/kuberneteshelmcasting"
@@ -158,6 +160,22 @@ func NewRegistry(logger *slog.Logger) *Registry {
 			}: {
 				Casting: azurekuberneteshelmcasting.New(logger),
 				Toolers: []tooler.Tooler{helmtooler.New()},
+			},
+			{
+				Platform: v1alpha1.PlatformGCP,
+				Mode:     v1alpha1.ModeKubernetesAuto,
+				Flavor:   v1alpha1.FlavorHelm,
+			}: {
+				Casting: gcpkubernetesautohelmcasting.New(logger),
+				Toolers: []tooler.Tooler{helmtooler.New()},
+			},
+			{
+				Platform: v1alpha1.PlatformGCP,
+				Mode:     v1alpha1.ModeKubernetesAuto,
+				Flavor:   v1alpha1.FlavorKustomize,
+			}: {
+				Casting: gcpkubernetesautokustomizecasting.New(logger),
+				Toolers: []tooler.Tooler{kubectltooler.New()},
 			},
 			{
 				Mode:   v1alpha1.ModeSystemd,

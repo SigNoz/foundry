@@ -1,6 +1,7 @@
 {{- $kind := $.Spec.Collector.Kind.String }}
 {{- $name := print $.Metadata.Name "-collector-" $kind }}
 {{- $env := fromYaml (toYaml $.Spec.Collector.Spec.Env) }}
+{{- $rootPath := index $.Spec.Collector.Spec.Config.Data $.Spec.Collector.Kind.ConfigKey | fromYaml | dig "receivers" "hostmetrics" "root_path" "" }}
 opentelemetry-operator:
   enabled: false
 crds:
@@ -93,10 +94,13 @@ collectors:
       - name: varlibdockercontainers
         mountPath: /var/lib/docker/containers
         readOnly: true
+      # The host root is mounted only when hostmetrics reads it, as the chart does.
+      {{- if $rootPath }}
       - name: hostfs
-        mountPath: /hostfs
+        mountPath: {{ $rootPath | quote }}
         readOnly: true
         mountPropagation: HostToContainer
+      {{- end }}
     volumes:
       - name: varlog
         hostPath:
@@ -104,9 +108,11 @@ collectors:
       - name: varlibdockercontainers
         hostPath:
           path: /var/lib/docker/containers
+      {{- if $rootPath }}
       - name: hostfs
         hostPath:
           path: /
+      {{- end }}
     {{- else }}
     # Names match the operator's own (otlp-grpc, otlp-http), or its derived ports duplicate them.
     ports:
