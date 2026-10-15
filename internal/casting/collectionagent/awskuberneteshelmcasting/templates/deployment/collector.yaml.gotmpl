@@ -1,0 +1,18 @@
+processors:
+  resourcedetection:
+    # Cloud detectors follow env so a stated OTEL_RESOURCE_ATTRIBUTES wins; the
+    # cluster-scoped collector takes no host or cluster identity from them.
+    detectors:
+      - env
+      - eks
+      - ec2
+    ec2:
+      resource_attributes:
+        host.id:
+          enabled: false
+        host.image.id:
+          enabled: false
+        host.name:
+          enabled: false
+        host.type:
+          enabled: false

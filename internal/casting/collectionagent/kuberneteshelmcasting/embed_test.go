@@ -345,6 +345,7 @@ exporters:
 var (
 	agentOnly      = []collectionagent.CollectorKind{collectionagent.CollectorKindAgent}
 	deploymentOnly = []collectionagent.CollectorKind{collectionagent.CollectorKindDeployment}
+	chartKinds     = []collectionagent.CollectorKind{collectionagent.CollectorKindAgent, collectionagent.CollectorKindDeployment}
 	cloudCases     = []string{"CloudAWS", "CloudAzure", "CloudGCP", "CloudAutoGKE"}
 )
 
@@ -425,10 +426,10 @@ var chartAllowlist = []struct {
 	{"processors.k8sattributes.extract.annotations", "the chart emits empty extract lists", nil, agentOnly},
 	{"processors.k8sattributes.extract.labels", "the chart emits empty extract lists", nil, agentOnly},
 	{"processors.resource/identity", "identity attributes are config-owned", nil, nil},
-	{"processors.resourcedetection.detectors", "foundry does not mirror the chart's cloud presets", cloudCases, nil},
-	{"processors.resourcedetection.ec2", "foundry does not mirror the chart's cloud presets", []string{"CloudAWS"}, nil},
-	{"processors.resourcedetection.gcp", "foundry does not mirror the chart's cloud presets", []string{"CloudGCP", "CloudAutoGKE"}, nil},
-	{"processors.resourcedetection.azure", "foundry does not mirror the chart's cloud presets", []string{"CloudAzure"}, nil},
+	{"processors.resourcedetection.detectors", "cloud detection is the aws, gcp and azure kubernetes/helm castings'", cloudCases, nil},
+	{"processors.resourcedetection.ec2", "cloud detection is the aws, gcp and azure kubernetes/helm castings'", []string{"CloudAWS"}, nil},
+	{"processors.resourcedetection.gcp", "cloud detection is the aws, gcp and azure kubernetes/helm castings'", []string{"CloudGCP", "CloudAutoGKE"}, nil},
+	{"processors.resourcedetection.azure", "cloud detection is the aws, gcp and azure kubernetes/helm castings'", []string{"CloudAzure"}, nil},
 	{"receivers.hostmetrics.root_path", "foundry does not mirror the chart's cloud presets", []string{"CloudAutoGKE"}, agentOnly},
 	{"receivers.kubeletstats.extra_metadata_labels", "foundry does not mirror the chart's cloud presets", []string{"CloudAutoGKE"}, agentOnly},
 	{"receivers.kubeletstats.metrics", "foundry does not mirror the chart's cloud presets", []string{"CloudAutoGKE"}, agentOnly},
@@ -500,12 +501,12 @@ func TestChart(t *testing.T) {
 	}
 
 	molded := map[collectionagent.CollectorKind]map[string]any{}
-	for _, kind := range collectionagent.CollectorKinds() {
+	for _, kind := range chartKinds {
 		molded[kind] = foundryConfig(t, moldedCasting(t, kind, defaultEnv()))
 	}
 
 	for _, test := range chartCases {
-		for _, kind := range collectionagent.CollectorKinds() {
+		for _, kind := range chartKinds {
 			if len(test.kinds) > 0 && !slices.Contains(test.kinds, kind) {
 				continue
 			}
@@ -537,7 +538,7 @@ func TestChart(t *testing.T) {
 	manifests := renderChart(t, chrt, map[string]any{}, "signoz", "signoz")
 	renames := map[string][]string{"otlp": {"otlp/grpc", "otlp/http"}, "otlphttp": {"otlphttp/signoz"}}
 
-	for _, kind := range collectionagent.CollectorKinds() {
+	for _, kind := range chartKinds {
 		t.Run("Membership_"+kind.String()+"_Valid", func(t *testing.T) {
 			mine := pipelines(t, molded[kind])
 

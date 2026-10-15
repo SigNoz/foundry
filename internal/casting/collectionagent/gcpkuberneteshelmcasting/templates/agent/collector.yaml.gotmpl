@@ -1,0 +1,17 @@
+processors:
+  resourcedetection:
+    # Cloud detectors follow env so a stated OTEL_RESOURCE_ATTRIBUTES wins;
+    # host and cluster identity stay resource/identity's.
+    detectors:
+      - k8snode
+      - env
+      - gcp
+      - system
+    gcp:
+      resource_attributes:
+        host.id:
+          enabled: false
+        host.name:
+          enabled: false
+        k8s.cluster.name:
+          enabled: false
