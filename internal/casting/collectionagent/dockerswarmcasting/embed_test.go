@@ -58,6 +58,21 @@ func TestNotEmptyAndValid(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "false", string(override))
+
+	devices, err := agent.GetStringSlice("receivers.hostmetrics.scrapers.disk.exclude.devices")
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{`^ram\d+$`, `^zram\d+$`, `^loop\d+$`, `^fd\d+$`, `^hd[a-z]\d+$`, `^sd[a-z]\d+$`, `^vd[a-z]\d+$`, `^xvd[a-z]\d+$`, `^nvme\d+n\d+p\d+$`}, devices)
+
+	mountPoints, err := agent.GetStringSlice("receivers.hostmetrics.scrapers.filesystem.exclude_mount_points.mount_points")
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"/dev/*", "/proc/*", "/sys/*", "/run/*", "/run/credentials/*", "/run/k3s/containerd/*", "/var/lib/docker/*", "/var/lib/containers/storage/*", "/var/lib/kubelet/*", "/snap/*"}, mountPoints)
+
+	interfaces, err := agent.GetStringSlice("receivers.hostmetrics.scrapers.network.exclude.interfaces")
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"^veth.*$", "^docker.*$", "^br-.*$", "^flannel.*$", "^cali.*$", "^cbr.*$", "^cni.*$", "^dummy.*$", "^tailscale.*$", "^lo$"}, interfaces)
 }
 
 func TestForgeUnsupportedKind(t *testing.T) {

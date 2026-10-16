@@ -32,7 +32,19 @@ receivers:
     scrapers:
       cpu: {}
       memory: {}
-      disk: {}
+      disk:
+        exclude:
+          match_type: regexp
+          devices:
+            - ^ram\d+$
+            - ^zram\d+$
+            - ^loop\d+$
+            - ^fd\d+$
+            - ^hd[a-z]\d+$
+            - ^sd[a-z]\d+$
+            - ^vd[a-z]\d+$
+            - ^xvd[a-z]\d+$
+            - ^nvme\d+n\d+p\d+$
       filesystem:
         exclude_fs_types:
           match_type: strict
@@ -66,8 +78,26 @@ receivers:
             - /dev/*
             - /proc/*
             - /sys/*
+            - /run/credentials/*
+            - /run/k3s/containerd/*
             - /var/lib/docker/*
-      network: {}
+            - /var/lib/containers/storage/*
+            - /var/lib/kubelet/*
+            - /snap/*
+      network:
+        exclude:
+          match_type: regexp
+          interfaces:
+            - ^veth.*$
+            - ^docker.*$
+            - ^br-.*$
+            - ^flannel.*$
+            - ^cali.*$
+            - ^cbr.*$
+            - ^cni.*$
+            - ^dummy.*$
+            - ^tailscale.*$
+            - ^lo$
       load: {}
       paging: {}
       process:

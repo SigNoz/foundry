@@ -83,7 +83,19 @@ spec:
                 root_path: /hostfs
                 scrapers:
                   cpu: {}
-                  disk: {}
+                  disk:
+                    exclude:
+                      devices:
+                      - ^ram\d+$
+                      - ^zram\d+$
+                      - ^loop\d+$
+                      - ^fd\d+$
+                      - ^hd[a-z]\d+$
+                      - ^sd[a-z]\d+$
+                      - ^vd[a-z]\d+$
+                      - ^xvd[a-z]\d+$
+                      - ^nvme\d+n\d+p\d+$
+                      match_type: regexp
                   filesystem:
                     exclude_fs_types:
                       fs_types:
@@ -118,10 +130,28 @@ spec:
                       - /proc/*
                       - /sys/*
                       - /run/*
+                      - /run/credentials/*
+                      - /run/k3s/containerd/*
                       - /var/lib/docker/*
+                      - /var/lib/containers/storage/*
+                      - /var/lib/kubelet/*
+                      - /snap/*
                   load: {}
                   memory: {}
-                  network: {}
+                  network:
+                    exclude:
+                      interfaces:
+                      - ^veth.*$
+                      - ^docker.*$
+                      - ^br-.*$
+                      - ^flannel.*$
+                      - ^cali.*$
+                      - ^cbr.*$
+                      - ^cni.*$
+                      - ^dummy.*$
+                      - ^tailscale.*$
+                      - ^lo$
+                      match_type: regexp
                   nfs: {}
                   paging: {}
                   process:
@@ -258,7 +288,19 @@ spec:
                 root_path: /hostfs
                 scrapers:
                   cpu: {}
-                  disk: {}
+                  disk:
+                    exclude:
+                      devices:
+                      - ^ram\d+$
+                      - ^zram\d+$
+                      - ^loop\d+$
+                      - ^fd\d+$
+                      - ^hd[a-z]\d+$
+                      - ^sd[a-z]\d+$
+                      - ^vd[a-z]\d+$
+                      - ^xvd[a-z]\d+$
+                      - ^nvme\d+n\d+p\d+$
+                      match_type: regexp
                   filesystem:
                     exclude_fs_types:
                       fs_types:
@@ -293,10 +335,28 @@ spec:
                       - /proc/*
                       - /sys/*
                       - /run/*
+                      - /run/credentials/*
+                      - /run/k3s/containerd/*
                       - /var/lib/docker/*
+                      - /var/lib/containers/storage/*
+                      - /var/lib/kubelet/*
+                      - /snap/*
                   load: {}
                   memory: {}
-                  network: {}
+                  network:
+                    exclude:
+                      interfaces:
+                      - ^veth.*$
+                      - ^docker.*$
+                      - ^br-.*$
+                      - ^flannel.*$
+                      - ^cali.*$
+                      - ^cbr.*$
+                      - ^cni.*$
+                      - ^dummy.*$
+                      - ^tailscale.*$
+                      - ^lo$
+                      match_type: regexp
                   nfs: {}
                   paging: {}
                   process:
