@@ -10,6 +10,7 @@ import (
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
 	"github.com/signoz/foundry/internal/domain"
+	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/pourer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -90,26 +91,49 @@ func TestNotEmptyAndValid(t *testing.T) {
 	assert.Equal(t, []string{`resource["container.id"]`}, moves)
 }
 
-func TestForgeUnsupportedKind(t *testing.T) {
-	config := *collectionagent.Default()
-	config.Spec.Collector.Kind = collectionagent.CollectorKindSidecar
+func TestForge(t *testing.T) {
+	for _, test := range []struct {
+		name              string
+		kind              collectionagent.CollectorKind
+		pass              bool
+		expectedErrorType int
+	}{
+		{"Agent_Valid", collectionagent.CollectorKindAgent, true, 0},
+		{"Deployment_Invalid", collectionagent.CollectorKindDeployment, false, foundryerrors.TypeUnsupported.ExitCode()},
+		{"Sidecar_Invalid", collectionagent.CollectorKindSidecar, false, foundryerrors.TypeUnsupported.ExitCode()},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			config := *collectionagent.Default()
+			config.Spec.Collector.Kind = test.kind
 
-	assert.Error(t, New(slog.New(slog.DiscardHandler)).Forge(t.Context(), config, pourer.New("collectionagent")))
+			err := New(slog.New(slog.DiscardHandler)).Forge(t.Context(), config, pourer.New("collectionagent"))
+
+			if test.pass {
+				require.NoError(t, err)
+
+				return
+			}
+
+			require.Error(t, err)
+			assert.Equal(t, test.expectedErrorType, foundryerrors.ExitCode(err))
+		})
+	}
 }
 
 // One agent per host reads that host's containers, so a replica count has
 // nothing to scale.
 func TestReplicas(t *testing.T) {
 	for _, test := range []struct {
-		name     string
-		replicas *int
-		disabled bool
-		pass     bool
+		name              string
+		replicas          *int
+		disabled          bool
+		pass              bool
+		expectedErrorType int
 	}{
-		{"Unstated_Valid", nil, false, true},
-		{"One_Valid", domain.NewIntPtr(1), false, true},
-		{"Two_Invalid", domain.NewIntPtr(2), false, false},
-		{"Disabled_Invalid", nil, true, false},
+		{"Unstated_Valid", nil, false, true, 0},
+		{"One_Valid", domain.NewIntPtr(1), false, true, 0},
+		{"Two_Invalid", domain.NewIntPtr(2), false, false, foundryerrors.TypeUnsupported.ExitCode()},
+		{"Disabled_Invalid", nil, true, false, foundryerrors.TypeUnsupported.ExitCode()},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			config := collectionagent.Default()
@@ -118,13 +142,14 @@ func TestReplicas(t *testing.T) {
 
 			err := newDockerSwarmMoldingEnricher().EnrichStatus(t.Context(), v1alpha1.MoldingKindCollector, config)
 
-			if !test.pass {
-				require.Error(t, err)
+			if test.pass {
+				require.NoError(t, err)
 
 				return
 			}
 
-			require.NoError(t, err)
+			require.Error(t, err)
+			assert.Equal(t, test.expectedErrorType, foundryerrors.ExitCode(err))
 		})
 	}
 }
