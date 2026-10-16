@@ -119,6 +119,15 @@ receivers:
         type: container
         format: docker
         add_metadata_from_filepath: false
+      # container.id from the log path, as in https://signoz.io/docs/userguide/collect_docker_logs/
+      - type: regex_parser
+        parse_from: attributes["log.file.path"]
+        regex: '/var/lib/docker/containers/(?P<container_id>[a-f0-9]{64})/'
+        on_error: send
+      - type: move
+        from: attributes.container_id
+        to: resource["container.id"]
+        on_error: send_quiet
 
 processors:
   resourcedetection:

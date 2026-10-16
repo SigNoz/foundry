@@ -78,6 +78,16 @@ func TestNotEmptyAndValid(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"^veth.*$", "^docker.*$", "^br-.*$", "^flannel.*$", "^cali.*$", "^cbr.*$", "^cni.*$", "^dummy.*$", "^tailscale.*$", "^lo$"}, interfaces)
+
+	regexes, err := agent.GetStringSlice(`receivers.filelog.operators.#(type=="regex_parser")#.regex`)
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{`/var/lib/docker/containers/(?P<container_id>[a-f0-9]{64})/`}, regexes)
+
+	moves, err := agent.GetStringSlice(`receivers.filelog.operators.#(type=="move")#.to`)
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{`resource["container.id"]`}, moves)
 }
 
 func TestForgeUnsupportedKind(t *testing.T) {

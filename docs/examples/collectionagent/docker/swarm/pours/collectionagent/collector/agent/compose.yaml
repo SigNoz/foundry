@@ -1,7 +1,7 @@
 configs:
   collector-agent:
     file: ./agent.yaml
-    name: signoz-collector-agent-2aed7b3632
+    name: signoz-collector-agent-d08942a39f
 services:
   collector-agent:
     command:

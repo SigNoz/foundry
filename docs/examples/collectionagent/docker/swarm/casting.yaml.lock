@@ -80,6 +80,14 @@ spec:
                   format: docker
                   id: container-parser
                   type: container
+                - on_error: send
+                  parse_from: attributes["log.file.path"]
+                  regex: /var/lib/docker/containers/(?P<container_id>[a-f0-9]{64})/
+                  type: regex_parser
+                - from: attributes.container_id
+                  on_error: send_quiet
+                  to: resource["container.id"]
+                  type: move
                 start_at: end
               hostmetrics:
                 collection_interval: 60s
@@ -288,6 +296,14 @@ spec:
                   format: docker
                   id: container-parser
                   type: container
+                - on_error: send
+                  parse_from: attributes["log.file.path"]
+                  regex: /var/lib/docker/containers/(?P<container_id>[a-f0-9]{64})/
+                  type: regex_parser
+                - from: attributes.container_id
+                  on_error: send_quiet
+                  to: resource["container.id"]
+                  type: move
                 start_at: end
               hostmetrics:
                 collection_interval: 60s
