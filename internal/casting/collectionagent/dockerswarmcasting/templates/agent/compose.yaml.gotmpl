@@ -14,6 +14,9 @@ services:
       {{- range $key, $value := .Labels }}
       {{ $key }}: {{ $value | quote }}
       {{- end }}
+    {{- /* The collector tails every *-json.log, so it logs through local, which writes none. */}}
+    logging:
+      driver: local
     configs:
       - source: collector-{{ .Spec.Collector.Kind }}
         target: /etc/{{ .Spec.Collector.Kind.ConfigKey }}

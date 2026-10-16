@@ -22,6 +22,14 @@ func TestNotEmptyAndValid(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, buf.String())
 
+	compose, err := domain.NewYAMLMaterial(buf.Bytes(), "compose.yaml")
+	require.NoError(t, err)
+
+	driver, err := compose.GetBytes("services.collector-agent.logging.driver")
+	require.NoError(t, err)
+
+	assert.Equal(t, "local", string(driver))
+
 	assert.NotEmpty(t, agentYAMLTemplate)
 
 	buf.Reset()

@@ -10,6 +10,8 @@ services:
       foundry.signoz.io/kind: CollectionAgent
       foundry.signoz.io/managed-by: foundry
       foundry.signoz.io/name: signoz
+    logging:
+      driver: local
     network_mode: host
     restart: unless-stopped
     user: "0:0"

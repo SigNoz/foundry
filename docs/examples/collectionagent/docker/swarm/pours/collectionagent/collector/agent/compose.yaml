@@ -21,6 +21,8 @@ services:
       foundry.signoz.io/kind: CollectionAgent
       foundry.signoz.io/managed-by: foundry
       foundry.signoz.io/name: signoz
+    logging:
+      driver: local
     ports:
     - mode: host
       protocol: tcp
