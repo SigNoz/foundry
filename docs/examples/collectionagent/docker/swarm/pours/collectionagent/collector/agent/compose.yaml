@@ -3,7 +3,7 @@ configs:
     file: ./agent.yaml
     name: signoz-collector-agent-d08942a39f
 services:
-  collector-agent:
+  signoz-collector-agent:
     command:
     - --config=/etc/collector/agent/agent.yaml
     configs:

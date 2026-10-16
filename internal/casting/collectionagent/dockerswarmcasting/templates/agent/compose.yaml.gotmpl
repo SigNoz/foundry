@@ -1,5 +1,5 @@
 services:
-  collector-{{ .Spec.Collector.Kind }}:
+  {{ .Metadata.Name }}-collector-{{ .Spec.Collector.Kind }}:
     image: {{ .Spec.Collector.Spec.Image }}
     command: ["--config=/etc/{{ .Spec.Collector.Kind.ConfigKey }}"]
     user: "0:0"
