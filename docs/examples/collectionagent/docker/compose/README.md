@@ -12,10 +12,14 @@ Deploys a SigNoz [Docker Collection Agent](https://signoz.io/docs/opentelemetry-
 
 - Container metrics from the Docker Engine API through the `docker_stats` receiver
 - Host metrics from the mounted host filesystem through the `hostmetrics` receiver
-- Container logs from the Docker log files through the `filelog` receiver
+- Container logs from the Docker log files through the `filelog` receiver, each record carrying its `container.id`
 - OTLP intake for your applications on `localhost:4317` (gRPC) and `localhost:4318` (HTTP)
 
 The agent runs with host networking, so the `host.name` resource attribute on all telemetry is the real host's name and applications on the host reach the agent on localhost.
+
+The agent's own container logs through Docker's `local` log driver, which writes no `*-json.log` file, so its logs stay out of the container logs it collects. Read them with `docker compose logs` (see [After deployment](#after-deployment)).
+
+Resource detection adds the host's attributes, and on AWS, GCP and Azure virtual machines the cloud provider, region, availability zone and instance. Attributes your applications already send are kept as they are.
 
 ## Prerequisites
 
@@ -62,7 +66,7 @@ spec:
 ```
 
 - For a Self-Hosted Community installation the OTLP HTTP ingest is port `4318` on the SigNoz host. Community has no ingestion key, so the endpoint is all the agent needs (see [Cloud to Self-Hosted](https://signoz.io/docs/ingestion/cloud-vs-self-hosted/#cloud-to-self-hosted)).
-- `OTEL_RESOURCE_ATTRIBUTES` sets the `deployment.environment` resource attribute on everything the agent collects. Adjust it per host.
+- `OTEL_RESOURCE_ATTRIBUTES` sets the `deployment.environment` resource attribute on everything the agent collects, unless an application already sends its own. Adjust it per host.
 
 ### SigNoz Cloud or Self-Hosted Enterprise
 

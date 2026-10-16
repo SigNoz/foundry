@@ -12,10 +12,14 @@ Deploys a SigNoz [Docker Swarm Collection Agent](https://signoz.io/docs/opentele
 
 - Container metrics from the Docker Engine API through the `docker_stats` receiver
 - Host metrics from the mounted host filesystem through the `hostmetrics` receiver
-- Container logs from the Docker log files through the `filelog` receiver
+- Container logs from the Docker log files through the `filelog` receiver, each record carrying its `container.id`
 - OTLP intake for your applications on ports `4317` (gRPC) and `4318` (HTTP), published on every node
 
 Swarm has no host networking, so the service sets `hostname: "{{.Node.Hostname}}"`: the `host.name` resource attribute on all telemetry is the real node's hostname, and each node appears as itself in SigNoz. Container metrics carry the Swarm labels as `docker.stack.name`, `docker.service.name`, `docker.task.name`, and `docker.node.id`.
+
+The agent's own container logs through Docker's `local` log driver, which writes no `*-json.log` file, so its logs stay out of the container logs it collects. Read them with `docker service logs signoz_collector-agent` (see [After deployment](#after-deployment)).
+
+Resource detection adds the host's attributes, and on AWS, GCP and Azure virtual machines the cloud provider, region, availability zone and instance. Attributes your applications already send are kept as they are.
 
 ## Prerequisites
 
@@ -38,7 +42,7 @@ spec:
     mode: docker
 ```
 
-The generated collector config follows the [Docker Swarm Collection Agent configuration guide](https://signoz.io/docs/opentelemetry-collection-agents/docker-swarm/configure/) and exports to `${env:SIGNOZ_INGESTION_ENDPOINT}`.
+The generated collector config follows the [Docker Swarm Collection Agent configuration guide](https://signoz.io/docs/opentelemetry-collection-agents/docker-swarm/configure/) and exports to `${env:SIGNOZ_INGESTION_ENDPOINT}`. Keep `metadata.name` to 37 characters or fewer: it prefixes the Swarm config name, which Docker caps at 64 characters.
 
 ### Point the agent at your SigNoz
 
@@ -62,8 +66,8 @@ spec:
 ```
 
 - For a Self-Hosted Community installation the OTLP HTTP ingest is port `4318` on the SigNoz host. Community has no ingestion key, so the endpoint is all the agent needs (see [Cloud to Self-Hosted](https://signoz.io/docs/ingestion/cloud-vs-self-hosted/#cloud-to-self-hosted)).
-- `OTEL_RESOURCE_ATTRIBUTES` sets the `deployment.environment` resource attribute on everything the agent collects.
-- `docker stack deploy` does not interpolate variables from the shell or an `.env` file; values in the casting are written literally into the stack file at forge time.
+- `OTEL_RESOURCE_ATTRIBUTES` sets the `deployment.environment` resource attribute on everything the agent collects, unless an application already sends its own.
+- `docker stack deploy` reads variables from the shell environment but not from an `.env` file; values in the casting are written literally into the stack file at forge time.
 
 ### SigNoz Cloud or Self-Hosted Enterprise
 
@@ -104,6 +108,8 @@ Point the endpoint in the casting at your SigNoz, then, on a manager node:
 foundryctl cast -f casting.yaml
 ```
 
+Run the same command again after editing `casting.yaml`; a changed collector config rolls the agent onto a new Swarm config.
+
 Or step by step:
 
 ```bash
@@ -122,7 +128,7 @@ docker stack deploy -c pours/collectionagent/collector/agent/compose.yaml signoz
 ```text
 pours/collectionagent/collector/agent/
   compose.yaml              # the agent's stack file
-  agent.yaml                # the collector config, delivered as a swarm config
+  agent.yaml                # the collector config, delivered as a swarm config named after its content hash
 ```
 
 ## After deployment
@@ -141,15 +147,6 @@ docker stack rm signoz
 Point [instrumented applications](https://signoz.io/docs/instrumentation/) at the agent with `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317` on the same node, or the node's IP from other machines. To reach the agent by service name, attach it to your application's overlay network with a [patch](../../../../concepts/patches.md).
 
 In SigNoz, each Swarm node appears under [Infrastructure Monitoring](https://signoz.io/docs/infrastructure-monitoring/hostmetrics/) by its hostname, and container metrics filter by `docker.stack.name` and `docker.service.name` under [Docker container metrics](https://signoz.io/docs/metrics-management/docker-container-metrics/).
-
-> [!IMPORTANT]
-> The collector config is delivered as an immutable Swarm config, and `docker stack deploy` cannot update an in-use config's content. To apply collector config changes, remove and redeploy the stack:
->
-> ```bash
-> docker stack rm signoz && foundryctl cast -f casting.yaml
-> ```
->
-> Changes to `spec.env` alone update in place with a plain re-`cast`; only `spec.collector.spec.config` changes need the remove-and-redeploy.
 
 ## Customization
 
