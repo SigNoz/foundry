@@ -102,6 +102,13 @@ The casting is the single input; treat it as sensitive once the key is in it.
 
 ## Deploy
 
+> [!WARNING]
+> **Upgrading from foundryctl v0.3.0:** the agent's service is now named `signoz_signoz-collector-agent`. Remove the old service before casting, or the new one cannot bind its ports:
+>
+> ```bash
+> docker service rm signoz_collector-agent
+> ```
+
 Point the endpoint in the casting at your SigNoz, then, on a manager node:
 
 ```bash
