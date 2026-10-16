@@ -59,6 +59,11 @@ func TestNotEmptyAndValid(t *testing.T) {
 
 	assert.Equal(t, "false", string(override))
 
+	detectors, err := agent.GetStringSlice("processors.resourcedetection.detectors")
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"env", "ec2", "gcp", "azure", "system", "docker"}, detectors)
+
 	devices, err := agent.GetStringSlice("receivers.hostmetrics.scrapers.disk.exclude.devices")
 	require.NoError(t, err)
 
