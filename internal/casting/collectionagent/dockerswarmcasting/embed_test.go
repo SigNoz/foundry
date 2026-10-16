@@ -2,6 +2,8 @@ package dockerswarmcasting
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"log/slog"
 	"testing"
 
@@ -16,8 +18,12 @@ import (
 func TestNotEmptyAndValid(t *testing.T) {
 	assert.NotEmpty(t, composeYAMLTemplate)
 
+	config := collectionagent.Default()
+	content := "receivers: {}\n"
+	config.Spec.Collector.Spec.Config.Set(collectionagent.CollectorKindAgent.ConfigKey(), []byte(content))
+
 	buf := bytes.NewBuffer(nil)
-	err := composeYAMLTemplate.Execute(buf, collectionagent.Default())
+	err := composeYAMLTemplate.Execute(buf, config)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, buf.String())
@@ -29,6 +35,13 @@ func TestNotEmptyAndValid(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "local", string(driver))
+
+	hash := sha256.Sum256([]byte(content))
+
+	name, err := compose.GetBytes("configs.collector-agent.name")
+	require.NoError(t, err)
+
+	assert.Equal(t, "signoz-collector-agent-"+hex.EncodeToString(hash[:])[:10], string(name))
 
 	assert.NotEmpty(t, agentYAMLTemplate)
 
