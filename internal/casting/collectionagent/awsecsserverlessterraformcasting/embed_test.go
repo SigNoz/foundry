@@ -84,10 +84,14 @@ func TestSidecarConfig(t *testing.T) {
 	assert.Equal(t, "unix:///var/run/fluent.sock", string(endpoint))
 
 	for path, expected := range map[string][]string{
-		"processors.resourcedetection.detectors": {"env", "ecs"},
-		"service.pipelines.logs.receivers":       {"otlp/http", "otlp/grpc", "fluentforward"},
-		"service.pipelines.logs.processors":      {"memory_limiter", "resourcedetection", "transform/firelens", "batch"},
-		"service.pipelines.metrics.processors":   {"memory_limiter", "resourcedetection", "filter/ecs", "batch"},
+		"processors.resourcedetection.detectors":   {"env", "ecs"},
+		"service.pipelines.logs.receivers":         {"otlp/http", "otlp/grpc", "fluentforward"},
+		"service.pipelines.logs.processors":        {"memory_limiter", "resourcedetection", "transform/firelens", "batch"},
+		"service.pipelines.metrics.receivers":      {"otlp/http", "otlp/grpc"},
+		"service.pipelines.metrics.processors":     {"memory_limiter", "resourcedetection", "batch"},
+		"service.pipelines.metrics/ecs.receivers":  {"awsecscontainermetrics"},
+		"service.pipelines.metrics/ecs.processors": {"memory_limiter", "resourcedetection", "filter/ecs", "batch"},
+		"service.pipelines.metrics/ecs.exporters":  {"otlphttp/signoz"},
 	} {
 		actual, err := merged.GetStringSlice(path)
 		require.NoError(t, err)
