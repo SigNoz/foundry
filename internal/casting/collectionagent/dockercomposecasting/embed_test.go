@@ -52,15 +52,18 @@ func TestReplicas(t *testing.T) {
 	for _, test := range []struct {
 		name     string
 		replicas *int
+		disabled bool
 		pass     bool
 	}{
-		{"Unstated_Valid", nil, true},
-		{"One_Valid", domain.NewIntPtr(1), true},
-		{"Two_Invalid", domain.NewIntPtr(2), false},
+		{"Unstated_Valid", nil, false, true},
+		{"One_Valid", domain.NewIntPtr(1), false, true},
+		{"Two_Invalid", domain.NewIntPtr(2), false, false},
+		{"Disabled_Invalid", nil, true, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			config := collectionagent.Default()
 			config.Spec.Collector.Spec.Cluster.Replicas = test.replicas
+			config.Spec.Collector.Spec.Enabled = v1alpha1.BoolPtr(!test.disabled)
 
 			err := newDockerComposeMoldingEnricher().EnrichStatus(t.Context(), v1alpha1.MoldingKindCollector, config)
 

@@ -23,6 +23,10 @@ func (e *dockerComposeMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 		return nil
 	}
 
+	if !config.Spec.Collector.Spec.IsEnabled() {
+		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "spec.collector.spec.enabled is false, a CollectionAgent document deploys its collector")
+	}
+
 	replicas := 1
 	if cluster := config.Spec.Collector.Spec.Cluster; cluster.Replicas != nil {
 		replicas = *cluster.Replicas
