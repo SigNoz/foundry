@@ -1,8 +1,9 @@
 name: signoz
 services:
-  collector-agent:
+  signoz-collector-agent:
     command:
     - --config=/etc/collector/agent/agent.yaml
+    container_name: signoz-collector-agent
     environment:
       OTEL_COLLECTOR_ROLE: agent
     image: otel/opentelemetry-collector-contrib:0.139.0
