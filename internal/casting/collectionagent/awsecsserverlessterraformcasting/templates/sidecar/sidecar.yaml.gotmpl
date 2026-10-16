@@ -38,6 +38,8 @@ service:
     logs:
       receivers: [fluentforward]
       processors: [transform/firelens]
-    metrics:
+    # The filter keeps ECS names only, so OTLP metrics must not pass through it.
+    metrics/ecs:
       receivers: [awsecscontainermetrics]
-      processors: [filter/ecs]
+      processors: [memory_limiter, resourcedetection, filter/ecs, batch]
+      exporters: [otlphttp/signoz]

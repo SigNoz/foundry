@@ -89,11 +89,19 @@ spec:
                   processors:
                   - memory_limiter
                   - resourcedetection
-                  - filter/ecs
                   - batch
                   receivers:
                   - otlp/http
                   - otlp/grpc
+                metrics/ecs:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - filter/ecs
+                  - batch
+                  receivers:
                   - awsecscontainermetrics
                 traces:
                   exporters:
@@ -191,11 +199,19 @@ spec:
                   processors:
                   - memory_limiter
                   - resourcedetection
-                  - filter/ecs
                   - batch
                   receivers:
                   - otlp/http
                   - otlp/grpc
+                metrics/ecs:
+                  exporters:
+                  - otlphttp/signoz
+                  processors:
+                  - memory_limiter
+                  - resourcedetection
+                  - filter/ecs
+                  - batch
+                  receivers:
                   - awsecscontainermetrics
                 traces:
                   exporters:
