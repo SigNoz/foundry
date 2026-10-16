@@ -136,6 +136,8 @@ curl -fsS localhost:13133/healthz && echo " OK"
 
 # View agent logs
 docker compose -f pours/collectionagent/collector/agent/compose.yaml logs -f
+# or by container name, from anywhere on the host
+docker logs -f signoz-collector-agent
 
 # Stop the agent
 docker compose -f pours/collectionagent/collector/agent/compose.yaml down
