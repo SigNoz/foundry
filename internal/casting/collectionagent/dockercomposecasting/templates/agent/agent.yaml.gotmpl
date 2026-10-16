@@ -5,10 +5,8 @@ receivers:
     collection_interval: 60s
     timeout: 20s
     container_labels_to_metric_labels:
-      com.docker.stack.namespace: docker.stack.name
-      com.docker.swarm.node.id: docker.node.id
-      com.docker.swarm.service.name: docker.service.name
-      com.docker.swarm.task.name: docker.task.name
+      com.docker.compose.service: docker.compose.service
+      com.docker.compose.project: docker.compose.project
     metrics:
       container.cpu.utilization:
         enabled: true
@@ -34,7 +32,19 @@ receivers:
     scrapers:
       cpu: {}
       memory: {}
-      disk: {}
+      disk:
+        exclude:
+          match_type: regexp
+          devices:
+            - ^ram\d+$
+            - ^zram\d+$
+            - ^loop\d+$
+            - ^fd\d+$
+            - ^hd[a-z]\d+$
+            - ^sd[a-z]\d+$
+            - ^vd[a-z]\d+$
+            - ^xvd[a-z]\d+$
+            - ^nvme\d+n\d+p\d+$
       filesystem:
         exclude_fs_types:
           match_type: strict
@@ -68,9 +78,26 @@ receivers:
             - /dev/*
             - /proc/*
             - /sys/*
-            - /run/*
+            - /run/credentials/*
+            - /run/k3s/containerd/*
             - /var/lib/docker/*
-      network: {}
+            - /var/lib/containers/storage/*
+            - /var/lib/kubelet/*
+            - /snap/*
+      network:
+        exclude:
+          match_type: regexp
+          interfaces:
+            - ^veth.*$
+            - ^docker.*$
+            - ^br-.*$
+            - ^flannel.*$
+            - ^cali.*$
+            - ^cbr.*$
+            - ^cni.*$
+            - ^dummy.*$
+            - ^tailscale.*$
+            - ^lo$
       load: {}
       paging: {}
       process:
@@ -92,13 +119,26 @@ receivers:
         type: container
         format: docker
         add_metadata_from_filepath: false
+      # container.id from the log path, as in https://signoz.io/docs/userguide/collect_docker_logs/
+      - type: regex_parser
+        parse_from: attributes["log.file.path"]
+        regex: '/var/lib/docker/containers/(?P<container_id>[a-f0-9]{64})/'
+        on_error: send
+      - type: move
+        from: attributes.container_id
+        to: resource["container.id"]
+        on_error: send_quiet
 
 processors:
   resourcedetection:
     detectors:
       - env
+      - ec2
+      - gcp
+      - azure
       - system
       - docker
+    override: false
     timeout: 2s
     system:
       hostname_sources:

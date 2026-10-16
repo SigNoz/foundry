@@ -1,5 +1,5 @@
 services:
-  collector-{{ .Spec.Collector.Kind }}:
+  {{ .Metadata.Name }}-collector-{{ .Spec.Collector.Kind }}:
     image: {{ .Spec.Collector.Spec.Image }}
     command: ["--config=/etc/{{ .Spec.Collector.Kind.ConfigKey }}"]
     user: "0:0"
@@ -14,6 +14,9 @@ services:
       {{- range $key, $value := .Labels }}
       {{ $key }}: {{ $value | quote }}
       {{- end }}
+    {{- /* The collector tails every *-json.log, so it logs through local, which writes none. */}}
+    logging:
+      driver: local
     configs:
       - source: collector-{{ .Spec.Collector.Kind }}
         target: /etc/{{ .Spec.Collector.Kind.ConfigKey }}
@@ -47,4 +50,6 @@ services:
 
 configs:
   collector-{{ .Spec.Collector.Kind }}:
-    file: ./{{ .Spec.Collector.Kind.ConfigKey }}
+    {{- /* Swarm configs are immutable, so the name carries the content hash. */}}
+    name: {{ .Metadata.Name }}-collector-{{ .Spec.Collector.Kind }}-{{ index .Spec.Collector.Spec.Config.Data .Spec.Collector.Kind.ConfigKey | sha256sum | trunc 10 }}
+    file: ./{{ base .Spec.Collector.Kind.ConfigKey }}

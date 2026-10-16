@@ -12,10 +12,14 @@ Deploys a SigNoz [Docker Collection Agent](https://signoz.io/docs/opentelemetry-
 
 - Container metrics from the Docker Engine API through the `docker_stats` receiver
 - Host metrics from the mounted host filesystem through the `hostmetrics` receiver
-- Container logs from the Docker log files through the `filelog` receiver
+- Container logs from the Docker log files through the `filelog` receiver, each record carrying its `container.id`
 - OTLP intake for your applications on `localhost:4317` (gRPC) and `localhost:4318` (HTTP)
 
 The agent runs with host networking, so the `host.name` resource attribute on all telemetry is the real host's name and applications on the host reach the agent on localhost.
+
+The agent's own container logs through Docker's `local` log driver, which writes no `*-json.log` file, so its logs stay out of the container logs it collects. Read them with `docker compose logs` (see [After deployment](#after-deployment)).
+
+Resource detection adds the host's attributes, and on AWS, GCP and Azure virtual machines the cloud provider, region, availability zone and instance. Attributes your applications already send are kept as they are.
 
 ## Prerequisites
 
@@ -62,7 +66,7 @@ spec:
 ```
 
 - For a Self-Hosted Community installation the OTLP HTTP ingest is port `4318` on the SigNoz host. Community has no ingestion key, so the endpoint is all the agent needs (see [Cloud to Self-Hosted](https://signoz.io/docs/ingestion/cloud-vs-self-hosted/#cloud-to-self-hosted)).
-- `OTEL_RESOURCE_ATTRIBUTES` sets the `deployment.environment` resource attribute on everything the agent collects. Adjust it per host.
+- `OTEL_RESOURCE_ATTRIBUTES` sets the `deployment.environment` resource attribute on everything the agent collects, unless an application already sends its own. Adjust it per host.
 
 ### SigNoz Cloud or Self-Hosted Enterprise
 
@@ -97,6 +101,13 @@ The casting is the single input; treat it as sensitive once the key is in it. `s
 
 ## Deploy
 
+> [!WARNING]
+> **Upgrading from foundryctl v0.3.0:** the agent's service and container are now named `signoz-collector-agent`. Remove the old agent before casting, or the new one cannot bind its ports:
+>
+> ```bash
+> docker rm -f signoz-collector-agent-1
+> ```
+
 Point the endpoint in the casting at your SigNoz, then:
 
 ```bash
@@ -113,17 +124,15 @@ foundryctl gauge -f casting.yaml
 foundryctl forge -f casting.yaml
 
 # Start the agent
-cd pours/collectionagent && docker compose up -d
+cd pours/collectionagent/collector/agent && docker compose up -d
 ```
 
 ## Generated output
 
 ```text
-pours/collectionagent/
-  compose.yaml
-  collector/
-    agent/
-      agent.yaml
+pours/collectionagent/collector/agent/
+  compose.yaml              # the agent's compose project
+  agent.yaml                # the collector config, mounted from here
 ```
 
 ## After deployment
@@ -133,10 +142,12 @@ pours/collectionagent/
 curl -fsS localhost:13133/healthz && echo " OK"
 
 # View agent logs
-docker compose -f pours/collectionagent/compose.yaml logs -f
+docker compose -f pours/collectionagent/collector/agent/compose.yaml logs -f
+# or by container name, from anywhere on the host
+docker logs -f signoz-collector-agent
 
 # Stop the agent
-docker compose -f pours/collectionagent/compose.yaml down
+docker compose -f pours/collectionagent/collector/agent/compose.yaml down
 ```
 
 Point [instrumented applications](https://signoz.io/docs/instrumentation/) on the host at the agent with `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317` (gRPC) or `http://localhost:4318` (HTTP). Containers on the default bridge network reach it at the bridge gateway, typically `172.17.0.1`.
@@ -147,7 +158,7 @@ In SigNoz, the host appears under [Infrastructure Monitoring](https://signoz.io/
 > **Upgrading:** re-running `cast` regenerates the config files, but Docker Compose does not restart containers when only mounted file contents change. Recreate the agent so the new config takes effect:
 >
 > ```bash
-> docker compose -f pours/collectionagent/compose.yaml up -d --force-recreate
+> docker compose -f pours/collectionagent/collector/agent/compose.yaml up -d --force-recreate
 > ```
 
 ## Customization
