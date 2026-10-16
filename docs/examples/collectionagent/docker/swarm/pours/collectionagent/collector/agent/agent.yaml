@@ -19,6 +19,7 @@ processors:
     - env
     - system
     - docker
+    override: false
     system:
       hostname_sources:
       - os

@@ -37,6 +37,14 @@ func TestNotEmptyAndValid(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, buf.String())
+
+	agent, err := domain.NewYAMLMaterial(buf.Bytes(), "agent.yaml")
+	require.NoError(t, err)
+
+	override, err := agent.GetBytes("processors.resourcedetection.override")
+	require.NoError(t, err)
+
+	assert.Equal(t, "false", string(override))
 }
 
 func TestForgeUnsupportedKind(t *testing.T) {

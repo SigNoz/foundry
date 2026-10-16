@@ -32,6 +32,7 @@ spec:
                 - env
                 - system
                 - docker
+                override: false
                 system:
                   hostname_sources:
                   - os
@@ -206,6 +207,7 @@ spec:
                 - env
                 - system
                 - docker
+                override: false
                 system:
                   hostname_sources:
                   - os
