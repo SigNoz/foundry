@@ -20,6 +20,7 @@ services:
       {{- range $key, $value := .Labels }}
       {{ $key }}: {{ $value | quote }}
       {{- end }}
-    deploy:
-      replicas: {{ derefIntDefault .Spec.Collector.Spec.Cluster.Replicas 1 }}
+    {{- /* The collector tails every *-json.log, so it logs through local, which writes none. */}}
+    logging:
+      driver: local
     restart: unless-stopped

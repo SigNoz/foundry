@@ -30,8 +30,12 @@ spec:
               resourcedetection:
                 detectors:
                 - env
+                - ec2
+                - gcp
+                - azure
                 - system
                 - docker
+                override: false
                 system:
                   hostname_sources:
                   - os
@@ -76,13 +80,33 @@ spec:
                   format: docker
                   id: container-parser
                   type: container
+                - on_error: send
+                  parse_from: attributes["log.file.path"]
+                  regex: /var/lib/docker/containers/(?P<container_id>[a-f0-9]{64})/
+                  type: regex_parser
+                - from: attributes.container_id
+                  on_error: send_quiet
+                  to: resource["container.id"]
+                  type: move
                 start_at: end
               hostmetrics:
                 collection_interval: 60s
                 root_path: /hostfs
                 scrapers:
                   cpu: {}
-                  disk: {}
+                  disk:
+                    exclude:
+                      devices:
+                      - ^ram\d+$
+                      - ^zram\d+$
+                      - ^loop\d+$
+                      - ^fd\d+$
+                      - ^hd[a-z]\d+$
+                      - ^sd[a-z]\d+$
+                      - ^vd[a-z]\d+$
+                      - ^xvd[a-z]\d+$
+                      - ^nvme\d+n\d+p\d+$
+                      match_type: regexp
                   filesystem:
                     exclude_fs_types:
                       fs_types:
@@ -117,10 +141,28 @@ spec:
                       - /proc/*
                       - /sys/*
                       - /run/*
+                      - /run/credentials/*
+                      - /run/k3s/containerd/*
                       - /var/lib/docker/*
+                      - /var/lib/containers/storage/*
+                      - /var/lib/kubelet/*
+                      - /snap/*
                   load: {}
                   memory: {}
-                  network: {}
+                  network:
+                    exclude:
+                      interfaces:
+                      - ^veth.*$
+                      - ^docker.*$
+                      - ^br-.*$
+                      - ^flannel.*$
+                      - ^cali.*$
+                      - ^cbr.*$
+                      - ^cni.*$
+                      - ^dummy.*$
+                      - ^tailscale.*$
+                      - ^lo$
+                      match_type: regexp
                   nfs: {}
                   paging: {}
                   process:
@@ -204,8 +246,12 @@ spec:
               resourcedetection:
                 detectors:
                 - env
+                - ec2
+                - gcp
+                - azure
                 - system
                 - docker
+                override: false
                 system:
                   hostname_sources:
                   - os
@@ -250,13 +296,33 @@ spec:
                   format: docker
                   id: container-parser
                   type: container
+                - on_error: send
+                  parse_from: attributes["log.file.path"]
+                  regex: /var/lib/docker/containers/(?P<container_id>[a-f0-9]{64})/
+                  type: regex_parser
+                - from: attributes.container_id
+                  on_error: send_quiet
+                  to: resource["container.id"]
+                  type: move
                 start_at: end
               hostmetrics:
                 collection_interval: 60s
                 root_path: /hostfs
                 scrapers:
                   cpu: {}
-                  disk: {}
+                  disk:
+                    exclude:
+                      devices:
+                      - ^ram\d+$
+                      - ^zram\d+$
+                      - ^loop\d+$
+                      - ^fd\d+$
+                      - ^hd[a-z]\d+$
+                      - ^sd[a-z]\d+$
+                      - ^vd[a-z]\d+$
+                      - ^xvd[a-z]\d+$
+                      - ^nvme\d+n\d+p\d+$
+                      match_type: regexp
                   filesystem:
                     exclude_fs_types:
                       fs_types:
@@ -291,10 +357,28 @@ spec:
                       - /proc/*
                       - /sys/*
                       - /run/*
+                      - /run/credentials/*
+                      - /run/k3s/containerd/*
                       - /var/lib/docker/*
+                      - /var/lib/containers/storage/*
+                      - /var/lib/kubelet/*
+                      - /snap/*
                   load: {}
                   memory: {}
-                  network: {}
+                  network:
+                    exclude:
+                      interfaces:
+                      - ^veth.*$
+                      - ^docker.*$
+                      - ^br-.*$
+                      - ^flannel.*$
+                      - ^cali.*$
+                      - ^cbr.*$
+                      - ^cni.*$
+                      - ^dummy.*$
+                      - ^tailscale.*$
+                      - ^lo$
+                      match_type: regexp
                   nfs: {}
                   paging: {}
                   process:

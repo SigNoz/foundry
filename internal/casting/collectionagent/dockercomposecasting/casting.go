@@ -30,8 +30,17 @@ func (c *dockerComposeCasting) Enricher(ctx context.Context, config *collectiona
 }
 
 func (c *dockerComposeCasting) Forge(ctx context.Context, config collectionagent.Casting, p *pourer.Pourer) error {
+	var tmpl *domain.Template
+
+	switch config.Spec.Collector.Kind {
+	case collectionagent.CollectorKindAgent:
+		tmpl = composeYAMLTemplate
+	default:
+		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported collector kind %q", config.Spec.Collector.Kind)
+	}
+
 	buf := bytes.NewBuffer(nil)
-	if err := composeYAMLTemplate.Execute(buf, config); err != nil {
+	if err := tmpl.Execute(buf, config); err != nil {
 		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute compose template")
 	}
 
