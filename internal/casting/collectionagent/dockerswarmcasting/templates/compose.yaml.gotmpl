@@ -52,4 +52,4 @@ configs:
   collector-{{ .Spec.Collector.Kind }}:
     {{- /* Swarm configs are immutable, so the name carries the content hash. */}}
     name: {{ .Metadata.Name }}-collector-{{ .Spec.Collector.Kind }}-{{ index .Spec.Collector.Spec.Config.Data .Spec.Collector.Kind.ConfigKey | sha256sum | trunc 10 }}
-    file: ./{{ base .Spec.Collector.Kind.ConfigKey }}
+    file: ./{{ .Spec.Collector.Kind.ConfigKey }}

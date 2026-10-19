@@ -117,15 +117,17 @@ foundryctl gauge -f casting.yaml
 foundryctl forge -f casting.yaml
 
 # Start the agent
-cd pours/collectionagent/collector/agent && docker compose up -d
+cd pours/collectionagent && docker compose up -d
 ```
 
 ## Generated output
 
 ```text
-pours/collectionagent/collector/agent/
-  compose.yaml              # the agent's compose project
-  agent.yaml                # the collector config, mounted from here
+pours/collectionagent/
+  compose.yaml
+  collector/
+    agent/
+      agent.yaml
 ```
 
 ## After deployment
@@ -135,10 +137,10 @@ pours/collectionagent/collector/agent/
 curl -fsS localhost:13133/healthz && echo " OK"
 
 # View agent logs
-docker compose -f pours/collectionagent/collector/agent/compose.yaml logs -f
+docker compose -f pours/collectionagent/compose.yaml logs -f
 
 # Stop the agent
-docker compose -f pours/collectionagent/collector/agent/compose.yaml down
+docker compose -f pours/collectionagent/compose.yaml down
 ```
 
 Point [instrumented applications](https://signoz.io/docs/instrumentation/) on the host at the agent with `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317` (gRPC) or `http://localhost:4318` (HTTP). Containers on the default bridge network reach it at the bridge gateway, typically `172.17.0.1`.
@@ -149,7 +151,7 @@ In SigNoz, the host appears under [Infrastructure Monitoring](https://signoz.io/
 > **Upgrading:** re-running `cast` regenerates the config files, but Docker Compose does not restart containers when only mounted file contents change. Recreate the agent so the new config takes effect:
 >
 > ```bash
-> docker compose -f pours/collectionagent/collector/agent/compose.yaml up -d --force-recreate
+> docker compose -f pours/collectionagent/compose.yaml up -d --force-recreate
 > ```
 
 ## Customization
