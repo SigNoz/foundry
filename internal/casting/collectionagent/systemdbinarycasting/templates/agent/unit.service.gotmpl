@@ -5,8 +5,8 @@ Wants=network-online.target
 After=network-online.target
 
 [Service]
-User={{ .Metadata.Name }}-collector-{{ .Spec.Collector.Kind }}
-Group={{ .Metadata.Name }}-collector-{{ .Spec.Collector.Kind }}
+User=signoz-collector-agent
+Group=signoz-collector-agent
 SyslogIdentifier={{ .Metadata.Name }}-collector-{{ .Spec.Collector.Kind }}
 ProtectSystem=strict
 ProtectHome=read-only

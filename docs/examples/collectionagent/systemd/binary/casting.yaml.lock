@@ -35,41 +35,33 @@ spec:
                 - ec2
                 - gcp
                 - azure
-                - ecs
                 - system
+                override: false
                 system:
                   hostname_sources:
                   - os
+                  resource_attributes:
+                    host.id:
+                      enabled: true
                 timeout: 2s
             receivers:
-              filelog/varlog:
-                exclude:
-                - /var/log/lastlog
-                - /var/log/anaconda.syslog
-                - /var/log/*.swp
-                - /var/log/*.swx
-                - /var/log/.*.swp
-                - /var/log/.*.swx
-                include:
-                - /var/log/*.log
-                - /var/log/*log
-                - /var/log/*messages*
-                - /var/log/*secure*
-                - /var/log/*auth*
-                - /var/log/*mesg
-                - /var/log/*cron
-                - /var/log/*acpid
-                - /var/log/*.out
-                - /var/adm/*.log
-                - /var/adm/*messages*
-                include_file_name: false
-                include_file_path: true
-                start_at: end
               hostmetrics:
                 collection_interval: 60s
                 scrapers:
                   cpu: {}
-                  disk: {}
+                  disk:
+                    exclude:
+                      devices:
+                      - ^ram\d+$
+                      - ^zram\d+$
+                      - ^loop\d+$
+                      - ^fd\d+$
+                      - ^hd[a-z]\d+$
+                      - ^sd[a-z]\d+$
+                      - ^vd[a-z]\d+$
+                      - ^xvd[a-z]\d+$
+                      - ^nvme\d+n\d+p\d+$
+                      match_type: regexp
                   filesystem:
                     exclude_fs_types:
                       fs_types:
@@ -103,11 +95,28 @@ spec:
                       - /dev/*
                       - /proc/*
                       - /sys/*
-                      - /run/*
+                      - /run/credentials/*
+                      - /run/k3s/containerd/*
                       - /var/lib/docker/*
+                      - /var/lib/containers/storage/*
+                      - /var/lib/kubelet/*
+                      - /snap/*
                   load: {}
                   memory: {}
-                  network: {}
+                  network:
+                    exclude:
+                      interfaces:
+                      - ^veth.*$
+                      - ^docker.*$
+                      - ^br-.*$
+                      - ^flannel.*$
+                      - ^cali.*$
+                      - ^cbr.*$
+                      - ^cni.*$
+                      - ^dummy.*$
+                      - ^tailscale.*$
+                      - ^lo$
+                      match_type: regexp
                   paging: {}
                   process:
                     mute_process_exe_error: true
@@ -116,6 +125,24 @@ spec:
                     mute_process_user_error: true
                   processes: {}
                   system: {}
+              journald:
+                operators:
+                - expr: body["_SYSTEMD_UNIT"] != nil and body["_SYSTEMD_UNIT"] matches "-collector-agent\\.service$"
+                  type: filter
+                - from: body._SYSTEMD_UNIT
+                  if: body["_SYSTEMD_UNIT"] != nil and body["_SYSTEMD_UNIT"] != ""
+                  to: resource["service.name"]
+                  type: copy
+                - from: body.SYSLOG_IDENTIFIER
+                  if: resource["service.name"] == nil and body["SYSLOG_IDENTIFIER"] != nil
+                  to: resource["service.name"]
+                  type: copy
+                - field: resource["service.name"]
+                  regex: \.service$
+                  replace_with: ""
+                  type: regex_replace
+                priority: warning
+                start_at: end
               otlp/grpc:
                 protocols:
                   grpc:
@@ -139,7 +166,7 @@ spec:
                   receivers:
                   - otlp/http
                   - otlp/grpc
-                  - filelog/varlog
+                  - journald
                 metrics:
                   exporters:
                   - otlphttp/signoz
@@ -193,41 +220,33 @@ spec:
                 - ec2
                 - gcp
                 - azure
-                - ecs
                 - system
+                override: false
                 system:
                   hostname_sources:
                   - os
+                  resource_attributes:
+                    host.id:
+                      enabled: true
                 timeout: 2s
             receivers:
-              filelog/varlog:
-                exclude:
-                - /var/log/lastlog
-                - /var/log/anaconda.syslog
-                - /var/log/*.swp
-                - /var/log/*.swx
-                - /var/log/.*.swp
-                - /var/log/.*.swx
-                include:
-                - /var/log/*.log
-                - /var/log/*log
-                - /var/log/*messages*
-                - /var/log/*secure*
-                - /var/log/*auth*
-                - /var/log/*mesg
-                - /var/log/*cron
-                - /var/log/*acpid
-                - /var/log/*.out
-                - /var/adm/*.log
-                - /var/adm/*messages*
-                include_file_name: false
-                include_file_path: true
-                start_at: end
               hostmetrics:
                 collection_interval: 60s
                 scrapers:
                   cpu: {}
-                  disk: {}
+                  disk:
+                    exclude:
+                      devices:
+                      - ^ram\d+$
+                      - ^zram\d+$
+                      - ^loop\d+$
+                      - ^fd\d+$
+                      - ^hd[a-z]\d+$
+                      - ^sd[a-z]\d+$
+                      - ^vd[a-z]\d+$
+                      - ^xvd[a-z]\d+$
+                      - ^nvme\d+n\d+p\d+$
+                      match_type: regexp
                   filesystem:
                     exclude_fs_types:
                       fs_types:
@@ -261,11 +280,28 @@ spec:
                       - /dev/*
                       - /proc/*
                       - /sys/*
-                      - /run/*
+                      - /run/credentials/*
+                      - /run/k3s/containerd/*
                       - /var/lib/docker/*
+                      - /var/lib/containers/storage/*
+                      - /var/lib/kubelet/*
+                      - /snap/*
                   load: {}
                   memory: {}
-                  network: {}
+                  network:
+                    exclude:
+                      interfaces:
+                      - ^veth.*$
+                      - ^docker.*$
+                      - ^br-.*$
+                      - ^flannel.*$
+                      - ^cali.*$
+                      - ^cbr.*$
+                      - ^cni.*$
+                      - ^dummy.*$
+                      - ^tailscale.*$
+                      - ^lo$
+                      match_type: regexp
                   paging: {}
                   process:
                     mute_process_exe_error: true
@@ -274,6 +310,24 @@ spec:
                     mute_process_user_error: true
                   processes: {}
                   system: {}
+              journald:
+                operators:
+                - expr: body["_SYSTEMD_UNIT"] != nil and body["_SYSTEMD_UNIT"] matches "-collector-agent\\.service$"
+                  type: filter
+                - from: body._SYSTEMD_UNIT
+                  if: body["_SYSTEMD_UNIT"] != nil and body["_SYSTEMD_UNIT"] != ""
+                  to: resource["service.name"]
+                  type: copy
+                - from: body.SYSLOG_IDENTIFIER
+                  if: resource["service.name"] == nil and body["SYSLOG_IDENTIFIER"] != nil
+                  to: resource["service.name"]
+                  type: copy
+                - field: resource["service.name"]
+                  regex: \.service$
+                  replace_with: ""
+                  type: regex_replace
+                priority: warning
+                start_at: end
               otlp/grpc:
                 protocols:
                   grpc:
@@ -297,7 +351,7 @@ spec:
                   receivers:
                   - otlp/http
                   - otlp/grpc
-                  - filelog/varlog
+                  - journald
                 metrics:
                   exporters:
                   - otlphttp/signoz

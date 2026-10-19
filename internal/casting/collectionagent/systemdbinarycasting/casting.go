@@ -7,13 +7,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	collectionagentmolding "github.com/signoz/foundry/internal/molding/collectionagent"
 	"github.com/signoz/foundry/internal/pourer"
+	"github.com/signoz/foundry/internal/tooler/binarytooler"
 )
 
 const (
@@ -57,12 +57,6 @@ func (c *systemdBinaryCasting) Forge(ctx context.Context, config collectionagent
 		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported collector kind %q", config.Spec.Collector.Kind)
 	}
 
-	for key, value := range config.Spec.Collector.Spec.Env {
-		if strings.ContainsAny(value, "\n\r") {
-			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "failed to forge the environment file: the value of %q spans more than one line, which an EnvironmentFile cannot carry", key)
-		}
-	}
-
 	dir := filepath.Dir(config.Spec.Collector.Kind.ConfigKey())
 
 	for _, pour := range pours {
@@ -98,8 +92,8 @@ func (c *systemdBinaryCasting) Cast(ctx context.Context, config collectionagent.
 	)
 
 	binaryPath := collectionagent.CollectorAgentBinaryPath.Resolve(config.Metadata.Annotations)
-	if _, err := os.Stat(binaryPath); err != nil {
-		return foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "failed to find the collector binary at %q: download it from the OpenTelemetry Collector releases and place it there, or set the %q annotation", binaryPath, collectionagent.CollectorAgentBinaryPath.Key)
+	if err := binarytooler.New("otelcol-contrib", binaryPath).Gauge(ctx); err != nil {
+		return err
 	}
 
 	base := config.Metadata.Name + "-collector-" + config.Spec.Collector.Kind.String()
@@ -134,11 +128,11 @@ func (c *systemdBinaryCasting) Cast(ctx context.Context, config collectionagent.
 
 	// systemd-sysusers.service skips itself on ConditionNeedsUpdate.
 	if err := c.run(ctx, "systemd-sysusers", filepath.Join(sysusersDir, base+".conf")); err != nil {
-		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to create the service user %s", base)
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to create the service user from %q", filepath.Join(sysusersDir, base+".conf"))
 	}
 
 	if err := c.run(ctx, "systemctl", "daemon-reload"); err != nil {
-		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "systemd daemon-reload failed")
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to reload systemd")
 	}
 
 	if err := c.run(ctx, "systemctl", "enable", base+".service"); err != nil {

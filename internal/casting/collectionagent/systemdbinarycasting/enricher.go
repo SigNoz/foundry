@@ -28,13 +28,17 @@ func (e *systemdBinaryMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 		return nil
 	}
 
+	if !config.Spec.Collector.Spec.IsEnabled() {
+		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "spec.collector.spec.enabled is false, a CollectionAgent document deploys its collector")
+	}
+
 	replicas := 1
 	if cluster := config.Spec.Collector.Spec.Cluster; cluster.Replicas != nil {
 		replicas = *cluster.Replicas
 	}
 
 	if replicas != 1 {
-		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "failed to enrich the collector: spec.collector.spec.cluster.replicas is %d, a systemd unit runs once per host", replicas)
+		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "spec.collector.spec.cluster.replicas is %d, an agent runs once per host", replicas)
 	}
 
 	if config.Spec.Collector.Kind != collectionagent.CollectorKindAgent {
