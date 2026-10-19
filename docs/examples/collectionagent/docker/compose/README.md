@@ -101,13 +101,6 @@ The casting is the single input; treat it as sensitive once the key is in it. `s
 
 ## Deploy
 
-> [!WARNING]
-> **Upgrading from foundryctl v0.3.0:** the agent's service and container are now named `signoz-collector-agent`. Remove the old agent before casting, or the new one cannot bind its ports:
->
-> ```bash
-> docker rm -f signoz-collector-agent-1
-> ```
-
 Point the endpoint in the casting at your SigNoz, then:
 
 ```bash
@@ -143,8 +136,6 @@ curl -fsS localhost:13133/healthz && echo " OK"
 
 # View agent logs
 docker compose -f pours/collectionagent/collector/agent/compose.yaml logs -f
-# or by container name, from anywhere on the host
-docker logs -f signoz-collector-agent
 
 # Stop the agent
 docker compose -f pours/collectionagent/collector/agent/compose.yaml down

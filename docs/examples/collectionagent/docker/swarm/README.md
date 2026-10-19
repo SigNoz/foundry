@@ -17,7 +17,7 @@ Deploys a SigNoz [Docker Swarm Collection Agent](https://signoz.io/docs/opentele
 
 Swarm has no host networking, so the service sets `hostname: "{{.Node.Hostname}}"`: the `host.name` resource attribute on all telemetry is the real node's hostname, and each node appears as itself in SigNoz. Container metrics carry the Swarm labels as `docker.stack.name`, `docker.service.name`, `docker.task.name`, and `docker.node.id`.
 
-The agent's own container logs through Docker's `local` log driver, which writes no `*-json.log` file, so its logs stay out of the container logs it collects. Read them with `docker service logs signoz_signoz-collector-agent` (see [After deployment](#after-deployment)).
+The agent's own container logs through Docker's `local` log driver, which writes no `*-json.log` file, so its logs stay out of the container logs it collects. Read them with `docker service logs signoz_collector-agent` (see [After deployment](#after-deployment)).
 
 Resource detection adds the host's attributes, and on AWS, GCP and Azure virtual machines the cloud provider, region, availability zone and instance. Attributes your applications already send are kept as they are.
 
@@ -42,7 +42,7 @@ spec:
     mode: docker
 ```
 
-The generated collector config follows the [Docker Swarm Collection Agent configuration guide](https://signoz.io/docs/opentelemetry-collection-agents/docker-swarm/configure/) and exports to `${env:SIGNOZ_INGESTION_ENDPOINT}`. Keep `metadata.name` to 23 characters or fewer: it appears twice in the Swarm service name, which Docker caps at 63 characters.
+The generated collector config follows the [Docker Swarm Collection Agent configuration guide](https://signoz.io/docs/opentelemetry-collection-agents/docker-swarm/configure/) and exports to `${env:SIGNOZ_INGESTION_ENDPOINT}`. Keep `metadata.name` to 37 characters or fewer: it prefixes the Swarm config name, which Docker caps at 64 characters.
 
 ### Point the agent at your SigNoz
 
@@ -102,13 +102,6 @@ The casting is the single input; treat it as sensitive once the key is in it.
 
 ## Deploy
 
-> [!WARNING]
-> **Upgrading from foundryctl v0.3.0:** the agent's service is now named `signoz_signoz-collector-agent`. Remove the old service before casting, or the new one cannot bind its ports:
->
-> ```bash
-> docker service rm signoz_collector-agent
-> ```
-
 Point the endpoint in the casting at your SigNoz, then, on a manager node:
 
 ```bash
@@ -142,10 +135,10 @@ pours/collectionagent/collector/agent/
 
 ```bash
 # One task per node, all Running
-docker service ps signoz_signoz-collector-agent
+docker service ps signoz_collector-agent
 
 # View agent logs; look for "Everything is ready"
-docker service logs signoz_signoz-collector-agent
+docker service logs signoz_collector-agent
 
 # Remove the stack
 docker stack rm signoz

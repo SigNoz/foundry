@@ -26,20 +26,10 @@ func TestNotEmptyAndValid(t *testing.T) {
 	compose, err := domain.NewYAMLMaterial(buf.Bytes(), "compose.yaml")
 	require.NoError(t, err)
 
-	driver, err := compose.GetBytes("services.signoz-collector-agent.logging.driver")
+	driver, err := compose.GetBytes("services.collector-agent.logging.driver")
 	require.NoError(t, err)
 
 	assert.Equal(t, "local", string(driver))
-
-	project, err := compose.GetBytes("name")
-	require.NoError(t, err)
-
-	assert.Equal(t, "signoz", string(project))
-
-	containerName, err := compose.GetBytes("services.signoz-collector-agent.container_name")
-	require.NoError(t, err)
-
-	assert.Equal(t, "signoz-collector-agent", string(containerName))
 
 	assert.NotEmpty(t, agentYAMLTemplate)
 
