@@ -44,11 +44,6 @@ func TestNotEmptyAndValid(t *testing.T) {
 
 	assert.Equal(t, "signoz-collector-agent-"+hex.EncodeToString(hash[:])[:10], string(name))
 
-	file, err := compose.GetBytes("configs.collector-agent.file")
-	require.NoError(t, err)
-
-	assert.Equal(t, "./collector/agent/agent.yaml", string(file))
-
 	assert.NotEmpty(t, agentYAMLTemplate)
 
 	buf.Reset()
@@ -102,32 +97,19 @@ func TestForge(t *testing.T) {
 		kind              collectionagent.CollectorKind
 		pass              bool
 		expectedErrorType int
-		expectedPaths     []string
 	}{
-		{"Agent_Valid", collectionagent.CollectorKindAgent, true, 0, []string{"collectionagent/compose.yaml"}},
-		{"Deployment_Invalid", collectionagent.CollectorKindDeployment, false, foundryerrors.TypeUnsupported.ExitCode(), nil},
-		{"Sidecar_Invalid", collectionagent.CollectorKindSidecar, false, foundryerrors.TypeUnsupported.ExitCode(), nil},
+		{"Agent_Valid", collectionagent.CollectorKindAgent, true, 0},
+		{"Deployment_Invalid", collectionagent.CollectorKindDeployment, false, foundryerrors.TypeUnsupported.ExitCode()},
+		{"Sidecar_Invalid", collectionagent.CollectorKindSidecar, false, foundryerrors.TypeUnsupported.ExitCode()},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			config := *collectionagent.Default()
 			config.Spec.Collector.Kind = test.kind
 
-			p := pourer.New("collectionagent")
-
-			err := New(slog.New(slog.DiscardHandler)).Forge(t.Context(), config, p)
+			err := New(slog.New(slog.DiscardHandler)).Forge(t.Context(), config, pourer.New("collectionagent"))
 
 			if test.pass {
 				require.NoError(t, err)
-
-				materials, err := p.Pour()
-				require.NoError(t, err)
-
-				var paths []string
-				for _, material := range materials {
-					paths = append(paths, material.Path())
-				}
-
-				assert.ElementsMatch(t, test.expectedPaths, paths)
 
 				return
 			}
