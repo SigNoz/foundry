@@ -29,7 +29,7 @@ func (e *systemdBinaryMoldingEnricher) EnrichStatus(ctx context.Context, kind v1
 	}
 
 	if !config.Spec.Collector.Spec.IsEnabled() {
-		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "spec.collector.spec.enabled is false, a CollectionAgent document deploys its collector")
+		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "spec.collector.spec.enabled is false, the CollectionAgent kind requires an enabled collector")
 	}
 
 	replicas := 1
