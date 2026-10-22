@@ -384,6 +384,9 @@ gcp_create_bootstrap() {
 
 # $1 and $2 are the API and ingestion secret versions.
 gcp_deploy() {
+  local email
+  email="$(gcp_bootstrap_email)"
+
   local deployment="projects/${GCP_PROJECT}/locations/${REGION}/deployments/${GCP_BOOTSTRAP}"
 
   local inputs="project_id=${GCP_PROJECT}"
@@ -402,7 +405,7 @@ gcp_deploy() {
   info "Deploying ${GCP_MODULE_DIR} at ${FOUNDRY_VERSION} to ${deployment}"
   gcloud infra-manager deployments apply "${deployment}" \
     --project="${GCP_PROJECT}" \
-    --service-account="projects/${GCP_PROJECT}/serviceAccounts/$(gcp_bootstrap_email)" \
+    --service-account="projects/${GCP_PROJECT}/serviceAccounts/${email}" \
     --git-source-repo="https://github.com/${REPO}.git" \
     --git-source-directory="${GCP_MODULE_DIR}" \
     --git-source-ref="${FOUNDRY_VERSION}" \

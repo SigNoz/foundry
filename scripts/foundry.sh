@@ -340,9 +340,9 @@ run_cloudintegration() {
   TMP_ROOT="$(mktemp -d -t foundry-cloudintegration-XXXXXX)"
   local script="${TMP_ROOT}/cloudintegration.sh"
   local url="https://raw.githubusercontent.com/${REPO}/${TAG}/scripts/cloudintegration.sh"
-  if ! fetch "${url}" "${script}"; then
-    die "Could not download ${url}; ${TAG} may predate cloudintegration."
-  fi
+  FAILURE="Could not download ${url}; ${TAG} may predate cloudintegration."
+  fetch "${url}" "${script}"
+  FAILURE="Failed to run cloudintegration."
 
   # Under curl-pipe-bash, stdin is this script, so the child must not read it.
   FOUNDRY_VERSION="${TAG}" bash "${script}" "$@" </dev/null
