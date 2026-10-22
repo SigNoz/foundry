@@ -31,7 +31,7 @@ It collects:
 - Pod, container, node and volume metrics for every Fargate node, through the `kubeletstats` receiver. The `k8s_observer` extension discovers the nodes, and `receiver_creator` starts one `kubeletstats` scrape per node, proxied through the API server. The collector's own node is included. Only nodes labelled `eks.amazonaws.com/compute-type=fargate` are scraped, so in a mixed cluster EC2 nodes get no kubelet metrics from this casting.
 - Cluster metrics (workload status, pod phase, node conditions, allocatables) through the `k8s_cluster` receiver
 - Kubernetes events as logs through the `k8s_events` receiver
-- OTLP traces, metrics and logs from your applications on `signoz-collector-deployment.<namespace>.svc:4317` (gRPC) and `signoz-collector-deployment.<namespace>.svc:4318` (HTTP)
+- OTLP traces, metrics and logs from your applications on `signoz-collector-deployment.<namespace>.svc:4317` (gRPC) and `signoz-collector-deployment.<namespace>.svc:4318` (HTTP) under the default controller, and on `signoz-collector-deployment-collector.<namespace>.svc` under the operator
 
 Kubernetes metadata lands on every signal through the `k8sattributes` processor.
 
@@ -104,7 +104,9 @@ The sidecar requests 0.2 vCPU and 256 MiB with equal limits, so each injected po
 - `kubectl` configured against the cluster
 - A running SigNoz to receive the telemetry: [Self-Hosted Community](../../../../docker/compose/README.md), Self-Hosted Enterprise, or [SigNoz Cloud](https://signoz.io/teams/)
 - For the sidecar: Kubernetes 1.29 or later, which runs native sidecar containers, and applications deployed with kustomize from a kustomization that sets `namespace`
-- For the `opentelemetry-operator` controller: the OpenTelemetry Operator, installed as in the [operator example](../../../kubernetes/kustomize-opentelemetry-operator/README.md#prerequisites)
+- For the `opentelemetry-operator` controller: cert-manager and the OpenTelemetry Operator, installed as in the [operator example](../../../kubernetes/kustomize-opentelemetry-operator/README.md#prerequisites), with two Fargate specifics:
+  - cert-manager's webhook must listen on a port other than 10250, since on Fargate the pod shares its IP with the kubelet, which holds 10250. With Helm, set `webhook.securePort=10260`; with the static manifest, patch the `cert-manager-webhook` Deployment's `--secure-port` argument and the Service's `targetPort` to 10260.
+  - Apply the operator manifest only after cert-manager's webhook answers (`kubectl -n cert-manager rollout status deploy/cert-manager-webhook`). Applied earlier, its `Issuer` and `Certificate` are rejected by the webhook and the operator pod waits forever for its serving certificate.
 
 ## Configuration
 
@@ -210,7 +212,7 @@ Cast runs `kubectl apply -k` against the pours using your current kubeconfig con
 kubectl kustomize deployment/pours/collectionagent/collector/deployment
 ```
 
-Then point [instrumented applications](https://signoz.io/docs/instrumentation/) at `http://signoz-collector-deployment.<namespace>.svc:4317` (gRPC) or `http://signoz-collector-deployment.<namespace>.svc:4318` (HTTP).
+Then point [instrumented applications](https://signoz.io/docs/instrumentation/) at `http://signoz-collector-deployment.<namespace>.svc:4317` (gRPC) or `http://signoz-collector-deployment.<namespace>.svc:4318` (HTTP). Under the operator the Service is `signoz-collector-deployment-collector.<namespace>.svc`, and the operator also creates Services for the sidecar resource, which nothing uses.
 
 ### Sidecar
 
@@ -293,7 +295,7 @@ sidecar/pours/collectionagent/collector/sidecar/
   sidecar.yaml              # the collector config
 ```
 
-A change to the sidecar's config re-hashes its ConfigMap name and rolls the labelled workloads the next time your application is applied.
+A change to the sidecar's config re-hashes its ConfigMap name and rolls the labelled workloads the next time your application is applied. Under the operator the config lives in the `OpenTelemetryCollector` resource, which cast updates in place; the operator leaves running pods as they are, so restart the labelled workloads (`kubectl rollout restart`) to inject the new config.
 
 ## Controller
 
