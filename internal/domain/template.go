@@ -114,6 +114,7 @@ func (t *Template) Format() Format {
 //     project hierarchical config into flat env-var-style maps).
 //   - identifier: respell a key's hyphens as underscores for a generated
 //     identifier. Keys cannot contain underscores, so no two keys collide.
+//   - envFileQuote: POSIX shell double-quoting (also systemd's EnvironmentFile rules).
 func templateFuncMap() template.FuncMap {
 	fm := template.FuncMap(sprig.FuncMap())
 	fm["derefInt"] = func(p *int) int {
@@ -154,6 +155,9 @@ func templateFuncMap() template.FuncMap {
 	}
 	fm["identifier"] = func(s string) string {
 		return strings.ReplaceAll(s, "-", "_")
+	}
+	fm["envFileQuote"] = func(v string) string {
+		return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`, "`", "\\`", `$`, `\$`).Replace(v) + `"`
 	}
 	return fm
 }

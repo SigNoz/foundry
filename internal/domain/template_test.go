@@ -54,6 +54,15 @@ func TestTemplateRender(t *testing.T) {
 			expectedFmt: []byte("hello world"),
 		},
 		{
+			name:        "EnvFileQuote_Escaped",
+			contents:    []byte("KEY={{ envFileQuote .Value }}"),
+			format:      FormatText,
+			path:        "out.conf",
+			data:        map[string]string{"Value": "a\\b\"c`d$e f%g\nh"},
+			pass:        true,
+			expectedFmt: []byte("KEY=\"a\\\\b\\\"c\\`d\\$e f%g\nh\""),
+		},
+		{
 			name:     "UnsupportedFormat_Invalid",
 			contents: []byte("hello"),
 			format:   Format{s: "bogus"},

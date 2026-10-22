@@ -3,18 +3,20 @@ receivers:
     collection_interval: 60s
     scrapers:
       cpu: {}
-      disk: {}
-      load: {}
       memory: {}
-      network: {}
-      paging: {}
-      processes: {}
-      system: {}
-      process:
-        mute_process_name_error: true
-        mute_process_exe_error: true
-        mute_process_io_error: true
-        mute_process_user_error: true
+      disk:
+        exclude:
+          match_type: regexp
+          devices:
+            - ^ram\d+$
+            - ^zram\d+$
+            - ^loop\d+$
+            - ^fd\d+$
+            - ^hd[a-z]\d+$
+            - ^sd[a-z]\d+$
+            - ^vd[a-z]\d+$
+            - ^xvd[a-z]\d+$
+            - ^nvme\d+n\d+p\d+$
       filesystem:
         exclude_fs_types:
           match_type: strict
@@ -48,31 +50,54 @@ receivers:
             - /dev/*
             - /proc/*
             - /sys/*
-            - /run/*
+            - /run/credentials/*
+            - /run/k3s/containerd/*
             - /var/lib/docker/*
-  filelog/varlog:
-    include:
-      - /var/log/*.log
-      - /var/log/*log
-      - /var/log/*messages*
-      - /var/log/*secure*
-      - /var/log/*auth*
-      - /var/log/*mesg
-      - /var/log/*cron
-      - /var/log/*acpid
-      - /var/log/*.out
-      - /var/adm/*.log
-      - /var/adm/*messages*
-    exclude:
-      - /var/log/lastlog
-      - /var/log/anaconda.syslog
-      - /var/log/*.swp
-      - /var/log/*.swx
-      - /var/log/.*.swp
-      - /var/log/.*.swx
+            - /var/lib/containers/storage/*
+            - /var/lib/kubelet/*
+            - /snap/*
+      network:
+        exclude:
+          match_type: regexp
+          interfaces:
+            - ^veth.*$
+            - ^docker.*$
+            - ^br-.*$
+            - ^flannel.*$
+            - ^cali.*$
+            - ^cbr.*$
+            - ^cni.*$
+            - ^dummy.*$
+            - ^tailscale.*$
+            - ^lo$
+      load: {}
+      paging: {}
+      process:
+        mute_process_name_error: true
+        mute_process_exe_error: true
+        mute_process_io_error: true
+        mute_process_user_error: true
+      processes: {}
+      system: {}
+  journald:
     start_at: end
-    include_file_name: false
-    include_file_path: true
+    priority: warning
+    operators:
+      # Entries without a unit (kernel, logger) are kept; the agent's own unit is dropped.
+      - type: filter
+        expr: 'body["_SYSTEMD_UNIT"] != nil and body["_SYSTEMD_UNIT"] matches "-collector-agent\\.service$"'
+      - type: copy
+        if: 'body["_SYSTEMD_UNIT"] != nil and body["_SYSTEMD_UNIT"] != ""'
+        from: body._SYSTEMD_UNIT
+        to: resource["service.name"]
+      - type: copy
+        if: 'resource["service.name"] == nil and body["SYSLOG_IDENTIFIER"] != nil'
+        from: body.SYSLOG_IDENTIFIER
+        to: resource["service.name"]
+      - type: regex_replace
+        field: resource["service.name"]
+        regex: '\.service$'
+        replace_with: ""
 
 processors:
   resourcedetection:
@@ -81,16 +106,19 @@ processors:
       - ec2
       - gcp
       - azure
-      - ecs
       - system
     timeout: 2s
+    override: false
     system:
       hostname_sources:
         - os
+      resource_attributes:
+        host.id:
+          enabled: true
 
 service:
   pipelines:
     metrics:
       receivers: [hostmetrics]
     logs:
-      receivers: [filelog/varlog]
+      receivers: [journald]

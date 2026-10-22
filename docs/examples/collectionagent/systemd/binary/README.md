@@ -8,14 +8,14 @@
 
 ## Overview
 
-Deploys a SigNoz [VM Collection Agent](https://signoz.io/docs/opentelemetry-collection-agents/vm/overview/) on a Linux host as a single systemd service running the OpenTelemetry Collector Contrib binary you place yourself. The agent collects the host's telemetry and exports it, along with anything your applications send it, to any SigNoz: Self-Hosted Community, Self-Hosted Enterprise, or SigNoz Cloud. It runs directly on the host, so the `host.name` resource attribute on all telemetry is the real host's name.
+Deploys a SigNoz [VM Collection Agent](https://signoz.io/docs/opentelemetry-collection-agents/vm/overview/) on a Linux host as a single systemd service running the OpenTelemetry Collector Contrib binary you place yourself. The agent collects the host's telemetry and exports it, along with anything your applications send it, to any SigNoz: Self-Hosted Community, Self-Hosted Enterprise, or SigNoz Cloud. It runs directly on the host. On AWS, GCP or Azure the `host.name` resource attribute is the name the cloud's metadata reports, elsewhere it is the OS hostname; setting `host.name` in `OTEL_RESOURCE_ATTRIBUTES` pins it.
 
 It collects:
 
 - Host metrics: CPU, memory, disk and filesystem, network, load, paging, process counts and per-process usage
-- Host log files under `/var/log`: system, auth, kernel, cron and application `.log` files, read from the end of each file
-- Host and cloud identity: hostname, operating system, and cloud metadata on EC2, GCP, Azure and ECS when present
-- OTLP intake for your applications on `localhost:4317` (gRPC) and `localhost:4318` (HTTP)
+- Host logs from the systemd journal: warnings and errors (priority `warning` and above), read from the end, with the agent's own unit left out. Each record's `service.name` is its unit without `.service`, or its program name when there is no unit
+- Host and cloud identity: hostname, host ID, operating system, and cloud metadata on EC2, GCP and Azure when present
+- OTLP intake for your applications on ports `4317` (gRPC) and `4318` (HTTP), on every interface of the host
 
 ## Prerequisites
 
@@ -152,9 +152,9 @@ pours/collectionagent/
       signoz-collector-agent.sysusers.conf
 ```
 
-`agent.yaml` is the collector config, `signoz-collector-agent.conf` the environment file, `signoz-collector-agent.service` the unit, and `signoz-collector-agent.sysusers.conf` the service-account declaration. `cast` copies them to `/etc/signoz-collector-agent`, `/etc/systemd/system` and `/etc/sysusers.d`, creates the service user, and enables and restarts the service.
+`agent.yaml` is the collector config, `signoz-collector-agent.conf` the environment file, `signoz-collector-agent.service` the unit, and `signoz-collector-agent.sysusers.conf` the service-account declaration. `cast` copies them to `/etc/signoz-collector-agent`, `/etc/systemd/system` and `/etc/sysusers.d`, creates the service user, and enables and restarts the service. `cast` fails when the collector binary is missing.
 
-## Operating
+## After deployment
 
 ```bash
 # Check the agent is healthy
@@ -187,47 +187,9 @@ The `signoz-collector-agent` service user stays behind; remove it with `userdel`
 
 Two knobs, one for each half of the deployment. `spec.collector.spec.config.data` merges YAML into the generated collector config, keyed by the poured file's path; user keys win over generated ones, and a list replaces the generated list wholesale rather than appending to it. `spec.patches` applies [JSON Patch](../../../../concepts/patches.md) to a poured file; the unit is poured as INI, whose JSON shape is section names at the top level and directives inside them, so the path to a `[Service]` directive is `/Service/<Directive>`.
 
-### Add application log files
+### Collect more of the journal
 
-An application that writes its log files outside `/var/log` and `/var/adm` is added by re-stating the `include` list with the extra path on it:
-
-```yaml
-apiVersion: v1alpha1
-kind: CollectionAgent
-metadata:
-  name: signoz
-spec:
-  deployment:
-    flavor: binary
-    mode: systemd
-  collector:
-    kind: agent
-    spec:
-      config:
-        data:
-          collector/agent/agent.yaml: |
-            receivers:
-              filelog/varlog:
-                include:
-                  - /var/log/*.log
-                  - /var/log/*log
-                  - /var/log/*messages*
-                  - /var/log/*secure*
-                  - /var/log/*auth*
-                  - /var/log/*mesg
-                  - /var/log/*cron
-                  - /var/log/*acpid
-                  - /var/log/*.out
-                  - /var/adm/*.log
-                  - /var/adm/*messages*
-                  - /var/log/nginx/*.log
-```
-
-The eleven shipped paths are re-listed alongside the new one: leave one out and it stops being tailed. The poured `agent.yaml` then carries exactly that `include` list, with the `exclude` list untouched.
-
-### Read the systemd journal
-
-On a host without `rsyslog`, Debian 12+ and Ubuntu 24.04 among them, the journal is the system log and nothing under `/var/log` holds it. Turning it on takes an added source in the logs pipeline and the `systemd-journal` group on the unit, so the agent may read it:
+The agent reads journal entries at priority `warning` and above. Lowering the threshold to `info` takes one key through `config.data`:
 
 ```yaml
 apiVersion: v1alpha1
@@ -247,24 +209,42 @@ spec:
             receivers:
               journald:
                 priority: info
+```
+
+`priority` merges into the generated `journald` receiver, so `start_at` and the filter that leaves out the agent's own unit stay as they are.
+
+### Add application log files
+
+An application that writes log files instead of to the journal is added with a `filelog/app` receiver and a logs pipeline that names it:
+
+```yaml
+apiVersion: v1alpha1
+kind: CollectionAgent
+metadata:
+  name: signoz
+spec:
+  deployment:
+    flavor: binary
+    mode: systemd
+  collector:
+    kind: agent
+    spec:
+      config:
+        data:
+          collector/agent/agent.yaml: |
+            receivers:
+              filelog/app:
+                include:
+                  - /var/log/nginx/*.log
                 start_at: end
+                include_file_path: true
             service:
               pipelines:
                 logs:
-                  receivers: [otlp/http, otlp/grpc, filelog/varlog, journald]
-  patches:
-    - target: "collectionagent/collector/agent/signoz-collector-agent.service"
-      operations:
-        - op: add
-          path: /Service/SupplementaryGroups
-          value: systemd-journal
+                  receivers: [otlp/http, otlp/grpc, journald, filelog/app]
 ```
 
-The logs pipeline re-lists every source the agent already had, and the poured unit then carries, in `[Service]`:
-
-```ini
-SupplementaryGroups=systemd-journal
-```
+The logs pipeline re-lists `otlp/http`, `otlp/grpc` and `journald` alongside the new receiver, because a list in `config.data` replaces the generated one: leave one out and it stops feeding the pipeline.
 
 ## Annotations
 
