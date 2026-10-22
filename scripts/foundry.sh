@@ -1,13 +1,20 @@
 #!/bin/bash
 # foundry.sh - Downloads, verifies, and installs the foundryctl binary
-# from GitHub releases.
+# from GitHub releases. With the cloudintegration command, it instead runs
+# scripts/cloudintegration.sh from the same release.
 #
 # Usage:
 #   curl -fsSL https://signoz.io/foundry.sh | bash
 #   curl -fsSL https://signoz.io/foundry.sh | FOUNDRY_VERSION=v0.1.4 bash
+#   curl -fsSL https://signoz.io/foundry.sh | bash -s -- cloudintegration <platform> <flavor> [flags]
 #   bash foundry.sh -v v0.1.4
 #   bash foundry.sh -d /usr/local/bin
 #   bash foundry.sh -h
+#
+# COMMANDS:
+#   cloudintegration <platform> <flavor> [flags]
+#                  Deploy the SigNoz cloud integration agent; see
+#                  scripts/cloudintegration.sh for its flags.
 #
 # OPTIONS:
 #   -v <version>   Version to install (e.g. v0.1.4). Default: latest.
@@ -32,6 +39,9 @@ readonly BINARY="foundryctl"
 FOUNDRY_VERSION="${FOUNDRY_VERSION:-}"
 FOUNDRY_INSTALL_DIR="${FOUNDRY_INSTALL_DIR:-}"
 FOUNDRY_ASSUME_YES="${FOUNDRY_ASSUME_YES:-false}"
+
+# Reported by fail_trap; run_cloudintegration replaces it.
+FAILURE="Failed to install ${BINARY}."
 
 # https://no-color.org honoured; auto-stripped when stderr is not a TTY.
 if [[ -t 2 ]] && [[ -z "${NO_COLOR:-}" ]]; then
@@ -67,9 +77,13 @@ help() {
   printf "NAME\n"
   printf "\t%s - Install %s, the SigNoz Foundry CLI\n\n" "${NAME}" "${BINARY}"
   printf "USAGE\n"
-  printf "\t%s [-v version] [-d directory] [-y] [-h]\n\n" "${NAME}"
+  printf "\t%s [-v version] [-d directory] [-y] [-h]\n" "${NAME}"
+  printf "\t%s [-v version] cloudintegration <platform> <flavor> [flags]\n\n" "${NAME}"
   printf "DESCRIPTION\n"
   printf "\tDownloads, verifies, and installs the %s binary from GitHub releases.\n\n" "${BINARY}"
+  printf "COMMANDS\n"
+  printf "\tcloudintegration\tDeploy the SigNoz cloud integration agent with the script from the same release.\n"
+  printf "\t\t\t\tRun 'cloudintegration -h' for its platforms and flags.\n\n"
   printf "OPTIONS\n"
   printf "\t-v <version>\tVersion to install (e.g. v0.1.4). [env: FOUNDRY_VERSION] [default: latest]\n"
   printf "\t-d <path>\tInstall directory. [env: FOUNDRY_INSTALL_DIR] [default: \$XDG_BIN_HOME or ~/.local/bin]\n"
@@ -80,6 +94,7 @@ help() {
   printf "\t%s -d /usr/local/bin\n" "${NAME}"
   printf "\tcurl -fsSL https://signoz.io/foundry.sh | bash\n"
   printf "\tcurl -fsSL https://signoz.io/foundry.sh | FOUNDRY_VERSION=v0.1.4 bash\n"
+  printf "\tcurl -fsSL https://signoz.io/foundry.sh | bash -s -- -v v0.1.4 cloudintegration gcp terraform --region us-central1 ...\n"
 }
 
 # Sets PLATFORM_* (OS, ARCH, BIN_SUFFIX); Windows shells map to OS=windows and .exe suffix.
@@ -315,10 +330,29 @@ cleanup() {
   fi
 }
 
+# Fetches scripts/cloudintegration.sh at TAG and runs it with the
+# remaining args. The script deploys the module from the same TAG.
+run_cloudintegration() {
+  FAILURE="Failed to run cloudintegration."
+  verify_prereqs
+  resolve_version
+
+  TMP_ROOT="$(mktemp -d -t foundry-cloudintegration-XXXXXX)"
+  local script="${TMP_ROOT}/cloudintegration.sh"
+  local url="https://raw.githubusercontent.com/${REPO}/${TAG}/scripts/cloudintegration.sh"
+  if ! fetch "${url}" "${script}"; then
+    die "Could not download ${url}; ${TAG} may predate cloudintegration."
+  fi
+
+  # Under curl-pipe-bash, stdin is this script, so the child must not read it.
+  FOUNDRY_VERSION="${TAG}" bash "${script}" "$@" </dev/null
+  cleanup
+}
+
 fail_trap() {
   local rc=$?
   if [[ ${rc} -ne 0 ]]; then
-    err "Failed to install ${BINARY}."
+    err "${FAILURE}"
     err "For support, see https://github.com/${REPO}/issues"
   fi
   cleanup
@@ -356,6 +390,14 @@ while getopts 'v:d:yh' opt; do
     *) die "Unknown error while processing options" ;;
   esac
 done
+shift $((OPTIND - 1))
 
-run
+case "${1:-}" in
+  "") run ;;
+  cloudintegration)
+    shift
+    run_cloudintegration "$@"
+    ;;
+  *) die "Unknown command: $1" ;;
+esac
 trap - EXIT

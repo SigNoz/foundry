@@ -1,0 +1,85 @@
+{
+  "locals": {
+    "logs_self_exclusion": "NOT (\n  resource.type=\"cloud_run_revision\"\n  AND (\n    resource.labels.service_name=\"${local.agent_service_name}\"\n    OR resource.labels.service_name=\"${local.collector_service_name}\"\n  )\n)\n"
+  },
+  "resource": {
+    "google_pubsub_topic": {
+      "logs": {
+        "//": "Keep these resources in bootstrap even while logs are disabled. Runtime identities receive no Pub/Sub management permissions. Pub/Sub invokes the Collector with the dedicated push identity.",
+        "project": "${var.project_id}",
+        "name": "${local.logs_topic_name}",
+        "labels": "${local.labels}",
+        "message_storage_policy": [
+          {
+            "allowed_persistence_regions": ["${var.deployment_region}"]
+          }
+        ],
+        "depends_on": ["time_sleep.api_activation"]
+      }
+    },
+    "google_pubsub_subscription": {
+      "logs": {
+        "//": "A metrics-only integration must not lose its idle subscription to expiry. Messages queued when logs are disabled are rejected by the Collector until they expire, so back off to avoid redelivering them hundreds of times. The active receiver handles wrapped Pub/Sub requests at /; the sink stays disabled while the Collector has only its idle health listener. Cloud Run authenticates against the base service URL, without a path.",
+        "project": "${var.project_id}",
+        "name": "${local.logs_subscription_name}",
+        "topic": "${google_pubsub_topic.logs.id}",
+        "labels": "${local.labels}",
+        "ack_deadline_seconds": 60,
+        "message_retention_duration": "21600s",
+        "retain_acked_messages": false,
+        "expiration_policy": [
+          {
+            "ttl": ""
+          }
+        ],
+        "retry_policy": [
+          {
+            "minimum_backoff": "10s",
+            "maximum_backoff": "600s"
+          }
+        ],
+        "push_config": [
+          {
+            "push_endpoint": "${local.collector_service_url}/",
+            "oidc_token": [
+              {
+                "service_account_email": "${google_service_account.pubsub_push.email}",
+                "audience": "${local.collector_service_url}"
+              }
+            ]
+          }
+        ],
+        "depends_on": [
+          "google_service_account_iam_member.pubsub_mints_push_tokens",
+          "google_cloud_run_v2_service_iam_member.pubsub_invoker"
+        ]
+      }
+    },
+    "google_logging_project_sink": {
+      "logs": {
+        "//": "The Agent must keep the self exclusions when it replaces the service filter.",
+        "project": "${var.project_id}",
+        "name": "${local.logs_sink_name}",
+        "description": "SigNoz integration log routing, enabled by the Agent after Collector setup.",
+        "destination": "pubsub.googleapis.com/${google_pubsub_topic.logs.id}",
+        "unique_writer_identity": true,
+        "disabled": true,
+        "filter": "${local.logs_self_exclusion}",
+        "lifecycle": {
+          "//": "Bootstrap owns creation/deletion and the destination; the Agent owns only the desired routing filter and enabled state. This is a Terraform ownership rule, not an IAM restriction on which fields the Agent can update.",
+          "ignore_changes": ["filter", "disabled"]
+        },
+        "depends_on": ["time_sleep.api_activation"]
+      }
+    },
+    "google_pubsub_topic_iam_member": {
+      "sink_writer": {
+        "//": "The sink stays disabled until its writer grant and Collector delivery path are ready. The Agent never changes the topic's IAM policy.",
+        "project": "${var.project_id}",
+        "topic": "${google_pubsub_topic.logs.name}",
+        "role": "roles/pubsub.publisher",
+        "member": "${google_logging_project_sink.logs.writer_identity}"
+      }
+    }
+  }
+}
