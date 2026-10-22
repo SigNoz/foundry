@@ -58,8 +58,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-            - name: KUBECONFIG
-              value: /conf/kubeconfig.yaml
             {{- range $key, $val := $.Spec.Collector.Spec.Env }}
             - name: {{ $key }}
               value: {{ $val | quote }}

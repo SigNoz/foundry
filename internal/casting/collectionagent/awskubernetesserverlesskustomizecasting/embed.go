@@ -18,6 +18,5 @@ var (
 	deploymentClusterrolebindingTemplate = domain.MustNewTemplateFromFS(templates, "templates/deployment/clusterrolebinding.yaml.gotmpl", domain.FormatYAML)
 	deploymentServiceTemplate            = domain.MustNewTemplateFromFS(templates, "templates/deployment/service.yaml.gotmpl", domain.FormatYAML)
 	deploymentTemplate                   = domain.MustNewTemplateFromFS(templates, "templates/deployment/workload.yaml.gotmpl", domain.FormatYAML)
-	deploymentKubeconfigTemplate         = domain.MustNewTemplateFromFS(templates, "templates/deployment/kubeconfig.yaml.gotmpl", domain.FormatYAML)
 	deploymentYAMLTemplate               = domain.MustNewTemplateFromFS(templates, "templates/deployment/collector.yaml.gotmpl", domain.FormatYAML)
 )

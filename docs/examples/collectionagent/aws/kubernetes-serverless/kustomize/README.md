@@ -126,10 +126,9 @@ deployment/pours/collectionagent/collector/deployment/
   service.yaml              # OTLP intake on 4317 and 4318
   workload.yaml             # the Deployment, one replica, Recreate strategy
   deployment.yaml           # the collector config
-  kubeconfig.yaml           # in-cluster kubeconfig the kubeletstats scrapes authenticate with
 ```
 
-The configMapGenerator mounts `deployment.yaml` and `kubeconfig.yaml` at `/conf`. A config change re-hashes the ConfigMap name and rolls the collector on the next apply.
+The configMapGenerator mounts `deployment.yaml` at `/conf`. A config change re-hashes the ConfigMap name and rolls the collector on the next apply.
 
 ## Logs
 
@@ -259,15 +258,13 @@ Two errors point here:
 - A `404` on `/api/v1/nodes/<node>/proxy/stats/summary`: the kubelet on that node does not expose the summary through the API-server proxy.
 - A `403`: the collector's service account is not allowed through the proxy.
 
-Check first that the poured RBAC and environment are in place. The ClusterRole grants `get` on `nodes/stats` and `nodes/proxy`; this must print `yes`:
+Check first that the poured RBAC is in place. The ClusterRole grants `get` on `nodes/stats` and `nodes/proxy`; this must print `yes`:
 
 ```bash
 kubectl auth can-i get nodes/proxy --as=system:serviceaccount:<namespace>:signoz-collector-deployment
 ```
 
-The collector container must also carry `KUBECONFIG=/conf/kubeconfig.yaml`, which the pour sets by default.
-
-If both are in place and the scrapes still fail, scrape the kubelets directly instead. The override switches the `kubeletstats` scrape to the service account and the kubelet's own address, skips certificate verification since the kubelets' certificates are self-signed, and skips the node the collector runs on, since a Fargate pod cannot reach the kubelet of its own node:
+If it is in place and the scrapes still fail, scrape the kubelets directly instead. The override switches the `kubeletstats` scrape to the service account and the kubelet's own address, skips certificate verification since the kubelets' certificates are self-signed, and skips the node the collector runs on, since a Fargate pod cannot reach the kubelet of its own node:
 
 ```yaml
 apiVersion: v1alpha1
@@ -299,7 +296,7 @@ spec:
                     rule: type == "k8s.node" && labels["eks.amazonaws.com/compute-type"] == "fargate" && name != "${env:K8S_NODE_NAME}"
 ```
 
-Every node is scraped except the one hosting the collector, so the collector's own pod has no pod or container metrics. The `KUBECONFIG` env and the `kubeconfig.yaml` key stay in the pour and go unused.
+Every node is scraped except the one hosting the collector, so the collector's own pod has no pod or container metrics.
 
 Covering the collector's own node needs a second collector on another node that scrapes only that one node. A Fargate node is replaced whenever its pod is rescheduled, so the second collector has to be re-pointed each time the first one moves. Foundry does not provide this. Without it, what is lost is the collector's own resource usage, nothing of your applications.
 

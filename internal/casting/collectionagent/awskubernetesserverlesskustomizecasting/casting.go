@@ -46,7 +46,6 @@ func (c *awsKubernetesServerlessKustomizeCasting) Forge(ctx context.Context, con
 			deploymentClusterrolebindingTemplate,
 			deploymentServiceTemplate,
 			deploymentTemplate,
-			deploymentKubeconfigTemplate,
 		)
 	default:
 		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported collector kind %q", config.Spec.Collector.Kind)

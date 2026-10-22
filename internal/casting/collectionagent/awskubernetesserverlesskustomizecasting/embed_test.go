@@ -105,7 +105,7 @@ func TestForge(t *testing.T) {
 			dir := filepath.Join("collectionagent", filepath.Dir(test.kind.ConfigKey()))
 
 			var expectedPaths []string
-			for _, file := range []string{"kustomization.yaml", "namespace.yaml", "serviceaccount.yaml", "clusterrole.yaml", "clusterrolebinding.yaml", "service.yaml", "workload.yaml", "kubeconfig.yaml"} {
+			for _, file := range []string{"kustomization.yaml", "namespace.yaml", "serviceaccount.yaml", "clusterrole.yaml", "clusterrolebinding.yaml", "service.yaml", "workload.yaml"} {
 				expectedPaths = append(expectedPaths, filepath.Join(dir, file))
 			}
 
@@ -143,8 +143,8 @@ func TestForgeCollectorController(t *testing.T) {
 	}
 }
 
-// The kubeletstats scrapes authenticate through the API-server proxy with the
-// kubeconfig the ConfigMap carries beside the collector config.
+// The kubeletstats scrapes reach the API-server proxy through the in-cluster
+// config, so the ConfigMap carries the collector config alone.
 func TestSurface(t *testing.T) {
 	for _, test := range []struct {
 		name              string
@@ -156,8 +156,8 @@ func TestSurface(t *testing.T) {
 		expectedStrategy  string
 		expectedResources []string
 	}{
-		{name: "Kustomization_Valid", template: kustomizationTemplate, pass: true, expectedFiles: []string{"deployment.yaml", "kubeconfig.yaml"}},
-		{name: "Workload_Valid", template: deploymentTemplate, pass: true, expectedEnv: map[string]string{"KUBECONFIG": "/conf/kubeconfig.yaml"}, expectedMountPath: "/conf", expectedStrategy: "Recreate"},
+		{name: "Kustomization_Valid", template: kustomizationTemplate, pass: true, expectedFiles: []string{"deployment.yaml"}},
+		{name: "Workload_Valid", template: deploymentTemplate, pass: true, expectedMountPath: "/conf", expectedStrategy: "Recreate"},
 		{name: "Clusterrole_Valid", template: deploymentClusterroleTemplate, pass: true, expectedResources: []string{"nodes/stats", "nodes/proxy", "persistentvolumeclaims", "persistentvolumes"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -180,7 +180,7 @@ func TestSurface(t *testing.T) {
 				files = append(files, generator.Files...)
 			}
 
-			assert.Subset(t, files, test.expectedFiles)
+			assert.Equal(t, test.expectedFiles, files)
 
 			var resources []string
 			for _, rule := range rendered.Rules {
@@ -194,7 +194,7 @@ func TestSurface(t *testing.T) {
 			mountPath := ""
 			for _, container := range rendered.Spec.Template.Spec.Containers {
 				for _, entry := range container.Env {
-					if _, ok := test.expectedEnv[entry.Name]; ok {
+					if entry.Value != "" {
 						env[entry.Name] = entry.Value
 					}
 				}
