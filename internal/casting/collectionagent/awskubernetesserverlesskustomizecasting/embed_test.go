@@ -39,6 +39,10 @@ type manifest struct {
 						Name      string `json:"name"`
 						MountPath string `json:"mountPath"`
 					} `json:"volumeMounts"`
+					Resources struct {
+						Requests map[string]string `json:"requests"`
+						Limits   map[string]string `json:"limits"`
+					} `json:"resources"`
 				} `json:"containers"`
 				Volumes []struct {
 					Name      string `json:"name"`
@@ -155,9 +159,10 @@ func TestSurface(t *testing.T) {
 		expectedMountPath string
 		expectedStrategy  string
 		expectedResources []string
+		expectedSize      map[string]string
 	}{
 		{name: "Kustomization_Valid", template: kustomizationTemplate, pass: true, expectedFiles: []string{"deployment.yaml"}},
-		{name: "Workload_Valid", template: deploymentTemplate, pass: true, expectedMountPath: "/conf", expectedStrategy: "Recreate"},
+		{name: "Workload_Valid", template: deploymentTemplate, pass: true, expectedMountPath: "/conf", expectedStrategy: "Recreate", expectedSize: map[string]string{"cpu": "250m", "memory": "512Mi"}},
 		{name: "Clusterrole_Valid", template: deploymentClusterroleTemplate, pass: true, expectedResources: []string{"nodes/stats", "nodes/proxy", "persistentvolumeclaims", "persistentvolumes"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -193,6 +198,9 @@ func TestSurface(t *testing.T) {
 			env := map[string]string{}
 			mountPath := ""
 			for _, container := range rendered.Spec.Template.Spec.Containers {
+				assert.Equal(t, test.expectedSize, container.Resources.Requests)
+				assert.Equal(t, test.expectedSize, container.Resources.Limits)
+
 				for _, entry := range container.Env {
 					if entry.Value != "" {
 						env[entry.Name] = entry.Value
@@ -321,6 +329,8 @@ func TestMoldedConfig(t *testing.T) {
 				"receivers.receiver_creator.receivers.kubeletstats.config.endpoint":                 "`name`",
 				"receivers.receiver_creator.receivers.kubeletstats.config.node":                     "`name`",
 				"receivers.receiver_creator.receivers.kubeletstats.config.k8s_api_config.auth_type": "serviceAccount",
+				"processors.memory_limiter.limit_percentage":                                        "80",
+				"processors.memory_limiter.spike_limit_percentage":                                  "20",
 			} {
 				actual, err := merged.GetBytes(path)
 				require.NoError(t, err, path)
@@ -332,6 +342,8 @@ func TestMoldedConfig(t *testing.T) {
 				"receivers.hostmetrics",
 				"receivers.filelog",
 				"receivers.kubeletstats",
+				"processors.memory_limiter.limit_mib",
+				"processors.memory_limiter.spike_limit_mib",
 			} {
 				_, err := merged.GetBytes(path)
 				assert.Error(t, err, path)

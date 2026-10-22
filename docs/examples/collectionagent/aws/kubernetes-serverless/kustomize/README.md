@@ -31,6 +31,42 @@ It cannot collect:
 
 The collector runs as one replica with the `Recreate` strategy: a rollout never runs an old and a new pod side by side, so no node is scraped twice.
 
+The collector requests 0.25 vCPU and 512 MiB with equal limits. Fargate adds 256 MB to the request and rounds up, so the pod lands in the 0.25 vCPU / 1 GB tier.
+
+This size covers a small cluster of a few dozen Fargate pods. For a larger cluster, raise it with a patch on the Deployment. The memory limiter is a percentage of the limit, so it follows:
+
+```yaml
+apiVersion: v1alpha1
+kind: CollectionAgent
+metadata:
+  name: signoz
+spec:
+  deployment:
+    platform: aws
+    mode: kubernetes-serverless
+    flavor: kustomize
+  collector:
+    kind: deployment
+    spec:
+      env:
+        SIGNOZ_INGESTION_ENDPOINT: http://<signoz-host>:4318
+        K8S_CLUSTER_NAME: <your-cluster>
+  patches:
+    - target: collectionagent/collector/deployment/workload.yaml
+      operations:
+        - op: replace
+          path: /spec/template/spec/containers/0/resources
+          value:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+```
+
+With this patch the pod lands in the 0.5 vCPU / 2 GB tier.
+
 ## Prerequisites
 
 - [foundryctl](../../../../../getting-started.md)

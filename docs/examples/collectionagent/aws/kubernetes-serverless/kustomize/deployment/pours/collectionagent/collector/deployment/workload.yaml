@@ -90,9 +90,12 @@ spec:
           successThreshold: 1
           timeoutSeconds: 5
         resources:
+          limits:
+            cpu: 250m
+            memory: 512Mi
           requests:
-            cpu: 100m
-            memory: 100Mi
+            cpu: 250m
+            memory: 512Mi
         volumeMounts:
         - mountPath: /conf
           name: config

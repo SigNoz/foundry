@@ -121,6 +121,13 @@ processors:
             name: k8s.pod.uid
       - sources:
           - from: connection
+  # null drops the base's fixed MiB pair, which takes precedence over the percentages.
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: null
+    spike_limit_mib: null
+    limit_percentage: 80
+    spike_limit_percentage: 20
   resource/identity:
     # A Fargate pod cannot reach IMDS, so the platform is stated; insert lets a user value win.
     attributes:
