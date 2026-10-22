@@ -17,7 +17,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type resources struct {
+	Requests map[string]string `json:"requests"`
+	Limits   map[string]string `json:"limits"`
+}
+
 type manifest struct {
+	Resources          []string `json:"resources"`
 	ConfigMapGenerator []struct {
 		Files []string `json:"files"`
 	} `json:"configMapGenerator"`
@@ -25,10 +31,15 @@ type manifest struct {
 		Resources []string `json:"resources"`
 	} `json:"rules"`
 	Spec struct {
+		Mode     string `json:"mode"`
 		Strategy struct {
 			Type string `json:"type"`
 		} `json:"strategy"`
-		Template struct {
+		DeploymentUpdateStrategy struct {
+			Type string `json:"type"`
+		} `json:"deploymentUpdateStrategy"`
+		Resources resources `json:"resources"`
+		Template  struct {
 			Spec struct {
 				Containers []struct {
 					Env []struct {
@@ -39,10 +50,7 @@ type manifest struct {
 						Name      string `json:"name"`
 						MountPath string `json:"mountPath"`
 					} `json:"volumeMounts"`
-					Resources struct {
-						Requests map[string]string `json:"requests"`
-						Limits   map[string]string `json:"limits"`
-					} `json:"resources"`
+					Resources resources `json:"resources"`
 				} `json:"containers"`
 				Volumes []struct {
 					Name      string `json:"name"`
@@ -64,29 +72,51 @@ func castingWithKind(t *testing.T, kind collectionagent.CollectorKind) collectio
 	return config
 }
 
-// Fargate schedules no DaemonSet, and one collector scrapes every node.
+// Fargate schedules no DaemonSet, and one collector scrapes every node. Under
+// the operator the config is inline in the OpenTelemetryCollector resource, so
+// no config file pours beside it.
 func TestForge(t *testing.T) {
+	deployment := []string{"kustomization.yaml", "namespace.yaml", "serviceaccount.yaml", "clusterrole.yaml", "clusterrolebinding.yaml", "service.yaml", "workload.yaml", "deployment.yaml"}
+	deploymentOperator := []string{"kustomization.yaml", "namespace.yaml", "serviceaccount.yaml", "clusterrole.yaml", "clusterrolebinding.yaml", "opentelemetrycollector.yaml"}
+
 	for _, test := range []struct {
 		name              string
 		kind              collectionagent.CollectorKind
+		controller        string
 		replicas          *int
 		pass              bool
 		expectedErrorType int
+		expectedFiles     []string
 	}{
-		{"Deployment_Valid", collectionagent.CollectorKindDeployment, nil, true, 0},
-		{"Agent_Invalid", collectionagent.CollectorKindAgent, nil, false, foundryerrors.TypeUnsupported.ExitCode()},
-		{"Sidecar_Invalid", collectionagent.CollectorKindSidecar, nil, false, foundryerrors.TypeUnsupported.ExitCode()},
-		{"Replicas_Invalid", collectionagent.CollectorKindDeployment, domain.NewIntPtr(2), false, foundryerrors.TypeUnsupported.ExitCode()},
+		{"Deployment_Valid", collectionagent.CollectorKindDeployment, "", nil, true, 0, deployment},
+		{"DeploymentOperator_Valid", collectionagent.CollectorKindDeployment, collectionagent.CollectorControllerOpenTelemetryOperator, nil, true, 0, deploymentOperator},
+		{"Agent_Invalid", collectionagent.CollectorKindAgent, "", nil, false, foundryerrors.TypeUnsupported.ExitCode(), nil},
+		{"Sidecar_Invalid", collectionagent.CollectorKindSidecar, "", nil, false, foundryerrors.TypeUnsupported.ExitCode(), nil},
+		{"Replicas_Invalid", collectionagent.CollectorKindDeployment, "", domain.NewIntPtr(2), false, foundryerrors.TypeUnsupported.ExitCode(), nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+
 			config := castingWithKind(t, test.kind)
 			config.Spec.Collector.Spec.Cluster.Replicas = test.replicas
 
+			if test.controller != "" {
+				config.Metadata.Annotations = map[string]string{collectionagent.KubernetesCollectorController.Key: test.controller}
+			}
+
 			p := pourer.New("collectionagent")
 
-			err := newAwsKubernetesServerlessKustomizeMoldingEnricher().EnrichStatus(context.Background(), v1alpha1.MoldingKindCollector, &config)
+			err := newAwsKubernetesServerlessKustomizeMoldingEnricher().EnrichStatus(ctx, v1alpha1.MoldingKindCollector, &config)
 			if err == nil {
-				err = New(slog.New(slog.DiscardHandler)).Forge(context.Background(), config, p)
+				err = collectormolding.New(slog.New(slog.DiscardHandler)).MoldV1Alpha1(ctx, &config)
+			}
+
+			if err == nil {
+				err = config.MergeStatusIntoSpec()
+			}
+
+			if err == nil {
+				err = New(slog.New(slog.DiscardHandler)).Forge(ctx, config, p)
 			}
 
 			if !test.pass {
@@ -109,7 +139,7 @@ func TestForge(t *testing.T) {
 			dir := filepath.Join("collectionagent", filepath.Dir(test.kind.ConfigKey()))
 
 			var expectedPaths []string
-			for _, file := range []string{"kustomization.yaml", "namespace.yaml", "serviceaccount.yaml", "clusterrole.yaml", "clusterrolebinding.yaml", "service.yaml", "workload.yaml"} {
+			for _, file := range test.expectedFiles {
 				expectedPaths = append(expectedPaths, filepath.Join(dir, file))
 			}
 
@@ -127,7 +157,8 @@ func TestForgeCollectorController(t *testing.T) {
 	}{
 		{"Unstated_Valid", nil, true, 0},
 		{"DefaultStated_Valid", map[string]string{collectionagent.KubernetesCollectorController.Key: collectionagent.CollectorControllerDefault}, true, 0},
-		{"OpenTelemetryOperator_Invalid", map[string]string{collectionagent.KubernetesCollectorController.Key: collectionagent.CollectorControllerOpenTelemetryOperator}, false, foundryerrors.TypeUnsupported.ExitCode()},
+		{"OpenTelemetryOperator_Valid", map[string]string{collectionagent.KubernetesCollectorController.Key: collectionagent.CollectorControllerOpenTelemetryOperator}, true, 0},
+		{"Unknown_Invalid", map[string]string{collectionagent.KubernetesCollectorController.Key: "argo"}, false, foundryerrors.TypeInvalidInput.ExitCode()},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			config := castingWithKind(t, collectionagent.CollectorKindDeployment)
@@ -150,23 +181,38 @@ func TestForgeCollectorController(t *testing.T) {
 // The kubeletstats scrapes reach the API-server proxy through the in-cluster
 // config, so the ConfigMap carries the collector config alone.
 func TestSurface(t *testing.T) {
+	operator := collectionagent.CollectorControllerOpenTelemetryOperator
+	deploymentSize := map[string]string{"cpu": "250m", "memory": "512Mi"}
+
 	for _, test := range []struct {
-		name              string
-		template          *domain.Template
-		pass              bool
-		expectedFiles     []string
-		expectedEnv       map[string]string
-		expectedMountPath string
-		expectedStrategy  string
-		expectedResources []string
-		expectedSize      map[string]string
+		name                   string
+		controller             string
+		template               *domain.Template
+		pass                   bool
+		expectedManifests      []string
+		expectedFiles          []string
+		expectedEnv            map[string]string
+		expectedMountPath      string
+		expectedStrategy       string
+		expectedUpdateStrategy string
+		expectedMode           string
+		expectedResources      []string
+		expectedSize           map[string]string
 	}{
-		{name: "Kustomization_Valid", template: kustomizationTemplate, pass: true, expectedFiles: []string{"deployment.yaml"}},
-		{name: "Workload_Valid", template: deploymentTemplate, pass: true, expectedMountPath: "/conf", expectedStrategy: "Recreate", expectedSize: map[string]string{"cpu": "250m", "memory": "512Mi"}},
+		{name: "Kustomization_Valid", template: kustomizationTemplate, pass: true, expectedManifests: []string{"namespace.yaml", "serviceaccount.yaml", "clusterrole.yaml", "clusterrolebinding.yaml", "service.yaml", "workload.yaml"}, expectedFiles: []string{"deployment.yaml"}},
+		{name: "KustomizationOperator_Valid", controller: operator, template: kustomizationTemplate, pass: true, expectedManifests: []string{"namespace.yaml", "serviceaccount.yaml", "clusterrole.yaml", "clusterrolebinding.yaml", "opentelemetrycollector.yaml"}},
+		{name: "Workload_Valid", template: deploymentTemplate, pass: true, expectedMountPath: "/conf", expectedStrategy: "Recreate", expectedSize: deploymentSize},
+		{name: "OpenTelemetryCollector_Valid", controller: operator, template: deploymentOpenTelemetryCollectorTemplate, pass: true, expectedUpdateStrategy: "Recreate", expectedMode: "deployment", expectedSize: deploymentSize},
 		{name: "Clusterrole_Valid", template: deploymentClusterroleTemplate, pass: true, expectedResources: []string{"nodes/stats", "nodes/proxy", "persistentvolumeclaims", "persistentvolumes"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			data := templateDataFor(castingWithKind(t, collectionagent.CollectorKindDeployment))
+			config := castingWithKind(t, collectionagent.CollectorKindDeployment)
+
+			if test.controller != "" {
+				config.Metadata.Annotations = map[string]string{collectionagent.KubernetesCollectorController.Key: test.controller}
+			}
+
+			data := templateDataFor(config)
 
 			material, err := test.template.Render(data, "out.yaml")
 			if !test.pass {
@@ -179,6 +225,8 @@ func TestSurface(t *testing.T) {
 
 			var rendered manifest
 			require.NoError(t, domain.UnmarshalYAML(material.FmtContents(), &rendered))
+
+			assert.Equal(t, test.expectedManifests, rendered.Resources)
 
 			var files []string
 			for _, generator := range rendered.ConfigMapGenerator {
@@ -194,6 +242,13 @@ func TestSurface(t *testing.T) {
 
 			assert.Subset(t, resources, test.expectedResources)
 			assert.Equal(t, test.expectedStrategy, rendered.Spec.Strategy.Type)
+			assert.Equal(t, test.expectedUpdateStrategy, rendered.Spec.DeploymentUpdateStrategy.Type)
+			assert.Equal(t, test.expectedMode, rendered.Spec.Mode)
+
+			if rendered.Spec.Mode != "" {
+				assert.Equal(t, test.expectedSize, rendered.Spec.Resources.Requests)
+				assert.Equal(t, test.expectedSize, rendered.Spec.Resources.Limits)
+			}
 
 			env := map[string]string{}
 			mountPath := ""

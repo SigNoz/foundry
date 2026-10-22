@@ -19,4 +19,6 @@ var (
 	deploymentServiceTemplate            = domain.MustNewTemplateFromFS(templates, "templates/deployment/service.yaml.gotmpl", domain.FormatYAML)
 	deploymentTemplate                   = domain.MustNewTemplateFromFS(templates, "templates/deployment/workload.yaml.gotmpl", domain.FormatYAML)
 	deploymentYAMLTemplate               = domain.MustNewTemplateFromFS(templates, "templates/deployment/collector.yaml.gotmpl", domain.FormatYAML)
+
+	deploymentOpenTelemetryCollectorTemplate = domain.MustNewTemplateFromFS(templates, "templates/deployment/opentelemetrycollector.yaml.gotmpl", domain.FormatYAML)
 )
