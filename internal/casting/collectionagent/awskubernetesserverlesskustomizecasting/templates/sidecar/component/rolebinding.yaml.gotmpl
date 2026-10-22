@@ -1,0 +1,22 @@
+{{- $name := print $.Metadata.Name "-collector-sidecar" -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $.Metadata.Name }}
+    app.kubernetes.io/component: collector-sidecar
+    app.kubernetes.io/managed-by: kustomize
+    {{- range $key, $value := $.Labels }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}
+# The sidecar runs as whichever service account its pod has, so every one in the namespace is bound.
+subjects:
+  - kind: Group
+    apiGroup: rbac.authorization.k8s.io
+    name: system:serviceaccounts:$({{ $name }}-namespace)

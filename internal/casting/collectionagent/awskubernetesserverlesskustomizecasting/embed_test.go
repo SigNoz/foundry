@@ -1,6 +1,7 @@
 package awskubernetesserverlesskustomizecasting
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"log/slog"
@@ -22,14 +23,63 @@ type resources struct {
 	Limits   map[string]string `json:"limits"`
 }
 
+type container struct {
+	Name          string `json:"name"`
+	RestartPolicy string `json:"restartPolicy"`
+	Env           []struct {
+		Name  string `json:"name"`
+		Value string `json:"value"`
+	} `json:"env"`
+	VolumeMounts []struct {
+		Name      string `json:"name"`
+		MountPath string `json:"mountPath"`
+	} `json:"volumeMounts"`
+	Resources resources `json:"resources"`
+}
+
+type podTemplate struct {
+	Metadata struct {
+		Annotations map[string]string `json:"annotations"`
+	} `json:"metadata"`
+	Spec struct {
+		Containers     []container `json:"containers"`
+		InitContainers []container `json:"initContainers"`
+		Volumes        []struct {
+			Name      string `json:"name"`
+			ConfigMap *struct {
+				Name string `json:"name"`
+			} `json:"configMap"`
+		} `json:"volumes"`
+	} `json:"spec"`
+}
+
 type manifest struct {
+	Kind               string   `json:"kind"`
 	Resources          []string `json:"resources"`
 	ConfigMapGenerator []struct {
 		Files []string `json:"files"`
 	} `json:"configMapGenerator"`
+	Configurations []string `json:"configurations"`
+	Vars           []struct {
+		Name     string `json:"name"`
+		Fieldref struct {
+			FieldPath string `json:"fieldPath"`
+		} `json:"fieldref"`
+	} `json:"vars"`
+	Patches []struct {
+		Path   string `json:"path"`
+		Target struct {
+			Kind          string `json:"kind"`
+			LabelSelector string `json:"labelSelector"`
+		} `json:"target"`
+	} `json:"patches"`
 	Rules []struct {
 		Resources []string `json:"resources"`
 	} `json:"rules"`
+	Subjects []struct {
+		Kind string `json:"kind"`
+		Name string `json:"name"`
+	} `json:"subjects"`
 	Spec struct {
 		Mode     string `json:"mode"`
 		Strategy struct {
@@ -38,28 +88,13 @@ type manifest struct {
 		DeploymentUpdateStrategy struct {
 			Type string `json:"type"`
 		} `json:"deploymentUpdateStrategy"`
-		Resources resources `json:"resources"`
-		Template  struct {
+		Resources   resources   `json:"resources"`
+		Template    podTemplate `json:"template"`
+		JobTemplate struct {
 			Spec struct {
-				Containers []struct {
-					Env []struct {
-						Name  string `json:"name"`
-						Value string `json:"value"`
-					} `json:"env"`
-					VolumeMounts []struct {
-						Name      string `json:"name"`
-						MountPath string `json:"mountPath"`
-					} `json:"volumeMounts"`
-					Resources resources `json:"resources"`
-				} `json:"containers"`
-				Volumes []struct {
-					Name      string `json:"name"`
-					ConfigMap *struct {
-						Name string `json:"name"`
-					} `json:"configMap"`
-				} `json:"volumes"`
+				Template podTemplate `json:"template"`
 			} `json:"spec"`
-		} `json:"template"`
+		} `json:"jobTemplate"`
 	} `json:"spec"`
 }
 
@@ -74,10 +109,12 @@ func castingWithKind(t *testing.T, kind collectionagent.CollectorKind) collectio
 
 // Fargate schedules no DaemonSet, and one collector scrapes every node. Under
 // the operator the config is inline in the OpenTelemetryCollector resource, so
-// no config file pours beside it.
+// no config file pours beside it, and the sidecar's component moves aside.
 func TestForge(t *testing.T) {
 	deployment := []string{"kustomization.yaml", "namespace.yaml", "serviceaccount.yaml", "clusterrole.yaml", "clusterrolebinding.yaml", "service.yaml", "workload.yaml", "deployment.yaml"}
 	deploymentOperator := []string{"kustomization.yaml", "namespace.yaml", "serviceaccount.yaml", "clusterrole.yaml", "clusterrolebinding.yaml", "opentelemetrycollector.yaml"}
+	sidecar := []string{"kustomization.yaml", "kustomizeconfig.yaml", "role.yaml", "rolebinding.yaml", "patch-template.yaml", "patch-cronjob.yaml", "sidecar.yaml"}
+	sidecarOperator := []string{"kustomization.yaml", "namespace.yaml", "opentelemetrycollector.yaml", "component/kustomization.yaml", "component/kustomizeconfig.yaml", "component/role.yaml", "component/rolebinding.yaml", "component/patch-template.yaml", "component/patch-cronjob.yaml"}
 
 	for _, test := range []struct {
 		name              string
@@ -93,8 +130,10 @@ func TestForge(t *testing.T) {
 		{"Deployment_Valid", collectionagent.CollectorKindDeployment, "", nil, false, true, 0, "", deployment},
 		{"DeploymentOperator_Valid", collectionagent.CollectorKindDeployment, collectionagent.CollectorControllerOpenTelemetryOperator, nil, false, true, 0, "", deploymentOperator},
 		{"Agent_Invalid", collectionagent.CollectorKindAgent, "", nil, false, false, foundryerrors.TypeUnsupported.ExitCode(), `unsupported collector kind "agent"`, nil},
-		{"Sidecar_Invalid", collectionagent.CollectorKindSidecar, "", nil, false, false, foundryerrors.TypeUnsupported.ExitCode(), `unsupported collector kind "sidecar"`, nil},
+		{"SidecarDefault_Valid", collectionagent.CollectorKindSidecar, "", nil, false, true, 0, "", sidecar},
+		{"SidecarOperator_Valid", collectionagent.CollectorKindSidecar, collectionagent.CollectorControllerOpenTelemetryOperator, nil, false, true, 0, "", sidecarOperator},
 		{"Replicas_Invalid", collectionagent.CollectorKindDeployment, "", domain.NewIntPtr(2), false, false, foundryerrors.TypeUnsupported.ExitCode(), "spec.collector.spec.cluster.replicas is 2, one collector scrapes every node", nil},
+		{"SidecarReplicas_Invalid", collectionagent.CollectorKindSidecar, "", domain.NewIntPtr(2), false, false, foundryerrors.TypeUnsupported.ExitCode(), "spec.collector.spec.cluster.replicas is 2, a sidecar runs once in every pod it joins", nil},
 		{"Disabled_Invalid", collectionagent.CollectorKindDeployment, "", nil, true, false, foundryerrors.TypeUnsupported.ExitCode(), "spec.collector.spec.enabled is false, the CollectionAgent kind requires an enabled collector", nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -184,18 +223,31 @@ func TestForgeCollectorController(t *testing.T) {
 }
 
 // The kubeletstats scrapes reach the API-server proxy through the in-cluster
-// config, so the ConfigMap carries the collector config alone.
+// config, so the ConfigMap carries the collector config alone. The sidecar's
+// patches select labelled workloads only.
 func TestSurface(t *testing.T) {
+	deployment := collectionagent.CollectorKindDeployment
+	sidecar := collectionagent.CollectorKindSidecar
 	operator := collectionagent.CollectorControllerOpenTelemetryOperator
 	deploymentSize := map[string]string{"cpu": "250m", "memory": "512Mi"}
+	sidecarSize := map[string]string{"cpu": "200m", "memory": "256Mi"}
+	sidecarVars := map[string]string{"signoz-collector-sidecar-namespace": "metadata.namespace"}
+	sidecarPatches := map[string]string{"patch-template.yaml": "(Deployment|StatefulSet|Job|DaemonSet|ReplicaSet)", "patch-cronjob.yaml": "CronJob"}
+	sidecarContainers := map[string]string{"signoz-collector-sidecar": "Always"}
 
 	for _, test := range []struct {
 		name                   string
+		kind                   collectionagent.CollectorKind
 		controller             string
 		template               *domain.Template
 		pass                   bool
+		expectedKind           string
 		expectedManifests      []string
 		expectedFiles          []string
+		expectedConfigurations []string
+		expectedVars           map[string]string
+		expectedPatches        map[string]string
+		expectedSubjects       []string
 		expectedEnv            map[string]string
 		expectedMountPath      string
 		expectedStrategy       string
@@ -203,15 +255,26 @@ func TestSurface(t *testing.T) {
 		expectedMode           string
 		expectedResources      []string
 		expectedSize           map[string]string
+		expectedInitContainers map[string]string
+		expectedPodAnnotations map[string]string
 	}{
-		{name: "Kustomization_Valid", template: kustomizationTemplate, pass: true, expectedManifests: []string{"namespace.yaml", "serviceaccount.yaml", "clusterrole.yaml", "clusterrolebinding.yaml", "service.yaml", "workload.yaml"}, expectedFiles: []string{"deployment.yaml"}},
-		{name: "KustomizationOperator_Valid", controller: operator, template: kustomizationTemplate, pass: true, expectedManifests: []string{"namespace.yaml", "serviceaccount.yaml", "clusterrole.yaml", "clusterrolebinding.yaml", "opentelemetrycollector.yaml"}},
-		{name: "Workload_Valid", template: deploymentTemplate, pass: true, expectedMountPath: "/conf", expectedStrategy: "Recreate", expectedSize: deploymentSize},
-		{name: "OpenTelemetryCollector_Valid", controller: operator, template: deploymentOpenTelemetryCollectorTemplate, pass: true, expectedUpdateStrategy: "Recreate", expectedMode: "deployment", expectedSize: deploymentSize},
-		{name: "Clusterrole_Valid", template: deploymentClusterroleTemplate, pass: true, expectedResources: []string{"nodes/stats", "nodes/proxy", "persistentvolumeclaims", "persistentvolumes"}},
+		{name: "Kustomization_Valid", kind: deployment, template: kustomizationTemplate, pass: true, expectedKind: "Kustomization", expectedManifests: []string{"namespace.yaml", "serviceaccount.yaml", "clusterrole.yaml", "clusterrolebinding.yaml", "service.yaml", "workload.yaml"}, expectedFiles: []string{"deployment.yaml"}},
+		{name: "KustomizationOperator_Valid", kind: deployment, controller: operator, template: kustomizationTemplate, pass: true, expectedKind: "Kustomization", expectedManifests: []string{"namespace.yaml", "serviceaccount.yaml", "clusterrole.yaml", "clusterrolebinding.yaml", "opentelemetrycollector.yaml"}},
+		{name: "Workload_Valid", kind: deployment, template: deploymentTemplate, pass: true, expectedKind: "Deployment", expectedMountPath: "/conf", expectedStrategy: "Recreate", expectedSize: deploymentSize},
+		{name: "OpenTelemetryCollector_Valid", kind: deployment, controller: operator, template: deploymentOpenTelemetryCollectorTemplate, pass: true, expectedKind: "OpenTelemetryCollector", expectedUpdateStrategy: "Recreate", expectedMode: "deployment", expectedSize: deploymentSize},
+		{name: "Clusterrole_Valid", kind: deployment, template: deploymentClusterroleTemplate, pass: true, expectedKind: "ClusterRole", expectedResources: []string{"nodes/stats", "nodes/proxy", "persistentvolumeclaims", "persistentvolumes"}},
+		{name: "Component_Valid", kind: sidecar, template: sidecarComponentTemplate, pass: true, expectedKind: "Component", expectedManifests: []string{"role.yaml", "rolebinding.yaml"}, expectedFiles: []string{"sidecar.yaml"}, expectedConfigurations: []string{"kustomizeconfig.yaml"}, expectedVars: sidecarVars, expectedPatches: sidecarPatches},
+		{name: "ComponentOperator_Valid", kind: sidecar, controller: operator, template: sidecarComponentTemplate, pass: true, expectedKind: "Component", expectedManifests: []string{"role.yaml", "rolebinding.yaml"}, expectedConfigurations: []string{"kustomizeconfig.yaml"}, expectedVars: sidecarVars, expectedPatches: sidecarPatches},
+		{name: "SidecarKustomizationOperator_Valid", kind: sidecar, controller: operator, template: sidecarKustomizationTemplate, pass: true, expectedKind: "Kustomization", expectedManifests: []string{"namespace.yaml", "opentelemetrycollector.yaml"}},
+		{name: "Role_Valid", kind: sidecar, template: sidecarRoleTemplate, pass: true, expectedKind: "Role", expectedResources: []string{"pods", "replicasets", "jobs", "cronjobs"}},
+		{name: "Rolebinding_Valid", kind: sidecar, template: sidecarRolebindingTemplate, pass: true, expectedKind: "RoleBinding", expectedSubjects: []string{"Group/system:serviceaccounts:$(signoz-collector-sidecar-namespace)"}},
+		{name: "PatchTemplate_Valid", kind: sidecar, template: sidecarPatchTemplateTemplate, pass: true, expectedKind: "Deployment", expectedMountPath: "/conf", expectedSize: sidecarSize, expectedInitContainers: sidecarContainers},
+		{name: "PatchCronjob_Valid", kind: sidecar, template: sidecarPatchCronjobTemplate, pass: true, expectedKind: "CronJob", expectedMountPath: "/conf", expectedSize: sidecarSize, expectedInitContainers: sidecarContainers},
+		{name: "PatchTemplateOperator_Valid", kind: sidecar, controller: operator, template: sidecarPatchTemplateTemplate, pass: true, expectedKind: "Deployment", expectedPodAnnotations: map[string]string{"sidecar.opentelemetry.io/inject": "signoz/signoz-collector-sidecar"}},
+		{name: "SidecarOpenTelemetryCollector_Valid", kind: sidecar, controller: operator, template: sidecarOpenTelemetryCollectorTemplate, pass: true, expectedKind: "OpenTelemetryCollector", expectedMode: "sidecar", expectedSize: sidecarSize},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			config := castingWithKind(t, collectionagent.CollectorKindDeployment)
+			config := castingWithKind(t, test.kind)
 
 			if test.controller != "" {
 				config.Metadata.Annotations = map[string]string{collectionagent.KubernetesCollectorController.Key: test.controller}
@@ -219,7 +282,10 @@ func TestSurface(t *testing.T) {
 
 			data := templateDataFor(config)
 
-			material, err := test.template.Render(data, "out.yaml")
+			body := bytes.NewBuffer(nil)
+			require.NoError(t, sidecarPodtemplateTemplate.Execute(body, data))
+
+			material, err := test.template.Render(componentData{templateData: data, PodTemplate: body.String()}, "out.yaml")
 			if !test.pass {
 				require.Error(t, err)
 
@@ -231,7 +297,9 @@ func TestSurface(t *testing.T) {
 			var rendered manifest
 			require.NoError(t, domain.UnmarshalYAML(material.FmtContents(), &rendered))
 
+			assert.Equal(t, test.expectedKind, rendered.Kind)
 			assert.Equal(t, test.expectedManifests, rendered.Resources)
+			assert.Equal(t, test.expectedConfigurations, rendered.Configurations)
 
 			var files []string
 			for _, generator := range rendered.ConfigMapGenerator {
@@ -239,6 +307,35 @@ func TestSurface(t *testing.T) {
 			}
 
 			assert.Equal(t, test.expectedFiles, files)
+
+			vars := map[string]string{}
+			for _, entry := range rendered.Vars {
+				vars[entry.Name] = entry.Fieldref.FieldPath
+			}
+
+			assert.Equal(t, len(test.expectedVars), len(vars))
+			for name, fieldPath := range test.expectedVars {
+				assert.Equal(t, fieldPath, vars[name], name)
+			}
+
+			patches := map[string]string{}
+			for _, patch := range rendered.Patches {
+				assert.Equal(t, "foundry.signoz.io/kubernetes-collector-sidecar=enabled", patch.Target.LabelSelector, patch.Path)
+
+				patches[patch.Path] = patch.Target.Kind
+			}
+
+			assert.Equal(t, len(test.expectedPatches), len(patches))
+			for path, kind := range test.expectedPatches {
+				assert.Equal(t, kind, patches[path], path)
+			}
+
+			var subjects []string
+			for _, subject := range rendered.Subjects {
+				subjects = append(subjects, subject.Kind+"/"+subject.Name)
+			}
+
+			assert.Equal(t, test.expectedSubjects, subjects)
 
 			var resources []string
 			for _, rule := range rendered.Rules {
@@ -255,9 +352,26 @@ func TestSurface(t *testing.T) {
 				assert.Equal(t, test.expectedSize, rendered.Spec.Resources.Limits)
 			}
 
+			pod := rendered.Spec.Template
+			if rendered.Kind == "CronJob" {
+				pod = rendered.Spec.JobTemplate.Spec.Template
+			}
+
+			assert.Equal(t, test.expectedPodAnnotations, pod.Metadata.Annotations)
+
+			initContainers := map[string]string{}
+			for _, sidecar := range pod.Spec.InitContainers {
+				initContainers[sidecar.Name] = sidecar.RestartPolicy
+			}
+
+			assert.Equal(t, len(test.expectedInitContainers), len(initContainers))
+			for name, restartPolicy := range test.expectedInitContainers {
+				assert.Equal(t, restartPolicy, initContainers[name], name)
+			}
+
 			env := map[string]string{}
 			mountPath := ""
-			for _, container := range rendered.Spec.Template.Spec.Containers {
+			for _, container := range append(pod.Spec.Containers, pod.Spec.InitContainers...) {
 				assert.Equal(t, test.expectedSize, container.Resources.Requests)
 				assert.Equal(t, test.expectedSize, container.Resources.Limits)
 
@@ -267,7 +381,7 @@ func TestSurface(t *testing.T) {
 					}
 				}
 
-				for _, volume := range rendered.Spec.Template.Spec.Volumes {
+				for _, volume := range pod.Spec.Volumes {
 					if volume.ConfigMap == nil {
 						continue
 					}
@@ -292,33 +406,106 @@ func TestSurface(t *testing.T) {
 
 // What EKS Fargate adds rides in the enricher and has to survive the molding's merge.
 func TestMoldedConfig(t *testing.T) {
+	cluster := map[string]string{"K8S_CLUSTER_NAME": "production", "SIGNOZ_INGESTION_ENDPOINT": "http://signoz:4318"}
+
+	deploymentContains := map[string]string{
+		"service.extensions":                  "k8s_observer",
+		"service.pipelines.metrics.receivers": "receiver_creator",
+	}
+	deploymentValues := map[string]string{
+		"extensions.k8s_observer.observe_nodes":                                             "true",
+		"extensions.k8s_observer.observe_pods":                                              "false",
+		"receivers.receiver_creator.receivers.kubeletstats.rule":                            `type == "k8s.node" && labels["eks.amazonaws.com/compute-type"] == "fargate"`,
+		"receivers.receiver_creator.receivers.kubeletstats.config.auth_type":                "kubeConfig",
+		"receivers.receiver_creator.receivers.kubeletstats.config.endpoint":                 "`name`",
+		"receivers.receiver_creator.receivers.kubeletstats.config.node":                     "`name`",
+		"receivers.receiver_creator.receivers.kubeletstats.config.k8s_api_config.auth_type": "serviceAccount",
+		"processors.memory_limiter.limit_percentage":                                        "80",
+		"processors.memory_limiter.spike_limit_percentage":                                  "20",
+	}
+	deploymentAbsent := []string{
+		"receivers.receiver_creator.receivers.kubeletstats.config.insecure_skip_verify",
+		"receivers.hostmetrics",
+		"receivers.filelog",
+		"receivers.kubeletstats",
+		"processors.memory_limiter.limit_mib",
+		"processors.memory_limiter.spike_limit_mib",
+	}
+
+	// The sidecar's pod is the only source, so it is filtered to and associated by its own UID.
+	sidecarValues := map[string]string{
+		"processors.k8sattributes.filter.namespace":                 "${env:K8S_NAMESPACE}",
+		"processors.k8sattributes.filter.node_from_env_var":         "K8S_NODE_NAME",
+		"processors.k8sattributes.pod_association.#":                "1",
+		"processors.k8sattributes.pod_association.0.sources.#":      "1",
+		"processors.k8sattributes.pod_association.0.sources.0.from": "resource_attribute",
+		"processors.k8sattributes.pod_association.0.sources.0.name": "k8s.pod.uid",
+	}
+	sidecarAbsent := []string{
+		"receivers.kubeletstats",
+		"receivers.k8s_cluster",
+		"receivers.k8s_events",
+		"receivers.receiver_creator",
+		"extensions.k8s_observer",
+		`processors.k8sattributes.extract.metadata.#(=="k8s.node.uid")`,
+	}
+
 	for _, test := range []struct {
 		name               string
+		kind               collectionagent.CollectorKind
 		env                map[string]string
 		pass               bool
 		expectedAttributes map[string]string
+		expectedContains   map[string]string
+		expectedValues     map[string]string
+		expectedAbsent     []string
 	}{
 		{
 			name: "ClusterName_Valid",
-			env:  map[string]string{"K8S_CLUSTER_NAME": "production", "SIGNOZ_INGESTION_ENDPOINT": "http://signoz:4318"},
+			kind: collectionagent.CollectorKindDeployment,
+			env:  cluster,
 			pass: true,
 			expectedAttributes: map[string]string{
 				"cloud.provider":   "aws",
 				"cloud.platform":   "aws_eks",
 				"k8s.cluster.name": "${env:K8S_CLUSTER_NAME}",
 			},
+			expectedContains: deploymentContains,
+			expectedValues:   deploymentValues,
+			expectedAbsent:   deploymentAbsent,
 		},
 		{
 			name:               "NoClusterName_Valid",
+			kind:               collectionagent.CollectorKindDeployment,
 			env:                map[string]string{},
 			pass:               true,
 			expectedAttributes: map[string]string{"cloud.provider": "aws", "cloud.platform": "aws_eks"},
+			expectedContains:   deploymentContains,
+			expectedValues:     deploymentValues,
+			expectedAbsent:     deploymentAbsent,
+		},
+		{
+			name: "Sidecar_Valid",
+			kind: collectionagent.CollectorKindSidecar,
+			env:  cluster,
+			pass: true,
+			expectedAttributes: map[string]string{
+				"k8s.pod.name":       "${env:K8S_POD_NAME}",
+				"k8s.pod.uid":        "${env:K8S_POD_UID}",
+				"k8s.namespace.name": "${env:K8S_NAMESPACE}",
+				"k8s.node.name":      "${env:K8S_NODE_NAME}",
+				"cloud.provider":     "aws",
+				"cloud.platform":     "aws_eks",
+				"k8s.cluster.name":   "${env:K8S_CLUSTER_NAME}",
+			},
+			expectedValues: sidecarValues,
+			expectedAbsent: sidecarAbsent,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 
-			config := castingWithKind(t, collectionagent.CollectorKindDeployment)
+			config := castingWithKind(t, test.kind)
 			config.Spec.Collector.Spec.Env = test.env
 
 			err := newAwsKubernetesServerlessKustomizeMoldingEnricher().EnrichStatus(ctx, v1alpha1.MoldingKindCollector, &config)
@@ -338,10 +525,10 @@ func TestMoldedConfig(t *testing.T) {
 
 			require.NoError(t, err)
 
-			contents := config.Spec.Collector.Spec.Config.Data[collectionagent.CollectorKindDeployment.ConfigKey()]
+			contents := config.Spec.Collector.Spec.Config.Data[test.kind.ConfigKey()]
 			require.NotEmpty(t, contents)
 
-			merged := domain.MustNewYAMLMaterial([]byte(contents), "deployment.yaml")
+			merged := domain.MustNewYAMLMaterial([]byte(contents), filepath.Base(test.kind.ConfigKey()))
 
 			for _, pipeline := range []string{"traces", "metrics", "logs"} {
 				processors, err := merged.GetStringSlice("service.pipelines." + pipeline + ".processors")
@@ -372,39 +559,19 @@ func TestMoldedConfig(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, []string{"env"}, detectors)
 
-			for path, expected := range map[string]string{
-				"service.extensions":                  "k8s_observer",
-				"service.pipelines.metrics.receivers": "receiver_creator",
-			} {
+			for path, expected := range test.expectedContains {
 				actual, err := merged.GetStringSlice(path)
 				require.NoError(t, err)
 				assert.Contains(t, actual, expected, path)
 			}
 
-			for path, expected := range map[string]string{
-				"extensions.k8s_observer.observe_nodes":                                             "true",
-				"extensions.k8s_observer.observe_pods":                                              "false",
-				"receivers.receiver_creator.receivers.kubeletstats.rule":                            `type == "k8s.node" && labels["eks.amazonaws.com/compute-type"] == "fargate"`,
-				"receivers.receiver_creator.receivers.kubeletstats.config.auth_type":                "kubeConfig",
-				"receivers.receiver_creator.receivers.kubeletstats.config.endpoint":                 "`name`",
-				"receivers.receiver_creator.receivers.kubeletstats.config.node":                     "`name`",
-				"receivers.receiver_creator.receivers.kubeletstats.config.k8s_api_config.auth_type": "serviceAccount",
-				"processors.memory_limiter.limit_percentage":                                        "80",
-				"processors.memory_limiter.spike_limit_percentage":                                  "20",
-			} {
+			for path, expected := range test.expectedValues {
 				actual, err := merged.GetBytes(path)
 				require.NoError(t, err, path)
 				assert.Equal(t, expected, string(actual), path)
 			}
 
-			for _, path := range []string{
-				"receivers.receiver_creator.receivers.kubeletstats.config.insecure_skip_verify",
-				"receivers.hostmetrics",
-				"receivers.filelog",
-				"receivers.kubeletstats",
-				"processors.memory_limiter.limit_mib",
-				"processors.memory_limiter.spike_limit_mib",
-			} {
+			for _, path := range test.expectedAbsent {
 				_, err := merged.GetBytes(path)
 				assert.Error(t, err, path)
 			}

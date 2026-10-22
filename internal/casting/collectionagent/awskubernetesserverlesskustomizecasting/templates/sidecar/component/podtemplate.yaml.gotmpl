@@ -1,0 +1,85 @@
+{{- $name := print $.Metadata.Name "-collector-sidecar" -}}
+{{- if eq $.Controller "opentelemetry-operator" }}
+metadata:
+  annotations:
+    sidecar.opentelemetry.io/inject: {{ print $.Namespace "/" $name | quote }}
+{{- else }}
+spec:
+  initContainers:
+    # restartPolicy Always makes it a native sidecar, so a Job completes when its own containers do.
+    - name: {{ $name }}
+      image: {{ $.Spec.Collector.Spec.Image }}
+      restartPolicy: Always
+      args:
+        - "--config=/conf/sidecar.yaml"
+      env:
+        - name: K8S_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: K8S_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: K8S_HOST_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: K8S_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: K8S_POD_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: K8S_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        {{- range $key, $val := $.Spec.Collector.Spec.Env }}
+        - name: {{ $key }}
+          value: {{ $val | quote }}
+        {{- end }}
+      # Unnamed, since a port name must be unique across the application's pod.
+      ports:
+        - containerPort: 13133
+          protocol: TCP
+        - containerPort: 4317
+          protocol: TCP
+        - containerPort: 4318
+          protocol: TCP
+      livenessProbe:
+        httpGet:
+          path: /healthz
+          port: 13133
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        timeoutSeconds: 5
+        successThreshold: 1
+        failureThreshold: 6
+      readinessProbe:
+        httpGet:
+          path: /healthz
+          port: 13133
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        timeoutSeconds: 5
+        successThreshold: 1
+        failureThreshold: 6
+      # Fargate sizes the pod from the requests; equal limits keep the collector inside that size.
+      resources:
+        requests:
+          cpu: 200m
+          memory: 256Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
+      volumeMounts:
+        - name: {{ $name }}
+          mountPath: /conf
+  volumes:
+    - name: {{ $name }}
+      configMap:
+        name: {{ $name }}
+{{- end }}

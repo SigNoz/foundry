@@ -6,6 +6,7 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
+	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	collectionagentmolding "github.com/signoz/foundry/internal/molding/collectionagent"
 )
@@ -32,16 +33,26 @@ func (e *awsKubernetesServerlessKustomizeMoldingEnricher) EnrichStatus(ctx conte
 		replicas = *cluster.Replicas
 	}
 
-	if replicas != 1 {
-		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "spec.collector.spec.cluster.replicas is %d, one collector scrapes every node", replicas)
-	}
+	var tmpl *domain.Template
+	switch config.Spec.Collector.Kind {
+	case collectionagent.CollectorKindDeployment:
+		if replicas != 1 {
+			return foundryerrors.Newf(foundryerrors.TypeUnsupported, "spec.collector.spec.cluster.replicas is %d, one collector scrapes every node", replicas)
+		}
 
-	if config.Spec.Collector.Kind != collectionagent.CollectorKindDeployment {
+		tmpl = deploymentYAMLTemplate
+	case collectionagent.CollectorKindSidecar:
+		if replicas != 1 {
+			return foundryerrors.Newf(foundryerrors.TypeUnsupported, "spec.collector.spec.cluster.replicas is %d, a sidecar runs once in every pod it joins", replicas)
+		}
+
+		tmpl = sidecarYAMLTemplate
+	default:
 		return nil
 	}
 
 	buf := bytes.NewBuffer(nil)
-	if err := deploymentYAMLTemplate.Execute(buf, templateDataFor(*config)); err != nil {
+	if err := tmpl.Execute(buf, templateDataFor(*config)); err != nil {
 		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute %s template", config.Spec.Collector.Kind)
 	}
 

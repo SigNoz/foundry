@@ -1,0 +1,44 @@
+{{- $name := print $.Metadata.Name "-collector-sidecar" -}}
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - role.yaml
+  - rolebinding.yaml
+{{- if eq $.Controller "default" }}
+
+configMapGenerator:
+  - name: {{ $name }}
+    files:
+      - sidecar.yaml
+    options:
+      labels:
+        {{- range $key, $value := $.Labels }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+{{- end }}
+
+# A component's own transformers run before the including kustomization sets
+# the namespace, and a var resolves after it, so the binding's group takes the
+# namespace through a var.
+vars:
+  - name: {{ $name }}-namespace
+    objref:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: Role
+      name: {{ $name }}
+    fieldref:
+      fieldPath: metadata.namespace
+
+configurations:
+  - kustomizeconfig.yaml
+
+patches:
+  - path: patch-template.yaml
+    target:
+      kind: (Deployment|StatefulSet|Job|DaemonSet|ReplicaSet)
+      labelSelector: foundry.signoz.io/kubernetes-collector-sidecar=enabled
+  - path: patch-cronjob.yaml
+    target:
+      kind: CronJob
+      labelSelector: foundry.signoz.io/kubernetes-collector-sidecar=enabled

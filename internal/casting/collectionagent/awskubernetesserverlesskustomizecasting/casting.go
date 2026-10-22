@@ -32,38 +32,51 @@ func (c *awsKubernetesServerlessKustomizeCasting) Enricher(ctx context.Context, 
 func (c *awsKubernetesServerlessKustomizeCasting) Forge(ctx context.Context, config collectionagent.Casting, p *pourer.Pourer) error {
 	data := templateDataFor(config)
 
-	tmpls := []*domain.Template{kustomizationTemplate, namespaceTemplate}
+	var tmpls, workload, collector, component []*domain.Template
 
-	var workload []*domain.Template
-	var collector *domain.Template
-
-	// Fargate schedules no DaemonSet, so the deployment is the one kind a
-	// fargate cluster runs.
+	// Fargate schedules no DaemonSet, so the deployment collects for the cluster
+	// and the sidecar joins the application's pods through a kustomize component.
 	switch config.Spec.Collector.Kind {
 	case collectionagent.CollectorKindDeployment:
-		tmpls = append(tmpls,
+		tmpls = []*domain.Template{
+			kustomizationTemplate,
+			namespaceTemplate,
 			deploymentServiceaccountTemplate,
 			deploymentClusterroleTemplate,
 			deploymentClusterrolebindingTemplate,
-		)
+		}
 		workload = []*domain.Template{deploymentServiceTemplate, deploymentTemplate}
-		collector = deploymentOpenTelemetryCollectorTemplate
+		collector = []*domain.Template{deploymentOpenTelemetryCollectorTemplate}
+	case collectionagent.CollectorKindSidecar:
+		collector = []*domain.Template{sidecarKustomizationTemplate, namespaceTemplate, sidecarOpenTelemetryCollectorTemplate}
+		component = []*domain.Template{
+			sidecarComponentTemplate,
+			sidecarKustomizeconfigTemplate,
+			sidecarRoleTemplate,
+			sidecarRolebindingTemplate,
+			sidecarPatchTemplateTemplate,
+			sidecarPatchCronjobTemplate,
+		}
 	default:
 		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported collector kind %q", config.Spec.Collector.Kind)
-	}
-
-	switch data.Controller {
-	case collectionagent.CollectorControllerDefault:
-		tmpls = append(tmpls, workload...)
-	case collectionagent.CollectorControllerOpenTelemetryOperator:
-		tmpls = append(tmpls, collector)
-	default:
-		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "collector controller %q is not supported, state %q or %q", data.Controller, collectionagent.CollectorControllerDefault, collectionagent.CollectorControllerOpenTelemetryOperator)
 	}
 
 	// The kind's directory is a kustomize root of its own, so a casting file
 	// holding several collection agents pours a tree per document.
 	dir := filepath.Dir(config.Spec.Collector.Kind.ConfigKey())
+	componentDir := dir
+
+	switch data.Controller {
+	case collectionagent.CollectorControllerDefault:
+		tmpls = append(tmpls, workload...)
+	case collectionagent.CollectorControllerOpenTelemetryOperator:
+		tmpls = append(tmpls, collector...)
+		// The root applies the operator's resource, so the component sits in a
+		// directory the root does not reference.
+		componentDir = filepath.Join(dir, "component")
+	default:
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "collector controller %q is not supported, state %q or %q", data.Controller, collectionagent.CollectorControllerDefault, collectionagent.CollectorControllerOpenTelemetryOperator)
+	}
 
 	for _, tmpl := range tmpls {
 		buf := bytes.NewBuffer(nil)
@@ -72,6 +85,24 @@ func (c *awsKubernetesServerlessKustomizeCasting) Forge(ctx context.Context, con
 		}
 
 		p.AddYAML(buf.Bytes(), dir, strings.TrimSuffix(tmpl.Name(), ".gotmpl"))
+	}
+
+	if len(component) > 0 {
+		body := bytes.NewBuffer(nil)
+		if err := sidecarPodtemplateTemplate.Execute(body, data); err != nil {
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute %s template", sidecarPodtemplateTemplate.Name())
+		}
+
+		withBody := componentData{templateData: data, PodTemplate: body.String()}
+
+		for _, tmpl := range component {
+			buf := bytes.NewBuffer(nil)
+			if err := tmpl.Execute(buf, withBody); err != nil {
+				return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute %s template", tmpl.Name())
+			}
+
+			p.AddYAML(buf.Bytes(), componentDir, strings.TrimSuffix(tmpl.Name(), ".gotmpl"))
+		}
 	}
 
 	// The collector config, inside the kustomize root so the configMapGenerator
@@ -86,12 +117,35 @@ func (c *awsKubernetesServerlessKustomizeCasting) Forge(ctx context.Context, con
 }
 
 func (c *awsKubernetesServerlessKustomizeCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
+	kustomizeDir := filepath.Join(outputPath, p.Dir(), filepath.Dir(config.Spec.Collector.Kind.ConfigKey()))
+
+	if config.Spec.Collector.Kind != collectionagent.CollectorKindSidecar {
+		return c.apply(ctx, config, kustomizeDir)
+	}
+
+	// Under the default controller the sidecar is the component alone, which
+	// the application's own kustomization applies.
+	component := kustomizeDir
+	if collectionagent.KubernetesCollectorController.Resolve(config.Metadata.Annotations) == collectionagent.CollectorControllerOpenTelemetryOperator {
+		if err := c.apply(ctx, config, kustomizeDir); err != nil {
+			return err
+		}
+
+		component = filepath.Join(kustomizeDir, "component")
+	}
+
+	c.logger.InfoContext(ctx, "The sidecar is a kustomize component; list it under components in your application's kustomization and label each workload foundry.signoz.io/kubernetes-collector-sidecar: enabled.",
+		slog.String("component", component))
+
+	return nil
+}
+
+func (c *awsKubernetesServerlessKustomizeCasting) apply(ctx context.Context, config collectionagent.Casting, kustomizeDir string) error {
 	c.logger.InfoContext(ctx, "Applying kustomize manifests",
 		slog.String("release", config.Metadata.Name),
 		slog.String("namespace", namespace(config)),
 	)
 
-	kustomizeDir := filepath.Join(outputPath, p.Dir(), filepath.Dir(config.Spec.Collector.Kind.ConfigKey()))
 	if _, err := os.Stat(filepath.Join(kustomizeDir, "kustomization.yaml")); os.IsNotExist(err) {
 		return foundryerrors.Newf(foundryerrors.TypeNotFound, "kustomization.yaml does not exist at path: %s, run 'forge' first", kustomizeDir)
 	}
@@ -111,6 +165,13 @@ type templateData struct {
 
 	Namespace  string
 	Controller string
+}
+
+// The component's patches root one pod template body at each workload kind's template.
+type componentData struct {
+	templateData
+
+	PodTemplate string
 }
 
 func templateDataFor(config collectionagent.Casting) templateData {
