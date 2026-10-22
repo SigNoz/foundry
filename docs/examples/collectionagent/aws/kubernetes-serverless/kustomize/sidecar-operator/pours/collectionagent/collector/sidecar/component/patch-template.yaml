@@ -1,0 +1,9 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: signoz-collector-sidecar
+spec:
+  template:
+    metadata:
+      annotations:
+        sidecar.opentelemetry.io/inject: signoz/signoz-collector-sidecar

@@ -1,0 +1,20 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: collector-sidecar
+    app.kubernetes.io/instance: signoz
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-collector-sidecar
+    foundry.signoz.io/kind: CollectionAgent
+    foundry.signoz.io/managed-by: foundry
+    foundry.signoz.io/name: signoz
+  name: signoz-collector-sidecar
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: signoz-collector-sidecar
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: system:serviceaccounts:$(signoz-collector-sidecar-namespace)

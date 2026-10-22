@@ -9,11 +9,22 @@
 
 ## Overview
 
-Deploys one SigNoz Collection Agent on an EKS cluster whose pods run on Fargate, as plain manifests composed by kustomize, exporting to SigNoz Cloud, Self-Hosted Enterprise or Self-Hosted Community.
+Deploys the SigNoz Collection Agents on an EKS cluster whose pods run on Fargate, as plain manifests composed by kustomize, exporting to SigNoz Cloud, Self-Hosted Enterprise or Self-Hosted Community.
 
 On the `aws` platform, `mode: kubernetes-serverless` means EKS Fargate.
 
-Fargate schedules no DaemonSet and mounts no host path, and a pod cannot reach the kubelet of the node it runs on. So a single collector runs as a Deployment and reaches every node through the Kubernetes API server instead. Only the `deployment` collector kind is supported.
+Fargate schedules no DaemonSet and mounts no host path, and a pod cannot reach the kubelet of the node it runs on. Two collector kinds cover a Fargate cluster, one casting each:
+
+| Kind | Runs as | Collects |
+| --- | --- | --- |
+| `deployment` | one Deployment for the cluster | kubelet metrics for every Fargate node, cluster metrics, Kubernetes events, and OTLP from any pod through a Service |
+| `sidecar` | a container inside each application pod that opts in | OTLP from the containers of its own pod |
+
+Run the deployment in every cluster. Add the sidecar to the workloads whose telemetry you want collected inside their own pods.
+
+### Deployment
+
+A single collector runs as a Deployment and reaches every node through the Kubernetes API server.
 
 It collects:
 
@@ -67,14 +78,37 @@ spec:
 
 With this patch the pod lands in the 0.5 vCPU / 2 GB tier.
 
+### Sidecar
+
+The sidecar runs as a native sidecar container inside each application pod that opts in, and exports to SigNoz directly. It collects application telemetry only:
+
+- OTLP traces, metrics and logs from the pod's containers on `localhost:4317` (gRPC) and `localhost:4318` (HTTP)
+
+The pod's name, UID, namespace and node land on every signal, and the `k8sattributes` processor adds the owning Deployment, StatefulSet, DaemonSet, Job or CronJob.
+
+A workload opts in through two steps in your application's kustomization:
+
+1. List the sidecar's pour once under `components:`.
+2. Label each workload `foundry.signoz.io/kubernetes-collector-sidecar: enabled` on the object's own `metadata.labels`.
+
+Labelled Deployment, StatefulSet, Job, CronJob, DaemonSet and ReplicaSet objects are patched. A label on the pod template alone patches nothing.
+
+Pods without a sidecar keep sending to the deployment's Service. The usage metrics of every pod, with or without a sidecar, still come from the deployment's kubelet scrapes.
+
+The sidecar requests 0.2 vCPU and 256 MiB with equal limits, so each injected pod grows by 0.2 vCPU and 0.25 GB before Fargate rounds it up to a tier.
+
 ## Prerequisites
 
 - [foundryctl](../../../../../getting-started.md)
-- An EKS cluster with a Fargate profile that selects the collector's namespace (`signoz` by default, see [Annotations](#annotations))
+- An EKS cluster with a Fargate profile that selects the deployment's namespace (`signoz` by default, see [Annotations](#annotations))
 - `kubectl` configured against the cluster
 - A running SigNoz to receive the telemetry: [Self-Hosted Community](../../../../docker/compose/README.md), Self-Hosted Enterprise, or [SigNoz Cloud](https://signoz.io/teams/)
+- For the sidecar: Kubernetes 1.29 or later, which runs native sidecar containers, and applications deployed with kustomize from a kustomization that sets `namespace`
+- For the `opentelemetry-operator` controller: the OpenTelemetry Operator, installed as in the [operator example](../../../kubernetes/kustomize-opentelemetry-operator/README.md#prerequisites)
 
 ## Configuration
+
+### Deployment
 
 This directory's `deployment/casting.yaml`:
 
@@ -97,6 +131,30 @@ spec:
 ```
 
 `SIGNOZ_INGESTION_ENDPOINT` is the OTLP endpoint the collector exports to. `K8S_CLUSTER_NAME` names the cluster on every signal as `k8s.cluster.name`. Set it: the SigNoz Kubernetes views require it on every entity. `spec.collector.spec.cluster.replicas` must stay unstated or `1`, since one collector scrapes every node.
+
+### Sidecar
+
+This directory's `sidecar/casting.yaml`:
+
+```yaml
+apiVersion: v1alpha1
+kind: CollectionAgent
+metadata:
+  name: signoz
+spec:
+  deployment:
+    platform: aws
+    mode: kubernetes-serverless
+    flavor: kustomize
+  collector:
+    kind: sidecar
+    spec:
+      env:
+        SIGNOZ_INGESTION_ENDPOINT: http://<signoz-host>:4318
+        K8S_CLUSTER_NAME: <your-cluster>
+```
+
+The variables mean the same as for the deployment. `spec.collector.spec.cluster.replicas` must stay unstated or `1`, since a sidecar runs once in every pod it joins.
 
 ### SigNoz Cloud or Self-Hosted Enterprise
 
@@ -128,13 +186,17 @@ spec:
                   signoz-ingestion-key: ${env:SIGNOZ_INGESTION_KEY}
 ```
 
-Values under `spec.collector.spec.env` are visible in the Deployment manifest.
+For the sidecar, state `kind: sidecar` and key the same override as `collector/sidecar/sidecar.yaml`.
+
+Values under `spec.collector.spec.env` are visible in the Deployment manifest, and for the sidecar in every labelled workload.
 
 ### Self-Hosted Community
 
-Set `SIGNOZ_INGESTION_ENDPOINT` to `http://<signoz-host>:4318` and set no key, as in `deployment/casting.yaml`.
+Set `SIGNOZ_INGESTION_ENDPOINT` to `http://<signoz-host>:4318` and set no key, as in `deployment/casting.yaml` and `sidecar/casting.yaml`.
 
 ## Deploy
+
+### Deployment
 
 ```bash
 foundryctl gauge -f deployment/casting.yaml
@@ -149,6 +211,60 @@ kubectl kustomize deployment/pours/collectionagent/collector/deployment
 ```
 
 Then point [instrumented applications](https://signoz.io/docs/instrumentation/) at `http://signoz-collector-deployment.<namespace>.svc:4317` (gRPC) or `http://signoz-collector-deployment.<namespace>.svc:4318` (HTTP).
+
+### Sidecar
+
+```bash
+foundryctl gauge -f sidecar/casting.yaml
+foundryctl forge -f sidecar/casting.yaml -p sidecar/pours
+foundryctl cast -f sidecar/casting.yaml -p sidecar/pours
+```
+
+Cast applies nothing and prints the path of the component, `sidecar/pours/collectionagent/collector/sidecar`. List it under `components:` in your application's kustomization by a path relative to that kustomization, since kustomize refuses an absolute one:
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: shop
+resources:
+  - checkout.yaml
+components:
+  - ../signoz/sidecar/pours/collectionagent/collector/sidecar
+```
+
+Then label each workload that takes a sidecar:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkout
+  labels:
+    foundry.signoz.io/kubernetes-collector-sidecar: enabled
+spec:
+  selector:
+    matchLabels:
+      app: checkout
+  template:
+    metadata:
+      labels:
+        app: checkout
+    spec:
+      containers:
+        - name: checkout
+          image: <your application image>
+```
+
+Apply your application as usual, for example with `kubectl apply -k`. The component adds to it:
+
+- A Role and a RoleBinding that let every service account in the namespace read the pods, ReplicaSets, Jobs and CronJobs there, which `k8sattributes` reads the owners from
+- The collector config as a ConfigMap
+- The sidecar container and its config volume in each labelled workload
+
+> [!NOTE]
+> The component binds the namespace's service accounts through a kustomize `var`, so kustomize prints a deprecation warning for `vars` when it builds your application. The build is unaffected.
+
+Then point [instrumented applications](https://signoz.io/docs/instrumentation/) at `http://localhost:4317` (gRPC) or `http://localhost:4318` (HTTP).
 
 ## Generated output
 
@@ -165,6 +281,64 @@ deployment/pours/collectionagent/collector/deployment/
 ```
 
 The configMapGenerator mounts `deployment.yaml` at `/conf`. A config change re-hashes the ConfigMap name and rolls the collector on the next apply.
+
+```text
+sidecar/pours/collectionagent/collector/sidecar/
+  kustomization.yaml        # the component: resources, the configMapGenerator, the var, and the patches
+  kustomizeconfig.yaml      # points the var at the RoleBinding's subject
+  role.yaml                 # read access to pods, ReplicaSets, Jobs and CronJobs in the namespace
+  rolebinding.yaml          # binds the role to every service account in the namespace
+  patch-template.yaml       # the sidecar for labelled Deployments, StatefulSets, Jobs, DaemonSets and ReplicaSets
+  patch-cronjob.yaml        # the sidecar for labelled CronJobs
+  sidecar.yaml              # the collector config
+```
+
+A change to the sidecar's config re-hashes its ConfigMap name and rolls the labelled workloads the next time your application is applied.
+
+## Controller
+
+The `foundry.signoz.io/kubernetes-collector-controller` annotation names the controller that owns the collector workload. `default` pours the Deployment or the sidecar container for the built-in Kubernetes controllers. `opentelemetry-operator` pours an `OpenTelemetryCollector` resource for the OpenTelemetry Operator to reconcile. State it on either casting.
+
+Under the operator:
+
+- The deployment pours `opentelemetrycollector.yaml` in place of `service.yaml` and `workload.yaml`, with the config inline, and cast applies it. The operator runs it with the same `Recreate` rollout and size.
+- The sidecar pours an `OpenTelemetryCollector` in sidecar mode into the collector's namespace, which cast applies, and the component in a `component/` directory beside it. The component's patches add `sidecar.opentelemetry.io/inject: <namespace>/signoz-collector-sidecar` to each labelled workload's pod template, and the operator injects the sidecar into each new pod. List `sidecar-operator/pours/collectionagent/collector/sidecar/component` under `components:` and label the workloads as for the default controller.
+
+This directory's `sidecar-operator/casting.yaml`:
+
+```yaml
+apiVersion: v1alpha1
+kind: CollectionAgent
+metadata:
+  name: signoz
+  annotations:
+    foundry.signoz.io/kubernetes-collector-controller: opentelemetry-operator
+spec:
+  deployment:
+    platform: aws
+    mode: kubernetes-serverless
+    flavor: kustomize
+  collector:
+    kind: sidecar
+    spec:
+      env:
+        SIGNOZ_INGESTION_ENDPOINT: http://<signoz-host>:4318
+        K8S_CLUSTER_NAME: <your-cluster>
+```
+
+```text
+sidecar-operator/pours/collectionagent/collector/sidecar/
+  kustomization.yaml            # namespace, labels, and resources, applied by cast
+  namespace.yaml                # the collector's namespace
+  opentelemetrycollector.yaml   # the sidecar collector, config inline
+  component/
+    kustomization.yaml          # the component: resources, the var, and the patches
+    kustomizeconfig.yaml        # points the var at the RoleBinding's subject
+    role.yaml                   # read access to pods, ReplicaSets, Jobs and CronJobs in the namespace
+    rolebinding.yaml            # binds the role to every service account in the namespace
+    patch-template.yaml         # the injection annotation for labelled Deployments, StatefulSets, Jobs, DaemonSets and ReplicaSets
+    patch-cronjob.yaml          # the injection annotation for labelled CronJobs
+```
 
 ## Logs
 
@@ -367,13 +541,16 @@ spec:
                       collection_interval: 60s
 ```
 
+For the sidecar, key the override as `collector/sidecar/sidecar.yaml`.
+
 For changes to the generated manifests themselves, use [patches](../../../../../concepts/patches.md).
 
 ## Annotations
 
 | Annotation | Default | Description |
 | --- | --- | --- |
-| `foundry.signoz.io/kubernetes-namespace` | `metadata.name` | Namespace the collector is deployed into. Your Fargate profile must select it. |
+| `foundry.signoz.io/kubernetes-collector-controller` | `default` | Controller that owns the collector workload: `default` pours the Deployment or the sidecar container for the built-in Kubernetes controllers, `opentelemetry-operator` pours an `OpenTelemetryCollector` resource for the operator to reconcile. See [Controller](#controller). |
+| `foundry.signoz.io/kubernetes-namespace` | `metadata.name` | Namespace the deployment, or the sidecar's `OpenTelemetryCollector` under the operator, is deployed into. Your Fargate profile must select it for the deployment. The sidecar's component takes the namespace of the kustomization that includes it. |
 
 Example deploying into a namespace of its own:
 
