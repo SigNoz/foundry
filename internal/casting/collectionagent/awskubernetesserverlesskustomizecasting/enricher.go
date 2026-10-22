@@ -23,13 +23,17 @@ func (e *awsKubernetesServerlessKustomizeMoldingEnricher) EnrichStatus(ctx conte
 		return nil
 	}
 
+	if !config.Spec.Collector.Spec.IsEnabled() {
+		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "spec.collector.spec.enabled is false, the CollectionAgent kind requires an enabled collector")
+	}
+
 	replicas := 1
 	if cluster := config.Spec.Collector.Spec.Cluster; cluster.Replicas != nil {
 		replicas = *cluster.Replicas
 	}
 
 	if replicas != 1 {
-		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "failed to enrich the collector: spec.collector.spec.cluster.replicas is %d, one collector scrapes every node", replicas)
+		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "spec.collector.spec.cluster.replicas is %d, one collector scrapes every node", replicas)
 	}
 
 	if config.Spec.Collector.Kind != collectionagent.CollectorKindDeployment {

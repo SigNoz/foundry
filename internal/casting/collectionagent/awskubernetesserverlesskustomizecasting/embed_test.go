@@ -84,21 +84,25 @@ func TestForge(t *testing.T) {
 		kind              collectionagent.CollectorKind
 		controller        string
 		replicas          *int
+		disabled          bool
 		pass              bool
 		expectedErrorType int
+		expectedMessage   string
 		expectedFiles     []string
 	}{
-		{"Deployment_Valid", collectionagent.CollectorKindDeployment, "", nil, true, 0, deployment},
-		{"DeploymentOperator_Valid", collectionagent.CollectorKindDeployment, collectionagent.CollectorControllerOpenTelemetryOperator, nil, true, 0, deploymentOperator},
-		{"Agent_Invalid", collectionagent.CollectorKindAgent, "", nil, false, foundryerrors.TypeUnsupported.ExitCode(), nil},
-		{"Sidecar_Invalid", collectionagent.CollectorKindSidecar, "", nil, false, foundryerrors.TypeUnsupported.ExitCode(), nil},
-		{"Replicas_Invalid", collectionagent.CollectorKindDeployment, "", domain.NewIntPtr(2), false, foundryerrors.TypeUnsupported.ExitCode(), nil},
+		{"Deployment_Valid", collectionagent.CollectorKindDeployment, "", nil, false, true, 0, "", deployment},
+		{"DeploymentOperator_Valid", collectionagent.CollectorKindDeployment, collectionagent.CollectorControllerOpenTelemetryOperator, nil, false, true, 0, "", deploymentOperator},
+		{"Agent_Invalid", collectionagent.CollectorKindAgent, "", nil, false, false, foundryerrors.TypeUnsupported.ExitCode(), `unsupported collector kind "agent"`, nil},
+		{"Sidecar_Invalid", collectionagent.CollectorKindSidecar, "", nil, false, false, foundryerrors.TypeUnsupported.ExitCode(), `unsupported collector kind "sidecar"`, nil},
+		{"Replicas_Invalid", collectionagent.CollectorKindDeployment, "", domain.NewIntPtr(2), false, false, foundryerrors.TypeUnsupported.ExitCode(), "spec.collector.spec.cluster.replicas is 2, one collector scrapes every node", nil},
+		{"Disabled_Invalid", collectionagent.CollectorKindDeployment, "", nil, true, false, foundryerrors.TypeUnsupported.ExitCode(), "spec.collector.spec.enabled is false, the CollectionAgent kind requires an enabled collector", nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 
 			config := castingWithKind(t, test.kind)
 			config.Spec.Collector.Spec.Cluster.Replicas = test.replicas
+			config.Spec.Collector.Spec.Enabled = v1alpha1.BoolPtr(!test.disabled)
 
 			if test.controller != "" {
 				config.Metadata.Annotations = map[string]string{collectionagent.KubernetesCollectorController.Key: test.controller}
@@ -122,6 +126,7 @@ func TestForge(t *testing.T) {
 			if !test.pass {
 				require.Error(t, err)
 				assert.Equal(t, test.expectedErrorType, foundryerrors.ExitCode(err))
+				assert.EqualError(t, err, test.expectedMessage)
 
 				return
 			}
