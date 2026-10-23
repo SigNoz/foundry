@@ -1,0 +1,8 @@
+kind: CronJob
+metadata:
+  name: {{ $.Metadata.Name }}-collector-sidecar
+spec:
+  jobTemplate:
+    spec:
+      template:
+        {{- $.PodTemplate | nindent 8 }}

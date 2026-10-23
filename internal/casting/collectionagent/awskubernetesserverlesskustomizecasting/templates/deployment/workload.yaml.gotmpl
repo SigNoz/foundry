@@ -58,8 +58,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-            - name: KUBECONFIG
-              value: /conf/kubeconfig.yaml
             {{- range $key, $val := $.Spec.Collector.Spec.Env }}
             - name: {{ $key }}
               value: {{ $val | quote }}
@@ -92,10 +90,14 @@ spec:
             timeoutSeconds: 5
             successThreshold: 1
             failureThreshold: 6
+          # Fargate sizes the pod from the requests; equal limits keep the collector inside that size.
           resources:
             requests:
-              cpu: 100m
-              memory: 100Mi
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 250m
+              memory: 512Mi
           volumeMounts:
             - name: config
               mountPath: /conf

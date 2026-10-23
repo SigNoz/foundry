@@ -1,0 +1,6 @@
+kind: Deployment
+metadata:
+  name: {{ $.Metadata.Name }}-collector-sidecar
+spec:
+  template:
+    {{- $.PodTemplate | nindent 4 }}

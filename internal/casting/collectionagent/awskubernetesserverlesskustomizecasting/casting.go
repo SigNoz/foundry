@@ -30,24 +30,34 @@ func (c *awsKubernetesServerlessKustomizeCasting) Enricher(ctx context.Context, 
 }
 
 func (c *awsKubernetesServerlessKustomizeCasting) Forge(ctx context.Context, config collectionagent.Casting, p *pourer.Pourer) error {
-	if controller := collectionagent.KubernetesCollectorController.Resolve(config.Metadata.Annotations); controller != collectionagent.CollectorControllerDefault {
-		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "collector controller %q is not supported by this casting", controller)
-	}
+	data := templateDataFor(config)
 
-	tmpls := []*domain.Template{kustomizationTemplate, namespaceTemplate}
+	var tmpls, workload, collector []*domain.Template
 
-	// Fargate schedules no DaemonSet, so the deployment is the one kind a
-	// fargate cluster runs.
+	// Fargate schedules no DaemonSet, so the deployment collects for the cluster
+	// and the sidecar runs inside the application's pods.
 	switch config.Spec.Collector.Kind {
 	case collectionagent.CollectorKindDeployment:
-		tmpls = append(tmpls,
+		tmpls = []*domain.Template{
+			kustomizationTemplate,
+			namespaceTemplate,
 			deploymentServiceaccountTemplate,
 			deploymentClusterroleTemplate,
 			deploymentClusterrolebindingTemplate,
-			deploymentServiceTemplate,
-			deploymentTemplate,
-			deploymentKubeconfigTemplate,
-		)
+		}
+		workload = []*domain.Template{deploymentServiceTemplate, deploymentTemplate}
+		collector = []*domain.Template{deploymentOpenTelemetryCollectorTemplate}
+	case collectionagent.CollectorKindSidecar:
+		body := bytes.NewBuffer(nil)
+		if err := sidecarPodtemplateTemplate.Execute(body, data); err != nil {
+			return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute %s template", sidecarPodtemplateTemplate.Name())
+		}
+
+		data.PodTemplate = body.String()
+
+		tmpls = []*domain.Template{sidecarKustomizationTemplate, sidecarRoleTemplate, sidecarRolebindingTemplate}
+		workload = []*domain.Template{sidecarPatchTemplate, sidecarPatchCronjobTemplate}
+		collector = []*domain.Template{sidecarOpenTelemetryCollectorTemplate}
 	default:
 		return foundryerrors.Newf(foundryerrors.TypeUnsupported, "unsupported collector kind %q", config.Spec.Collector.Kind)
 	}
@@ -56,7 +66,14 @@ func (c *awsKubernetesServerlessKustomizeCasting) Forge(ctx context.Context, con
 	// holding several collection agents pours a tree per document.
 	dir := filepath.Dir(config.Spec.Collector.Kind.ConfigKey())
 
-	data := templateDataFor(config)
+	switch data.Controller {
+	case collectionagent.CollectorControllerDefault:
+		tmpls = append(tmpls, workload...)
+	case collectionagent.CollectorControllerOpenTelemetryOperator:
+		tmpls = append(tmpls, collector...)
+	default:
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "collector controller %q is not supported, state %q or %q", data.Controller, collectionagent.CollectorControllerDefault, collectionagent.CollectorControllerOpenTelemetryOperator)
+	}
 
 	for _, tmpl := range tmpls {
 		buf := bytes.NewBuffer(nil)
@@ -69,20 +86,43 @@ func (c *awsKubernetesServerlessKustomizeCasting) Forge(ctx context.Context, con
 
 	// The collector config, inside the kustomize root so the configMapGenerator
 	// reaches it by relative path.
-	for path, content := range config.Spec.Collector.Spec.Config.Data {
-		p.AddYAML([]byte(content), path)
+	if data.Controller == collectionagent.CollectorControllerDefault {
+		for path, content := range config.Spec.Collector.Spec.Config.Data {
+			p.AddYAML([]byte(content), path)
+		}
 	}
 
 	return nil
 }
 
 func (c *awsKubernetesServerlessKustomizeCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
+	kustomizeDir := filepath.Join(outputPath, p.Dir(), filepath.Dir(config.Spec.Collector.Kind.ConfigKey()))
+
+	if config.Spec.Collector.Kind != collectionagent.CollectorKindSidecar {
+		return c.apply(ctx, config, kustomizeDir)
+	}
+
+	if collectionagent.KubernetesCollectorController.Resolve(config.Metadata.Annotations) == collectionagent.CollectorControllerOpenTelemetryOperator {
+		c.logger.InfoContext(ctx, "The sidecar pour is a kustomize base; list it under resources in your application's kustomization, add the annotation to each workload's pod template, then apply the application and restart the workloads after a config change.",
+			slog.String("base", kustomizeDir),
+			slog.String("annotation", fmt.Sprintf("sidecar.opentelemetry.io/inject: %q", config.Metadata.Name+"-collector-sidecar")))
+
+		return nil
+	}
+
+	c.logger.InfoContext(ctx, "The sidecar pour is a kustomize base; list it under resources in your application's kustomization and its patch.yaml under patches with a target naming each workload (patch-cronjob.yaml for a CronJob), or copy its initContainers and volumes entries into workloads managed another way, then apply the application and restart the workloads after a config change.",
+		slog.String("base", kustomizeDir),
+		slog.String("patch", filepath.Join(kustomizeDir, "patch.yaml")))
+
+	return nil
+}
+
+func (c *awsKubernetesServerlessKustomizeCasting) apply(ctx context.Context, config collectionagent.Casting, kustomizeDir string) error {
 	c.logger.InfoContext(ctx, "Applying kustomize manifests",
 		slog.String("release", config.Metadata.Name),
 		slog.String("namespace", namespace(config)),
 	)
 
-	kustomizeDir := filepath.Join(outputPath, p.Dir(), filepath.Dir(config.Spec.Collector.Kind.ConfigKey()))
 	if _, err := os.Stat(filepath.Join(kustomizeDir, "kustomization.yaml")); os.IsNotExist(err) {
 		return foundryerrors.Newf(foundryerrors.TypeNotFound, "kustomization.yaml does not exist at path: %s, run 'forge' first", kustomizeDir)
 	}
@@ -100,11 +140,19 @@ func (c *awsKubernetesServerlessKustomizeCasting) Cast(ctx context.Context, conf
 type templateData struct {
 	collectionagent.Casting
 
-	Namespace string
+	Namespace       string
+	StatedNamespace string
+	Controller      string
+	PodTemplate     string
 }
 
 func templateDataFor(config collectionagent.Casting) templateData {
-	return templateData{Casting: config, Namespace: namespace(config)}
+	return templateData{
+		Casting:         config,
+		Namespace:       namespace(config),
+		StatedNamespace: collectionagent.KubernetesNamespace.Resolve(config.Metadata.Annotations),
+		Controller:      collectionagent.KubernetesCollectorController.Resolve(config.Metadata.Annotations),
+	}
 }
 
 // The annotation's default cannot name metadata.name, so the fallback lives here.

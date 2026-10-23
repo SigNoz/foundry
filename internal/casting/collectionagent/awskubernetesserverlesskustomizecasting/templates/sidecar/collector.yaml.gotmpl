@@ -1,0 +1,66 @@
+# The sidecar's additions for the one pod it runs in. Bodies merge onto the
+# molding base; pipeline lists merge.
+processors:
+  k8sattributes:
+    passthrough: false
+    filter:
+      namespace: ${env:K8S_NAMESPACE}
+      node_from_env_var: K8S_NODE_NAME
+    extract:
+      metadata:
+        - k8s.namespace.name
+        - k8s.deployment.name
+        - k8s.statefulset.name
+        - k8s.daemonset.name
+        - k8s.cronjob.name
+        - k8s.job.name
+        - k8s.node.name
+        - k8s.pod.name
+        - k8s.pod.uid
+        - k8s.pod.start_time
+    # Every connection arrives from the pod's own localhost, so only the stated pod UID tells the pod.
+    pod_association:
+      - sources:
+          - from: resource_attribute
+            name: k8s.pod.uid
+  resource/identity:
+    # insert lets a value the application states win.
+    attributes:
+      - key: k8s.pod.name
+        value: ${env:K8S_POD_NAME}
+        action: insert
+      - key: k8s.pod.uid
+        value: ${env:K8S_POD_UID}
+        action: insert
+      - key: k8s.namespace.name
+        value: ${env:K8S_NAMESPACE}
+        action: insert
+      - key: k8s.node.name
+        value: ${env:K8S_NODE_NAME}
+        action: insert
+      - key: cloud.provider
+        value: aws
+        action: insert
+      - key: cloud.platform
+        value: aws_eks
+        action: insert
+      {{- if index $.Spec.Collector.Spec.Env "K8S_CLUSTER_NAME" }}
+      - key: k8s.cluster.name
+        value: ${env:K8S_CLUSTER_NAME}
+        action: insert
+      {{- end }}
+
+service:
+  pipelines:
+    metrics:
+      processors:
+        - resource/identity
+        - k8sattributes
+    logs:
+      processors:
+        - resource/identity
+        - k8sattributes
+    traces:
+      processors:
+        - resource/identity
+        - k8sattributes

@@ -1,0 +1,18 @@
+{{- $name := print $.Metadata.Name "-collector-sidecar" -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $.Metadata.Name }}
+    app.kubernetes.io/component: collector-sidecar
+    app.kubernetes.io/managed-by: kustomize
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}
+# Applications running under their own service accounts replace this subject through a patch.
+subjects:
+  - kind: ServiceAccount
+    name: default

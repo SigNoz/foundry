@@ -53,8 +53,8 @@ spec:
                   - from: connection
               memory_limiter:
                 check_interval: 5s
-                limit_mib: 4000
-                spike_limit_mib: 800
+                limit_percentage: 80
+                spike_limit_percentage: 20
               resource/identity:
                 attributes:
                 - action: insert
@@ -268,8 +268,8 @@ spec:
                   - from: connection
               memory_limiter:
                 check_interval: 5s
-                limit_mib: 4000
-                spike_limit_mib: 800
+                limit_percentage: 80
+                spike_limit_percentage: 20
               resource/identity:
                 attributes:
                 - action: insert
