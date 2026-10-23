@@ -330,8 +330,6 @@ cleanup() {
   fi
 }
 
-# Sets HAS_CURL so fetch uses curl, which the curl-pipe-bash entry point
-# already requires. The cloud CLIs are checked by cloudintegration.sh.
 verify_cloudintegration_prereqs() {
   local cmd
   for cmd in curl mktemp; do
@@ -342,8 +340,6 @@ verify_cloudintegration_prereqs() {
   HAS_CURL="true"
 }
 
-# Fetches scripts/cloudintegration.sh at TAG and runs it with the
-# remaining args. The script deploys the module from the same TAG.
 run_cloudintegration() {
   FAILURE="Failed to run cloudintegration."
   verify_cloudintegration_prereqs
