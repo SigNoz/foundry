@@ -32,8 +32,8 @@ func TestTemplates_Render(t *testing.T) {
 			expectedContent: []string{
 				"EnvironmentFile=/etc/acme-collector-agent/acme-collector-agent.conf\n",
 				"ExecStart=/opt/otelcol/otelcol-contrib $OTELCOL_OPTIONS\n",
-				"User=acme-collector-agent\n",
-				"Group=acme-collector-agent\n",
+				"User=signoz-collector-agent\n",
+				"Group=signoz-collector-agent\n",
 				"AmbientCapabilities=CAP_DAC_READ_SEARCH\n",
 				"SyslogIdentifier=acme-collector-agent\n",
 			},
@@ -43,15 +43,15 @@ func TestTemplates_Render(t *testing.T) {
 			name:     "Sysusers_Valid",
 			template: agentSysusersTemplate,
 			expectedContent: []string{
-				"u acme-collector-agent - \"SigNoz OpenTelemetry Collector\" - /usr/sbin/nologin\n",
+				"u signoz-collector-agent - \"SigNoz OpenTelemetry Collector\" - /usr/sbin/nologin\n",
 			},
-			unexpectedContent: []string{"m acme-collector-agent"},
+			unexpectedContent: []string{"acme"},
 		},
 		{
 			name:     "Environment_Valid",
 			template: agentEnvironmentTemplate,
 			expectedContent: []string{
-				"OTELCOL_OPTIONS=--config=/etc/acme-collector-agent/agent.yaml\nOTEL_RESOURCE_ATTRIBUTES=deployment.environment=production\nSIGNOZ_INGESTION_ENDPOINT=http://signoz:4318\nSIGNOZ_INGESTION_KEY=secret\n",
+				"OTELCOL_OPTIONS=--config=/etc/acme-collector-agent/agent.yaml\nOTEL_RESOURCE_ATTRIBUTES=\"deployment.environment=production\"\nSIGNOZ_INGESTION_ENDPOINT=\"http://signoz:4318\"\nSIGNOZ_INGESTION_KEY=\"secret\"\n",
 			},
 		},
 		{
@@ -60,11 +60,10 @@ func TestTemplates_Render(t *testing.T) {
 			expectedContent: []string{
 				"receivers:\n",
 				"  hostmetrics:\n",
-				"  filelog/varlog:\n",
-				"      - /var/log/lastlog\n",
-				"      receivers: [filelog/varlog]\n",
+				"  journald:\n",
+				"      receivers: [journald]\n",
 			},
-			unexpectedContent: []string{"journald"},
+			unexpectedContent: []string{"filelog"},
 		},
 	}
 
@@ -103,14 +102,33 @@ func TestEnricherConfigTemplate_Render(t *testing.T) {
 		assert.Contains(t, process, flag)
 	}
 
+	devices := scrapers["disk"].(map[string]any)["exclude"].(map[string]any)["devices"]
+	assert.Equal(t, []any{`^ram\d+$`, `^zram\d+$`, `^loop\d+$`, `^fd\d+$`, `^hd[a-z]\d+$`, `^sd[a-z]\d+$`, `^vd[a-z]\d+$`, `^xvd[a-z]\d+$`, `^nvme\d+n\d+p\d+$`}, devices)
+
+	mountPoints := scrapers["filesystem"].(map[string]any)["exclude_mount_points"].(map[string]any)["mount_points"]
+	assert.Equal(t, []any{"/dev/*", "/proc/*", "/sys/*", "/run/credentials/*", "/run/k3s/containerd/*", "/var/lib/docker/*", "/var/lib/containers/storage/*", "/var/lib/kubelet/*", "/snap/*"}, mountPoints)
+
+	interfaces := scrapers["network"].(map[string]any)["exclude"].(map[string]any)["interfaces"]
+	assert.Equal(t, []any{"^veth.*$", "^docker.*$", "^br-.*$", "^flannel.*$", "^cali.*$", "^cbr.*$", "^cni.*$", "^dummy.*$", "^tailscale.*$", "^lo$"}, interfaces)
+
 	receivers := parsed["receivers"].(map[string]any)
-	assert.NotContains(t, receivers, "journald")
-	assert.Contains(t, receivers, "filelog/varlog")
-	assert.Contains(t, receivers["filelog/varlog"].(map[string]any)["exclude"], "/var/log/lastlog")
+	assert.NotContains(t, receivers, "filelog/varlog")
+
+	journald := receivers["journald"].(map[string]any)
+	assert.Equal(t, "warning", journald["priority"])
+	assert.Equal(t, "end", journald["start_at"])
+	assert.Equal(t, []any{
+		map[string]any{"type": "filter", "expr": `body["_SYSTEMD_UNIT"] != nil and body["_SYSTEMD_UNIT"] matches "-collector-agent\\.service$"`},
+		map[string]any{"type": "copy", "if": `body["_SYSTEMD_UNIT"] != nil and body["_SYSTEMD_UNIT"] != ""`, "from": "body._SYSTEMD_UNIT", "to": `resource["service.name"]`},
+		map[string]any{"type": "copy", "if": `resource["service.name"] == nil and body["SYSLOG_IDENTIFIER"] != nil`, "from": "body.SYSLOG_IDENTIFIER", "to": `resource["service.name"]`},
+		map[string]any{"type": "regex_replace", "field": `resource["service.name"]`, "regex": `\.service$`, "replace_with": ""},
+	}, journald["operators"])
 
 	logs := parsed["service"].(map[string]any)["pipelines"].(map[string]any)["logs"].(map[string]any)
-	assert.Equal(t, []any{"filelog/varlog"}, logs["receivers"])
+	assert.Equal(t, []any{"journald"}, logs["receivers"])
 
-	detectors := parsed["processors"].(map[string]any)["resourcedetection"].(map[string]any)["detectors"].([]any)
-	assert.Equal(t, []any{"env", "ec2", "gcp", "azure", "ecs", "system"}, detectors)
+	resourcedetection := parsed["processors"].(map[string]any)["resourcedetection"].(map[string]any)
+	assert.Equal(t, []any{"env", "ec2", "gcp", "azure", "system"}, resourcedetection["detectors"])
+	assert.Equal(t, false, resourcedetection["override"])
+	assert.Equal(t, map[string]any{"host.id": map[string]any{"enabled": true}}, resourcedetection["system"].(map[string]any)["resource_attributes"])
 }
