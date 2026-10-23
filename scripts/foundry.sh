@@ -330,11 +330,23 @@ cleanup() {
   fi
 }
 
+# Sets HAS_CURL so fetch uses curl, which the curl-pipe-bash entry point
+# already requires. The cloud CLIs are checked by cloudintegration.sh.
+verify_cloudintegration_prereqs() {
+  local cmd
+  for cmd in curl mktemp; do
+    if ! command -v "${cmd}" >/dev/null 2>&1; then
+      die "Missing prerequisite: ${cmd}"
+    fi
+  done
+  HAS_CURL="true"
+}
+
 # Fetches scripts/cloudintegration.sh at TAG and runs it with the
 # remaining args. The script deploys the module from the same TAG.
 run_cloudintegration() {
   FAILURE="Failed to run cloudintegration."
-  verify_prereqs
+  verify_cloudintegration_prereqs
   resolve_version
 
   TMP_ROOT="$(mktemp -d -t foundry-cloudintegration-XXXXXX)"
@@ -393,11 +405,10 @@ done
 shift $((OPTIND - 1))
 
 case "${1:-}" in
-  "") run ;;
   cloudintegration)
     shift
     run_cloudintegration "$@"
     ;;
-  *) die "Unknown command: $1" ;;
+  *) run ;;
 esac
 trap - EXIT
