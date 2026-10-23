@@ -1,0 +1,128 @@
+{
+  "locals": {
+    "//": "Names match pkg/config/config.go in the cloud-integration repo. In production the Agent discovers its project from Cloud Run metadata, so GCP_PROJECT_ID is not set.",
+    "agent_environment": {
+      "CLOUD_PROVIDER": "gcp",
+      "DEPLOYMENT_ENV": "production",
+      "INTEGRATION_CONFIG_SYNC_PERIOD_SECONDS": "${tostring(var.config_sync_period_seconds)}",
+      "SIGNOZ_API_URL": "${var.signoz_api_url}",
+      "SIGNOZ_CLOUD_INTEGRATION_ACCOUNT_ID": "${var.integration_account_id}",
+      "INGESTION_URL": "${var.ingestion_url}",
+      "HEALTHZ_LISTEN_ADDRESS": ":8080",
+      "GCP_DEPLOYMENT_REGION": "${var.deployment_region}"
+    }
+  },
+  "resource": {
+    "google_cloud_run_v2_service": {
+      "agent": {
+        "//": "Waits for the new secret grants before Cloud Run resolves credential values.",
+        "project": "${var.project_id}",
+        "name": "${local.agent_service_name}",
+        "location": "${var.deployment_region}",
+        "description": "SigNoz integration bootstrap agent",
+        "deletion_protection": false,
+        "ingress": "INGRESS_TRAFFIC_INTERNAL_ONLY",
+        "labels": "${local.labels}",
+        "scaling": [
+          {
+            "scaling_mode": "MANUAL",
+            "manual_instance_count": 1
+          }
+        ],
+        "template": [
+          {
+            "service_account": "${google_service_account.agent.email}",
+            "execution_environment": "EXECUTION_ENVIRONMENT_GEN2",
+            "containers": [
+              {
+                "//": "The health server always listens on Cloud Run's PORT (8080). No public invoker binding is needed for the Agent's background reconciliation loop.",
+                "image": "${var.agent_image}",
+                "ports": [
+                  {
+                    "container_port": 8080
+                  }
+                ],
+                "resources": [
+                  {
+                    "limits": {
+                      "cpu": "${var.agent_cpu}",
+                      "memory": "${var.agent_memory}"
+                    },
+                    "cpu_idle": false
+                  }
+                ],
+                "startup_probe": [
+                  {
+                    "period_seconds": 5,
+                    "failure_threshold": 24,
+                    "tcp_socket": [
+                      {
+                        "port": 8080
+                      }
+                    ]
+                  }
+                ],
+                "dynamic": {
+                  "env": {
+                    "for_each": "${local.agent_environment}",
+                    "content": {
+                      "name": "${env.key}",
+                      "value": "${env.value}"
+                    }
+                  }
+                },
+                "env": [
+                  {
+                    "name": "SIGNOZ_API_CREDENTIAL",
+                    "value_source": [
+                      {
+                        "secret_key_ref": [
+                          {
+                            "secret": "${data.google_secret_manager_secret.api_key.secret_id}",
+                            "version": "${var.api_secret_version}"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "INGESTION_KEY",
+                    "value_source": [
+                      {
+                        "secret_key_ref": [
+                          {
+                            "secret": "${data.google_secret_manager_secret.ingestion_key.secret_id}",
+                            "version": "${var.ingestion_secret_version}"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "traffic": [
+          {
+            "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+            "percent": 100
+          }
+        ],
+        "depends_on": [
+          "time_sleep.iam_propagation",
+          "google_project_iam_member.agent_logs",
+          "google_cloud_run_v2_service_iam_member.agent_collector",
+          "google_cloud_run_v2_service_iam_member.pubsub_invoker",
+          "google_pubsub_topic_iam_member.sink_writer",
+          "google_project_iam_member.collector_metrics",
+          "google_service_account_iam_member.agent_uses_collector",
+          "google_service_account_iam_member.pubsub_mints_push_tokens",
+          "google_secret_manager_secret_iam_member.agent_api_key",
+          "google_secret_manager_secret_iam_member.agent_ingestion_key",
+          "google_secret_manager_secret_iam_member.collector_ingestion_key"
+        ]
+      }
+    }
+  }
+}

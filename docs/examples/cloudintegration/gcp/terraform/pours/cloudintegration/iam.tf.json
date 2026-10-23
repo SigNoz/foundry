@@ -1,0 +1,43 @@
+{
+  "resource": {
+    "google_project_iam_member": {
+      "agent_logs": {
+        "//": "Predefined roles specify operations; IAM bindings determine resource scope. Bootstrap installs direct grants on the resources it creates. The Agent never manages Infrastructure Manager deployments, Terraform state, or IAM policies. GCP cannot bind sink management to one sink. This accepted v1 grant also allows creating/deleting sinks and managing other project logging configuration. The Agent's code must update only our sink and preserve customer settings.",
+        "project": "${var.project_id}",
+        "role": "roles/logging.configWriter",
+        "member": "serviceAccount:${google_service_account.agent.email}"
+      },
+      "collector_metrics": {
+        "//": "Read access also covers Monitoring configuration such as dashboards and alerts.",
+        "project": "${var.project_id}",
+        "role": "roles/monitoring.viewer",
+        "member": "serviceAccount:${google_service_account.collector.email}"
+      }
+    },
+    "google_cloud_run_v2_service_iam_member": {
+      "agent_collector": {
+        "//": "Includes delete access to this service, but no service IAM-policy writes. A service binding does not authorize creation or updates of other services.",
+        "project": "${var.project_id}",
+        "location": "${var.deployment_region}",
+        "name": "${google_cloud_run_v2_service.collector.name}",
+        "role": "roles/run.developer",
+        "member": "serviceAccount:${google_service_account.agent.email}"
+      }
+    },
+    "time_sleep": {
+      "iam_propagation": {
+        "//": "Wait once after bootstrap IAM grants, before container startup. Terraform saves the completed wait in state and reuses it on updates and retries. Collector service IAM grants are installed after that service exists.",
+        "create_duration": "180s",
+        "depends_on": [
+          "google_secret_manager_secret_iam_member.agent_api_key",
+          "google_secret_manager_secret_iam_member.agent_ingestion_key",
+          "google_secret_manager_secret_iam_member.collector_ingestion_key",
+          "google_project_iam_member.agent_logs",
+          "google_project_iam_member.collector_metrics",
+          "google_service_account_iam_member.agent_uses_collector",
+          "google_service_account_iam_member.pubsub_mints_push_tokens"
+        ]
+      }
+    }
+  }
+}

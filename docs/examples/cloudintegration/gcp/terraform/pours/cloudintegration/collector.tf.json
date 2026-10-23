@@ -1,0 +1,119 @@
+{
+  "locals": {
+    "//": "Bootstrap always starts without telemetry collection. Only /healthz returns success: Pub/Sub pushes to / must not be acknowledged until the Agent installs a real logs pipeline.",
+    "collector_idle_config": "extensions:\n  health_check:\n    endpoint: 0.0.0.0:8080\n    path: /healthz\nreceivers:\n  nop: {}\nexporters:\n  nop: {}\nservice:\n  extensions: [health_check]\n  pipelines:\n    logs:\n      receivers: [nop]\n      exporters: [nop]\n"
+  },
+  "resource": {
+    "google_cloud_run_v2_service": {
+      "collector": {
+        "//": "Same-project Pub/Sub push is internal when it uses the default run.app URL.",
+        "project": "${var.project_id}",
+        "name": "${local.collector_service_name}",
+        "location": "${var.deployment_region}",
+        "description": "Bootstrap-owned SigNoz Collector, configured by the Agent",
+        "deletion_protection": false,
+        "ingress": "INGRESS_TRAFFIC_INTERNAL_ONLY",
+        "default_uri_disabled": false,
+        "invoker_iam_disabled": false,
+        "labels": "${local.labels}",
+        "scaling": [
+          {
+            "scaling_mode": "MANUAL",
+            "manual_instance_count": 1
+          }
+        ],
+        "template": [
+          {
+            "service_account": "${google_service_account.collector.email}",
+            "execution_environment": "EXECUTION_ENVIRONMENT_GEN2",
+            "containers": [
+              {
+                "//": "TCP also works after the Agent replaces the idle listener with the push receiver on port 8080. An HTTP health listener can then use another port.",
+                "image": "${var.collector_image}",
+                "args": ["--config=env:OTEL_CONFIG"],
+                "ports": [
+                  {
+                    "container_port": 8080
+                  }
+                ],
+                "resources": [
+                  {
+                    "limits": {
+                      "cpu": "${var.collector_cpu}",
+                      "memory": "${var.collector_memory}"
+                    },
+                    "cpu_idle": false
+                  }
+                ],
+                "startup_probe": [
+                  {
+                    "period_seconds": 5,
+                    "failure_threshold": 24,
+                    "tcp_socket": [
+                      {
+                        "port": 8080
+                      }
+                    ]
+                  }
+                ],
+                "env": [
+                  {
+                    "name": "OTEL_CONFIG",
+                    "value": "${local.collector_idle_config}"
+                  },
+                  {
+                    "name": "GCP_PROJECT_ID",
+                    "value": "${var.project_id}"
+                  },
+                  {
+                    "name": "SIGNOZ_INGESTION_URL",
+                    "value": "${var.ingestion_url}"
+                  },
+                  {
+                    "name": "SIGNOZ_INGESTION_KEY",
+                    "value_source": [
+                      {
+                        "secret_key_ref": [
+                          {
+                            "secret": "${data.google_secret_manager_secret.ingestion_key.secret_id}",
+                            "version": "${var.ingestion_secret_version}"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "traffic": [
+          {
+            "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+            "percent": 100
+          }
+        ],
+        "lifecycle": {
+          "//": "Bootstrap owns service creation/deletion and IAM. The Agent owns revisions and traffic; reapplying bootstrap must preserve its config and customer CPU/memory changes. This does not restrict which fields IAM permits updating.",
+          "ignore_changes": ["template", "traffic"]
+        },
+        "depends_on": [
+          "time_sleep.iam_propagation",
+          "time_sleep.api_activation",
+          "google_project_iam_member.collector_metrics",
+          "google_secret_manager_secret_iam_member.collector_ingestion_key"
+        ]
+      }
+    },
+    "google_cloud_run_v2_service_iam_member": {
+      "pubsub_invoker": {
+        "//": "This is a policy on the Collector service, not on its runtime service account.",
+        "project": "${var.project_id}",
+        "location": "${var.deployment_region}",
+        "name": "${google_cloud_run_v2_service.collector.name}",
+        "role": "roles/run.invoker",
+        "member": "serviceAccount:${google_service_account.pubsub_push.email}"
+      }
+    }
+  }
+}
