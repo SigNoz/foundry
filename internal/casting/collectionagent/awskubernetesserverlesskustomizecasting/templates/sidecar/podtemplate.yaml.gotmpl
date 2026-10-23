@@ -1,9 +1,4 @@
 {{- $name := print $.Metadata.Name "-collector-sidecar" -}}
-{{- if eq $.Controller "opentelemetry-operator" }}
-metadata:
-  annotations:
-    sidecar.opentelemetry.io/inject: {{ print $.Namespace "/" $name | quote }}
-{{- else }}
 spec:
   initContainers:
     # restartPolicy Always makes it a native sidecar, so a Job completes when its own containers do.
@@ -82,4 +77,3 @@ spec:
     - name: {{ $name }}
       configMap:
         name: {{ $name }}
-{{- end }}

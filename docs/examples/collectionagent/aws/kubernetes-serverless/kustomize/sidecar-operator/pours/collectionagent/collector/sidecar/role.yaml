@@ -6,9 +6,6 @@ metadata:
     app.kubernetes.io/instance: signoz
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: signoz-collector-sidecar
-    foundry.signoz.io/kind: CollectionAgent
-    foundry.signoz.io/managed-by: foundry
-    foundry.signoz.io/name: signoz
   name: signoz-collector-sidecar
 rules:
 - apiGroups:

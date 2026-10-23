@@ -6,7 +6,7 @@ import (
 	"github.com/signoz/foundry/internal/domain"
 )
 
-//go:embed templates/*.gotmpl templates/deployment/*.gotmpl templates/sidecar/*.gotmpl templates/sidecar/component/*.gotmpl
+//go:embed templates/*.gotmpl templates/deployment/*.gotmpl templates/sidecar/*.gotmpl
 var templates embed.FS
 
 var (
@@ -23,14 +23,11 @@ var (
 	deploymentOpenTelemetryCollectorTemplate = domain.MustNewTemplateFromFS(templates, "templates/deployment/opentelemetrycollector.yaml.gotmpl", domain.FormatYAML)
 
 	sidecarKustomizationTemplate          = domain.MustNewTemplateFromFS(templates, "templates/sidecar/kustomization.yaml.gotmpl", domain.FormatYAML)
+	sidecarRoleTemplate                   = domain.MustNewTemplateFromFS(templates, "templates/sidecar/role.yaml.gotmpl", domain.FormatYAML)
+	sidecarRolebindingTemplate            = domain.MustNewTemplateFromFS(templates, "templates/sidecar/rolebinding.yaml.gotmpl", domain.FormatYAML)
+	sidecarPodtemplateTemplate            = domain.MustNewTemplateFromFS(templates, "templates/sidecar/podtemplate.yaml.gotmpl", domain.FormatYAML)
+	sidecarPatchTemplate                  = domain.MustNewTemplateFromFS(templates, "templates/sidecar/patch.yaml.gotmpl", domain.FormatYAML)
+	sidecarPatchCronjobTemplate           = domain.MustNewTemplateFromFS(templates, "templates/sidecar/patch-cronjob.yaml.gotmpl", domain.FormatYAML)
 	sidecarOpenTelemetryCollectorTemplate = domain.MustNewTemplateFromFS(templates, "templates/sidecar/opentelemetrycollector.yaml.gotmpl", domain.FormatYAML)
 	sidecarYAMLTemplate                   = domain.MustNewTemplateFromFS(templates, "templates/sidecar/collector.yaml.gotmpl", domain.FormatYAML)
-
-	sidecarComponentTemplate       = domain.MustNewTemplateFromFS(templates, "templates/sidecar/component/kustomization.yaml.gotmpl", domain.FormatYAML)
-	sidecarKustomizeconfigTemplate = domain.MustNewTemplateFromFS(templates, "templates/sidecar/component/kustomizeconfig.yaml.gotmpl", domain.FormatYAML)
-	sidecarRoleTemplate            = domain.MustNewTemplateFromFS(templates, "templates/sidecar/component/role.yaml.gotmpl", domain.FormatYAML)
-	sidecarRolebindingTemplate     = domain.MustNewTemplateFromFS(templates, "templates/sidecar/component/rolebinding.yaml.gotmpl", domain.FormatYAML)
-	sidecarPodtemplateTemplate     = domain.MustNewTemplateFromFS(templates, "templates/sidecar/component/podtemplate.yaml.gotmpl", domain.FormatYAML)
-	sidecarPatchTemplateTemplate   = domain.MustNewTemplateFromFS(templates, "templates/sidecar/component/patch-template.yaml.gotmpl", domain.FormatYAML)
-	sidecarPatchCronjobTemplate    = domain.MustNewTemplateFromFS(templates, "templates/sidecar/component/patch-cronjob.yaml.gotmpl", domain.FormatYAML)
 )

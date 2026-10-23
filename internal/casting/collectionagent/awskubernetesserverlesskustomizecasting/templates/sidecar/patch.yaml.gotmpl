@@ -1,5 +1,3 @@
-# Kustomize stamps each selected workload's kind and name onto the patch.
-apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ $.Metadata.Name }}-collector-sidecar

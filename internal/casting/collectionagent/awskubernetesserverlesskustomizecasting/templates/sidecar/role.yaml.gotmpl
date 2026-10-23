@@ -8,9 +8,6 @@ metadata:
     app.kubernetes.io/instance: {{ $.Metadata.Name }}
     app.kubernetes.io/component: collector-sidecar
     app.kubernetes.io/managed-by: kustomize
-    {{- range $key, $value := $.Labels }}
-    {{ $key }}: {{ $value | quote }}
-    {{- end }}
 rules:
   - apiGroups:
       - ""

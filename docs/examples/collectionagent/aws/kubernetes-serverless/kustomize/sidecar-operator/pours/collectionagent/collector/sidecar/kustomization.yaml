@@ -7,7 +7,7 @@ labels:
     foundry.signoz.io/kind: CollectionAgent
     foundry.signoz.io/managed-by: foundry
     foundry.signoz.io/name: signoz
-namespace: signoz
 resources:
-- namespace.yaml
+- role.yaml
+- rolebinding.yaml
 - opentelemetrycollector.yaml
