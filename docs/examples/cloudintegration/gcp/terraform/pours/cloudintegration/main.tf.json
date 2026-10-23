@@ -1,0 +1,47 @@
+{
+  "locals": {
+    "//": "Service and log resource names are fixed for one integration per project. Secret IDs are inputs. IAM uses predefined roles without installation IDs. Bootstrap owns the stable log resources and their push configuration; the Agent only changes the sink's filter and enabled state through the API. Bootstrap creates the Collector before wiring authenticated push delivery and uses its actual service URL, which remains stable across revision updates.",
+    "name_prefix": "signoz-integration",
+    "logs_topic_name": "${local.name_prefix}_logs_push",
+    "logs_subscription_name": "${local.logs_topic_name}-${local.collector_service_name}",
+    "logs_sink_name": "${local.name_prefix}_logs",
+    "agent_service_name": "${local.name_prefix}-agent",
+    "collector_service_name": "${local.name_prefix}-collector",
+    "collector_service_url": "${google_cloud_run_v2_service.collector.uri}",
+    "labels": {
+      "managed-by": "signoz"
+    },
+    "required_apis": [
+      "cloudbuild.googleapis.com",
+      "cloudresourcemanager.googleapis.com",
+      "config.googleapis.com",
+      "iam.googleapis.com",
+      "iamcredentials.googleapis.com",
+      "logging.googleapis.com",
+      "monitoring.googleapis.com",
+      "pubsub.googleapis.com",
+      "run.googleapis.com",
+      "secretmanager.googleapis.com",
+      "serviceusage.googleapis.com",
+      "storage.googleapis.com"
+    ]
+  },
+  "resource": {
+    "google_project_service": {
+      "required": {
+        "//": "Removing the integration must not disable APIs shared with customer workloads.",
+        "for_each": "${toset(local.required_apis)}",
+        "project": "${var.project_id}",
+        "service": "${each.value}",
+        "disable_on_destroy": false
+      }
+    },
+    "time_sleep": {
+      "api_activation": {
+        "//": "API enablement can finish before the service accepts resource requests. This completed wait is reused on retries and later applies.",
+        "create_duration": "60s",
+        "depends_on": ["google_project_service.required"]
+      }
+    }
+  }
+}

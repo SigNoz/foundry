@@ -1,0 +1,14 @@
+{
+  "provider": {
+    "google": {
+      "//": "Infrastructure Manager supplies credentials and manages the Terraform backend.",
+      "project": "${var.project_id}",
+      "region": "${var.deployment_region}"
+    },
+    "google-beta": {
+      "//": "Generating the Pub/Sub service identity requires the beta provider.",
+      "project": "${var.project_id}",
+      "region": "${var.deployment_region}"
+    }
+  }
+}

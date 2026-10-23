@@ -1,0 +1,43 @@
+{
+  "output": {
+    "bootstrap_deployment_name": {
+      "description": "Suggested customer-owned bootstrap deployment name; only the customer applies it.",
+      "value": "projects/${var.project_id}/locations/${var.deployment_region}/deployments/${local.name_prefix}-bootstrap"
+    },
+    "service_accounts": {
+      "description": "Bootstrap-owned Agent, Collector, and authenticated push identities.",
+      "value": {
+        "agent": "${google_service_account.agent.email}",
+        "collector": "${google_service_account.collector.email}",
+        "pubsub_push": "${google_service_account.pubsub_push.email}"
+      }
+    },
+    "secret_ids": {
+      "description": "Customer-owned credential secrets referenced by the Agent and Collector; deleting bootstrap leaves them intact.",
+      "value": {
+        "api_key": "${data.google_secret_manager_secret.api_key.secret_id}",
+        "ingestion_key": "${data.google_secret_manager_secret.ingestion_key.secret_id}"
+      }
+    },
+    "agent_service_name": {
+      "description": "Agent service name.",
+      "value": "${google_cloud_run_v2_service.agent.name}"
+    },
+    "collector_service_name": {
+      "description": "Bootstrap-owned Collector updated through the Cloud Run API by the Agent.",
+      "value": "${local.collector_service_name}"
+    },
+    "collector_service_url": {
+      "description": "Actual Collector service URL used by the authenticated push subscription.",
+      "value": "${local.collector_service_url}"
+    },
+    "logs_resource_names": {
+      "description": "Bootstrap-created log resources. The Agent updates only the sink through the Logging API.",
+      "value": {
+        "topic": "${google_pubsub_topic.logs.id}",
+        "subscription": "${google_pubsub_subscription.logs.id}",
+        "sink": "${google_logging_project_sink.logs.id}"
+      }
+    }
+  }
+}

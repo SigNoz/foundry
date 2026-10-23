@@ -1,0 +1,135 @@
+{
+  "variable": {
+    "project_id": {
+      "description": "Existing project that hosts the integration and supplies its metrics and logs.",
+      "type": "string",
+      "validation": {
+        "condition": "${can(regex(\"^[a-z][a-z0-9-]{4,28}[a-z0-9]$\", var.project_id))}",
+        "error_message": "Use a GCP project ID, not its display name or project number."
+      }
+    },
+    "deployment_region": {
+      "description": "Region for Cloud Run and the customer-owned Infrastructure Manager bootstrap deployment.",
+      "type": "string",
+      "validation": {
+        "condition": "${can(regex(\"^[a-z]+-[a-z]+[0-9]+$\", var.deployment_region))}",
+        "error_message": "Use a regional location such as us-central1."
+      }
+    },
+    "integration_account_id": {
+      "description": "UUID returned when the GCP agent integration is created in SigNoz.",
+      "type": "string",
+      "validation": {
+        "condition": "${can(regex(\"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\", var.integration_account_id))}",
+        "error_message": "Use the lowercase integration account UUID returned by SigNoz."
+      }
+    },
+    "signoz_api_url": {
+      "description": "SigNoz API URL used for agent check-in.",
+      "type": "string",
+      "validation": {
+        "condition": "${can(regex(\"^https://[^/]+\", var.signoz_api_url))}",
+        "error_message": "The SigNoz API URL must use HTTPS."
+      }
+    },
+    "ingestion_url": {
+      "description": "SigNoz ingestion URL used by the Agent and Collector.",
+      "type": "string",
+      "validation": {
+        "condition": "${can(regex(\"^https://[^/]+\", var.ingestion_url))}",
+        "error_message": "The ingestion URL must use HTTPS."
+      }
+    },
+    "agent_image": {
+      "description": "Agent image, pinned to a release tag or digest.",
+      "type": "string",
+      "default": "docker.io/signoz/cloud-integration-agent:v0.0.16",
+      "validation": {
+        "condition": "${trimspace(var.agent_image) != \"\"}",
+        "error_message": "Provide a nonempty Agent image."
+      }
+    },
+    "collector_image": {
+      "description": "Contrib Collector image used for bootstrap and Agent revisions. Enable logs only with a build containing the Pub/Sub push receiver.",
+      "type": "string",
+      "default": "docker.io/otel/opentelemetry-collector-contrib:0.163.1",
+      "validation": {
+        "condition": "${trimspace(var.collector_image) != \"\"}",
+        "error_message": "Provide a contrib Collector image containing nop receiver/exporter and the health_check extension."
+      }
+    },
+    "api_secret_id": {
+      "description": "Existing API-key secret in project_id, containing JSON with an api_key field and labeled managed-by=signoz. Created and populated outside Terraform.",
+      "type": "string",
+      "default": "signoz-integration-api-credentials",
+      "validation": {
+        "condition": "${can(regex(\"^[A-Za-z0-9_-]{1,255}$\", var.api_secret_id))}",
+        "error_message": "Provide a secret ID in the deployment project, using letters, digits, underscores or hyphens."
+      }
+    },
+    "api_secret_version": {
+      "description": "Existing API-key version. Use the numeric version returned when uploading the key; latest is available for manual setup.",
+      "type": "string",
+      "default": "latest",
+      "validation": {
+        "condition": "${can(regex(\"^(latest|[1-9][0-9]*)$\", var.api_secret_version))}",
+        "error_message": "Use a positive numeric secret version or latest."
+      }
+    },
+    "ingestion_secret_id": {
+      "description": "Existing plain-text ingestion-key secret in project_id, labeled managed-by=signoz. Created and populated outside Terraform.",
+      "type": "string",
+      "default": "signoz-integration-ingestion-key-credential",
+      "validation": {
+        "condition": "${can(regex(\"^[A-Za-z0-9_-]{1,255}$\", var.ingestion_secret_id))}",
+        "error_message": "Provide a secret ID in the deployment project, using letters, digits, underscores or hyphens."
+      }
+    },
+    "ingestion_secret_version": {
+      "description": "Existing ingestion-key version. Use the numeric version returned when uploading the key; latest is available for manual setup.",
+      "type": "string",
+      "default": "latest",
+      "validation": {
+        "condition": "${can(regex(\"^(latest|[1-9][0-9]*)$\", var.ingestion_secret_version))}",
+        "error_message": "Use a positive numeric secret version or latest."
+      }
+    },
+    "config_sync_period_seconds": {
+      "description": "Agent check-in interval.",
+      "type": "number",
+      "default": 30,
+      "validation": {
+        "condition": "${var.config_sync_period_seconds >= 30 && floor(var.config_sync_period_seconds) == var.config_sync_period_seconds}",
+        "error_message": "The check-in interval must be a whole number of at least 30 seconds."
+      }
+    },
+    "agent_cpu": {
+      "description": "Cloud Run CPU limit for the Agent. Customer changes are made through bootstrap.",
+      "type": "string",
+      "default": "1",
+      "validation": {
+        "condition": "${contains([\"1\", \"2\", \"4\", \"6\", \"8\"], var.agent_cpu)}",
+        "error_message": "Choose a Cloud Run CPU limit of 1, 2, 4, 6, or 8."
+      }
+    },
+    "agent_memory": {
+      "description": "Cloud Run memory limit for the Agent. Must be compatible with agent_cpu.",
+      "type": "string",
+      "default": "512Mi"
+    },
+    "collector_cpu": {
+      "description": "Initial Collector CPU limit, used only at service creation. Later sizing changes are made on Cloud Run and preserved by the Agent.",
+      "type": "string",
+      "default": "2",
+      "validation": {
+        "condition": "${contains([\"1\", \"2\", \"4\", \"6\", \"8\"], var.collector_cpu)}",
+        "error_message": "Choose a Cloud Run CPU limit of 1, 2, 4, 6, or 8."
+      }
+    },
+    "collector_memory": {
+      "description": "Initial Collector memory limit, used only at service creation. Must be compatible with collector_cpu.",
+      "type": "string",
+      "default": "4Gi"
+    }
+  }
+}
