@@ -100,40 +100,41 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config installat
 }
 
 func (casting *dockerComposeCasting) Cast(ctx context.Context, config installation.Casting, outputPath string) error {
-	casting.logger.InfoContext(ctx, "Executing commands for platform")
+	casting.logger.InfoContext(ctx, "deploying the compose project", slog.String("project", config.Metadata.Name))
 
-	// Check if compose file exists
 	composeFile := filepath.Join(outputPath, rootcasting.DeploymentDir, "compose.yaml")
 	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
 		return foundryerrors.Newf(foundryerrors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
 	}
 
-	return casting.run(ctx, config, composeFile, "up", "-d")
+	return casting.docker(ctx, config, composeFile, "up", "-d")
 }
 
 func (casting *dockerComposeCasting) Down(ctx context.Context, config installation.Casting, outputPath string) error {
+	casting.logger.InfoContext(ctx, "removing the compose project", slog.String("project", config.Metadata.Name))
+
 	composeFile := filepath.Join(outputPath, rootcasting.DeploymentDir, "compose.yaml")
 	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
 		return foundryerrors.Newf(foundryerrors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
 	}
 
-	return casting.run(ctx, config, composeFile, "down")
+	return casting.docker(ctx, config, composeFile, "down")
 }
 
-func (casting *dockerComposeCasting) run(ctx context.Context, config installation.Casting, composeFile string, args ...string) error {
-	if err := casting.checkOwnership(ctx, config); err != nil {
-		return err
-	}
-
+func (casting *dockerComposeCasting) docker(ctx context.Context, config installation.Casting, composeFile string, args ...string) error {
 	composeCmd, err := getComposeCommand(ctx)
 	if err != nil {
 		return foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "docker compose not available")
 	}
 
+	if err := casting.checkOwnership(ctx, config, composeCmd, composeFile); err != nil {
+		return err
+	}
+
 	argv := append(composeCmd[1:], "-f", composeFile)
 	argv = append(argv, args...)
 
-	casting.logger.DebugContext(ctx, "Running command", slog.String("command", strings.Join(append([]string{composeCmd[0]}, argv...), " ")))
+	casting.logger.DebugContext(ctx, "running command", slog.String("command", strings.Join(append([]string{composeCmd[0]}, argv...), " ")))
 
 	cmd := exec.CommandContext(ctx, composeCmd[0], argv...)
 	cmd.Stdout = os.Stdout
@@ -146,13 +147,25 @@ func (casting *dockerComposeCasting) run(ctx context.Context, config installatio
 	return nil
 }
 
-// checkOwnership refuses to deploy over a compose project of the same name
-// that belongs to a different foundry Kind. Unlabeled containers only warn:
-// they are either a pre-label foundry deployment or a foreign project.
-func (casting *dockerComposeCasting) checkOwnership(ctx context.Context, config installation.Casting) error {
-	out, err := exec.CommandContext(ctx, "docker", "ps", "-a",
-		"--filter", "label=com.docker.compose.project="+config.Metadata.Name,
-		"--format", `{{.Label "`+v1alpha1.LabelKind.Key+`"}}`).Output()
+// checkOwnership refuses a compose project of the same name that belongs to a different foundry Kind; unlabeled containers only warn.
+func (casting *dockerComposeCasting) checkOwnership(ctx context.Context, config installation.Casting, composeCmd []string, composeFile string) error {
+	argv := append(composeCmd[1:], "-f", composeFile, "ps", "-a", "-q")
+
+	out, err := exec.CommandContext(ctx, composeCmd[0], argv...).Output()
+	if err != nil {
+		casting.logger.WarnContext(ctx, "skipping the ownership check: could not read labels from docker", foundryerrors.LogAttr(err))
+		return nil
+	}
+
+	ids := strings.Fields(string(out))
+
+	if len(ids) == 0 {
+		return nil
+	}
+
+	argv = append([]string{"inspect", "--format", `{{ index .Config.Labels "` + v1alpha1.LabelKind.Key + `" }}`}, ids...)
+
+	out, err = exec.CommandContext(ctx, "docker", argv...).Output()
 	if err != nil {
 		casting.logger.WarnContext(ctx, "skipping the ownership check: could not read labels from docker", foundryerrors.LogAttr(err))
 		return nil

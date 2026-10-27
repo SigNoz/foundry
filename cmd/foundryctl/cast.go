@@ -43,7 +43,9 @@ func registerCastDownCmd(castCmd *cobra.Command) {
 		Use:   "down",
 		Short: "Take down what cast deployed. Volumes and data stay.",
 		Args:  cobra.NoArgs,
-		RunE:  recoverRunE(domain.EventCastDown, castDown),
+		RunE: recoverRunE(domain.EventCastDown, func(cmd *cobra.Command, args []string) (domain.Properties, error) {
+			return runDown(cmd.Context(), rootLogger, poursCfg.Path, commonCfg.File)
+		}),
 	}
 
 	castCmd.AddCommand(castDownCmd)
@@ -65,18 +67,6 @@ func castUp(cmd *cobra.Command, args []string) (domain.Properties, error) {
 	}
 
 	return runCast(ctx, rootLogger, poursCfg.Path, commonCfg.File)
-}
-
-func castDown(cmd *cobra.Command, args []string) (domain.Properties, error) {
-	ctx := cmd.Context()
-
-	if !castCfg.NoGauge {
-		if props, err := runGauge(ctx, rootLogger, commonCfg.File); err != nil {
-			return props, err
-		}
-	}
-
-	return runDown(ctx, rootLogger, poursCfg.Path, commonCfg.File)
 }
 
 func runCast(ctx context.Context, logger *slog.Logger, poursPath string, configPath string) (domain.Properties, error) {
@@ -127,6 +117,19 @@ func runDown(ctx context.Context, logger *slog.Logger, poursPath string, configP
 	props := domain.NewProperties()
 	for _, machinery := range machineries {
 		props = props.Merge(machinery.TrackableProperties())
+	}
+
+	// Gauges the locked documents: down removes what the lock records, so the
+	// tools it needs are the lock's, not those of an casting.yaml.
+	if !castCfg.NoGauge {
+		n, err := foundry.Gauge(ctx, machineries)
+		if n < len(machineries) {
+			props = props.Merge(machineries[n].FailedProperties())
+		}
+
+		if err != nil {
+			return props, err
+		}
 	}
 
 	n, err := foundry.Down(ctx, machineries, poursPath)

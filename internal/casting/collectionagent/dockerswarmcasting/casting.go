@@ -54,26 +54,24 @@ func (c *dockerSwarmCasting) Forge(ctx context.Context, config collectionagent.C
 }
 
 func (c *dockerSwarmCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
+	c.logger.InfoContext(ctx, "deploying the swarm stack", slog.String("stack", config.Metadata.Name))
+
 	composeFile := filepath.Join(outputPath, p.Dir(), "compose.yaml")
 
 	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
 		return foundryerrors.Newf(foundryerrors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
 	}
 
-	return c.run(ctx, config, "deploy", "-d", "-c", composeFile, config.Metadata.Name)
+	return c.docker(ctx, config, "deploy", "-d", "-c", composeFile, config.Metadata.Name)
 }
 
 func (c *dockerSwarmCasting) Down(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
-	composeFile := filepath.Join(outputPath, p.Dir(), "compose.yaml")
+	c.logger.InfoContext(ctx, "removing the swarm stack", slog.String("stack", config.Metadata.Name))
 
-	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
-		return foundryerrors.Newf(foundryerrors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
-	}
-
-	return c.run(ctx, config, "rm", config.Metadata.Name)
+	return c.docker(ctx, config, "rm", config.Metadata.Name)
 }
 
-func (c *dockerSwarmCasting) run(ctx context.Context, config collectionagent.Casting, args ...string) error {
+func (c *dockerSwarmCasting) docker(ctx context.Context, config collectionagent.Casting, args ...string) error {
 	if err := c.checkOwnership(ctx, config); err != nil {
 		return err
 	}
@@ -93,13 +91,23 @@ func (c *dockerSwarmCasting) run(ctx context.Context, config collectionagent.Cas
 	return nil
 }
 
-// checkOwnership refuses to deploy over a swarm stack of the same name that
-// belongs to a different foundry Kind. Unlabeled task containers only warn:
-// they are either a pre-label foundry deployment or a foreign stack.
+// checkOwnership refuses a swarm stack of the same name that belongs to a different foundry Kind; unlabeled services only warn.
 func (c *dockerSwarmCasting) checkOwnership(ctx context.Context, config collectionagent.Casting) error {
-	out, err := exec.CommandContext(ctx, "docker", "ps", "-a",
-		"--filter", "label=com.docker.stack.namespace="+config.Metadata.Name,
-		"--format", `{{.Label "`+v1alpha1.LabelKind.Key+`"}}`).Output()
+	out, err := exec.CommandContext(ctx, "docker", "stack", "services", "-q", config.Metadata.Name).Output()
+	if err != nil {
+		c.logger.WarnContext(ctx, "skipping the ownership check: could not read labels from docker", foundryerrors.LogAttr(err))
+		return nil
+	}
+
+	ids := strings.Fields(string(out))
+
+	if len(ids) == 0 {
+		return nil
+	}
+
+	argv := append([]string{"service", "inspect", "--format", `{{ index .Spec.TaskTemplate.ContainerSpec.Labels "` + v1alpha1.LabelKind.Key + `" }}`}, ids...)
+
+	out, err = exec.CommandContext(ctx, "docker", argv...).Output()
 	if err != nil {
 		c.logger.WarnContext(ctx, "skipping the ownership check: could not read labels from docker", foundryerrors.LogAttr(err))
 		return nil
@@ -112,7 +120,7 @@ func (c *dockerSwarmCasting) checkOwnership(ctx context.Context, config collecti
 	}
 
 	if ownership.HasUnlabeled() {
-		c.logger.WarnContext(ctx, "swarm stack has task containers without foundry ownership labels", slog.String("stack", config.Metadata.Name))
+		c.logger.WarnContext(ctx, "swarm stack has services without foundry ownership labels", slog.String("stack", config.Metadata.Name))
 	}
 
 	return nil
