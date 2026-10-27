@@ -95,8 +95,8 @@ docker ps
 # View logs for a specific service
 docker compose -f pours/deployment/compose.yaml logs -f signoz
 
-# Stop the stack
-cd pours/deployment && docker compose down
+# Remove the stack
+foundryctl cast down -f casting.yaml
 ```
 
 > [!NOTE]

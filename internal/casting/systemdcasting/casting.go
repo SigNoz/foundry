@@ -95,6 +95,10 @@ func (c *systemdCasting) Cast(ctx context.Context, config installation.Casting, 
 	return nil
 }
 
+func (c *systemdCasting) Down(ctx context.Context, config installation.Casting, poursPath string) error {
+	return errors.Newf(errors.TypeUnsupported, "down is not supported for %s %q", config.Kind(), config.Metadata.Name)
+}
+
 func (c *systemdCasting) forgeTelemetryKeeper(cfg *installation.Casting) ([]domain.Material, error) {
 	if !cfg.Spec.TelemetryKeeper.Spec.IsEnabled() {
 		return nil, nil

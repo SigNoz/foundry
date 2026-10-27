@@ -131,6 +131,7 @@ Commands:
   gauge       Validate required tools for your deployment mode
   forge       Generate deployment and configuration files
   cast        Full pipeline: gauge + forge + deploy
+  cast down   Remove the deployment, keeping its data
   gen         Generate example casting files for all modes
 
 Flags:
@@ -151,6 +152,9 @@ foundryctl forge -f casting.yaml
 
 # Full deploy
 foundryctl cast -f casting.yaml
+
+# Remove the deployment
+foundryctl cast down -f casting.yaml
 
 # Generate examples for all deployment modes
 foundryctl gen

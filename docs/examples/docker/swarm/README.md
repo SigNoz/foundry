@@ -71,7 +71,7 @@ docker stack services signoz
 docker service logs signoz_signoz -f
 
 # Remove the stack
-docker stack rm signoz
+foundryctl cast down -f casting.yaml
 ```
 
 ## MCP server (optional)

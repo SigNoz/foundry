@@ -151,6 +151,10 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 	return nil
 }
 
+func (c *helmCasting) Down(ctx context.Context, config installation.Casting, poursPath string) error {
+	return errors.Newf(errors.TypeUnsupported, "down is not supported for %s %q", config.Kind(), config.Metadata.Name)
+}
+
 // The annotation's default cannot name metadata.name, so the fallback lives here.
 func namespace(config installation.Casting) string {
 	ns := installation.KubernetesNamespace.Resolve(config.Metadata.Annotations)

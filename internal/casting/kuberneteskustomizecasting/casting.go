@@ -179,6 +179,10 @@ func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting
 	return nil
 }
 
+func (c *kustomizeCasting) Down(ctx context.Context, config installation.Casting, poursPath string) error {
+	return errors.Newf(errors.TypeUnsupported, "down is not supported for %s %q", config.Kind(), config.Metadata.Name)
+}
+
 func (c *kustomizeCasting) kubectl(ctx context.Context, args ...string) error {
 	cmd := exec.CommandContext(ctx, "kubectl", args...)
 	cmd.Stdout = os.Stdout

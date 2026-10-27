@@ -68,6 +68,10 @@ func (c *awsEcsServerlessTerraformCasting) Cast(ctx context.Context, config coll
 	return nil
 }
 
+func (c *awsEcsServerlessTerraformCasting) Down(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
+	return foundryerrors.Newf(foundryerrors.TypeUnsupported, "down is not supported for %s %q", config.Kind(), config.Metadata.Name)
+}
+
 // Resolves the identifiers the module renders. The module is imported into a
 // task definition foundry never reads, so it derives every one of them.
 func templateDataFor(config collectionagent.Casting) templateData {

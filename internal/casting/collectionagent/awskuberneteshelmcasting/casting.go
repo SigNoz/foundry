@@ -37,3 +37,7 @@ func (c *awsKubernetesHelmCasting) Forge(ctx context.Context, config collectiona
 func (c *awsKubernetesHelmCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
 	return c.helmCasting.Cast(ctx, config, outputPath, p)
 }
+
+func (c *awsKubernetesHelmCasting) Down(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
+	return c.helmCasting.Down(ctx, config, outputPath, p)
+}

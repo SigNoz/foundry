@@ -119,6 +119,10 @@ func (c *renderCasting) Cast(ctx context.Context, config installation.Casting, p
 	return nil
 }
 
+func (c *renderCasting) Down(ctx context.Context, config installation.Casting, poursPath string) error {
+	return errors.Newf(errors.TypeUnsupported, "down is not supported for %s %q", config.Kind(), config.Metadata.Name)
+}
+
 func getRenderMaterial(config *installation.Casting, path string) (domain.StructuredMaterial, error) {
 	buf := bytes.NewBuffer(nil)
 	err := renderYAMLTemplate.Execute(buf, config)

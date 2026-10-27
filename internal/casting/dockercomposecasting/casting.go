@@ -3,13 +3,13 @@ package dockercomposecasting
 import (
 	"bytes"
 	"context"
-	"errors"
 	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
@@ -108,28 +108,65 @@ func (casting *dockerComposeCasting) Cast(ctx context.Context, config installati
 		return foundryerrors.Newf(foundryerrors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
 	}
 
-	// Get the available docker compose command
-	composeCmd, err := getComposeCommand(ctx)
-	if err != nil {
-		casting.logger.ErrorContext(ctx, "Docker compose not available", slog.String("error", err.Error()))
-		return foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "docker compose not available")
+	return casting.run(ctx, config, composeFile, "up", "-d")
+}
+
+func (casting *dockerComposeCasting) Down(ctx context.Context, config installation.Casting, outputPath string) error {
+	composeFile := filepath.Join(outputPath, rootcasting.DeploymentDir, "compose.yaml")
+	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
+		return foundryerrors.Newf(foundryerrors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
 	}
 
-	args := append(composeCmd[1:], "-f", composeFile, "up", "-d")
+	return casting.run(ctx, config, composeFile, "down")
+}
 
-	casting.logger.DebugContext(ctx, "Running command", slog.String("command", strings.Join(append([]string{composeCmd[0]}, args...), " ")))
-
-	cmd := exec.CommandContext(ctx, composeCmd[0], args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	err = cmd.Run()
-	if err != nil {
-		casting.logger.ErrorContext(ctx, "Command execution failed", slog.String("error", err.Error()))
+func (casting *dockerComposeCasting) run(ctx context.Context, config installation.Casting, composeFile string, args ...string) error {
+	if err := casting.checkOwnership(ctx, config); err != nil {
 		return err
 	}
 
-	casting.logger.InfoContext(ctx, "Command executed successfully")
+	composeCmd, err := getComposeCommand(ctx)
+	if err != nil {
+		return foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "docker compose not available")
+	}
+
+	argv := append(composeCmd[1:], "-f", composeFile)
+	argv = append(argv, args...)
+
+	casting.logger.DebugContext(ctx, "Running command", slog.String("command", strings.Join(append([]string{composeCmd[0]}, argv...), " ")))
+
+	cmd := exec.CommandContext(ctx, composeCmd[0], argv...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to run docker compose %s", args[0])
+	}
+
+	return nil
+}
+
+// checkOwnership refuses to deploy over a compose project of the same name
+// that belongs to a different foundry Kind. Unlabeled containers only warn:
+// they are either a pre-label foundry deployment or a foreign project.
+func (casting *dockerComposeCasting) checkOwnership(ctx context.Context, config installation.Casting) error {
+	out, err := exec.CommandContext(ctx, "docker", "ps", "-a",
+		"--filter", "label=com.docker.compose.project="+config.Metadata.Name,
+		"--format", `{{.Label "`+v1alpha1.LabelKind.Key+`"}}`).Output()
+	if err != nil {
+		casting.logger.WarnContext(ctx, "skipping the ownership check: could not read labels from docker", foundryerrors.LogAttr(err))
+		return nil
+	}
+
+	ownership := domain.ParseOwnership(string(out))
+
+	if foreign, conflict := ownership.Foreign(config.Kind().String()); conflict {
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "%q already belongs to a foundry %s on this host: choose a different metadata.name or remove the existing deployment", config.Metadata.Name, foreign)
+	}
+
+	if ownership.HasUnlabeled() {
+		casting.logger.WarnContext(ctx, "compose project has containers without foundry ownership labels", slog.String("project", config.Metadata.Name))
+	}
 
 	return nil
 }
@@ -160,5 +197,5 @@ func getComposeCommand(ctx context.Context) ([]string, error) {
 		return []string{"docker-compose"}, nil
 	}
 
-	return nil, errors.New("neither 'docker compose' nor 'docker-compose' is available")
+	return nil, foundryerrors.Newf(foundryerrors.TypeNotFound, "neither 'docker compose' nor 'docker-compose' is available")
 }

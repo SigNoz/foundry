@@ -4,6 +4,10 @@ services:
   {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}:
     container_name: {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}
     image: {{ $.Spec.TelemetryKeeper.Spec.Image }}
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     restart: unless-stopped
     networks:
       - {{ $.Metadata.Name }}-network
@@ -67,6 +71,10 @@ services:
         condition: service_healthy
       {{- end }}
     image: {{ $.Spec.TelemetryStore.Spec.Image }}
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     restart: unless-stopped
     networks:
       - {{ $.Metadata.Name }}-network
@@ -99,6 +107,10 @@ services:
   {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts:
     container_name: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts
     image: {{ $.Spec.TelemetryStore.Spec.Image }}
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     restart: on-failure
     networks:
       - {{ $.Metadata.Name }}-network
@@ -121,6 +133,10 @@ services:
   {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}:
     container_name: {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}
     image: {{ $.Spec.MetaStore.Spec.Image }}
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     restart: unless-stopped
     networks:
       - {{ $.Metadata.Name }}-network
@@ -145,6 +161,10 @@ services:
   {{- $ingesterReplicas := int $.Spec.Ingester.Spec.Cluster.Replicas }}
   ingester:
     image: {{ $.Spec.Ingester.Spec.Image }}
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     restart: unless-stopped
     networks:
       {{ $.Metadata.Name }}-network:
@@ -184,6 +204,10 @@ services:
   {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}:
     container_name: {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}
     image: {{ $.Spec.Signoz.Spec.Image }}
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     restart: unless-stopped
     networks:
       - {{ $.Metadata.Name }}-network
@@ -215,6 +239,10 @@ services:
   {{- $mcpReplicas := int $.Spec.MCP.Spec.Cluster.Replicas }}
   mcp:
     image: {{ $.Spec.MCP.Spec.Image }}
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     restart: unless-stopped
     networks:
       {{ $.Metadata.Name }}-network:
@@ -239,6 +267,10 @@ services:
   {{ $.Metadata.Name }}-telemetrystore-migrator:
     container_name: {{ $.Metadata.Name }}-telemetrystore-migrator
     image: {{ $.Spec.Ingester.Spec.Image }}
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     restart: on-failure
     networks:
       - {{ $.Metadata.Name }}-network

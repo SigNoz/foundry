@@ -37,3 +37,7 @@ func (c *azureKubernetesKustomizeCasting) Forge(ctx context.Context, config coll
 func (c *azureKubernetesKustomizeCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
 	return c.kustomizeCasting.Cast(ctx, config, outputPath, p)
 }
+
+func (c *azureKubernetesKustomizeCasting) Down(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
+	return c.kustomizeCasting.Down(ctx, config, outputPath, p)
+}

@@ -148,6 +148,10 @@ func (c *systemdBinaryCasting) Cast(ctx context.Context, config collectionagent.
 	return nil
 }
 
+func (c *systemdBinaryCasting) Down(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
+	return foundryerrors.Newf(foundryerrors.TypeUnsupported, "down is not supported for %s %q", config.Kind(), config.Metadata.Name)
+}
+
 // The mode is set after the write: WriteFile masks it with the umask and ignores it on an existing file.
 func (c *systemdBinaryCasting) provision(src string, dst string, mode os.FileMode) error {
 	content, err := os.ReadFile(src)

@@ -125,6 +125,10 @@ func (c *ecsCasting) Cast(ctx context.Context, config installation.Casting, outp
 	return c.terraform(ctx, root, "apply", planFile)
 }
 
+func (c *ecsCasting) Down(ctx context.Context, config installation.Casting, outputPath string) error {
+	return foundryerrors.Newf(foundryerrors.TypeUnsupported, "down is not supported for %s %q", config.Kind(), config.Metadata.Name)
+}
+
 func (c *ecsCasting) terraform(ctx context.Context, root, verb string, args ...string) error {
 	argv := append([]string{"-chdir=" + root, verb}, args...)
 

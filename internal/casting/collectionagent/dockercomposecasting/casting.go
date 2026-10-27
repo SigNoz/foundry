@@ -60,6 +60,20 @@ func (c *dockerComposeCasting) Cast(ctx context.Context, config collectionagent.
 		return foundryerrors.Newf(foundryerrors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
 	}
 
+	return c.run(ctx, config, composeFile, "up", "-d")
+}
+
+func (c *dockerComposeCasting) Down(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
+	composeFile := filepath.Join(outputPath, p.Dir(), "compose.yaml")
+
+	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
+		return foundryerrors.Newf(foundryerrors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
+	}
+
+	return c.run(ctx, config, composeFile, "down")
+}
+
+func (c *dockerComposeCasting) run(ctx context.Context, config collectionagent.Casting, composeFile string, args ...string) error {
 	if err := c.checkOwnership(ctx, config); err != nil {
 		return err
 	}
@@ -69,15 +83,20 @@ func (c *dockerComposeCasting) Cast(ctx context.Context, config collectionagent.
 		return foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "docker compose not available")
 	}
 
-	args := append(composeCmd[1:], "-f", composeFile, "up", "-d")
+	argv := append(composeCmd[1:], "-f", composeFile)
+	argv = append(argv, args...)
 
-	c.logger.DebugContext(ctx, "running command", slog.String("command", strings.Join(append([]string{composeCmd[0]}, args...), " ")))
+	c.logger.DebugContext(ctx, "running command", slog.String("command", strings.Join(append([]string{composeCmd[0]}, argv...), " ")))
 
-	cmd := exec.CommandContext(ctx, composeCmd[0], args...)
+	cmd := exec.CommandContext(ctx, composeCmd[0], argv...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to run docker compose %s", args[0])
+	}
+
+	return nil
 }
 
 // checkOwnership refuses to deploy over a compose project of the same name

@@ -56,6 +56,10 @@ func (c *coolifyCasting) Cast(ctx context.Context, config installation.Casting, 
 	return nil
 }
 
+func (c *coolifyCasting) Down(ctx context.Context, config installation.Casting, poursPath string) error {
+	return errors.Newf(errors.TypeUnsupported, "down is not supported for %s %q", config.Kind(), config.Metadata.Name)
+}
+
 func getCoolifyMaterial(config *installation.Casting, path string) (domain.StructuredMaterial, error) {
 	buf := bytes.NewBuffer(nil)
 	err := coolifyYAMLTemplate.Execute(buf, config)

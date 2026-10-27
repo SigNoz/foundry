@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
@@ -61,22 +60,37 @@ func (c *dockerSwarmCasting) Cast(ctx context.Context, config collectionagent.Ca
 		return foundryerrors.Newf(foundryerrors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
 	}
 
+	return c.run(ctx, config, "deploy", "-d", "-c", composeFile, config.Metadata.Name)
+}
+
+func (c *dockerSwarmCasting) Down(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
+	composeFile := filepath.Join(outputPath, p.Dir(), "compose.yaml")
+
+	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
+		return foundryerrors.Newf(foundryerrors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
+	}
+
+	return c.run(ctx, config, "rm", config.Metadata.Name)
+}
+
+func (c *dockerSwarmCasting) run(ctx context.Context, config collectionagent.Casting, args ...string) error {
 	if err := c.checkOwnership(ctx, config); err != nil {
 		return err
 	}
 
-	runctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-	defer cancel()
+	argv := append([]string{"stack"}, args...)
 
-	args := []string{"stack", "deploy", "-d", "-c", composeFile, config.Metadata.Name}
+	c.logger.DebugContext(ctx, "running command", slog.String("command", strings.Join(append([]string{"docker"}, argv...), " ")))
 
-	c.logger.DebugContext(runctx, "running command", slog.String("command", strings.Join(append([]string{"docker"}, args...), " ")))
-
-	cmd := exec.CommandContext(runctx, "docker", args...)
+	cmd := exec.CommandContext(ctx, "docker", argv...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to run docker stack %s", args[0])
+	}
+
+	return nil
 }
 
 // checkOwnership refuses to deploy over a swarm stack of the same name that

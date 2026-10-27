@@ -37,3 +37,7 @@ func (c *gcpKubernetesKustomizeCasting) Forge(ctx context.Context, config collec
 func (c *gcpKubernetesKustomizeCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
 	return c.kustomizeCasting.Cast(ctx, config, outputPath, p)
 }
+
+func (c *gcpKubernetesKustomizeCasting) Down(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
+	return c.kustomizeCasting.Down(ctx, config, outputPath, p)
+}

@@ -103,4 +103,8 @@ func (p *Planner) Cast(ctx context.Context, poursPath string) error {
 	return p.casting.Cast(ctx, *p.config, poursPath, pourer.New(strings.ToLower(p.config.Kind().String())))
 }
 
+func (p *Planner) Down(ctx context.Context, poursPath string) error {
+	return p.casting.Down(ctx, *p.config, poursPath, pourer.New(strings.ToLower(p.config.Kind().String())))
+}
+
 func (p *Planner) Toolers() []tooler.Tooler { return p.toolers }
