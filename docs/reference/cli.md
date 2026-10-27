@@ -76,6 +76,9 @@ Remove what `cast` deployed. Volumes and data stay, so the next `cast` starts on
 foundryctl cast down -f casting.yaml
 ```
 
+> [!NOTE]
+> `cast down` acts on `casting.yaml.lock`, the record `forge` wrote beside the casting file. When the casting file changed since then, the command refuses: restore the file to take down what the lock recorded, or run `forge` again to take down what the file now states. Once every document came down, the lock is removed. When no lock exists, the command succeeds and changes nothing.
+
 Supported for Docker Compose and Docker Swarm, for Installation and Collection Agent castings.
 
 ### gen
