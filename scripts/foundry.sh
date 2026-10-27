@@ -95,6 +95,8 @@ help() {
   printf "\tcurl -fsSL https://signoz.io/foundry.sh | bash\n"
   printf "\tcurl -fsSL https://signoz.io/foundry.sh | FOUNDRY_VERSION=v0.1.4 bash\n"
   printf "\tcurl -fsSL https://signoz.io/foundry.sh | bash -s -- -v v0.1.4 cloudintegration gcp terraform --region us-central1 ...\n"
+  printf "\tcurl -fsSL https://signoz.io/foundry.sh | bash -s -- -v v0.1.4 cloudintegration aws cloudformation --region us-east-1 ...\n"
+  printf "\tcurl -fsSL https://signoz.io/foundry.sh | bash -s -- -v v0.1.4 cloudintegration azure bicep --region eastus ...\n"
 }
 
 # Sets PLATFORM_* (OS, ARCH, BIN_SUFFIX); Windows shells map to OS=windows and .exe suffix.
