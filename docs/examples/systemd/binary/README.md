@@ -123,7 +123,12 @@ journalctl -u signoz-signoz.service -f
 
 # Follow logs for all services
 journalctl -u 'signoz-*' -f
+
+# Remove the deployment
+sudo foundryctl cast down -f casting.yaml
 ```
+
+`cast down` stops and disables the units and keeps their configs and data directories.
 
 ## Annotations
 

@@ -162,10 +162,6 @@ func (c *gcpKubernetesAutoHelmCasting) Cast(ctx context.Context, config collecti
 	return nil
 }
 
-func (c *gcpKubernetesAutoHelmCasting) Down(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
-	return foundryerrors.Newf(foundryerrors.TypeUnsupported, "down is not supported for %s %q", config.Kind(), config.Metadata.Name)
-}
-
 // The embedded casting keeps $.Spec and $.Metadata reachable from the templates.
 type templateData struct {
 	collectionagent.Casting

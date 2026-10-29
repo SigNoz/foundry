@@ -74,6 +74,8 @@ docker service logs signoz_signoz -f
 foundryctl cast down -f casting.yaml
 ```
 
+`cast down` keeps the stack's volumes.
+
 ## MCP server (optional)
 
 Foundry can deploy the [SigNoz MCP server](https://github.com/SigNoz/signoz-mcp-server) alongside the stack so AI clients can query your telemetry. It is disabled by default; enable it in the casting:

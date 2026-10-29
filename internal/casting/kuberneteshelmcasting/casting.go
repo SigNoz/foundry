@@ -3,6 +3,7 @@ package kuberneteshelmcasting
 import (
 	"bytes"
 	"context"
+	goerrors "errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/releaseutil"
+	"helm.sh/helm/v3/pkg/storage/driver"
 	"sigs.k8s.io/yaml"
 )
 
@@ -168,7 +170,11 @@ func (c *helmCasting) Down(ctx context.Context, config installation.Casting, pou
 	histClient.Max = 1
 
 	history, err := histClient.Run(config.Metadata.Name)
-	if err != nil || len(history) == 0 {
+	if err != nil && !goerrors.Is(err, driver.ErrReleaseNotFound) {
+		return errors.Wrapf(err, errors.TypeInternal, "failed to read helm release history")
+	}
+
+	if len(history) == 0 {
 		c.logger.WarnContext(ctx, "nothing deployed under this name, nothing to take down",
 			slog.String("release", config.Metadata.Name),
 			slog.String("namespace", ns),

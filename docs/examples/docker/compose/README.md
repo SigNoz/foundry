@@ -99,6 +99,8 @@ docker compose -f pours/deployment/compose.yaml logs -f signoz
 foundryctl cast down -f casting.yaml
 ```
 
+`cast down` keeps the stack's volumes.
+
 > [!NOTE]
 > - `foundryctl cast` detects whether `docker compose` (v2 plugin) or `docker-compose` (legacy standalone) is available and uses whichever it finds, preferring the v2 plugin.
 

@@ -104,7 +104,7 @@ func (p *Planner) Cast(ctx context.Context, poursPath string) error {
 }
 
 func (p *Planner) Down(ctx context.Context, poursPath string) error {
-	return p.casting.Down(ctx, *p.config, poursPath, pourer.New(strings.ToLower(p.config.Kind().String())))
+	return foundryerrors.Newf(foundryerrors.TypeUnsupported, "down is not supported for %s %q", p.config.Kind(), p.config.Metadata.Name)
 }
 
 func (p *Planner) Toolers() []tooler.Tooler { return p.toolers }

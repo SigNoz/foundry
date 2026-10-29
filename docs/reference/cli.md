@@ -79,17 +79,6 @@ foundryctl cast down -f casting.yaml
 > [!NOTE]
 > `cast down` resolves the casting file and removes the deployment it names, using the pours `forge` wrote. When nothing is deployed under that name, the command succeeds and changes nothing. The pours and `casting.yaml.lock` stay on disk, so `cast --no-forge` brings the same deployment back up.
 
-What each Installation casting removes, and what stays:
-
-- **Docker Compose and Docker Swarm**: removes the project or stack. Volumes stay.
-- **systemd**: stops and disables the units. Configs and data directories stay.
-- **Kubernetes Kustomize**: deletes the forged resources. The namespace, its PVCs and the ClickHouse operator stay.
-- **Kubernetes Helm**: uninstalls the release. The namespace and its PVCs stay.
-- **ECS**: destroys the stack. Persistent volumes and their claims stay.
-- **Render, Coolify and Railway**: prints where to remove the deployment on the platform.
-
-Collection Agent castings: Docker Compose and Docker Swarm.
-
 ### gen
 
 Generate example casting files and pours for all supported deployment modes.

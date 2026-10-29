@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -112,16 +113,19 @@ func (c *systemdCasting) Down(ctx context.Context, config installation.Casting, 
 		names = append(names, filepath.Base(unit))
 	}
 
-	out, err := exec.CommandContext(ctx, "systemctl", append([]string{"list-units", "--all", "--no-legend", "--plain"}, names...)...).Output()
+	// systemd 246 and later exits 1 when name patterns match nothing, so the listing takes no names.
+	out, err := exec.CommandContext(ctx, "systemctl", "list-unit-files", "--no-legend", "--type=service").Output()
 	if err != nil {
-		c.logger.WarnContext(ctx, "skipping the deployment check: could not list units", errors.LogAttr(err))
+		c.logger.WarnContext(ctx, "skipping the deployment check: could not list unit files", errors.LogAttr(err))
 	} else {
-		names = nil
+		installed := map[string]bool{}
 		for line := range strings.Lines(string(out)) {
 			if fields := strings.Fields(line); len(fields) > 0 {
-				names = append(names, fields[0])
+				installed[fields[0]] = true
 			}
 		}
+
+		names = slices.DeleteFunc(names, func(name string) bool { return !installed[name] })
 	}
 
 	if len(names) == 0 {

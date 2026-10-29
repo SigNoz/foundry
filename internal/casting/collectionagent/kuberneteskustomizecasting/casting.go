@@ -113,10 +113,6 @@ func (c *kubernetesKustomizeCasting) Cast(ctx context.Context, config collection
 	return nil
 }
 
-func (c *kubernetesKustomizeCasting) Down(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
-	return foundryerrors.Newf(foundryerrors.TypeUnsupported, "down is not supported for %s %q", config.Kind(), config.Metadata.Name)
-}
-
 // The embedded casting keeps $.Spec and $.Metadata reachable from the templates.
 type templateData struct {
 	collectionagent.Casting

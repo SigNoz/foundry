@@ -143,7 +143,7 @@ docker service ps signoz_collector-agent
 docker service logs signoz_collector-agent
 
 # Remove the stack
-foundryctl cast down -f casting.yaml
+docker stack rm signoz
 ```
 
 Point [instrumented applications](https://signoz.io/docs/instrumentation/) at the agent with `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317` on the same node, or the node's IP from other machines. To reach the agent by service name, attach it to your application's overlay network with a [patch](../../../../concepts/patches.md).

@@ -117,10 +117,6 @@ func (c *awsKubernetesServerlessKustomizeCasting) Cast(ctx context.Context, conf
 	return nil
 }
 
-func (c *awsKubernetesServerlessKustomizeCasting) Down(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
-	return foundryerrors.Newf(foundryerrors.TypeUnsupported, "down is not supported for %s %q", config.Kind(), config.Metadata.Name)
-}
-
 func (c *awsKubernetesServerlessKustomizeCasting) apply(ctx context.Context, config collectionagent.Casting, kustomizeDir string) error {
 	c.logger.InfoContext(ctx, "Applying kustomize manifests",
 		slog.String("release", config.Metadata.Name),

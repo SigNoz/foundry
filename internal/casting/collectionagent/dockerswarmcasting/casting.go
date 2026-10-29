@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/collectionagent"
@@ -54,65 +55,44 @@ func (c *dockerSwarmCasting) Forge(ctx context.Context, config collectionagent.C
 }
 
 func (c *dockerSwarmCasting) Cast(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
-	c.logger.InfoContext(ctx, "deploying the swarm stack", slog.String("stack", config.Metadata.Name))
-
 	composeFile := filepath.Join(outputPath, p.Dir(), "compose.yaml")
 
 	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
 		return foundryerrors.Newf(foundryerrors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
 	}
 
-	if _, err := c.checkOwnership(ctx, config); err != nil {
+	if err := c.checkOwnership(ctx, config); err != nil {
 		return err
 	}
 
-	return c.docker(ctx, config, "deploy", "-d", "-c", composeFile, config.Metadata.Name)
-}
+	runctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
 
-func (c *dockerSwarmCasting) Down(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
-	c.logger.InfoContext(ctx, "removing the swarm stack", slog.String("stack", config.Metadata.Name))
+	args := []string{"stack", "deploy", "-d", "-c", composeFile, config.Metadata.Name}
 
-	found, err := c.checkOwnership(ctx, config)
-	if err != nil {
-		return err
-	}
+	c.logger.DebugContext(runctx, "running command", slog.String("command", strings.Join(append([]string{"docker"}, args...), " ")))
 
-	if !found {
-		c.logger.WarnContext(ctx, "nothing deployed under this name, nothing to take down", slog.String("stack", config.Metadata.Name))
-		return nil
-	}
-
-	return c.docker(ctx, config, "rm", config.Metadata.Name)
-}
-
-func (c *dockerSwarmCasting) docker(ctx context.Context, config collectionagent.Casting, args ...string) error {
-	argv := append([]string{"stack"}, args...)
-
-	c.logger.DebugContext(ctx, "running command", slog.String("command", strings.Join(append([]string{"docker"}, argv...), " ")))
-
-	cmd := exec.CommandContext(ctx, "docker", argv...)
+	cmd := exec.CommandContext(runctx, "docker", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	if err := cmd.Run(); err != nil {
-		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to run docker stack %s", args[0])
-	}
-
-	return nil
+	return cmd.Run()
 }
 
-// checkOwnership reports whether anything is deployed under the stack name and refuses a stack that belongs to a different foundry Kind; unlabeled services only warn.
-func (c *dockerSwarmCasting) checkOwnership(ctx context.Context, config collectionagent.Casting) (bool, error) {
+// checkOwnership refuses to deploy over a swarm stack of the same name that
+// belongs to a different foundry Kind. Unlabeled services only warn:
+// they are either a pre-label foundry deployment or a foreign stack.
+func (c *dockerSwarmCasting) checkOwnership(ctx context.Context, config collectionagent.Casting) error {
 	out, err := exec.CommandContext(ctx, "docker", "stack", "services", "-q", config.Metadata.Name).Output()
 	if err != nil {
 		c.logger.WarnContext(ctx, "skipping the ownership check: could not read labels from docker", foundryerrors.LogAttr(err))
-		return true, nil
+		return nil
 	}
 
 	ids := strings.Fields(string(out))
 
 	if len(ids) == 0 {
-		return false, nil
+		return nil
 	}
 
 	argv := append([]string{"service", "inspect", "--format", `{{ index .Spec.TaskTemplate.ContainerSpec.Labels "` + v1alpha1.LabelKind.Key + `" }}`}, ids...)
@@ -120,18 +100,18 @@ func (c *dockerSwarmCasting) checkOwnership(ctx context.Context, config collecti
 	out, err = exec.CommandContext(ctx, "docker", argv...).Output()
 	if err != nil {
 		c.logger.WarnContext(ctx, "skipping the ownership check: could not read labels from docker", foundryerrors.LogAttr(err))
-		return true, nil
+		return nil
 	}
 
 	ownership := domain.ParseOwnership(string(out))
 
 	if foreign, conflict := ownership.Foreign(config.Kind().String()); conflict {
-		return false, foundryerrors.Newf(foundryerrors.TypeInvalidInput, "%q already belongs to a foundry %s on this host: choose a different metadata.name or remove the existing deployment", config.Metadata.Name, foreign)
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "%q already belongs to a foundry %s on this host: choose a different metadata.name or remove the existing deployment", config.Metadata.Name, foreign)
 	}
 
 	if ownership.HasUnlabeled() {
 		c.logger.WarnContext(ctx, "swarm stack has services without foundry ownership labels", slog.String("stack", config.Metadata.Name))
 	}
 
-	return true, nil
+	return nil
 }

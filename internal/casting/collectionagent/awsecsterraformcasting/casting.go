@@ -73,10 +73,6 @@ func (c *awsEcsTerraformCasting) Cast(ctx context.Context, config collectionagen
 	return c.terraform(ctx, root, "apply", planFile)
 }
 
-func (c *awsEcsTerraformCasting) Down(ctx context.Context, config collectionagent.Casting, outputPath string, p *pourer.Pourer) error {
-	return foundryerrors.Newf(foundryerrors.TypeUnsupported, "down is not supported for %s %q", config.Kind(), config.Metadata.Name)
-}
-
 func (c *awsEcsTerraformCasting) terraform(ctx context.Context, root, verb string, args ...string) error {
 	argv := append([]string{"-chdir=" + root, verb}, args...)
 

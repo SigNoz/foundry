@@ -103,9 +103,14 @@ kubectl get pods -n signoz
 
 # Port-forward the SigNoz UI
 kubectl port-forward svc/signoz -n signoz 8080:8080
+
+# Remove the deployment
+foundryctl cast down -f casting.yaml
 ```
 
 Open `http://localhost:8080` to access the SigNoz UI.
+
+`cast down` keeps the namespace, its PVCs and the ClickHouse operator.
 
 ## MCP server (optional)
 

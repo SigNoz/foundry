@@ -111,7 +111,7 @@ func (casting *dockerComposeCasting) Cast(ctx context.Context, config installati
 		return err
 	}
 
-	return casting.docker(ctx, config, composeFile, "up", "-d")
+	return casting.docker(ctx, composeFile, "up", "-d")
 }
 
 func (casting *dockerComposeCasting) Down(ctx context.Context, config installation.Casting, outputPath string) error {
@@ -132,10 +132,10 @@ func (casting *dockerComposeCasting) Down(ctx context.Context, config installati
 		return foundryerrors.Newf(foundryerrors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
 	}
 
-	return casting.docker(ctx, config, composeFile, "down")
+	return casting.docker(ctx, composeFile, "down")
 }
 
-func (casting *dockerComposeCasting) docker(ctx context.Context, config installation.Casting, composeFile string, args ...string) error {
+func (casting *dockerComposeCasting) docker(ctx context.Context, composeFile string, args ...string) error {
 	composeCmd, err := getComposeCommand(ctx)
 	if err != nil {
 		return foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "docker compose not available")

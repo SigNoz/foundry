@@ -328,6 +328,12 @@ spec:
 
 ## Teardown
 
+```bash
+foundryctl cast down -f casting.yaml
+```
+
+`cast down` keeps the persistent volumes and their claims.
+
 > [!IMPORTANT]
 > On a bound installation, a plain `terraform destroy` refuses while the claims are in its state, so remove them from the state first. The claims stay on the volumes, and the next cast pins each node back to its own data.
 >

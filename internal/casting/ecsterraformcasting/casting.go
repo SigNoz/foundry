@@ -18,6 +18,7 @@ import (
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
+	"github.com/tidwall/gjson"
 )
 
 var _ rootcasting.Casting = (*ecsCasting)(nil)
@@ -131,13 +132,21 @@ func (c *ecsCasting) Down(ctx context.Context, config installation.Casting, outp
 
 	c.logger.InfoContext(ctx, "destroying terraform resources", slog.String("release", config.Metadata.Name))
 
-	if _, err := os.Stat(filepath.Join(root, "terraform.tfstate")); os.IsNotExist(err) {
-		c.logger.WarnContext(ctx, "nothing deployed under this name, nothing to take down", slog.String("release", config.Metadata.Name))
-		return nil
-	}
-
 	if err := c.terraform(ctx, root, "init"); err != nil {
 		return err
+	}
+
+	show := exec.CommandContext(ctx, "terraform", "-chdir="+root, "show", "-json")
+	show.Stderr = os.Stderr
+
+	shown, err := show.Output()
+	if err != nil {
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to run terraform show")
+	}
+
+	if !gjson.GetBytes(shown, "values.root_module").Exists() {
+		c.logger.WarnContext(ctx, "nothing deployed under this name, nothing to take down", slog.String("release", config.Metadata.Name))
+		return nil
 	}
 
 	list := exec.CommandContext(ctx, "terraform", "-chdir="+root, "state", "list")
@@ -146,11 +155,6 @@ func (c *ecsCasting) Down(ctx context.Context, config installation.Casting, outp
 	state, err := list.Output()
 	if err != nil {
 		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to run terraform state list")
-	}
-
-	if len(strings.TrimSpace(string(state))) == 0 {
-		c.logger.WarnContext(ctx, "nothing deployed under this name, nothing to take down", slog.String("release", config.Metadata.Name))
-		return nil
 	}
 
 	claimed := slices.ContainsFunc(strings.Fields(string(state)), func(address string) bool {

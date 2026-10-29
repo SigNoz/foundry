@@ -107,7 +107,7 @@ func (casting *dockerSwarmCasting) Cast(ctx context.Context, config installation
 		return err
 	}
 
-	return casting.docker(ctx, config, "deploy", "-d", "-c", composeFile, config.Metadata.Name)
+	return casting.docker(ctx, "deploy", "-d", "-c", composeFile, config.Metadata.Name)
 }
 
 func (casting *dockerSwarmCasting) Down(ctx context.Context, config installation.Casting, outputPath string) error {
@@ -123,10 +123,10 @@ func (casting *dockerSwarmCasting) Down(ctx context.Context, config installation
 		return nil
 	}
 
-	return casting.docker(ctx, config, "rm", config.Metadata.Name)
+	return casting.docker(ctx, "rm", config.Metadata.Name)
 }
 
-func (casting *dockerSwarmCasting) docker(ctx context.Context, config installation.Casting, args ...string) error {
+func (casting *dockerSwarmCasting) docker(ctx context.Context, args ...string) error {
 	argv := append([]string{"stack"}, args...)
 
 	casting.logger.DebugContext(ctx, "running command", slog.String("command", strings.Join(append([]string{"docker"}, argv...), " ")))
