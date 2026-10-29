@@ -96,7 +96,52 @@ func (c *systemdCasting) Cast(ctx context.Context, config installation.Casting, 
 }
 
 func (c *systemdCasting) Down(ctx context.Context, config installation.Casting, poursPath string) error {
-	return errors.Newf(errors.TypeUnsupported, "down is not supported for %s %q", config.Kind(), config.Metadata.Name)
+	c.logger.InfoContext(ctx, "removing the systemd services", slog.String("name", config.Metadata.Name))
+
+	units, err := c.discoverUnits(poursPath)
+	if err != nil {
+		return err
+	}
+	if len(units) == 0 {
+		c.logger.WarnContext(ctx, "no service units found in pours directory", slog.String("pours_path", poursPath))
+		return nil
+	}
+
+	names := make([]string, 0, len(units))
+	for _, unit := range units {
+		names = append(names, filepath.Base(unit))
+	}
+
+	out, err := exec.CommandContext(ctx, "systemctl", append([]string{"list-units", "--all", "--no-legend", "--plain"}, names...)...).Output()
+	if err != nil {
+		c.logger.WarnContext(ctx, "skipping the deployment check: could not list units", errors.LogAttr(err))
+	} else {
+		names = nil
+		for line := range strings.Lines(string(out)) {
+			if fields := strings.Fields(line); len(fields) > 0 {
+				names = append(names, fields[0])
+			}
+		}
+	}
+
+	if len(names) == 0 {
+		c.logger.WarnContext(ctx, "nothing deployed under this name, nothing to take down", slog.String("name", config.Metadata.Name))
+		return nil
+	}
+
+	for _, name := range names {
+		c.logger.InfoContext(ctx, "disabling unit", slog.String("unit", name))
+		if err := c.systemctl(ctx, "disable", "--now", name); err != nil {
+			return errors.Wrapf(err, errors.TypeInternal, "failed to disable unit %s", name)
+		}
+	}
+
+	if err := c.systemctl(ctx, "daemon-reload"); err != nil {
+		return errors.Wrapf(err, errors.TypeInternal, "systemd daemon-reload failed")
+	}
+
+	c.logger.InfoContext(ctx, "removed systemd services", slog.Int("count", len(names)))
+	return nil
 }
 
 func (c *systemdCasting) forgeTelemetryKeeper(cfg *installation.Casting) ([]domain.Material, error) {

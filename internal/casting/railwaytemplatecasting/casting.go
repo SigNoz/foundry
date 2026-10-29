@@ -166,7 +166,8 @@ func (c *railwayTemplateCasting) Cast(ctx context.Context, config installation.C
 }
 
 func (c *railwayTemplateCasting) Down(ctx context.Context, config installation.Casting, poursPath string) error {
-	return errors.Newf(errors.TypeUnsupported, "down is not supported for %s %q", config.Kind(), config.Metadata.Name)
+	c.logger.InfoContext(ctx, "remove the project in Railway", slog.String("name", config.Metadata.Name))
+	return nil
 }
 
 func getRailwayMaterial(config *installation.Casting) ([]domain.StructuredMaterial, error) {

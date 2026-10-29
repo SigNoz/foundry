@@ -57,7 +57,10 @@ func (c *coolifyCasting) Cast(ctx context.Context, config installation.Casting, 
 }
 
 func (c *coolifyCasting) Down(ctx context.Context, config installation.Casting, poursPath string) error {
-	return errors.Newf(errors.TypeUnsupported, "down is not supported for %s %q", config.Kind(), config.Metadata.Name)
+	c.logger.InfoContext(ctx, "remove the Docker Compose resource in Coolify",
+		slog.String("name", config.Metadata.Name),
+		slog.String("docs", "https://coolify.io/docs/knowledge-base/docker/compose"))
+	return nil
 }
 
 func getCoolifyMaterial(config *installation.Casting, path string) (domain.StructuredMaterial, error) {

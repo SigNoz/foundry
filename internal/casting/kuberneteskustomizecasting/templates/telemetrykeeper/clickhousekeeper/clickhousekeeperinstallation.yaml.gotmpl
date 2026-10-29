@@ -50,6 +50,7 @@ spec:
               {{ end }}
     volumeClaimTemplates:
       - name: default
+        reclaimPolicy: Retain
         spec:
           accessModes:
             - ReadWriteOnce

@@ -41,6 +41,7 @@ spec:
           fsGroup: 101
     volumeClaimTemplates:
     - name: default
+      reclaimPolicy: Retain
       spec:
         accessModes:
         - ReadWriteOnce

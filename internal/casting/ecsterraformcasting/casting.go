@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/signoz/foundry/api/v1alpha1"
@@ -126,7 +127,48 @@ func (c *ecsCasting) Cast(ctx context.Context, config installation.Casting, outp
 }
 
 func (c *ecsCasting) Down(ctx context.Context, config installation.Casting, outputPath string) error {
-	return foundryerrors.Newf(foundryerrors.TypeUnsupported, "down is not supported for %s %q", config.Kind(), config.Metadata.Name)
+	root := filepath.Join(outputPath, rootcasting.DeploymentDir)
+
+	c.logger.InfoContext(ctx, "destroying terraform resources", slog.String("release", config.Metadata.Name))
+
+	if _, err := os.Stat(filepath.Join(root, "terraform.tfstate")); os.IsNotExist(err) {
+		c.logger.WarnContext(ctx, "nothing deployed under this name, nothing to take down", slog.String("release", config.Metadata.Name))
+		return nil
+	}
+
+	if err := c.terraform(ctx, root, "init"); err != nil {
+		return err
+	}
+
+	list := exec.CommandContext(ctx, "terraform", "-chdir="+root, "state", "list")
+	list.Stderr = os.Stderr
+
+	state, err := list.Output()
+	if err != nil {
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to run terraform state list")
+	}
+
+	if len(strings.TrimSpace(string(state))) == 0 {
+		c.logger.WarnContext(ctx, "nothing deployed under this name, nothing to take down", slog.String("release", config.Metadata.Name))
+		return nil
+	}
+
+	claimed := slices.ContainsFunc(strings.Fields(string(state)), func(address string) bool {
+		return strings.HasPrefix(address, "aws_ec2_tag.claims")
+	})
+
+	// The claim outlives the stack, so it leaves the state, not the volume.
+	if claimed {
+		if err := c.terraform(ctx, root, "state", "rm", "aws_ec2_tag.claims"); err != nil {
+			return err
+		}
+	}
+
+	if err := c.terraform(ctx, root, "plan", "-destroy", "-out="+planFile); err != nil {
+		return err
+	}
+
+	return c.terraform(ctx, root, "apply", planFile)
 }
 
 func (c *ecsCasting) terraform(ctx context.Context, root, verb string, args ...string) error {

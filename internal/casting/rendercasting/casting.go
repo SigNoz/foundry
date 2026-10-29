@@ -120,7 +120,10 @@ func (c *renderCasting) Cast(ctx context.Context, config installation.Casting, p
 }
 
 func (c *renderCasting) Down(ctx context.Context, config installation.Casting, poursPath string) error {
-	return errors.Newf(errors.TypeUnsupported, "down is not supported for %s %q", config.Kind(), config.Metadata.Name)
+	c.logger.InfoContext(ctx, "remove the Render blueprint from the Render dashboard",
+		slog.String("name", config.Metadata.Name),
+		slog.String("Docs", "https://render.com/docs/infrastructure-as-code#setup"))
+	return nil
 }
 
 func getRenderMaterial(config *installation.Casting, path string) (domain.StructuredMaterial, error) {
