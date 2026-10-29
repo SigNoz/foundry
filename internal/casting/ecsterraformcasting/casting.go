@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/signoz/foundry/api/v1alpha1"
@@ -129,37 +128,56 @@ func (c *ecsCasting) Cast(ctx context.Context, config installation.Casting, outp
 
 func (c *ecsCasting) Down(ctx context.Context, config installation.Casting, outputPath string) error {
 	root := filepath.Join(outputPath, rootcasting.DeploymentDir)
+	name := config.Metadata.Name
 
-	c.logger.InfoContext(ctx, "destroying terraform resources", slog.String("release", config.Metadata.Name))
+	c.logger.InfoContext(ctx, "removing the terraform stack", slog.String("stack", name))
 
 	if err := c.terraform(ctx, root, "init"); err != nil {
+		return foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "failed to initialize terraform in %q: point --pours at the directory cast wrote and check access to its backend", root)
+	}
+
+	shown, err := c.capture(ctx, root, "show", "-json")
+	if err != nil {
 		return err
 	}
 
-	show := exec.CommandContext(ctx, "terraform", "-chdir="+root, "show", "-json")
-	show.Stderr = os.Stderr
-
-	shown, err := show.Output()
-	if err != nil {
-		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to run terraform show")
+	var resources []gjson.Result
+	for modules := []gjson.Result{gjson.GetBytes(shown, "values.root_module")}; len(modules) > 0; modules = modules[1:] {
+		modules = append(modules, modules[0].Get("child_modules").Array()...)
+		resources = append(resources, modules[0].Get(`resources.#(mode=="managed")#`).Array()...)
 	}
 
-	if !gjson.GetBytes(shown, "values.root_module").Exists() {
-		c.logger.WarnContext(ctx, "nothing deployed under this name, nothing to take down", slog.String("release", config.Metadata.Name))
+	if len(resources) == 0 {
+		c.logger.WarnContext(ctx, "nothing deployed under this name, nothing to take down", slog.String("stack", name))
 		return nil
 	}
 
-	list := exec.CommandContext(ctx, "terraform", "-chdir="+root, "state", "list")
-	list.Stderr = os.Stderr
+	labeled, claimed := false, false
 
-	state, err := list.Output()
-	if err != nil {
-		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to run terraform state list")
+	for _, resource := range resources {
+		claimed = claimed || strings.HasPrefix(resource.Get("address").String(), "aws_ec2_tag.claims")
+
+		tags := resource.Get("values.tags_all").Map()
+
+		kind, ok := tags[v1alpha1.LabelKind.Key]
+		if !ok {
+			continue
+		}
+
+		labeled = true
+
+		if kind.String() != config.Kind().String() {
+			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "%q already belongs to a foundry %s: choose a different metadata.name or remove the existing deployment", name, kind.String())
+		}
+
+		if owner := tags[v1alpha1.LabelName.Key].String(); owner != name {
+			return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "the pours hold the stack %q, not %q: restore the name to take it down", owner, name)
+		}
 	}
 
-	claimed := slices.ContainsFunc(strings.Fields(string(state)), func(address string) bool {
-		return strings.HasPrefix(address, "aws_ec2_tag.claims")
-	})
+	if !labeled {
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "%q has resources without foundry ownership tags: cast once to stamp them, then cast down", name)
+	}
 
 	// The claim outlives the stack, so it leaves the state, not the volume.
 	if claimed {
@@ -168,11 +186,21 @@ func (c *ecsCasting) Down(ctx context.Context, config installation.Casting, outp
 		}
 	}
 
-	if err := c.terraform(ctx, root, "plan", "-destroy", "-out="+planFile); err != nil {
+	if err := c.terraform(ctx, root, "plan", "-destroy", "-input=false", "-out="+planFile); err != nil {
 		return err
 	}
 
-	return c.terraform(ctx, root, "apply", planFile)
+	plan, err := c.capture(ctx, root, "show", "-json", planFile)
+	if err != nil {
+		return err
+	}
+
+	// Credentials for another account refresh every resource away and plan to destroy nothing.
+	if deletes := gjson.GetBytes(plan, `resource_changes.#(change.actions.#(=="delete"))#`).Array(); len(deletes) == 0 {
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "the plan destroys none of the %d resources in the state: run cast down with the credentials cast used", len(resources))
+	}
+
+	return c.terraform(ctx, root, "apply", "-input=false", planFile)
 }
 
 func (c *ecsCasting) terraform(ctx context.Context, root, verb string, args ...string) error {
@@ -190,6 +218,22 @@ func (c *ecsCasting) terraform(ctx context.Context, root, verb string, args ...s
 	}
 
 	return nil
+}
+
+func (c *ecsCasting) capture(ctx context.Context, root, verb string, args ...string) ([]byte, error) {
+	argv := append([]string{"-chdir=" + root, verb}, args...)
+
+	c.logger.DebugContext(ctx, "Running command", slog.String("command", "terraform "+strings.Join(argv, " ")))
+
+	cmd := exec.CommandContext(ctx, "terraform", argv...)
+	cmd.Stderr = os.Stderr
+
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to run terraform %s", verb)
+	}
+
+	return out, nil
 }
 
 func (c *ecsCasting) templateData(config installation.Casting) (templateData, error) {

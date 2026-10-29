@@ -109,7 +109,7 @@ func runDown(ctx context.Context, logger *slog.Logger, poursPath string, configP
 		return domain.NewProperties(), errors.Wrapf(err, errors.TypeInternal, "failed to resolve pours path")
 	}
 
-	machineries, err := foundry.Config.GetV1Alpha1(ctx, configPath)
+	machineries, err := foundry.Config.GetV1Alpha1NoCompat(ctx, configPath)
 	if err != nil {
 		return domain.NewProperties(), err
 	}

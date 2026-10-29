@@ -12,5 +12,4 @@ type Casting interface {
 	Enricher(ctx context.Context, config *infrastructure.Casting) (infrastructuremolding.MoldingEnricher, error)
 	Forge(ctx context.Context, config infrastructure.Casting, p *pourer.Pourer) error
 	Cast(ctx context.Context, config infrastructure.Casting, outputPath string, p *pourer.Pourer) error
-	Down(ctx context.Context, config infrastructure.Casting, outputPath string, p *pourer.Pourer) error
 }

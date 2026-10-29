@@ -232,7 +232,7 @@ pours/deployment/                   # one root module, one file per component, n
     opamp.yaml                      # the collector's OpAMP connection to SigNoz, uploaded to AppConfig
 ```
 
-Terraform keeps its state in `pours/deployment/terraform.tfstate`. Keep that file, because `terraform destroy` needs it. If you forge into another location, copy the file across, or move the state to a remote backend with a patch on `backend.tf.json`:
+Terraform keeps its state in `pours/deployment/terraform.tfstate`. Keep that file, because `cast down` and `terraform destroy` need it. If you forge into another location, copy the file across, or move the state to a remote backend with a patch on `backend.tf.json`:
 
 ```yaml
 apiVersion: v1alpha1
@@ -332,7 +332,7 @@ spec:
 foundryctl cast down -f casting.yaml
 ```
 
-`cast down` keeps the persistent volumes and their claims.
+`cast down` destroys the stack recorded in the state under `pours/deployment/` and keeps the persistent volumes and their claims.
 
 > [!IMPORTANT]
 > On a bound installation, a plain `terraform destroy` refuses while the claims are in its state, so remove them from the state first. The claims stay on the volumes, and the next cast pins each node back to its own data.

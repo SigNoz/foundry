@@ -110,7 +110,9 @@ foundryctl cast down -f casting.yaml
 
 Open `http://localhost:8080` to access the SigNoz UI.
 
-`cast down` keeps the namespace, its PVCs and the ClickHouse operator.
+`cast down` keeps the namespace, its PVCs, and the ClickHouse operator with its custom resource definitions.
+
+A ClickHouseKeeperInstallation cast before this release carries no labels, and `cast down` takes it down after one re-cast.
 
 ## MCP server (optional)
 

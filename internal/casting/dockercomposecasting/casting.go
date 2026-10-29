@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/signoz/foundry/api/v1alpha1"
@@ -100,96 +101,108 @@ func (casting *dockerComposeCasting) Forge(ctx context.Context, config installat
 }
 
 func (casting *dockerComposeCasting) Cast(ctx context.Context, config installation.Casting, outputPath string) error {
-	casting.logger.InfoContext(ctx, "deploying the compose project", slog.String("project", config.Metadata.Name))
+	casting.logger.InfoContext(ctx, "Executing commands for platform")
 
+	// Check if compose file exists
 	composeFile := filepath.Join(outputPath, rootcasting.DeploymentDir, "compose.yaml")
 	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
 		return foundryerrors.Newf(foundryerrors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
 	}
 
-	if _, err := casting.checkOwnership(ctx, config); err != nil {
-		return err
-	}
-
-	return casting.docker(ctx, composeFile, "up", "-d")
-}
-
-func (casting *dockerComposeCasting) Down(ctx context.Context, config installation.Casting, outputPath string) error {
-	casting.logger.InfoContext(ctx, "removing the compose project", slog.String("project", config.Metadata.Name))
-
-	found, err := casting.checkOwnership(ctx, config)
-	if err != nil {
-		return err
-	}
-
-	if !found {
-		casting.logger.WarnContext(ctx, "nothing deployed under this name, nothing to take down", slog.String("project", config.Metadata.Name))
-		return nil
-	}
-
-	composeFile := filepath.Join(outputPath, rootcasting.DeploymentDir, "compose.yaml")
-	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
-		return foundryerrors.Newf(foundryerrors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
-	}
-
-	return casting.docker(ctx, composeFile, "down")
-}
-
-func (casting *dockerComposeCasting) docker(ctx context.Context, composeFile string, args ...string) error {
-	composeCmd, err := getComposeCommand(ctx)
-	if err != nil {
-		return foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "docker compose not available")
-	}
-
-	argv := append(composeCmd[1:], "-f", composeFile)
-	argv = append(argv, args...)
-
-	casting.logger.DebugContext(ctx, "running command", slog.String("command", strings.Join(append([]string{composeCmd[0]}, argv...), " ")))
-
-	cmd := exec.CommandContext(ctx, composeCmd[0], argv...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to run docker compose %s", args[0])
-	}
-
-	return nil
-}
-
-// checkOwnership reports whether anything is deployed under the project name and refuses a project that belongs to a different foundry Kind; unlabeled containers only warn.
-func (casting *dockerComposeCasting) checkOwnership(ctx context.Context, config installation.Casting) (bool, error) {
-	out, err := exec.CommandContext(ctx, "docker", "ps", "-a", "-q", "--filter", "label=com.docker.compose.project="+config.Metadata.Name).Output()
+	labels, err := casting.capture(ctx, "ps", "-a", "--filter", "label=com.docker.compose.project="+config.Metadata.Name, "--format", `{{.Label "`+v1alpha1.LabelKind.Key+`"}}`)
 	if err != nil {
 		casting.logger.WarnContext(ctx, "skipping the ownership check: could not read labels from docker", foundryerrors.LogAttr(err))
-		return true, nil
 	}
 
-	ids := strings.Fields(string(out))
-
-	if len(ids) == 0 {
-		return false, nil
-	}
-
-	argv := append([]string{"inspect", "--format", `{{ index .Config.Labels "` + v1alpha1.LabelKind.Key + `" }}`}, ids...)
-
-	out, err = exec.CommandContext(ctx, "docker", argv...).Output()
-	if err != nil {
-		casting.logger.WarnContext(ctx, "skipping the ownership check: could not read labels from docker", foundryerrors.LogAttr(err))
-		return true, nil
-	}
-
-	ownership := domain.ParseOwnership(string(out))
+	ownership := domain.ParseOwnership(string(labels))
 
 	if foreign, conflict := ownership.Foreign(config.Kind().String()); conflict {
-		return false, foundryerrors.Newf(foundryerrors.TypeInvalidInput, "%q already belongs to a foundry %s on this host: choose a different metadata.name or remove the existing deployment", config.Metadata.Name, foreign)
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "%q already belongs to a foundry %s on this host: choose a different metadata.name or remove the existing deployment", config.Metadata.Name, foreign)
 	}
 
 	if ownership.HasUnlabeled() {
 		casting.logger.WarnContext(ctx, "compose project has containers without foundry ownership labels", slog.String("project", config.Metadata.Name))
 	}
 
-	return true, nil
+	// Get the available docker compose command
+	composeCmd, err := getComposeCommand(ctx)
+	if err != nil {
+		casting.logger.ErrorContext(ctx, "Docker compose not available", slog.String("error", err.Error()))
+		return foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "docker compose not available")
+	}
+
+	err = casting.compose(ctx, composeCmd, "-f", composeFile, "up", "-d")
+	if err != nil {
+		casting.logger.ErrorContext(ctx, "Command execution failed", slog.String("error", err.Error()))
+		return err
+	}
+
+	casting.logger.InfoContext(ctx, "Command executed successfully")
+
+	return nil
+}
+
+func (casting *dockerComposeCasting) Down(ctx context.Context, config installation.Casting, outputPath string) error {
+	casting.logger.InfoContext(ctx, "removing the compose project", slog.String("project", config.Metadata.Name))
+
+	labels, err := casting.capture(ctx, "ps", "-a", "--filter", "label=com.docker.compose.project="+config.Metadata.Name, "--format", `{{.Label "`+v1alpha1.LabelKind.Key+`"}}`)
+	if err != nil {
+		return err
+	}
+
+	ownership := domain.ParseOwnership(string(labels))
+
+	if foreign, conflict := ownership.Foreign(config.Kind().String()); conflict {
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "%q already belongs to a foundry %s on this host: choose a different metadata.name or remove the existing deployment", config.Metadata.Name, foreign)
+	}
+
+	if ownership.HasUnlabeled() {
+		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "%q has containers without foundry ownership labels: cast once to stamp them, then cast down", config.Metadata.Name)
+	}
+
+	composeCmd, err := getComposeCommand(ctx)
+	if err != nil {
+		return foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "docker compose not available")
+	}
+
+	composeFile := filepath.Join(outputPath, rootcasting.DeploymentDir, "compose.yaml")
+
+	// Without -f, compose v2 reads any compose file in the working directory.
+	if _, err := os.Stat(composeFile); os.IsNotExist(err) && composeCmd[0] == "docker" {
+		return casting.compose(ctx, composeCmd, "-p", config.Metadata.Name, "down")
+	}
+
+	return casting.compose(ctx, composeCmd, "-f", composeFile, "-p", config.Metadata.Name, "down", "--remove-orphans")
+}
+
+func (casting *dockerComposeCasting) compose(ctx context.Context, composeCmd []string, args ...string) error {
+	argv := slices.Concat(composeCmd, args)
+
+	casting.logger.DebugContext(ctx, "running command", slog.String("command", strings.Join(argv, " ")))
+
+	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to run %s", strings.Join(argv, " "))
+	}
+
+	return nil
+}
+
+func (casting *dockerComposeCasting) capture(ctx context.Context, args ...string) ([]byte, error) {
+	casting.logger.DebugContext(ctx, "running command", slog.String("command", "docker "+strings.Join(args, " ")))
+
+	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd.Stderr = os.Stderr
+
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "failed to run docker %s: start the docker daemon", args[0])
+	}
+
+	return out, nil
 }
 
 func getComposeMaterial(config *installation.Casting, path string) (domain.StructuredMaterial, error) {

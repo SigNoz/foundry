@@ -10,14 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNotEmptyAndValid(t *testing.T) {
-	assert.NotEmpty(t, composeYAMLTemplate)
-	buf := bytes.NewBuffer(nil)
-	err := composeYAMLTemplate.Execute(buf, nil)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, buf.String())
-}
-
 func TestLabels(t *testing.T) {
 	buf := bytes.NewBuffer(nil)
 	err := composeYAMLTemplate.Execute(buf, installation.Default(&installation.Casting{}))

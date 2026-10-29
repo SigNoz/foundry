@@ -76,6 +76,8 @@ foundryctl cast down -f casting.yaml
 
 `cast down` keeps the stack's volumes.
 
+`cast down` refuses a stack whose services carry no foundry labels; a `cast` stamps them, or remove them with docker.
+
 ## MCP server (optional)
 
 Foundry can deploy the [SigNoz MCP server](https://github.com/SigNoz/signoz-mcp-server) alongside the stack so AI clients can query your telemetry. It is disabled by default; enable it in the casting:

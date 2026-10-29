@@ -1,6 +1,13 @@
 apiVersion: clickhouse-keeper.altinity.com/v1
 kind: ClickHouseKeeperInstallation
 metadata:
+  labels:
+    app.kubernetes.io/component: telemetrykeeper
+    app.kubernetes.io/instance: signoz
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-clickhouse-keeper
+    app.kubernetes.io/part-of: signoz
+    app.kubernetes.io/version: 25.12.5
   name: signoz-clickhouse-keeper
 spec:
   configuration:

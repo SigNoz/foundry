@@ -163,7 +163,7 @@ func (c *helmCasting) Down(ctx context.Context, config installation.Casting, pou
 	}
 
 	if err := actionConfig.KubeClient.IsReachable(); err != nil {
-		return errors.Wrapf(err, errors.TypeNotFound, "kubernetes cluster is not reachable: check the current kubeconfig context")
+		return errors.Wrapf(err, errors.TypeNotFound, "failed to reach the kubernetes cluster: check the current kubeconfig context")
 	}
 
 	histClient := action.NewHistory(actionConfig)
@@ -171,7 +171,7 @@ func (c *helmCasting) Down(ctx context.Context, config installation.Casting, pou
 
 	history, err := histClient.Run(config.Metadata.Name)
 	if err != nil && !goerrors.Is(err, driver.ErrReleaseNotFound) {
-		return errors.Wrapf(err, errors.TypeInternal, "failed to read helm release history")
+		return errors.Wrapf(err, errors.TypeInternal, "failed to run helm history")
 	}
 
 	if len(history) == 0 {
@@ -194,10 +194,10 @@ func (c *helmCasting) Down(ctx context.Context, config installation.Casting, pou
 	uninstall.KeepHistory = false
 
 	if _, err := uninstall.Run(config.Metadata.Name); err != nil {
-		return errors.Wrapf(err, errors.TypeInternal, "helm uninstall failed")
+		return errors.Wrapf(err, errors.TypeInternal, "failed to run helm uninstall")
 	}
 
-	c.logger.InfoContext(ctx, "Helm release removed",
+	c.logger.InfoContext(ctx, "removed the helm release",
 		slog.String("release", config.Metadata.Name),
 		slog.String("namespace", ns),
 	)

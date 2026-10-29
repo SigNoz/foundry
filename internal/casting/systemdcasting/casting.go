@@ -1,7 +1,9 @@
 package systemdcasting
 
 import (
+	"bytes"
 	"context"
+	goerrors "errors"
 	"fmt"
 	"log/slog"
 
@@ -24,6 +26,18 @@ import (
 )
 
 const svcSuffix = ".service"
+
+// Mirrors the unit names forge writes, after "<metadata.name>-", as systemctl fnmatch patterns.
+var unitPatterns = []string{
+	"signoz" + svcSuffix,
+	"ingester" + svcSuffix,
+	"mcp" + svcSuffix,
+	"telemetrystore-migrator" + svcSuffix,
+	"metastore-postgres" + svcSuffix,
+	"telemetrystore-clickhouse-[0-9]*" + svcSuffix,
+	"telemetrykeeper-clickhousekeeper-[0-9]*" + svcSuffix,
+	"telemetrykeeper-zookeeper-[0-9]*" + svcSuffix,
+}
 
 var _ rootcasting.Casting = (*systemdCasting)(nil)
 
@@ -99,52 +113,61 @@ func (c *systemdCasting) Cast(ctx context.Context, config installation.Casting, 
 func (c *systemdCasting) Down(ctx context.Context, config installation.Casting, poursPath string) error {
 	c.logger.InfoContext(ctx, "removing the systemd services", slog.String("name", config.Metadata.Name))
 
-	units, err := c.discoverUnits(poursPath)
+	patterns := make([]string, 0, len(unitPatterns))
+	for _, pattern := range unitPatterns {
+		patterns = append(patterns, config.Metadata.Name+"-"+pattern)
+	}
+
+	files, err := c.capture(ctx, slices.Concat([]string{"list-unit-files", "--no-legend", "--plain"}, patterns)...)
 	if err != nil {
 		return err
 	}
-	if len(units) == 0 {
-		c.logger.WarnContext(ctx, "no service units found in pours directory", slog.String("pours_path", poursPath))
-		return nil
-	}
 
-	names := make([]string, 0, len(units))
-	for _, unit := range units {
-		names = append(names, filepath.Base(unit))
-	}
-
-	// systemd 246 and later exits 1 when name patterns match nothing, so the listing takes no names.
-	out, err := exec.CommandContext(ctx, "systemctl", "list-unit-files", "--no-legend", "--type=service").Output()
+	units, err := c.capture(ctx, slices.Concat([]string{"list-units", "--all", "--no-legend", "--plain"}, patterns)...)
 	if err != nil {
-		c.logger.WarnContext(ctx, "skipping the deployment check: could not list unit files", errors.LogAttr(err))
-	} else {
-		installed := map[string]bool{}
-		for line := range strings.Lines(string(out)) {
-			if fields := strings.Fields(line); len(fields) > 0 {
-				installed[fields[0]] = true
-			}
-		}
-
-		names = slices.DeleteFunc(names, func(name string) bool { return !installed[name] })
+		return err
 	}
 
-	if len(names) == 0 {
+	var installed, loaded []string
+
+	for line := range strings.Lines(string(files)) {
+		if fields := strings.Fields(strings.TrimLeft(line, "●* ")); len(fields) > 0 {
+			installed = append(installed, fields[0])
+		}
+	}
+
+	for line := range strings.Lines(string(units)) {
+		if fields := strings.Fields(strings.TrimLeft(line, "●* ")); len(fields) > 0 && !slices.Contains(installed, fields[0]) {
+			loaded = append(loaded, fields[0])
+		}
+	}
+
+	if len(installed) == 0 && len(loaded) == 0 {
 		c.logger.WarnContext(ctx, "nothing deployed under this name, nothing to take down", slog.String("name", config.Metadata.Name))
 		return nil
 	}
 
-	for _, name := range names {
-		c.logger.InfoContext(ctx, "disabling unit", slog.String("unit", name))
-		if err := c.systemctl(ctx, "disable", "--now", name); err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to disable unit %s", name)
+	if len(installed) > 0 {
+		if err := c.systemctl(ctx, append([]string{"disable", "--now"}, installed...)...); err != nil {
+			return errors.Wrapf(err, errors.TypeInternal, "failed to run systemctl disable")
+		}
+	}
+
+	if len(loaded) > 0 {
+		if err := c.systemctl(ctx, append([]string{"stop"}, loaded...)...); err != nil {
+			return errors.Wrapf(err, errors.TypeInternal, "failed to run systemctl stop")
 		}
 	}
 
 	if err := c.systemctl(ctx, "daemon-reload"); err != nil {
-		return errors.Wrapf(err, errors.TypeInternal, "systemd daemon-reload failed")
+		return errors.Wrapf(err, errors.TypeInternal, "failed to run systemctl daemon-reload")
 	}
 
-	c.logger.InfoContext(ctx, "removed systemd services", slog.Int("count", len(names)))
+	if err := c.systemctl(ctx, slices.Concat([]string{"reset-failed"}, installed, loaded)...); err != nil {
+		c.logger.DebugContext(ctx, "could not reset failed units", errors.LogAttr(err))
+	}
+
+	c.logger.InfoContext(ctx, "removed systemd services", slog.Int("count", len(installed)+len(loaded)))
 	return nil
 }
 
@@ -676,4 +699,23 @@ func (c *systemdCasting) execCommand(ctx context.Context, name string, args ...s
 // systemctl runs a systemctl subcommand.
 func (c *systemdCasting) systemctl(ctx context.Context, args ...string) error {
 	return c.execCommand(ctx, "systemctl", args...)
+}
+
+func (c *systemdCasting) capture(ctx context.Context, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, "systemctl", args...)
+	cmd.Stderr = os.Stderr
+
+	out, err := cmd.Output()
+
+	// systemd 246 and later exits 1 with no output when no unit matches.
+	var exit *exec.ExitError
+	if goerrors.As(err, &exit) && exit.ExitCode() == 1 && len(bytes.TrimSpace(out)) == 0 {
+		return nil, nil
+	}
+
+	if err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to run systemctl %s", args[0])
+	}
+
+	return out, nil
 }

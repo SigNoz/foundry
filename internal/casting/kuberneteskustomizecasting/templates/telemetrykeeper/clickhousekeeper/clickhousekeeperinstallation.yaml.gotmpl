@@ -4,6 +4,13 @@ apiVersion: clickhouse-keeper.altinity.com/v1
 kind: ClickHouseKeeperInstallation
 metadata:
   name: {{ $name }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $.Metadata.Name }}
+    app.kubernetes.io/version: {{ $.Spec.TelemetryKeeper.Spec.Version | quote }}
+    app.kubernetes.io/component: telemetrykeeper
+    app.kubernetes.io/part-of: signoz
+    app.kubernetes.io/managed-by: kustomize
 spec:
   configuration:
     clusters:

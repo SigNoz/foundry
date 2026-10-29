@@ -76,8 +76,13 @@ Remove what `cast` deployed. Volumes and data stay, so the next `cast` starts on
 foundryctl cast down -f casting.yaml
 ```
 
-> [!NOTE]
-> `cast down` resolves the casting file and removes the deployment it names, using the pours `forge` wrote. When nothing is deployed under that name, the command succeeds and changes nothing. The pours and `casting.yaml.lock` stay on disk, so `cast --no-forge` brings the same deployment back up.
+`cast down` reads the casting file, gauges the tools, and takes the documents down in the reverse of the cast order. Each deployment mode removes what runs under the document's `metadata.name`, so after a rename `cast down` leaves the old deployment running: restore the name to remove it. When nothing runs under that name, the command succeeds and changes nothing.
+
+Docker Compose, Docker Swarm and ECS read the ownership labels `cast` stamps at deploy time. A deployment of another Kind under the same name refuses, and so does one without labels until a `cast` stamps them.
+
+A document that fails stops the run, and running `cast down` again is safe. The pours and `casting.yaml.lock` stay on disk, so `cast --no-forge` brings the same deployment back up.
+
+For Collection Agent castings, `cast down` reports that removal is not supported yet.
 
 ### gen
 

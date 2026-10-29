@@ -9,10 +9,9 @@ import (
 	"github.com/signoz/foundry/internal/planner"
 )
 
-// Down plans every document and takes them down in the reverse of the cast
-// order, each casting handing its pours to its tool. A document that fails
-// stops the run at machineries[len(machineries)-1-n]; what already came down
-// stays down.
+// Down plans every document of the set, then takes them down in the reverse
+// of the cast order. A document that fails stops the run at
+// machineries[len(machineries)-1-n]; what already came down stays down.
 func (foundry *Foundry) Down(ctx context.Context, machineries []v1alpha1.Machinery, poursPath string) (int, error) {
 	planners := make([]planner.Planner, len(machineries))
 

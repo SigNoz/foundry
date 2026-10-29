@@ -80,24 +80,12 @@ func (c *dockerSwarmCasting) Cast(ctx context.Context, config collectionagent.Ca
 }
 
 // checkOwnership refuses to deploy over a swarm stack of the same name that
-// belongs to a different foundry Kind. Unlabeled services only warn:
+// belongs to a different foundry Kind. Unlabeled task containers only warn:
 // they are either a pre-label foundry deployment or a foreign stack.
 func (c *dockerSwarmCasting) checkOwnership(ctx context.Context, config collectionagent.Casting) error {
-	out, err := exec.CommandContext(ctx, "docker", "stack", "services", "-q", config.Metadata.Name).Output()
-	if err != nil {
-		c.logger.WarnContext(ctx, "skipping the ownership check: could not read labels from docker", foundryerrors.LogAttr(err))
-		return nil
-	}
-
-	ids := strings.Fields(string(out))
-
-	if len(ids) == 0 {
-		return nil
-	}
-
-	argv := append([]string{"service", "inspect", "--format", `{{ index .Spec.TaskTemplate.ContainerSpec.Labels "` + v1alpha1.LabelKind.Key + `" }}`}, ids...)
-
-	out, err = exec.CommandContext(ctx, "docker", argv...).Output()
+	out, err := exec.CommandContext(ctx, "docker", "ps", "-a",
+		"--filter", "label=com.docker.stack.namespace="+config.Metadata.Name,
+		"--format", `{{.Label "`+v1alpha1.LabelKind.Key+`"}}`).Output()
 	if err != nil {
 		c.logger.WarnContext(ctx, "skipping the ownership check: could not read labels from docker", foundryerrors.LogAttr(err))
 		return nil
@@ -110,7 +98,7 @@ func (c *dockerSwarmCasting) checkOwnership(ctx context.Context, config collecti
 	}
 
 	if ownership.HasUnlabeled() {
-		c.logger.WarnContext(ctx, "swarm stack has services without foundry ownership labels", slog.String("stack", config.Metadata.Name))
+		c.logger.WarnContext(ctx, "swarm stack has task containers without foundry ownership labels", slog.String("stack", config.Metadata.Name))
 	}
 
 	return nil

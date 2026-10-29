@@ -1,10 +1,8 @@
 package kuberneteskustomizecasting
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -129,6 +127,15 @@ func (c *kustomizeCasting) Forge(ctx context.Context, cfg installation.Casting, 
 	return materials, nil
 }
 
+// Deleted before downKinds, so the operator removes what it created from them.
+var downInstallationKinds = []string{"clickhouseinstallations", "clickhousekeeperinstallations"}
+
+// Mirrors the core kinds forge writes outside the operators tier; the Namespace stays.
+var downKinds = []string{"serviceaccounts", "configmaps", "services", "deployments", "statefulsets", "jobs"}
+
+// Mirrors the app.kubernetes.io/component values forge writes.
+var downComponents = []string{"telemetrystore", "telemetrykeeper", "schema-migrator", "metastore", "signoz", "ingester", "mcp"}
+
 // operators/ is its own tier, outside the root kustomization: it is applied
 // first and its CRDs waited on, since one pass would post the
 // ClickHouseInstallation before its kind exists.
@@ -151,7 +158,7 @@ func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting
 	defer cancel()
 
 	if needsClickhouseOperator(&config) {
-		if err := c.kubectl(runctx, nil, "apply", "-k", filepath.Join(kustomizeDir, "operators", "clickhouse-operator")); err != nil {
+		if err := c.kubectl(runctx, "apply", "-k", filepath.Join(kustomizeDir, "operators", "clickhouse-operator")); err != nil {
 			return errors.Wrapf(err, errors.TypeInternal, "failed to apply clickhouse-operator")
 		}
 
@@ -159,7 +166,7 @@ func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting
 		for _, crd := range clickhouseCRDs {
 			args = append(args, "crd/"+crd)
 		}
-		if err := c.kubectl(runctx, nil, args...); err != nil {
+		if err := c.kubectl(runctx, args...); err != nil {
 			return errors.Wrapf(err, errors.TypeInternal, "failed waiting for clickhouse CRDs to be established")
 		}
 	}
@@ -168,12 +175,12 @@ func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting
 	// (image, DSN) would be rejected; the finished run is replaced, not patched.
 	if config.Spec.TelemetryStore.Spec.IsEnabled() {
 		job := config.Metadata.Name + "-telemetrystore-migrator"
-		if err := c.kubectl(runctx, nil, "delete", "job", job, "--namespace", namespace(config), "--ignore-not-found"); err != nil {
+		if err := c.kubectl(runctx, "delete", "job", job, "--namespace", namespace(config), "--ignore-not-found"); err != nil {
 			return errors.Wrapf(err, errors.TypeInternal, "failed to delete job %q", job)
 		}
 	}
 
-	if err := c.kubectl(runctx, nil, "apply", "-k", kustomizeDir); err != nil {
+	if err := c.kubectl(runctx, "apply", "-k", kustomizeDir); err != nil {
 		return errors.Wrapf(err, errors.TypeInternal, "kubectl apply -k failed")
 	}
 
@@ -182,49 +189,26 @@ func (c *kustomizeCasting) Cast(ctx context.Context, config installation.Casting
 }
 
 func (c *kustomizeCasting) Down(ctx context.Context, config installation.Casting, poursPath string) error {
-	c.logger.InfoContext(ctx, "removing kustomize manifests", slog.String("namespace", namespace(config)))
+	ns := namespace(config)
+	selector := "app.kubernetes.io/instance=" + config.Metadata.Name + ",app.kubernetes.io/managed-by=kustomize,app.kubernetes.io/component in (" + strings.Join(downComponents, ",") + ")"
 
-	kustomizeDir := filepath.Join(poursPath, rootcasting.DeploymentDir)
-	if _, err := os.Stat(filepath.Join(kustomizeDir, "kustomization.yaml")); os.IsNotExist(err) {
-		return errors.Newf(errors.TypeNotFound, "kustomization.yaml does not exist at path: %s, run 'forge' first", kustomizeDir)
+	c.logger.InfoContext(ctx, "removing the kustomize resources", slog.String("namespace", ns), slog.String("selector", selector))
+
+	if needsClickhouseOperator(&config) {
+		if err := c.kubectl(ctx, "delete", strings.Join(downInstallationKinds, ","), "-n", ns, "-l", selector, "--ignore-not-found"); err != nil {
+			return errors.Wrapf(err, errors.TypeInternal, "failed to run kubectl delete")
+		}
 	}
 
-	render := exec.CommandContext(ctx, "kubectl", "kustomize", kustomizeDir)
-	render.Stderr = os.Stderr
-
-	rendered, err := render.Output()
-	if err != nil {
-		return errors.Wrapf(err, errors.TypeInternal, "failed to render kustomize manifests")
+	if err := c.kubectl(ctx, "delete", strings.Join(downKinds, ","), "-n", ns, "-l", selector, "--ignore-not-found"); err != nil {
+		return errors.Wrapf(err, errors.TypeInternal, "failed to run kubectl delete")
 	}
 
-	manifests, err := withoutNamespaces(rendered)
-	if err != nil {
-		return err
-	}
-
-	get := exec.CommandContext(ctx, "kubectl", "get", "--ignore-not-found", "-o", "name", "-f", "-")
-	get.Stdin = bytes.NewReader(manifests)
-
-	out, err := get.Output()
-	if err != nil {
-		c.logger.WarnContext(ctx, "skipping the deployment check: could not read resources from kubectl", errors.LogAttr(err))
-	} else if len(bytes.TrimSpace(out)) == 0 {
-		c.logger.WarnContext(ctx, "nothing deployed under this name, nothing to take down", slog.String("namespace", namespace(config)))
-		return nil
-	}
-
-	// The clickhouse operator stays: it is cluster-scoped and its CRDs own ClickHouseInstallations beyond this casting.
-	if err := c.kubectl(ctx, bytes.NewReader(manifests), "delete", "--ignore-not-found", "--wait=false", "-f", "-"); err != nil {
-		return errors.Wrapf(err, errors.TypeInternal, "kubectl delete failed")
-	}
-
-	c.logger.InfoContext(ctx, "Kustomize manifests removed")
 	return nil
 }
 
-func (c *kustomizeCasting) kubectl(ctx context.Context, stdin io.Reader, args ...string) error {
+func (c *kustomizeCasting) kubectl(ctx context.Context, args ...string) error {
 	cmd := exec.CommandContext(ctx, "kubectl", args...)
-	cmd.Stdin = stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -236,30 +220,6 @@ func (c *kustomizeCasting) kubectl(ctx context.Context, stdin io.Reader, args ..
 		return err
 	}
 	return nil
-}
-
-// withoutNamespaces drops every Namespace from a manifest stream, so a delete
-// leaves the namespace and the claims in it.
-func withoutNamespaces(manifests []byte) ([]byte, error) {
-	var documents [][]byte
-
-	for position, document := range domain.YAMLStream(manifests).Documents() {
-		var probe struct {
-			Kind string `json:"kind"`
-		}
-
-		if err := domain.UnmarshalYAML(document, &probe); err != nil {
-			return nil, errors.Wrapf(err, errors.TypeInternal, "failed to read the kind of manifest %d", position)
-		}
-
-		if probe.Kind == "Namespace" {
-			continue
-		}
-
-		documents = append(documents, document)
-	}
-
-	return domain.NewYAMLStream(documents), nil
 }
 
 // The Altinity operator serves both the CHI and the CHK.
