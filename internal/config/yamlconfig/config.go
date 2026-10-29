@@ -1,7 +1,6 @@
 package yamlconfig
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"log/slog"
@@ -189,37 +188,6 @@ func (config *yamlConfig) GetV1Alpha1Lock(ctx context.Context, path string) ([]v
 	}
 
 	return config.castings(contents, lockPath, loader.read)
-}
-
-// MatchV1Alpha1Lock reports whether the castings render the lock beside the
-// casting file byte for byte.
-func (config *yamlConfig) MatchV1Alpha1Lock(ctx context.Context, machineries []v1alpha1.Machinery, path string) (bool, error) {
-	documents := make([][]byte, 0, len(machineries))
-
-	for _, machinery := range machineries {
-		contents, err := domain.MarshalYAML(machinery)
-		if err != nil {
-			return false, errors.Wrapf(err, errors.TypeInternal, "failed to marshal %s casting %q", machinery.Kind(), machinery.Name())
-		}
-
-		documents = append(documents, contents)
-	}
-
-	recorded, err := os.ReadFile(filepath.Join(filepath.Dir(path), lockFileName))
-	if err != nil {
-		return false, errors.Wrapf(err, errors.TypeNotFound, "failed to read lock file")
-	}
-
-	return bytes.Equal(domain.NewYAMLStream(documents), recorded), nil
-}
-
-// DeleteV1Alpha1Lock removes the lock beside the casting file.
-func (*yamlConfig) DeleteV1Alpha1Lock(ctx context.Context, path string) error {
-	if err := os.Remove(filepath.Join(filepath.Dir(path), lockFileName)); err != nil {
-		return errors.Wrapf(err, errors.TypeInternal, "failed to delete lock file")
-	}
-
-	return nil
 }
 
 // CreateV1Alpha1Lock writes the resolved castings beside the casting file, one

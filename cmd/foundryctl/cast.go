@@ -3,9 +3,7 @@ package main
 
 import (
 	"context"
-	goerrors "errors"
 	"log/slog"
-	"os"
 	"path/filepath"
 
 	"github.com/signoz/foundry/internal/domain"
@@ -116,27 +114,15 @@ func runDown(ctx context.Context, logger *slog.Logger, poursPath string, configP
 		return domain.NewProperties(), err
 	}
 
-	locked, err := foundry.Config.GetV1Alpha1Lock(ctx, configPath)
-	if err != nil {
-		if goerrors.Is(err, os.ErrNotExist) {
-			logger.WarnContext(ctx, "no lock found beside the casting file, nothing to take down", slog.String("path", configPath))
-			return domain.NewProperties(), nil
-		}
-
-		return domain.NewProperties(), err
-	}
-
 	props := domain.NewProperties()
 	for _, machinery := range machineries {
 		props = props.Merge(machinery.TrackableProperties())
 	}
 
-	// Gauges the locked documents: down removes what the lock records, so the
-	// tools it needs are the lock's, not those of an edited casting.yaml.
 	if !castCfg.NoGauge {
-		n, err := foundry.Gauge(ctx, locked)
-		if n < len(locked) {
-			props = props.Merge(locked[n].FailedProperties())
+		n, err := foundry.Gauge(ctx, machineries)
+		if n < len(machineries) {
+			props = props.Merge(machineries[n].FailedProperties())
 		}
 
 		if err != nil {
@@ -144,7 +130,7 @@ func runDown(ctx context.Context, logger *slog.Logger, poursPath string, configP
 		}
 	}
 
-	n, err := foundry.Down(ctx, machineries, configPath, poursPath)
+	n, err := foundry.Down(ctx, machineries, poursPath)
 	if n < len(machineries) {
 		props = props.Merge(machineries[len(machineries)-1-n].FailedProperties())
 	}

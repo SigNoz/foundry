@@ -103,20 +103,30 @@ func (casting *dockerSwarmCasting) Cast(ctx context.Context, config installation
 		return errors.Newf(errors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
 	}
 
+	if _, err := casting.checkOwnership(ctx, config); err != nil {
+		return err
+	}
+
 	return casting.docker(ctx, config, "deploy", "-d", "-c", composeFile, config.Metadata.Name)
 }
 
 func (casting *dockerSwarmCasting) Down(ctx context.Context, config installation.Casting, outputPath string) error {
 	casting.logger.InfoContext(ctx, "removing the swarm stack", slog.String("stack", config.Metadata.Name))
 
+	found, err := casting.checkOwnership(ctx, config)
+	if err != nil {
+		return err
+	}
+
+	if !found {
+		casting.logger.WarnContext(ctx, "nothing deployed under this name, nothing to take down", slog.String("stack", config.Metadata.Name))
+		return nil
+	}
+
 	return casting.docker(ctx, config, "rm", config.Metadata.Name)
 }
 
 func (casting *dockerSwarmCasting) docker(ctx context.Context, config installation.Casting, args ...string) error {
-	if err := casting.checkOwnership(ctx, config); err != nil {
-		return err
-	}
-
 	argv := append([]string{"stack"}, args...)
 
 	casting.logger.DebugContext(ctx, "running command", slog.String("command", strings.Join(append([]string{"docker"}, argv...), " ")))
@@ -132,18 +142,18 @@ func (casting *dockerSwarmCasting) docker(ctx context.Context, config installati
 	return nil
 }
 
-// checkOwnership refuses a swarm stack of the same name that belongs to a different foundry Kind; unlabeled services only warn.
-func (casting *dockerSwarmCasting) checkOwnership(ctx context.Context, config installation.Casting) error {
+// checkOwnership reports whether anything is deployed under the stack name and refuses a stack that belongs to a different foundry Kind; unlabeled services only warn.
+func (casting *dockerSwarmCasting) checkOwnership(ctx context.Context, config installation.Casting) (bool, error) {
 	out, err := exec.CommandContext(ctx, "docker", "stack", "services", "-q", config.Metadata.Name).Output()
 	if err != nil {
 		casting.logger.WarnContext(ctx, "skipping the ownership check: could not read labels from docker", errors.LogAttr(err))
-		return nil
+		return true, nil
 	}
 
 	ids := strings.Fields(string(out))
 
 	if len(ids) == 0 {
-		return nil
+		return false, nil
 	}
 
 	argv := append([]string{"service", "inspect", "--format", `{{ index .Spec.TaskTemplate.ContainerSpec.Labels "` + v1alpha1.LabelKind.Key + `" }}`}, ids...)
@@ -151,20 +161,20 @@ func (casting *dockerSwarmCasting) checkOwnership(ctx context.Context, config in
 	out, err = exec.CommandContext(ctx, "docker", argv...).Output()
 	if err != nil {
 		casting.logger.WarnContext(ctx, "skipping the ownership check: could not read labels from docker", errors.LogAttr(err))
-		return nil
+		return true, nil
 	}
 
 	ownership := domain.ParseOwnership(string(out))
 
 	if foreign, conflict := ownership.Foreign(config.Kind().String()); conflict {
-		return errors.Newf(errors.TypeInvalidInput, "%q already belongs to a foundry %s on this host: choose a different metadata.name or remove the existing deployment", config.Metadata.Name, foreign)
+		return false, errors.Newf(errors.TypeInvalidInput, "%q already belongs to a foundry %s on this host: choose a different metadata.name or remove the existing deployment", config.Metadata.Name, foreign)
 	}
 
 	if ownership.HasUnlabeled() {
 		casting.logger.WarnContext(ctx, "swarm stack has services without foundry ownership labels", slog.String("stack", config.Metadata.Name))
 	}
 
-	return nil
+	return true, nil
 }
 
 func getComposeMaterial(config *installation.Casting, path string) (domain.StructuredMaterial, error) {

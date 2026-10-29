@@ -107,11 +107,25 @@ func (casting *dockerComposeCasting) Cast(ctx context.Context, config installati
 		return foundryerrors.Newf(foundryerrors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
 	}
 
+	if _, err := casting.checkOwnership(ctx, config); err != nil {
+		return err
+	}
+
 	return casting.docker(ctx, config, composeFile, "up", "-d")
 }
 
 func (casting *dockerComposeCasting) Down(ctx context.Context, config installation.Casting, outputPath string) error {
 	casting.logger.InfoContext(ctx, "removing the compose project", slog.String("project", config.Metadata.Name))
+
+	found, err := casting.checkOwnership(ctx, config)
+	if err != nil {
+		return err
+	}
+
+	if !found {
+		casting.logger.WarnContext(ctx, "nothing deployed under this name, nothing to take down", slog.String("project", config.Metadata.Name))
+		return nil
+	}
 
 	composeFile := filepath.Join(outputPath, rootcasting.DeploymentDir, "compose.yaml")
 	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
@@ -125,10 +139,6 @@ func (casting *dockerComposeCasting) docker(ctx context.Context, config installa
 	composeCmd, err := getComposeCommand(ctx)
 	if err != nil {
 		return foundryerrors.Wrapf(err, foundryerrors.TypeNotFound, "docker compose not available")
-	}
-
-	if err := casting.checkOwnership(ctx, config, composeCmd, composeFile); err != nil {
-		return err
 	}
 
 	argv := append(composeCmd[1:], "-f", composeFile)
@@ -147,41 +157,39 @@ func (casting *dockerComposeCasting) docker(ctx context.Context, config installa
 	return nil
 }
 
-// checkOwnership refuses a compose project of the same name that belongs to a different foundry Kind; unlabeled containers only warn.
-func (casting *dockerComposeCasting) checkOwnership(ctx context.Context, config installation.Casting, composeCmd []string, composeFile string) error {
-	argv := append(composeCmd[1:], "-f", composeFile, "ps", "-a", "-q")
-
-	out, err := exec.CommandContext(ctx, composeCmd[0], argv...).Output()
+// checkOwnership reports whether anything is deployed under the project name and refuses a project that belongs to a different foundry Kind; unlabeled containers only warn.
+func (casting *dockerComposeCasting) checkOwnership(ctx context.Context, config installation.Casting) (bool, error) {
+	out, err := exec.CommandContext(ctx, "docker", "ps", "-a", "-q", "--filter", "label=com.docker.compose.project="+config.Metadata.Name).Output()
 	if err != nil {
 		casting.logger.WarnContext(ctx, "skipping the ownership check: could not read labels from docker", foundryerrors.LogAttr(err))
-		return nil
+		return true, nil
 	}
 
 	ids := strings.Fields(string(out))
 
 	if len(ids) == 0 {
-		return nil
+		return false, nil
 	}
 
-	argv = append([]string{"inspect", "--format", `{{ index .Config.Labels "` + v1alpha1.LabelKind.Key + `" }}`}, ids...)
+	argv := append([]string{"inspect", "--format", `{{ index .Config.Labels "` + v1alpha1.LabelKind.Key + `" }}`}, ids...)
 
 	out, err = exec.CommandContext(ctx, "docker", argv...).Output()
 	if err != nil {
 		casting.logger.WarnContext(ctx, "skipping the ownership check: could not read labels from docker", foundryerrors.LogAttr(err))
-		return nil
+		return true, nil
 	}
 
 	ownership := domain.ParseOwnership(string(out))
 
 	if foreign, conflict := ownership.Foreign(config.Kind().String()); conflict {
-		return foundryerrors.Newf(foundryerrors.TypeInvalidInput, "%q already belongs to a foundry %s on this host: choose a different metadata.name or remove the existing deployment", config.Metadata.Name, foreign)
+		return false, foundryerrors.Newf(foundryerrors.TypeInvalidInput, "%q already belongs to a foundry %s on this host: choose a different metadata.name or remove the existing deployment", config.Metadata.Name, foreign)
 	}
 
 	if ownership.HasUnlabeled() {
 		casting.logger.WarnContext(ctx, "compose project has containers without foundry ownership labels", slog.String("project", config.Metadata.Name))
 	}
 
-	return nil
+	return true, nil
 }
 
 func getComposeMaterial(config *installation.Casting, path string) (domain.StructuredMaterial, error) {
