@@ -49,6 +49,7 @@ func TestUnitPatterns(t *testing.T) {
 		{name: "ClickhouseKeeper_Valid", keeper: installation.TelemetryKeeperKindClickhouseKeeper, forgedName: "signoz", downName: "signoz", expectedUnits: 7, pass: true},
 		{name: "Zookeeper_Valid", keeper: installation.TelemetryKeeperKindZookeeper, forgedName: "signoz", downName: "signoz", expectedUnits: 7, pass: true},
 		{name: "LongerName_Invalid", keeper: installation.TelemetryKeeperKindClickhouseKeeper, forgedName: "signoz-other", downName: "signoz", expectedUnits: 7, pass: false},
+		{name: "NodeLikeName_Invalid", keeper: installation.TelemetryKeeperKindClickhouseKeeper, forgedName: "signoz-telemetrystore-clickhouse-0", downName: "signoz", expectedUnits: 7, pass: false},
 	}
 
 	for _, tt := range tests {
@@ -77,7 +78,7 @@ func TestUnitPatterns(t *testing.T) {
 					require.NoError(t, err)
 
 					return ok
-				})
+				}) && unitMatcher(tt.downName).MatchString(unit)
 
 				assert.Equal(t, tt.pass, matched, unit)
 			}

@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -34,7 +35,7 @@ var unitPatterns = []string{
 	"mcp" + svcSuffix,
 	"telemetrystore-migrator" + svcSuffix,
 	"metastore-postgres" + svcSuffix,
-	"telemetrystore-clickhouse-[0-9]*" + svcSuffix,
+	"telemetrystore-clickhouse-[0-9]*-[0-9]*" + svcSuffix,
 	"telemetrykeeper-clickhousekeeper-[0-9]*" + svcSuffix,
 	"telemetrykeeper-zookeeper-[0-9]*" + svcSuffix,
 }
@@ -118,6 +119,8 @@ func (c *systemdCasting) Down(ctx context.Context, config installation.Casting, 
 		patterns = append(patterns, config.Metadata.Name+"-"+pattern)
 	}
 
+	exact := unitMatcher(config.Metadata.Name)
+
 	files, err := c.capture(ctx, slices.Concat([]string{"list-unit-files", "--no-legend", "--plain"}, patterns)...)
 	if err != nil {
 		return err
@@ -131,13 +134,13 @@ func (c *systemdCasting) Down(ctx context.Context, config installation.Casting, 
 	var installed, loaded []string
 
 	for line := range strings.Lines(string(files)) {
-		if fields := strings.Fields(strings.TrimLeft(line, "●* ")); len(fields) > 0 {
+		if fields := strings.Fields(strings.TrimLeft(line, "●* ")); len(fields) > 0 && exact.MatchString(fields[0]) {
 			installed = append(installed, fields[0])
 		}
 	}
 
 	for line := range strings.Lines(string(units)) {
-		if fields := strings.Fields(strings.TrimLeft(line, "●* ")); len(fields) > 0 && !slices.Contains(installed, fields[0]) {
+		if fields := strings.Fields(strings.TrimLeft(line, "●* ")); len(fields) > 0 && exact.MatchString(fields[0]) && !slices.Contains(installed, fields[0]) {
 			loaded = append(loaded, fields[0])
 		}
 	}
@@ -169,6 +172,16 @@ func (c *systemdCasting) Down(ctx context.Context, config installation.Casting, 
 
 	c.logger.InfoContext(ctx, "removed systemd services", slog.Int("count", len(installed)+len(loaded)))
 	return nil
+}
+
+// unitMatcher matches the unit names forge writes for name exactly, since fnmatch's [0-9]* accepts any suffix.
+func unitMatcher(name string) *regexp.Regexp {
+	alternatives := make([]string, 0, len(unitPatterns))
+	for _, pattern := range unitPatterns {
+		alternatives = append(alternatives, strings.ReplaceAll(regexp.QuoteMeta(pattern), `\[0-9\]\*`, "[0-9]+"))
+	}
+
+	return regexp.MustCompile("^" + regexp.QuoteMeta(name) + "-(" + strings.Join(alternatives, "|") + ")$")
 }
 
 func (c *systemdCasting) forgeTelemetryKeeper(cfg *installation.Casting) ([]domain.Material, error) {

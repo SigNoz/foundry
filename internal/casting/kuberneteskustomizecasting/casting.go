@@ -194,10 +194,8 @@ func (c *kustomizeCasting) Down(ctx context.Context, config installation.Casting
 
 	c.logger.InfoContext(ctx, "removing the kustomize resources", slog.String("namespace", ns), slog.String("selector", selector))
 
-	if needsClickhouseOperator(&config) {
-		if err := c.kubectl(ctx, "delete", strings.Join(downInstallationKinds, ","), "-n", ns, "-l", selector, "--ignore-not-found"); err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to run kubectl delete")
-		}
+	if err := c.kubectl(ctx, "delete", strings.Join(downInstallationKinds, ","), "-n", ns, "-l", selector, "--ignore-not-found"); err != nil {
+		return errors.Wrapf(err, errors.TypeInternal, "failed to run kubectl delete")
 	}
 
 	if err := c.kubectl(ctx, "delete", strings.Join(downKinds, ","), "-n", ns, "-l", selector, "--ignore-not-found"); err != nil {
