@@ -58,6 +58,20 @@ var KubernetesNamespace = v1alpha1.Annotation{
 	Description: "Namespace the installation is deployed into; unstated, the casting's metadata.name.",
 }
 
+var KubernetesOperatorResourceKeepPolicy = v1alpha1.Annotation{
+	Key:         "foundry.signoz.io/kubernetes-operator-resource-keep-policy",
+	Default:     "false",
+	Mode:        v1alpha1.ModeKubernetes,
+	Description: "Whether cast down keeps the ClickHouse operator (its Deployment, Service, ServiceAccount, ConfigMaps, ClusterRole and ClusterRoleBinding): false removes it, true leaves it.",
+}
+
+var KubernetesCRDsResourceKeepPolicy = v1alpha1.Annotation{
+	Key:         "foundry.signoz.io/kubernetes-crds-resource-keep-policy",
+	Default:     "true",
+	Mode:        v1alpha1.ModeKubernetes,
+	Description: "Whether cast down keeps the ClickHouse custom resource definitions: true leaves them, false removes them, which removes every ClickHouse installation on the cluster.",
+}
+
 var (
 	HelmChart = v1alpha1.Annotation{
 		Key:         "foundry.signoz.io/kubernetes-helm-chart",
@@ -132,6 +146,8 @@ func Annotations() []v1alpha1.Annotation {
 		TelemetryKeeperZookeeperBinaryPath,
 		MCPBinaryPath,
 		KubernetesNamespace,
+		KubernetesOperatorResourceKeepPolicy,
+		KubernetesCRDsResourceKeepPolicy,
 		HelmChart,
 		HelmChartRepoURL,
 		HelmChartVersion,

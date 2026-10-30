@@ -68,31 +68,36 @@ func TestNotEmptyAndValid(t *testing.T) {
 func TestDownSelector(t *testing.T) {
 	data := templateDataFor(*installation.Default(&installation.Casting{}))
 
+	installationKinds := slices.Concat(downInstallationKinds, downKinds)
+
 	tests := []struct {
-		name string
-		tmpl *domain.Template
-		pass bool
+		name          string
+		tmpl          *domain.Template
+		expectedKinds []string
+		pass          bool
 	}{
-		{name: "ClickhouseInstallation_Valid", tmpl: clickhouseInstanceInstallation, pass: true},
-		{name: "ClickhouseConfigmap_Valid", tmpl: clickhouseInstanceConfigmap, pass: true},
-		{name: "ClickhouseKeeperInstallation_Valid", tmpl: clickhouseKeeperInstallation, pass: true},
-		{name: "MigratorJob_Valid", tmpl: telemetrystoreMigratorJob, pass: true},
-		{name: "MetastoreService_Valid", tmpl: metastoreService, pass: true},
-		{name: "MetastoreServiceaccount_Valid", tmpl: metastoreServiceaccount, pass: true},
-		{name: "MetastoreStatefulset_Valid", tmpl: metastoreStatefulset, pass: true},
-		{name: "SignozService_Valid", tmpl: signozService, pass: true},
-		{name: "SignozServiceaccount_Valid", tmpl: signozServiceaccount, pass: true},
-		{name: "SignozStatefulset_Valid", tmpl: signozStatefulset, pass: true},
-		{name: "MCPDeployment_Valid", tmpl: mcpDeployment, pass: true},
-		{name: "MCPService_Valid", tmpl: mcpService, pass: true},
-		{name: "IngesterConfigmap_Valid", tmpl: ingesterConfigmap, pass: true},
-		{name: "IngesterDeployment_Valid", tmpl: ingesterDeployment, pass: true},
-		{name: "IngesterService_Valid", tmpl: ingesterService, pass: true},
-		{name: "IngesterServiceaccount_Valid", tmpl: ingesterServiceaccount, pass: true},
-		{name: "OperatorConfigmap_Invalid", tmpl: clickhouseOperatorConfigmap, pass: false},
-		{name: "OperatorDeployment_Invalid", tmpl: clickhouseOperatorDeployment, pass: false},
-		{name: "OperatorService_Invalid", tmpl: clickhouseOperatorService, pass: false},
-		{name: "OperatorServiceaccount_Invalid", tmpl: clickhouseOperatorServiceaccount, pass: false},
+		{name: "ClickhouseInstallation_Valid", tmpl: clickhouseInstanceInstallation, expectedKinds: installationKinds, pass: true},
+		{name: "ClickhouseConfigmap_Valid", tmpl: clickhouseInstanceConfigmap, expectedKinds: installationKinds, pass: true},
+		{name: "ClickhouseKeeperInstallation_Valid", tmpl: clickhouseKeeperInstallation, expectedKinds: installationKinds, pass: true},
+		{name: "MigratorJob_Valid", tmpl: telemetrystoreMigratorJob, expectedKinds: installationKinds, pass: true},
+		{name: "MetastoreService_Valid", tmpl: metastoreService, expectedKinds: installationKinds, pass: true},
+		{name: "MetastoreServiceaccount_Valid", tmpl: metastoreServiceaccount, expectedKinds: installationKinds, pass: true},
+		{name: "MetastoreStatefulset_Valid", tmpl: metastoreStatefulset, expectedKinds: installationKinds, pass: true},
+		{name: "SignozService_Valid", tmpl: signozService, expectedKinds: installationKinds, pass: true},
+		{name: "SignozServiceaccount_Valid", tmpl: signozServiceaccount, expectedKinds: installationKinds, pass: true},
+		{name: "SignozStatefulset_Valid", tmpl: signozStatefulset, expectedKinds: installationKinds, pass: true},
+		{name: "MCPDeployment_Valid", tmpl: mcpDeployment, expectedKinds: installationKinds, pass: true},
+		{name: "MCPService_Valid", tmpl: mcpService, expectedKinds: installationKinds, pass: true},
+		{name: "IngesterConfigmap_Valid", tmpl: ingesterConfigmap, expectedKinds: installationKinds, pass: true},
+		{name: "IngesterDeployment_Valid", tmpl: ingesterDeployment, expectedKinds: installationKinds, pass: true},
+		{name: "IngesterService_Valid", tmpl: ingesterService, expectedKinds: installationKinds, pass: true},
+		{name: "IngesterServiceaccount_Valid", tmpl: ingesterServiceaccount, expectedKinds: installationKinds, pass: true},
+		{name: "OperatorConfigmap_Invalid", tmpl: clickhouseOperatorConfigmap, expectedKinds: operatorKinds, pass: false},
+		{name: "OperatorDeployment_Invalid", tmpl: clickhouseOperatorDeployment, expectedKinds: operatorKinds, pass: false},
+		{name: "OperatorService_Invalid", tmpl: clickhouseOperatorService, expectedKinds: operatorKinds, pass: false},
+		{name: "OperatorServiceaccount_Invalid", tmpl: clickhouseOperatorServiceaccount, expectedKinds: operatorKinds, pass: false},
+		{name: "OperatorClusterrole_Invalid", tmpl: clickhouseOperatorClusterrole, expectedKinds: operatorKinds, pass: false},
+		{name: "OperatorClusterrolebinding_Invalid", tmpl: clickhouseOperatorClusterrolebinding, expectedKinds: operatorKinds, pass: false},
 	}
 
 	for _, tt := range tests {
@@ -110,7 +115,7 @@ func TestDownSelector(t *testing.T) {
 
 				require.NoError(t, domain.UnmarshalYAML(document, &probe))
 
-				if probe.Kind == "Namespace" || probe.Kind == "PersistentVolumeClaim" {
+				if probe.Kind == "Namespace" || probe.Kind == "PersistentVolumeClaim" || probe.Kind == "CustomResourceDefinition" {
 					continue
 				}
 
@@ -120,10 +125,7 @@ func TestDownSelector(t *testing.T) {
 					slices.Contains(downComponents, labels["app.kubernetes.io/component"])
 
 				assert.Equal(t, tt.pass, selected, "%s %v", probe.Kind, labels)
-
-				if tt.pass {
-					assert.Contains(t, slices.Concat(downInstallationKinds, downKinds), strings.ToLower(probe.Kind)+"s")
-				}
+				assert.Contains(t, tt.expectedKinds, strings.ToLower(probe.Kind)+"s")
 			}
 		})
 	}
@@ -192,6 +194,9 @@ func TestForge(t *testing.T) {
 				operator, err := materials["deployment/operators/clickhouse-operator/kustomization.yaml"].GetBytes("namespace")
 				require.NoError(t, err)
 				assert.Equal(t, "signoz", string(operator))
+				stamped, err := materials["deployment/operators/clickhouse-operator/kustomization.yaml"].GetBytes("labels.0.pairs")
+				require.NoError(t, err)
+				assert.JSONEq(t, `{"app.kubernetes.io/instance":"signoz","app.kubernetes.io/managed-by":"kustomize","app.kubernetes.io/component":"`+operatorComponent+`"}`, string(stamped))
 				assert.Contains(t, materials, "deployment/operators/clickhouse-operator/namespace.yaml")
 			},
 			pass: true,

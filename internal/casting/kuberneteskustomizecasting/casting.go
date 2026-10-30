@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -79,6 +80,23 @@ var (
 	}
 )
 
+var (
+	// Deleted before downKinds, so the operator removes what it created from them.
+	downInstallationKinds = []string{"clickhouseinstallations", "clickhousekeeperinstallations"}
+
+	// Mirrors the core kinds forge writes outside the operators tier; the Namespace stays.
+	downKinds = []string{"serviceaccounts", "configmaps", "services", "deployments", "statefulsets", "jobs"}
+
+	// Mirrors the kinds the operators tier writes besides its Namespace and CRDs; cluster-scoped kinds ignore -n.
+	operatorKinds = []string{"deployments", "services", "serviceaccounts", "configmaps", "clusterroles", "clusterrolebindings"}
+
+	// Mirrors the app.kubernetes.io/component values forge writes.
+	downComponents = []string{"telemetrystore", "telemetrykeeper", "schema-migrator", "metastore", "signoz", "ingester", "mcp"}
+)
+
+// Mirrors the app.kubernetes.io/component the operators tier's kustomization stamps.
+const operatorComponent = "clickhouse-operator"
+
 func (c *kustomizeCasting) Enricher(ctx context.Context, config *installation.Casting) (molding.MoldingEnricher, error) {
 	return newKustomizeMoldingEnricher(config)
 }
@@ -126,15 +144,6 @@ func (c *kustomizeCasting) Forge(ctx context.Context, cfg installation.Casting, 
 	}
 	return materials, nil
 }
-
-// Deleted before downKinds, so the operator removes what it created from them.
-var downInstallationKinds = []string{"clickhouseinstallations", "clickhousekeeperinstallations"}
-
-// Mirrors the core kinds forge writes outside the operators tier; the Namespace stays.
-var downKinds = []string{"serviceaccounts", "configmaps", "services", "deployments", "statefulsets", "jobs"}
-
-// Mirrors the app.kubernetes.io/component values forge writes.
-var downComponents = []string{"telemetrystore", "telemetrykeeper", "schema-migrator", "metastore", "signoz", "ingester", "mcp"}
 
 // operators/ is its own tier, outside the root kustomization: it is applied
 // first and its CRDs waited on, since one pass would post the
@@ -194,12 +203,35 @@ func (c *kustomizeCasting) Down(ctx context.Context, config installation.Casting
 
 	c.logger.InfoContext(ctx, "removing the kustomize resources", slog.String("namespace", ns), slog.String("selector", selector))
 
+	keepOperator := installation.KubernetesOperatorResourceKeepPolicy.Resolve(config.Metadata.Annotations)
+	if keepOperator != "true" && keepOperator != "false" {
+		return errors.Newf(errors.TypeInvalidInput, "annotation %q is %q: state true or false", installation.KubernetesOperatorResourceKeepPolicy.Key, keepOperator)
+	}
+
+	keepCRDs := installation.KubernetesCRDsResourceKeepPolicy.Resolve(config.Metadata.Annotations)
+	if keepCRDs != "true" && keepCRDs != "false" {
+		return errors.Newf(errors.TypeInvalidInput, "annotation %q is %q: state true or false", installation.KubernetesCRDsResourceKeepPolicy.Key, keepCRDs)
+	}
+
 	if err := c.kubectl(ctx, "delete", strings.Join(downInstallationKinds, ","), "-n", ns, "-l", selector, "--ignore-not-found"); err != nil {
 		return errors.Wrapf(err, errors.TypeInternal, "failed to run kubectl delete")
 	}
 
 	if err := c.kubectl(ctx, "delete", strings.Join(downKinds, ","), "-n", ns, "-l", selector, "--ignore-not-found"); err != nil {
 		return errors.Wrapf(err, errors.TypeInternal, "failed to run kubectl delete")
+	}
+
+	// CRDs go before the operator: other installations' resources need it running to finalize.
+	if keepCRDs == "false" {
+		if err := c.kubectl(ctx, slices.Concat([]string{"delete", "crd"}, clickhouseCRDs, []string{"--ignore-not-found"})...); err != nil {
+			return errors.Wrapf(err, errors.TypeInternal, "failed to run kubectl delete")
+		}
+	}
+
+	if keepOperator == "false" {
+		if err := c.kubectl(ctx, "delete", strings.Join(operatorKinds, ","), "-n", ns, "-l", "app.kubernetes.io/instance="+config.Metadata.Name+",app.kubernetes.io/managed-by=kustomize,app.kubernetes.io/component="+operatorComponent, "--ignore-not-found"); err != nil {
+			return errors.Wrapf(err, errors.TypeInternal, "failed to run kubectl delete")
+		}
 	}
 
 	return nil
