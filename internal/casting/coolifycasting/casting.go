@@ -56,6 +56,13 @@ func (c *coolifyCasting) Cast(ctx context.Context, config installation.Casting, 
 	return nil
 }
 
+func (c *coolifyCasting) Down(ctx context.Context, config installation.Casting, poursPath string) error {
+	c.logger.InfoContext(ctx, "remove the Docker Compose resource in Coolify",
+		slog.String("name", config.Metadata.Name),
+		slog.String("docs", "https://coolify.io/docs/knowledge-base/docker/compose"))
+	return nil
+}
+
 func getCoolifyMaterial(config *installation.Casting, path string) (domain.StructuredMaterial, error) {
 	buf := bytes.NewBuffer(nil)
 	err := coolifyYAMLTemplate.Execute(buf, config)

@@ -79,6 +79,7 @@ Each command sends an event named `foundryctl: <command> <outcome>`, for example
 - `gauge`
 - `forge`
 - `cast`
+- `cast down`
 - `catalog`
 
 ## How to disable the ledger

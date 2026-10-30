@@ -1,6 +1,7 @@
 [Unit]
 Description=SigNoz OTel Collector
 Documentation=https://signoz.io/docs
+PartOf={{ $.Metadata.Name }}-{{ print $.Kind | lower }}.target
 
 [Service]
 User=signoz
@@ -22,4 +23,4 @@ Environment={{ $key }}={{ $value }}
 {{- end }}
 
 [Install]
-WantedBy=multi-user.target
+WantedBy={{ $.Metadata.Name }}-{{ print $.Kind | lower }}.target

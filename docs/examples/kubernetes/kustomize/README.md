@@ -103,9 +103,19 @@ kubectl get pods -n signoz
 
 # Port-forward the SigNoz UI
 kubectl port-forward svc/signoz -n signoz 8080:8080
+
+# Remove the deployment
+foundryctl cast down -f casting.yaml
 ```
 
 Open `http://localhost:8080` to access the SigNoz UI.
+
+`cast down` keeps the namespace and its PVCs.
+
+> [!IMPORTANT]
+> `cast down` removes the ClickHouse operator and keeps its custom resource definitions by default. On a shared cluster, set `foundry.signoz.io/kubernetes-operator-resource-keep-policy: "true"` to leave the operator. Set `foundry.signoz.io/kubernetes-crds-resource-keep-policy: "false"` to remove the definitions too, which removes every ClickHouse installation on the cluster.
+
+A ClickHouseKeeperInstallation and a ClickHouse operator cast before this release carry no labels, and `cast down` takes them down after one re-cast.
 
 ## MCP server (optional)
 

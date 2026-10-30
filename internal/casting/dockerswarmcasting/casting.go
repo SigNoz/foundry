@@ -8,8 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
+	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
@@ -103,28 +103,95 @@ func (casting *dockerSwarmCasting) Cast(ctx context.Context, config installation
 		return errors.Newf(errors.TypeNotFound, "compose file does not exist at path: %s", composeFile)
 	}
 
-	runctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-	defer cancel()
+	ids, err := casting.capture(ctx, "ls", "-q", "--filter", "label=com.docker.stack.namespace="+config.Metadata.Name)
 
-	args := []string{"stack", "deploy", "-d", "-c", composeFile}
+	var labels []byte
+	if services := strings.Fields(string(ids)); len(services) > 0 {
+		labels, err = casting.capture(ctx, append([]string{"inspect", "--format", `{{ index .Spec.TaskTemplate.ContainerSpec.Labels "` + v1alpha1.LabelKind.Key + `" }}`}, services...)...)
+	}
 
-	args = append(args, config.Metadata.Name)
-
-	casting.logger.DebugContext(runctx, "Running command", slog.String("command", strings.Join(append([]string{"docker"}, args...), " ")))
-
-	cmd := exec.CommandContext(runctx, "docker", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	err := cmd.Run()
 	if err != nil {
-		casting.logger.ErrorContext(runctx, "Stack deploy failed", slog.String("error", err.Error()))
+		casting.logger.WarnContext(ctx, "skipping the ownership check: could not read labels from docker", errors.LogAttr(err))
+	}
+
+	ownership := domain.ParseOwnership(string(labels))
+
+	if foreign, conflict := ownership.Foreign(config.Kind().String()); conflict {
+		return errors.Newf(errors.TypeInvalidInput, "%q already belongs to a foundry %s on this host: choose a different metadata.name or remove the existing deployment", config.Metadata.Name, foreign)
+	}
+
+	if ownership.HasUnlabeled() {
+		casting.logger.WarnContext(ctx, "swarm stack has services without foundry ownership labels", slog.String("stack", config.Metadata.Name))
+	}
+
+	err = casting.docker(ctx, "deploy", "-d", "-c", composeFile, config.Metadata.Name)
+	if err != nil {
+		casting.logger.ErrorContext(ctx, "Stack deploy failed", slog.String("error", err.Error()))
 		return err
 	}
 
-	casting.logger.InfoContext(runctx, "Stack deployed successfully")
+	casting.logger.InfoContext(ctx, "Stack deployed successfully")
 
 	return nil
+}
+
+func (casting *dockerSwarmCasting) Down(ctx context.Context, config installation.Casting, outputPath string) error {
+	casting.logger.InfoContext(ctx, "removing the swarm stack", slog.String("stack", config.Metadata.Name))
+
+	ids, err := casting.capture(ctx, "ls", "-q", "--filter", "label=com.docker.stack.namespace="+config.Metadata.Name)
+
+	var labels []byte
+	if services := strings.Fields(string(ids)); len(services) > 0 {
+		labels, err = casting.capture(ctx, append([]string{"inspect", "--format", `{{ index .Spec.TaskTemplate.ContainerSpec.Labels "` + v1alpha1.LabelKind.Key + `" }}`}, services...)...)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	ownership := domain.ParseOwnership(string(labels))
+
+	if foreign, conflict := ownership.Foreign(config.Kind().String()); conflict {
+		return errors.Newf(errors.TypeInvalidInput, "%q already belongs to a foundry %s on this host: choose a different metadata.name or remove the existing deployment", config.Metadata.Name, foreign)
+	}
+
+	if ownership.HasUnlabeled() {
+		return errors.Newf(errors.TypeInvalidInput, "%q has services without foundry ownership labels: cast once to stamp them, then cast down", config.Metadata.Name)
+	}
+
+	return casting.docker(ctx, "rm", config.Metadata.Name)
+}
+
+func (casting *dockerSwarmCasting) docker(ctx context.Context, args ...string) error {
+	argv := append([]string{"stack"}, args...)
+
+	casting.logger.DebugContext(ctx, "running command", slog.String("command", "docker "+strings.Join(argv, " ")))
+
+	cmd := exec.CommandContext(ctx, "docker", argv...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return errors.Wrapf(err, errors.TypeInternal, "failed to run docker stack %s", args[0])
+	}
+
+	return nil
+}
+
+func (casting *dockerSwarmCasting) capture(ctx context.Context, args ...string) ([]byte, error) {
+	argv := append([]string{"service"}, args...)
+
+	casting.logger.DebugContext(ctx, "running command", slog.String("command", "docker "+strings.Join(argv, " ")))
+
+	cmd := exec.CommandContext(ctx, "docker", argv...)
+	cmd.Stderr = os.Stderr
+
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, errors.Wrapf(err, errors.TypeNotFound, "failed to run docker service %s: start the docker daemon on a swarm manager", args[0])
+	}
+
+	return out, nil
 }
 
 func getComposeMaterial(config *installation.Casting, path string) (domain.StructuredMaterial, error) {

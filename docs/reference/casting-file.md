@@ -175,6 +175,8 @@ Optional. Applies to `mode: kubernetes`, both flavors.
 | Annotation | Default | Description |
 | --- | --- | --- |
 | `foundry.signoz.io/kubernetes-namespace` | `metadata.name` | Namespace the installation is deployed into |
+| `foundry.signoz.io/kubernetes-operator-resource-keep-policy` | `"false"` | Installation, `flavor: kustomize`. Whether `cast down` keeps the ClickHouse operator (its Deployment, Service, ServiceAccount, ConfigMaps, ClusterRole and ClusterRoleBinding): `"false"` removes it, `"true"` leaves it |
+| `foundry.signoz.io/kubernetes-crds-resource-keep-policy` | `"true"` | Installation, `flavor: kustomize`. Whether `cast down` keeps the ClickHouse custom resource definitions: `"true"` leaves them, `"false"` removes them, which removes every ClickHouse installation on the cluster |
 | `foundry.signoz.io/kubernetes-collector-controller` | `default` | CollectionAgent, `flavor: kustomize` or `flavor: helm`. Controller that owns the collector workload: `default` pours the DaemonSet or Deployment for the built-in Kubernetes controllers, `opentelemetry-operator` pours an OpenTelemetryCollector resource for the operator to reconcile |
 
 ### Kubernetes Helm annotations

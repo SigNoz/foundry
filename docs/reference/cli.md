@@ -49,7 +49,7 @@ After forging, a `casting.yaml.lock` file is written with checksums to track the
 
 ### cast
 
-Deploy SigNoz to your target environment. Runs `gauge` and `forge` automatically before deploying.
+Deploy SigNoz to your target environment. Runs `gauge` and `forge` automatically before deploying. `cast` is short for `cast up`.
 
 ```bash
 foundryctl cast -f casting.yaml
@@ -67,6 +67,23 @@ foundryctl cast --no-forge
 
 > [!NOTE]
 > Some deployment modes (Render, Coolify, Railway) do not support automated deployment. For these, `cast` generates the files and prints instructions for manual deployment on the target platform.
+
+### cast down
+
+Remove what `cast` deployed. Volumes and data stay, so the next `cast` starts on the same data.
+
+```bash
+foundryctl cast down -f casting.yaml
+```
+
+Skip tool validation:
+
+```bash
+foundryctl cast down --no-gauge
+```
+
+> [!NOTE]
+> `cast down` removes what runs under each document's `metadata.name`. After a rename it leaves the old deployment running; restore the name to remove it.
 
 ### gen
 

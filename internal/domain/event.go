@@ -17,13 +17,14 @@ type Event struct {
 }
 
 var (
-	EventGauge   = Event{name: "gauge"}
-	EventForge   = Event{name: "forge"}
-	EventCast    = Event{name: "cast"}
-	EventCatalog = Event{name: "catalog"}
+	EventGauge    = Event{name: "gauge"}
+	EventForge    = Event{name: "forge"}
+	EventCast     = Event{name: "cast"}
+	EventCastDown = Event{name: "cast down"}
+	EventCatalog  = Event{name: "catalog"}
 )
 
-var allEvents = []Event{EventGauge, EventForge, EventCast, EventCatalog}
+var allEvents = []Event{EventGauge, EventForge, EventCast, EventCastDown, EventCatalog}
 
 // NewEvent accepts only the names of declared base Event values. The returned
 // Event has no outcome; use Succeeded or Failed to attach one.

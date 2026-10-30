@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -23,6 +24,8 @@ import (
 )
 
 const svcSuffix = ".service"
+
+const targetSuffix = ".target"
 
 var _ rootcasting.Casting = (*systemdCasting)(nil)
 
@@ -42,6 +45,7 @@ func (c *systemdCasting) Forge(ctx context.Context, cfg installation.Casting, po
 	// Build order matches molding order: later components read status enriched by
 	// earlier ones. Each builder no-ops when its component is disabled.
 	builders := []func(*installation.Casting) ([]domain.Material, error){
+		c.forgeTarget,
 		c.forgeTelemetryKeeper,
 		c.forgeTelemetryStore,
 		c.forgeMetaStore,
@@ -93,6 +97,48 @@ func (c *systemdCasting) Cast(ctx context.Context, config installation.Casting, 
 
 	c.logger.InfoContext(ctx, "installed systemd services", slog.Int("count", len(units)))
 	return nil
+}
+
+func (c *systemdCasting) Down(ctx context.Context, config installation.Casting, poursPath string) error {
+	c.logger.InfoContext(ctx, "removing the systemd units", slog.String("name", config.Metadata.Name))
+
+	target := config.Metadata.Name + "-" + strings.ToLower(config.Kind().String()) + targetSuffix
+
+	fragment, err := c.capture(ctx, "show", "-p", "FragmentPath", "--value", target)
+	if err != nil {
+		return err
+	}
+
+	if strings.TrimSpace(string(fragment)) == "" {
+		c.logger.WarnContext(ctx, "nothing deployed under this name, nothing to take down", slog.String("name", config.Metadata.Name))
+		return nil
+	}
+
+	wants, err := c.capture(ctx, "show", "-p", "Wants", "--value", target)
+	if err != nil {
+		return err
+	}
+
+	units := append([]string{target}, strings.Fields(string(wants))...)
+
+	if err := c.systemctl(ctx, append([]string{"disable", "--now"}, units...)...); err != nil {
+		return errors.Wrapf(err, errors.TypeInternal, "failed to run systemctl disable")
+	}
+
+	if err := c.systemctl(ctx, "daemon-reload"); err != nil {
+		return errors.Wrapf(err, errors.TypeInternal, "failed to run systemctl daemon-reload")
+	}
+
+	c.logger.InfoContext(ctx, "removed systemd units", slog.Int("count", len(units)))
+	return nil
+}
+
+func (c *systemdCasting) forgeTarget(cfg *installation.Casting) ([]domain.Material, error) {
+	targetMat, err := c.renderTemplate(targetTemplate, cfg, cfg.Metadata.Name+"-"+strings.ToLower(cfg.Kind().String())+targetSuffix)
+	if err != nil {
+		return nil, err
+	}
+	return []domain.Material{targetMat}, nil
 }
 
 func (c *systemdCasting) forgeTelemetryKeeper(cfg *installation.Casting) ([]domain.Material, error) {
@@ -281,11 +327,15 @@ func (c *systemdCasting) discoverUnits(poursPath string) ([]string, error) {
 
 	var units []string
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), svcSuffix) {
+		if ext := filepath.Ext(entry.Name()); entry.IsDir() || (ext != svcSuffix && ext != targetSuffix) {
 			continue
 		}
 		units = append(units, filepath.Join(deploymentPath, entry.Name()))
 	}
+
+	// ".target" sorts above ".service": the target is enabled before any service names it.
+	slices.SortStableFunc(units, func(a, b string) int { return strings.Compare(filepath.Ext(b), filepath.Ext(a)) })
+
 	return units, nil
 }
 
@@ -623,4 +673,16 @@ func (c *systemdCasting) execCommand(ctx context.Context, name string, args ...s
 // systemctl runs a systemctl subcommand.
 func (c *systemdCasting) systemctl(ctx context.Context, args ...string) error {
 	return c.execCommand(ctx, "systemctl", args...)
+}
+
+func (c *systemdCasting) capture(ctx context.Context, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, "systemctl", args...)
+	cmd.Stderr = os.Stderr
+
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to run systemctl %s", args[0])
+	}
+
+	return out, nil
 }

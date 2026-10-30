@@ -95,9 +95,13 @@ docker ps
 # View logs for a specific service
 docker compose -f pours/deployment/compose.yaml logs -f signoz
 
-# Stop the stack
-cd pours/deployment && docker compose down
+# Remove the stack
+foundryctl cast down -f casting.yaml
 ```
+
+`cast down` keeps the stack's volumes. With the `docker compose` v2 plugin it works without `pours/deployment/compose.yaml`, and uses the file when it is present.
+
+`cast down` refuses a project whose containers carry no foundry labels; a `cast` stamps them, or remove them with docker.
 
 > [!NOTE]
 > - `foundryctl cast` detects whether `docker compose` (v2 plugin) or `docker-compose` (legacy standalone) is available and uses whichever it finds, preferring the v2 plugin.

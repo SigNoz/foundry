@@ -3,6 +3,7 @@ package kuberneteshelmcasting
 import (
 	"bytes"
 	"context"
+	goerrors "errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -17,6 +18,8 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
+	"helm.sh/helm/v3/pkg/releaseutil"
+	"helm.sh/helm/v3/pkg/storage/driver"
 	"sigs.k8s.io/yaml"
 )
 
@@ -74,14 +77,9 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 
 	ns := namespace(config)
 
-	settings := cli.New()
-	settings.SetNamespace(ns)
-
-	actionConfig := new(action.Configuration)
-	if err := actionConfig.Init(settings.RESTClientGetter(), ns, os.Getenv("HELM_DRIVER"), func(format string, v ...any) {
-		c.logger.Debug(fmt.Sprintf(format, v...))
-	}); err != nil {
-		return errors.Wrapf(err, errors.TypeInternal, "failed to initialize helm action config")
+	settings, actionConfig, err := c.actionConfig(ns)
+	if err != nil {
+		return err
 	}
 
 	chartRef, version, repoURL := chartSource(config)
@@ -149,6 +147,75 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 		slog.String("namespace", ns),
 	)
 	return nil
+}
+
+func (c *helmCasting) Down(ctx context.Context, config installation.Casting, poursPath string) error {
+	ns := namespace(config)
+
+	c.logger.InfoContext(ctx, "removing the helm release",
+		slog.String("release", config.Metadata.Name),
+		slog.String("namespace", ns),
+	)
+
+	_, actionConfig, err := c.actionConfig(ns)
+	if err != nil {
+		return err
+	}
+
+	if err := actionConfig.KubeClient.IsReachable(); err != nil {
+		return errors.Wrapf(err, errors.TypeNotFound, "failed to reach the kubernetes cluster: check the current kubeconfig context")
+	}
+
+	histClient := action.NewHistory(actionConfig)
+	histClient.Max = 1
+
+	history, err := histClient.Run(config.Metadata.Name)
+	if err != nil && !goerrors.Is(err, driver.ErrReleaseNotFound) {
+		return errors.Wrapf(err, errors.TypeInternal, "failed to run helm history")
+	}
+
+	if len(history) == 0 {
+		c.logger.WarnContext(ctx, "nothing deployed under this name, nothing to take down",
+			slog.String("release", config.Metadata.Name),
+			slog.String("namespace", ns),
+		)
+		return nil
+	}
+
+	releaseutil.SortByRevision(history)
+	latest := history[len(history)-1].Chart
+
+	chart, _, _ := chartSource(config)
+	if !strings.ContainsRune(chart, '/') && latest != nil && latest.Metadata != nil && latest.Metadata.Name != chart {
+		return errors.Newf(errors.TypeInvalidInput, "%q in namespace %q is a %q release, not %q: choose a different metadata.name or remove the existing release", config.Metadata.Name, ns, latest.Metadata.Name, chart)
+	}
+
+	uninstall := action.NewUninstall(actionConfig)
+	uninstall.KeepHistory = false
+
+	if _, err := uninstall.Run(config.Metadata.Name); err != nil {
+		return errors.Wrapf(err, errors.TypeInternal, "failed to run helm uninstall")
+	}
+
+	c.logger.InfoContext(ctx, "removed the helm release",
+		slog.String("release", config.Metadata.Name),
+		slog.String("namespace", ns),
+	)
+	return nil
+}
+
+func (c *helmCasting) actionConfig(ns string) (*cli.EnvSettings, *action.Configuration, error) {
+	settings := cli.New()
+	settings.SetNamespace(ns)
+
+	actionConfig := new(action.Configuration)
+	if err := actionConfig.Init(settings.RESTClientGetter(), ns, os.Getenv("HELM_DRIVER"), func(format string, v ...any) {
+		c.logger.Debug(fmt.Sprintf(format, v...))
+	}); err != nil {
+		return nil, nil, errors.Wrapf(err, errors.TypeInternal, "failed to initialize helm action config")
+	}
+
+	return settings, actionConfig, nil
 }
 
 // The annotation's default cannot name metadata.name, so the fallback lives here.

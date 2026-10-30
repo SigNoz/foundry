@@ -71,8 +71,12 @@ docker stack services signoz
 docker service logs signoz_signoz -f
 
 # Remove the stack
-docker stack rm signoz
+foundryctl cast down -f casting.yaml
 ```
+
+`cast down` keeps the stack's volumes.
+
+`cast down` refuses a stack whose services carry no foundry labels; a `cast` stamps them, or remove them with docker.
 
 ## MCP server (optional)
 

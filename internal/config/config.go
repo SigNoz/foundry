@@ -11,6 +11,10 @@ type Config interface {
 	// document the file holds, and returns them in cast order.
 	GetV1Alpha1(ctx context.Context, path string) ([]v1alpha1.Machinery, error)
 
+	// GetV1Alpha1NoCompat reads the casting file as GetV1Alpha1 does, without
+	// the compatibility check.
+	GetV1Alpha1NoCompat(ctx context.Context, path string) ([]v1alpha1.Machinery, error)
+
 	// CreateV1Alpha1Lock writes the resolved castings to the lock file.
 	CreateV1Alpha1Lock(ctx context.Context, machineries []v1alpha1.Machinery, path string) error
 

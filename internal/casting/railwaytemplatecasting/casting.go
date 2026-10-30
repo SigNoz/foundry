@@ -165,6 +165,11 @@ func (c *railwayTemplateCasting) Cast(ctx context.Context, config installation.C
 	return nil
 }
 
+func (c *railwayTemplateCasting) Down(ctx context.Context, config installation.Casting, poursPath string) error {
+	c.logger.InfoContext(ctx, "remove the project in Railway", slog.String("name", config.Metadata.Name))
+	return nil
+}
+
 func getRailwayMaterial(config *installation.Casting) ([]domain.StructuredMaterial, error) {
 	var materials []domain.StructuredMaterial
 

@@ -12,6 +12,7 @@ Generates per-component Dockerfiles, `railway.json` service definitions, and con
 
 > [!NOTE]
 > `foundryctl cast` does not deploy to Railway automatically. It generates the files and prints instructions for manual deployment.
+> `foundryctl cast down` prints where to remove the deployment on Railway.
 
 ## Prerequisites
 
