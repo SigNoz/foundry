@@ -100,6 +100,7 @@ pours/deployment/
   signoz-telemetrykeeper-clickhousekeeper-0.service
   signoz-telemetrystore-clickhouse-0-0.service
   signoz-telemetrystore-migrator.service
+  signoz-installation.target
   ingester/
     ingester.yaml
     opamp.yaml
@@ -118,6 +119,9 @@ Services are named `<metadata.name>-<component>.service`.
 # Status of all services
 systemctl status 'signoz-*'
 
+# Status of the whole installation
+systemctl status signoz-installation.target
+
 # Follow logs for one service
 journalctl -u signoz-signoz.service -f
 
@@ -129,6 +133,8 @@ sudo foundryctl cast down -f casting.yaml
 ```
 
 `cast down` stops and disables the units and keeps their configs and data directories.
+
+A systemd installation cast before this release has no target unit, and `cast down` takes it down after one re-cast.
 
 ## Annotations
 

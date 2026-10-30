@@ -10,6 +10,7 @@ import (
 var templates embed.FS
 
 var (
+	targetTemplate                        *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/target.gotmpl", domain.FormatINI)
 	signozServiceTemplate                 *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/signoz.service.gotmpl", domain.FormatINI)
 	ingesterServiceTemplate               *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/ingester.service.gotmpl", domain.FormatINI)
 	telemetryStoreServiceTemplate         *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/clickhouse.telemetrystore.v25125.service.gotmpl", domain.FormatINI)

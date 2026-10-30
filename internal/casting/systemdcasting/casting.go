@@ -1,9 +1,7 @@
 package systemdcasting
 
 import (
-	"bytes"
 	"context"
-	goerrors "errors"
 	"fmt"
 	"log/slog"
 
@@ -17,7 +15,6 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -28,17 +25,7 @@ import (
 
 const svcSuffix = ".service"
 
-// Mirrors the unit names forge writes, after "<metadata.name>-", as systemctl fnmatch patterns.
-var unitPatterns = []string{
-	"signoz" + svcSuffix,
-	"ingester" + svcSuffix,
-	"mcp" + svcSuffix,
-	"telemetrystore-migrator" + svcSuffix,
-	"metastore-postgres" + svcSuffix,
-	"telemetrystore-clickhouse-[0-9]*-[0-9]*" + svcSuffix,
-	"telemetrykeeper-clickhousekeeper-[0-9]*" + svcSuffix,
-	"telemetrykeeper-zookeeper-[0-9]*" + svcSuffix,
-}
+const targetSuffix = ".target"
 
 var _ rootcasting.Casting = (*systemdCasting)(nil)
 
@@ -58,6 +45,7 @@ func (c *systemdCasting) Forge(ctx context.Context, cfg installation.Casting, po
 	// Build order matches molding order: later components read status enriched by
 	// earlier ones. Each builder no-ops when its component is disabled.
 	builders := []func(*installation.Casting) ([]domain.Material, error){
+		c.forgeTarget,
 		c.forgeTelemetryKeeper,
 		c.forgeTelemetryStore,
 		c.forgeMetaStore,
@@ -112,76 +100,45 @@ func (c *systemdCasting) Cast(ctx context.Context, config installation.Casting, 
 }
 
 func (c *systemdCasting) Down(ctx context.Context, config installation.Casting, poursPath string) error {
-	c.logger.InfoContext(ctx, "removing the systemd services", slog.String("name", config.Metadata.Name))
+	c.logger.InfoContext(ctx, "removing the systemd units", slog.String("name", config.Metadata.Name))
 
-	patterns := make([]string, 0, len(unitPatterns))
-	for _, pattern := range unitPatterns {
-		patterns = append(patterns, config.Metadata.Name+"-"+pattern)
-	}
+	target := config.Metadata.Name + "-" + strings.ToLower(config.Kind().String()) + targetSuffix
 
-	exact := unitMatcher(config.Metadata.Name)
-
-	files, err := c.capture(ctx, slices.Concat([]string{"list-unit-files", "--no-legend", "--plain"}, patterns)...)
+	fragment, err := c.capture(ctx, "show", "-p", "FragmentPath", "--value", target)
 	if err != nil {
 		return err
 	}
 
-	units, err := c.capture(ctx, slices.Concat([]string{"list-units", "--all", "--no-legend", "--plain"}, patterns)...)
-	if err != nil {
-		return err
-	}
-
-	var installed, loaded []string
-
-	for line := range strings.Lines(string(files)) {
-		if fields := strings.Fields(strings.TrimLeft(line, "●* ")); len(fields) > 0 && exact.MatchString(fields[0]) {
-			installed = append(installed, fields[0])
-		}
-	}
-
-	for line := range strings.Lines(string(units)) {
-		if fields := strings.Fields(strings.TrimLeft(line, "●* ")); len(fields) > 0 && exact.MatchString(fields[0]) && !slices.Contains(installed, fields[0]) {
-			loaded = append(loaded, fields[0])
-		}
-	}
-
-	if len(installed) == 0 && len(loaded) == 0 {
+	if strings.TrimSpace(string(fragment)) == "" {
 		c.logger.WarnContext(ctx, "nothing deployed under this name, nothing to take down", slog.String("name", config.Metadata.Name))
 		return nil
 	}
 
-	if len(installed) > 0 {
-		if err := c.systemctl(ctx, append([]string{"disable", "--now"}, installed...)...); err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to run systemctl disable")
-		}
+	wants, err := c.capture(ctx, "show", "-p", "Wants", "--value", target)
+	if err != nil {
+		return err
 	}
 
-	if len(loaded) > 0 {
-		if err := c.systemctl(ctx, append([]string{"stop"}, loaded...)...); err != nil {
-			return errors.Wrapf(err, errors.TypeInternal, "failed to run systemctl stop")
-		}
+	units := append([]string{target}, strings.Fields(string(wants))...)
+
+	if err := c.systemctl(ctx, append([]string{"disable", "--now"}, units...)...); err != nil {
+		return errors.Wrapf(err, errors.TypeInternal, "failed to run systemctl disable")
 	}
 
 	if err := c.systemctl(ctx, "daemon-reload"); err != nil {
 		return errors.Wrapf(err, errors.TypeInternal, "failed to run systemctl daemon-reload")
 	}
 
-	if err := c.systemctl(ctx, slices.Concat([]string{"reset-failed"}, installed, loaded)...); err != nil {
-		c.logger.DebugContext(ctx, "could not reset failed units", errors.LogAttr(err))
-	}
-
-	c.logger.InfoContext(ctx, "removed systemd services", slog.Int("count", len(installed)+len(loaded)))
+	c.logger.InfoContext(ctx, "removed systemd units", slog.Int("count", len(units)))
 	return nil
 }
 
-// unitMatcher matches the unit names forge writes for name exactly, since fnmatch's [0-9]* accepts any suffix.
-func unitMatcher(name string) *regexp.Regexp {
-	alternatives := make([]string, 0, len(unitPatterns))
-	for _, pattern := range unitPatterns {
-		alternatives = append(alternatives, strings.ReplaceAll(regexp.QuoteMeta(pattern), `\[0-9\]\*`, "[0-9]+"))
+func (c *systemdCasting) forgeTarget(cfg *installation.Casting) ([]domain.Material, error) {
+	targetMat, err := c.renderTemplate(targetTemplate, cfg, cfg.Metadata.Name+"-"+strings.ToLower(cfg.Kind().String())+targetSuffix)
+	if err != nil {
+		return nil, err
 	}
-
-	return regexp.MustCompile("^" + regexp.QuoteMeta(name) + "-(" + strings.Join(alternatives, "|") + ")$")
+	return []domain.Material{targetMat}, nil
 }
 
 func (c *systemdCasting) forgeTelemetryKeeper(cfg *installation.Casting) ([]domain.Material, error) {
@@ -370,11 +327,15 @@ func (c *systemdCasting) discoverUnits(poursPath string) ([]string, error) {
 
 	var units []string
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), svcSuffix) {
+		if ext := filepath.Ext(entry.Name()); entry.IsDir() || (ext != svcSuffix && ext != targetSuffix) {
 			continue
 		}
 		units = append(units, filepath.Join(deploymentPath, entry.Name()))
 	}
+
+	// ".target" sorts above ".service": the target is enabled before any service names it.
+	slices.SortStableFunc(units, func(a, b string) int { return strings.Compare(filepath.Ext(b), filepath.Ext(a)) })
+
 	return units, nil
 }
 
@@ -719,13 +680,6 @@ func (c *systemdCasting) capture(ctx context.Context, args ...string) ([]byte, e
 	cmd.Stderr = os.Stderr
 
 	out, err := cmd.Output()
-
-	// systemd 246 and later exits 1 with no output when no unit matches.
-	var exit *exec.ExitError
-	if goerrors.As(err, &exit) && exit.ExitCode() == 1 && len(bytes.TrimSpace(out)) == 0 {
-		return nil, nil
-	}
-
 	if err != nil {
 		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to run systemctl %s", args[0])
 	}

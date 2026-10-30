@@ -3,6 +3,7 @@ Description=Apache ZooKeeper (v3.7.1)
 Requires=network-online.target
 After=time-sync.target network-online.target
 Wants=time-sync.target
+PartOf={{ $.Metadata.Name }}-{{ print $.Kind | lower }}.target
 
 [Service]
 Type=simple
@@ -27,4 +28,4 @@ ExecStart={{ index $.Metadata.Annotations "foundry.signoz.io/telemetrykeeper-zoo
 LimitNOFILE=500000
 
 [Install]
-WantedBy=multi-user.target
+WantedBy={{ $.Metadata.Name }}-{{ print $.Kind | lower }}.target

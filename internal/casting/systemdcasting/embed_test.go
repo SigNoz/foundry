@@ -2,10 +2,8 @@ package systemdcasting
 
 import (
 	"bytes"
-	"context"
 	"log/slog"
 	"path"
-	"slices"
 	"strings"
 	"testing"
 
@@ -37,53 +35,58 @@ func TestNotEmptyAndValid(t *testing.T) {
 	}
 }
 
-func TestUnitPatterns(t *testing.T) {
-	tests := []struct {
-		name          string
-		keeper        installation.TelemetryKeeperKind
-		forgedName    string
-		downName      string
-		expectedUnits int
-		pass          bool
+func TestTarget(t *testing.T) {
+	for _, test := range []struct {
+		name             string
+		keeper           installation.TelemetryKeeperKind
+		pass             bool
+		expectedTarget   string
+		expectedServices int
 	}{
-		{name: "ClickhouseKeeper_Valid", keeper: installation.TelemetryKeeperKindClickhouseKeeper, forgedName: "signoz", downName: "signoz", expectedUnits: 7, pass: true},
-		{name: "Zookeeper_Valid", keeper: installation.TelemetryKeeperKindZookeeper, forgedName: "signoz", downName: "signoz", expectedUnits: 7, pass: true},
-		{name: "LongerName_Invalid", keeper: installation.TelemetryKeeperKindClickhouseKeeper, forgedName: "signoz-other", downName: "signoz", expectedUnits: 7, pass: false},
-		{name: "NodeLikeName_Invalid", keeper: installation.TelemetryKeeperKindClickhouseKeeper, forgedName: "signoz-telemetrystore-clickhouse-0", downName: "signoz", expectedUnits: 7, pass: false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		{"Default_Valid", installation.TelemetryKeeperKindClickhouseKeeper, true, "signoz-installation.target", 7},
+		{"Zookeeper_Valid", installation.TelemetryKeeperKindZookeeper, true, "signoz-installation.target", 7},
+	} {
+		t.Run(test.name, func(t *testing.T) {
 			declared := &installation.Casting{}
-			declared.Spec.TelemetryKeeper.Kind = tt.keeper
+			declared.Spec.TelemetryKeeper.Kind = test.keeper
 
 			cfg := installation.Default(declared)
-			cfg.Metadata.Name = tt.forgedName
 			cfg.Spec.MCP.Spec.Enabled = v1alpha1.BoolPtr(true)
 
-			materials, err := New(slog.New(slog.DiscardHandler)).Forge(context.Background(), *cfg, "")
-			require.NoError(t, err)
+			materials, err := New(slog.New(slog.DiscardHandler)).Forge(t.Context(), *cfg, "")
 
-			units := 0
-			for _, material := range materials {
-				unit := path.Base(material.Path())
-				if !strings.HasSuffix(unit, svcSuffix) {
-					continue
+			if test.pass {
+				require.NoError(t, err)
+
+				var targets []string
+				services := 0
+
+				for _, material := range materials {
+					unit := path.Base(material.Path())
+
+					if strings.HasSuffix(unit, targetSuffix) {
+						targets = append(targets, unit)
+					}
+
+					if !strings.HasSuffix(unit, svcSuffix) {
+						continue
+					}
+
+					services++
+
+					contents := string(material.FmtContents())
+					assert.Contains(t, contents, "PartOf="+test.expectedTarget, unit)
+					assert.Contains(t, contents, "WantedBy="+test.expectedTarget, unit)
+					assert.NotContains(t, contents, "WantedBy=multi-user.target", unit)
 				}
 
-				units++
+				assert.Equal(t, []string{test.expectedTarget}, targets)
+				assert.Equal(t, test.expectedServices, services)
 
-				matched := slices.ContainsFunc(unitPatterns, func(pattern string) bool {
-					ok, err := path.Match(tt.downName+"-"+pattern, unit)
-					require.NoError(t, err)
-
-					return ok
-				}) && unitMatcher(tt.downName).MatchString(unit)
-
-				assert.Equal(t, tt.pass, matched, unit)
+				return
 			}
 
-			assert.Equal(t, tt.expectedUnits, units)
+			require.Error(t, err)
 		})
 	}
 }
