@@ -25,6 +25,8 @@ INGESTION_KEY=""
 AGENT_VERSION=""
 # Flags parse_args does not know, left for the platform to parse.
 PLATFORM_ARGS=()
+# Scratch directory a platform may create; removed on exit.
+TMP_ROOT=""
 
 # https://no-color.org honoured; auto-stripped when stderr is not a TTY.
 if [[ -t 2 ]] && [[ -z "${NO_COLOR:-}" ]]; then
@@ -76,6 +78,10 @@ help() {
   printf "ENVIRONMENT\n"
   printf "\tFOUNDRY_VERSION\tFoundry release whose templates are deployed. Set by foundry.sh.\n\n"
   gcp_help
+  printf "\n"
+  aws_help
+  printf "\n"
+  azure_help
 }
 
 require_value() {
@@ -171,9 +177,25 @@ run() {
       verify_inputs
       gcp_terraform
       ;;
+    aws/cloudformation)
+      aws_parse_args ${PLATFORM_ARGS[@]+"${PLATFORM_ARGS[@]}"}
+      verify_inputs
+      aws_cloudformation
+      ;;
+    azure/bicep)
+      azure_parse_args ${PLATFORM_ARGS[@]+"${PLATFORM_ARGS[@]}"}
+      verify_inputs
+      azure_bicep
+      ;;
     /) die "Missing <platform> <flavor>. Run with -h for usage." ;;
     *) die "Unsupported cloudintegration: ${PLATFORM}/${FLAVOR}" ;;
   esac
+}
+
+cleanup() {
+  if [[ -n "${TMP_ROOT}" ]] && [[ -d "${TMP_ROOT}" ]]; then
+    rm -rf "${TMP_ROOT}"
+  fi
 }
 
 fail_trap() {
@@ -183,6 +205,7 @@ fail_trap() {
     err "Re-run the same command to retry; completed steps are reused."
     err "For support, see https://github.com/${REPO}/issues"
   fi
+  cleanup
   exit "${rc}"
 }
 
@@ -433,8 +456,225 @@ gcp_terraform() {
   gcp_deploy "${api_secret_version}" "${ingestion_secret_version}"
 }
 
+# ---------------------------------------------------------------------------
+# AWS (cloudformation): the template at AWS_TEMPLATE_PATH is downloaded and
+# deployed as a local file, since CloudFormation only reads template URLs
+# from S3.
+# ---------------------------------------------------------------------------
+
+readonly AWS_TEMPLATE_PATH="docs/examples/cloudintegration/aws/cloudformation/pours/cloudintegration/signoz-integration.json"
+readonly AWS_STACK="signoz-integration"
+readonly AWS_TEMPLATE_MAX_BYTES=51200
+
+aws_help() {
+  printf "AWS CLOUDFORMATION\n"
+  printf "\tDeploys the CloudFormation template as the %s stack, with the credentials of the AWS CLI.\n" "${AWS_STACK}"
+  printf "\tA stack left in ROLLBACK_COMPLETE by a failed first deployment is deleted and recreated.\n\n"
+  printf "\tcurl -fsSL https://signoz.io/foundry.sh | bash -s -- cloudintegration aws cloudformation \\\\\n"
+  printf "\t  --region us-east-1 --integration-account-id <uuid> \\\\\n"
+  printf "\t  --signoz-api-url <url> --signoz-api-key <key> --ingestion-url <url> --ingestion-key <key>\n"
+}
+
+aws_parse_args() {
+  if [[ $# -gt 0 ]]; then
+    die "Unknown flag for aws cloudformation: $1"
+  fi
+}
+
+aws_verify_prereqs() {
+  local cmd
+  for cmd in aws curl; do
+    if ! command -v "${cmd}" >/dev/null 2>&1; then
+      die "Missing prerequisite: ${cmd}"
+    fi
+  done
+
+  local identity
+  if ! identity="$(aws sts get-caller-identity --region "${REGION}" --query '[Account, Arn]' --output text)"; then
+    die "The AWS CLI has no usable credentials. Run 'aws configure' or 'aws sso login' and retry."
+  fi
+
+  local account arn
+  read -r account arn <<<"${identity}"
+  info "Deploying to account ${account} in ${REGION} as ${arn}"
+}
+
+aws_fetch_template() {
+  TMP_ROOT="$(mktemp -d -t foundry-cloudintegration-XXXXXX)"
+  local file="${TMP_ROOT}/signoz-integration.json"
+  local url="https://raw.githubusercontent.com/${REPO}/${FOUNDRY_VERSION}/${AWS_TEMPLATE_PATH}"
+
+  info "Downloading ${url}"
+  if ! curl -fsSL "${url}" -o "${file}"; then
+    die "Could not download ${url}; ${FOUNDRY_VERSION} may predate aws cloudformation."
+  fi
+
+  local size
+  size="$(wc -c <"${file}" | tr -d ' ')"
+  if [[ "${size}" -gt "${AWS_TEMPLATE_MAX_BYTES}" ]]; then
+    die "Template is ${size} bytes, over CloudFormation's ${AWS_TEMPLATE_MAX_BYTES} byte limit for local templates."
+  fi
+
+  printf -v "$1" '%s' "${file}"
+}
+
+# Deletes a stack whose first deployment rolled back, since it cannot be
+# updated, and refuses stacks that need attention first.
+aws_prepare_stack() {
+  local status
+  status="$(aws cloudformation describe-stacks \
+    --region "${REGION}" \
+    --stack-name "${AWS_STACK}" \
+    --query 'Stacks[0].StackStatus' \
+    --output text 2>/dev/null || true)"
+
+  case "${status}" in
+    "")
+      info "Creating stack ${AWS_STACK}"
+      ;;
+    ROLLBACK_COMPLETE)
+      warn "Stack ${AWS_STACK} is in ROLLBACK_COMPLETE; deleting it before deploying again"
+      aws cloudformation delete-stack --region "${REGION}" --stack-name "${AWS_STACK}"
+      aws cloudformation wait stack-delete-complete --region "${REGION}" --stack-name "${AWS_STACK}"
+      ;;
+    *_IN_PROGRESS)
+      die "Stack ${AWS_STACK} is in ${status}. Wait for it to finish and retry."
+      ;;
+    *_FAILED)
+      die "Stack ${AWS_STACK} is in ${status}. Resolve it in the CloudFormation console and retry."
+      ;;
+    *)
+      info "Updating stack ${AWS_STACK} (${status})"
+      ;;
+  esac
+}
+
+# $1 is the local template path.
+aws_deploy() {
+  local params=(
+    "SigNozApiUrl=${SIGNOZ_API_URL}"
+    "SigNozApiKey=${SIGNOZ_API_KEY}"
+    "SigNozAccountId=${INTEGRATION_ACCOUNT_ID}"
+    "IngestionUrl=${INGESTION_URL}"
+    "IngestionKey=${INGESTION_KEY}"
+  )
+  if [[ -n "${AGENT_VERSION}" ]]; then
+    params+=("SigNozIntegrationAgentVersion=${AGENT_VERSION}")
+  fi
+
+  info "Deploying ${AWS_TEMPLATE_PATH} at ${FOUNDRY_VERSION} to stack ${AWS_STACK}"
+  aws cloudformation deploy \
+    --region "${REGION}" \
+    --stack-name "${AWS_STACK}" \
+    --template-file "$1" \
+    --capabilities CAPABILITY_NAMED_IAM \
+    --no-fail-on-empty-changeset \
+    --parameter-overrides "${params[@]}"
+
+  echo
+  info "Deployed stack ${AWS_STACK} in ${REGION}"
+}
+
+aws_cloudformation() {
+  aws_verify_prereqs
+
+  local template
+  aws_fetch_template template
+
+  aws_prepare_stack
+  aws_deploy "${template}"
+}
+
+# ---------------------------------------------------------------------------
+# Azure (bicep): a subscription deployment stack deploys the ARM template
+# built from main.bicep, read by Azure straight from the foundry release.
+# ---------------------------------------------------------------------------
+
+readonly AZURE_TEMPLATE_PATH="docs/examples/cloudintegration/azure/bicep/pours/cloudintegration/signoz-integration.json"
+readonly AZURE_STACK="signoz-integration"
+
+AZURE_SUBSCRIPTION=""
+
+azure_help() {
+  printf "AZURE BICEP\n"
+  printf "\tDeploys the ARM template as the %s subscription deployment stack, signed in as the az CLI user.\n" "${AZURE_STACK}"
+  printf "\tRequires --agent-version.\n\n"
+  printf "\t--azure-subscription <id>\tSubscription the integration is deployed to. [default: az CLI's current]\n\n"
+  printf "\tcurl -fsSL https://signoz.io/foundry.sh | bash -s -- cloudintegration azure bicep \\\\\n"
+  printf "\t  --region eastus --integration-account-id <uuid> --agent-version <version> \\\\\n"
+  printf "\t  --signoz-api-url <url> --signoz-api-key <key> --ingestion-url <url> --ingestion-key <key>\n"
+}
+
+azure_parse_args() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --azure-subscription) AZURE_SUBSCRIPTION="$2" ;;
+      *) die "Unknown flag for azure bicep: $1" ;;
+    esac
+    shift 2
+  done
+}
+
+# The template has no default agent version.
+azure_verify_inputs() {
+  require_flag --agent-version "${AGENT_VERSION}"
+}
+
+azure_verify_prereqs() {
+  if ! command -v az >/dev/null 2>&1; then
+    die "Missing prerequisite: az (https://learn.microsoft.com/cli/azure/install-azure-cli)"
+  fi
+
+  local scope=()
+  if [[ -n "${AZURE_SUBSCRIPTION}" ]]; then
+    scope=(--subscription "${AZURE_SUBSCRIPTION}")
+  fi
+
+  local account
+  if ! account="$(az account show ${scope[@]+"${scope[@]}"} --query '[id, user.name]' --output tsv)"; then
+    die "Cannot access the subscription. Run 'az login' and retry."
+  fi
+
+  local user
+  read -r AZURE_SUBSCRIPTION user <<<"${account}"
+  info "Deploying to subscription ${AZURE_SUBSCRIPTION} in ${REGION} as ${user}"
+}
+
+azure_deploy() {
+  local template_uri="https://raw.githubusercontent.com/${REPO}/${FOUNDRY_VERSION}/${AZURE_TEMPLATE_PATH}"
+
+  info "Deploying ${AZURE_TEMPLATE_PATH} at ${FOUNDRY_VERSION} to stack ${AZURE_STACK}"
+  az stack sub create \
+    --subscription "${AZURE_SUBSCRIPTION}" \
+    --name "${AZURE_STACK}" \
+    --location "${REGION}" \
+    --template-uri "${template_uri}" \
+    --parameters \
+    "location=${REGION}" \
+    "signozApiKey=${SIGNOZ_API_KEY}" \
+    "signozApiUrl=${SIGNOZ_API_URL}" \
+    "signozIngestionUrl=${INGESTION_URL}" \
+    "signozIngestionKey=${INGESTION_KEY}" \
+    "signozIntegrationAccountId=${INTEGRATION_ACCOUNT_ID}" \
+    "signozIntegrationAgentVersion=${AGENT_VERSION}" \
+    --action-on-unmanage deleteAll \
+    --deny-settings-mode denyDelete \
+    --yes \
+    --output none
+
+  echo
+  info "Deployed stack ${AZURE_STACK} in subscription ${AZURE_SUBSCRIPTION}"
+}
+
+azure_bicep() {
+  azure_verify_inputs
+  azure_verify_prereqs
+  azure_deploy
+}
+
 trap fail_trap EXIT
 
 parse_args "$@"
 run
+cleanup
 trap - EXIT

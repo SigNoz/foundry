@@ -1,0 +1,1169 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Installs SigNoz Integration Agent with required roles and permissions",
+  "Parameters": {
+    "SigNozIntegrationAgentVersion": {
+      "Type": "String",
+      "Description": "SigNoz AWS Integration Agent Version",
+      "MinLength": 1,
+      "MaxLength": 128,
+      "Default": "latest"
+    },
+    "SigNozApiUrl": {
+      "Type": "String",
+      "Description": "SigNoz API Url",
+      "MinLength": 1,
+      "MaxLength": 128
+    },
+    "SigNozApiKey": {
+      "Type": "String",
+      "Description": "SigNoz API Key",
+      "MinLength": 1,
+      "MaxLength": 128,
+      "NoEcho": true
+    },
+    "SigNozAccountId": {
+      "Type": "String",
+      "Description": "Account id in signoz records",
+      "MinLength": 1,
+      "MaxLength": 128,
+      "Default": "b8183b0b-96d7-49fb-b6b2-507ca123af2b"
+    },
+    "IngestionUrl": {
+      "Type": "String",
+      "Description": "SigNoz Ingestion Url",
+      "MinLength": 1,
+      "MaxLength": 128
+    },
+    "IngestionKey": {
+      "Type": "String",
+      "Description": "SigNoz Ingestion Key",
+      "MinLength": 1,
+      "MaxLength": 128,
+      "NoEcho": true
+    },
+    "IntegrationConfigSyncPeriodSeconds": {
+      "Type": "String",
+      "Description": "Period for getting integration config from SigNoz",
+      "MinLength": 1,
+      "MaxLength": 128,
+      "Default": "30"
+    }
+  },
+  "Resources": {
+    "SigNozApiKeySecret": {
+      "Type": "AWS::SecretsManager::Secret",
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "Name": "signoz/cloud-integration/api/credentials",
+        "Description": "SigNoz API key used by the AWS Cloud Integration Agent",
+        "SecretString": {
+          "Fn::Sub": [
+            "{\"api_key\":\"${Credential}\"}",
+            {
+              "Credential": {
+                "Ref": "SigNozApiKey"
+              }
+            }
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "managed_by",
+            "Value": "signoz-integration-agent"
+          },
+          {
+            "Key": "cloud_integration_id",
+            "Value": {
+              "Ref": "SigNozAccountId"
+            }
+          },
+          {
+            "Key": "credential_purpose",
+            "Value": "api-key"
+          }
+        ]
+      }
+    },
+    "SigNozIngestionKeySecret": {
+      "Type": "AWS::SecretsManager::Secret",
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "Name": "signoz/cloud-integration/ingestion/credentials",
+        "Description": "SigNoz ingestion key used by AWS telemetry consumers",
+        "SecretString": {
+          "Fn::Sub": [
+            "{\"api_key\":\"${Credential}\"}",
+            {
+              "Credential": {
+                "Ref": "IngestionKey"
+              }
+            }
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "managed_by",
+            "Value": "signoz-integration-agent"
+          },
+          {
+            "Key": "cloud_integration_id",
+            "Value": {
+              "Ref": "SigNozAccountId"
+            }
+          },
+          {
+            "Key": "credential_purpose",
+            "Value": "ingestion-key"
+          }
+        ]
+      }
+    },
+    "SigNozIntegrationAgentExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "Description": "Role used by ECS to start and operate the SigNoz integration agent task",
+        "RoleName": "signoz-integration-agent-execution",
+        "Tags": [
+          {
+            "Key": "managed_by",
+            "Value": "signoz-integration-agent"
+          },
+          {
+            "Key": "cloud_integration_id",
+            "Value": {
+              "Ref": "SigNozAccountId"
+            }
+          }
+        ],
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "sts:AssumeRole"
+              ],
+              "Principal": {
+                "Service": [
+                  "ecs-tasks.amazonaws.com"
+                ]
+              }
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "signoz-integration-agent-execution-logs-writer",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::GetAtt": [
+                        "SigNozIntegrationAgentLogGroup",
+                        "Arn"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "signoz-integration-agent-execution-secrets-reader",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "secretsmanager:GetSecretValue"
+                  ],
+                  "Resource": [
+                    {
+                      "Ref": "SigNozApiKeySecret"
+                    },
+                    {
+                      "Ref": "SigNozIngestionKeySecret"
+                    }
+                  ],
+                  "Condition": {
+                    "StringEquals": {
+                      "aws:ResourceTag/managed_by": "signoz-integration-agent"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "SigNozIntegrationAgentRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "Description": "Role used by SigNoz integration agent to manage telemetry collection",
+        "RoleName": "signoz-integration-agent",
+        "Tags": [
+          {
+            "Key": "integration",
+            "Value": "signoz"
+          }
+        ],
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "sts:AssumeRole"
+              ],
+              "Principal": {
+                "Service": [
+                  "ecs-tasks.amazonaws.com"
+                ]
+              }
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "signoz-integration-regions-reader",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "account:ListRegions"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Sub": [
+                        "arn:aws:account::${AWS::AccountId}:account",
+                        {}
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "signoz-integration-s3-buckets-manager",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:*"
+                  ],
+                  "Resource": [
+                    "arn:aws:s3:::signoz*"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetBucketNotification",
+                    "s3:PutBucketNotification"
+                  ],
+                  "Resource": [
+                    "arn:aws:s3:::*"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "signoz-integration-ecr-manager",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "ecr:*",
+                  "Resource": [
+                    "arn:aws:ecr:*:*:repository/signoz/*"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "ecr:GetAuthorizationToken",
+                  "Resource": "*"
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "signoz-integration-cf-stack-manager",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "cloudformation:*"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Sub": [
+                        "arn:aws:cloudformation:*:${AWS::AccountId}:stack/signoz*",
+                        {}
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "cloudformation:ValidateTemplate"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "signoz-integration-firehose-manager",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "firehose:*",
+                  "Resource": [
+                    {
+                      "Fn::Sub": [
+                        "arn:${AWS::Partition}:firehose:*:${AWS::AccountId}:deliverystream/signoz*",
+                        {}
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "signoz-integration-metric-streams-manager",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "cloudwatch:ListMetricStreams",
+                    "cloudwatch:GetMetricStream",
+                    "cloudwatch:PutMetricStream",
+                    "cloudwatch:DeleteMetricStream",
+                    "cloudwatch:StartMetricStreams",
+                    "cloudwatch:StopMetricStreams"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Sub": [
+                        "arn:${AWS::Partition}:cloudwatch:*:${AWS::AccountId}:metric-stream/signoz*",
+                        {}
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "signoz-integration-cw-logs-subscription-manager",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:DescribeLogGroups",
+                    "logs:DescribeSubscriptionFilters",
+                    "logs:PutSubscriptionFilter",
+                    "logs:DeleteSubscriptionFilter"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "signoz-integration-secret-replica-manager",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "secretsmanager:DescribeSecret",
+                    "secretsmanager:ReplicateSecretToRegions",
+                    "secretsmanager:RemoveRegionsFromReplication"
+                  ],
+                  "Resource": [
+                    {
+                      "Ref": "SigNozIngestionKeySecret"
+                    }
+                  ],
+                  "Condition": {
+                    "StringEquals": {
+                      "aws:ResourceTag/managed_by": "signoz-integration-agent"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "signoz-integration-lambda-manager",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "lambda:*"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Sub": [
+                        "arn:aws:lambda:*:${AWS::AccountId}:function:signoz-*",
+                        {}
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "signoz-integration-event-bridge-rule-manager",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "events:*"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Sub": [
+                        "arn:aws:events:*:${AWS::AccountId}:rule/signoz-*",
+                        {}
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "signoz-integration-agent-pass-roles",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "iam:PassRole",
+                  "Resource": [
+                    {
+                      "Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${SigNozFirehoseRole}"
+                    },
+                    {
+                      "Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${SigNozFirehoseWriterRole}"
+                    },
+                    {
+                      "Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${SignozForwarderRole}"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "SignozForwarderRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Id": "AssumeRoleAccessForLambda",
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "Description": "Required access for signoz-forwarder lambda function",
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        ],
+        "Policies": [
+          {
+            "PolicyDocument": {
+              "Statement": [
+                {
+                  "Action": "s3:GetObject",
+                  "Effect": "Allow",
+                  "Resource": "arn:aws:s3:::*"
+                },
+                {
+                  "Action": [
+                    "secretsmanager:DescribeSecret",
+                    "secretsmanager:GetSecretValue"
+                  ],
+                  "Effect": "Allow",
+                  "Resource": {
+                    "Fn::Sub": "arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:signoz/cloud-integration/ingestion/credentials-??????"
+                  },
+                  "Condition": {
+                    "StringEquals": {
+                      "aws:ResourceTag/managed_by": "signoz-integration-agent"
+                    }
+                  }
+                }
+              ],
+              "Version": "2012-10-17"
+            },
+            "PolicyName": "LambdaS3Access"
+          }
+        ],
+        "RoleName": "signoz-forwarder-access",
+        "Tags": [
+          {
+            "Key": "integration",
+            "Value": "signoz"
+          }
+        ]
+      }
+    },
+    "SigNozFirehoseRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "Description": "Role used by firehose delivery streams for sending cloudwatch metrics and logs to SigNoz",
+        "RoleName": "signoz-integration-firehose-stream",
+        "Tags": [
+          {
+            "Key": "integration",
+            "Value": "signoz"
+          }
+        ],
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "firehose.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "signoz-integration-firehose-s3-writer",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:AbortMultipartUpload",
+                    "s3:GetBucketLocation",
+                    "s3:GetObject",
+                    "s3:ListBucket",
+                    "s3:ListBucketMultipartUploads",
+                    "s3:PutObject"
+                  ],
+                  "Resource": [
+                    "arn:aws:s3:::signoz*"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "secretsmanager:GetSecretValue"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:signoz/cloud-integration/ingestion/credentials-??????"
+                  },
+                  "Condition": {
+                    "StringEquals": {
+                      "aws:ResourceTag/managed_by": "signoz-integration-agent"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "SigNozFirehoseWriterRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "Description": "Role used for writing to firehose streams delivering to SigNoz",
+        "RoleName": "signoz-integration-firehose-writer",
+        "Tags": [
+          {
+            "Key": "integration",
+            "Value": "signoz"
+          }
+        ],
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "streams.metrics.cloudwatch.amazonaws.com",
+                  "logs.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "signoz-integration-firehose-writer",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "firehose:PutRecord",
+                    "firehose:PutRecordBatch"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Sub": [
+                        "arn:${AWS::Partition}:firehose:*:${AWS::AccountId}:deliverystream/signoz-*",
+                        {}
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "VPC": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": "10.0.0.0/16",
+        "EnableDnsSupport": true,
+        "EnableDnsHostnames": true,
+        "Tags": [
+          {
+            "Key": "managed_by",
+            "Value": "signoz-integration-agent"
+          }
+        ]
+      }
+    },
+    "InternetGateway": {
+      "Type": "AWS::EC2::InternetGateway",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "managed_by",
+            "Value": "signoz-integration-agent"
+          }
+        ]
+      }
+    },
+    "VPCGatewayAttachment": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "InternetGatewayId": {
+          "Ref": "InternetGateway"
+        }
+      }
+    },
+    "PublicRouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "signoz-integration-public-route-table"
+          },
+          {
+            "Key": "managed_by",
+            "Value": "signoz-integration-agent"
+          }
+        ]
+      }
+    },
+    "DefaultRoute": {
+      "Type": "AWS::EC2::Route",
+      "DependsOn": "VPCGatewayAttachment",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "InternetGateway"
+        }
+      }
+    },
+    "Subnet1": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "CidrBlock": "10.0.1.0/24",
+        "AvailabilityZone": {
+          "Fn::Select": [
+            0,
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
+        },
+        "MapPublicIpOnLaunch": true,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "signoz-integration-subnet-1"
+          },
+          {
+            "Key": "managed_by",
+            "Value": "signoz-integration-agent"
+          }
+        ]
+      }
+    },
+    "Subnet1RouteTableAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "Subnet1"
+        }
+      }
+    },
+    "Subnet2": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "CidrBlock": "10.0.2.0/24",
+        "AvailabilityZone": {
+          "Fn::Select": [
+            1,
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
+        },
+        "MapPublicIpOnLaunch": true,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "signoz-integration-subnet-2"
+          },
+          {
+            "Key": "managed_by",
+            "Value": "signoz-integration-agent"
+          }
+        ]
+      }
+    },
+    "Subnet2RouteTableAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "Subnet2"
+        }
+      }
+    },
+    "SigNozAgentSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Security group for SigNoz Cloud Integration Agent with outbound HTTPS only",
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "SecurityGroupEgress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 443,
+            "ToPort": 443,
+            "CidrIp": "0.0.0.0/0",
+            "Description": "Allow outbound HTTPS traffic to SigNoz API, ingestion endpoints, container registry, and AWS services"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "signoz-integration-agent-security-group"
+          },
+          {
+            "Key": "managed_by",
+            "Value": "signoz-integration-agent"
+          }
+        ]
+      }
+    },
+    "SigNozVpcFlowLogsRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "Description": "Role used by VPC Flow Logs to write connection logs to CloudWatch",
+        "RoleName": "signoz-integration-vpc-flow-logs",
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "vpc-flow-logs.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "signoz-integration-vpc-flow-logs-writer",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::GetAtt": [
+                        "SigNozVpcFlowLogsGroup",
+                        "Arn"
+                      ]
+                    },
+                    {
+                      "Fn::Sub": [
+                        "${LogGroupArn}:*",
+                        {
+                          "LogGroupArn": {
+                            "Fn::GetAtt": [
+                              "SigNozVpcFlowLogsGroup",
+                              "Arn"
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "logs:DescribeLogGroups",
+                  "Resource": "*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "logs:DescribeLogStreams",
+                  "Resource": {
+                    "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:${SigNozVpcFlowLogsGroup}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "managed_by",
+            "Value": "signoz-integration-agent"
+          }
+        ]
+      }
+    },
+    "SigNozVpcFlowLogsGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/signoz/integration/vpc/flow-logs",
+        "RetentionInDays": 14,
+        "Tags": [
+          {
+            "Key": "managed_by",
+            "Value": "signoz-integration-agent"
+          }
+        ]
+      }
+    },
+    "SigNozVpcFlowLogs": {
+      "Type": "AWS::EC2::FlowLog",
+      "Properties": {
+        "DeliverLogsPermissionArn": {
+          "Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${SigNozVpcFlowLogsRole}"
+        },
+        "LogDestinationType": "cloud-watch-logs",
+        "LogGroupName": {
+          "Ref": "SigNozVpcFlowLogsGroup"
+        },
+        "ResourceId": {
+          "Ref": "VPC"
+        },
+        "ResourceType": "VPC",
+        "TrafficType": "ALL",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "signoz-integration-vpc-flow-logs"
+          },
+          {
+            "Key": "managed_by",
+            "Value": "signoz-integration-agent"
+          }
+        ]
+      }
+    },
+    "SigNozIntegrationAgentECSCluster": {
+      "Type": "AWS::ECS::Cluster",
+      "Properties": {
+        "ClusterName": "signoz-integration"
+      }
+    },
+    "SigNozIntegrationAgentECSTaskDefinition": {
+      "Type": "AWS::ECS::TaskDefinition",
+      "Properties": {
+        "Family": "signoz-integration-agent",
+        "RequiresCompatibilities": [
+          "FARGATE"
+        ],
+        "NetworkMode": "awsvpc",
+        "Cpu": "256",
+        "Memory": "512",
+        "ExecutionRoleArn": {
+          "Fn::GetAtt": [
+            "SigNozIntegrationAgentExecutionRole",
+            "Arn"
+          ]
+        },
+        "TaskRoleArn": {
+          "Fn::GetAtt": [
+            "SigNozIntegrationAgentRole",
+            "Arn"
+          ]
+        },
+        "ContainerDefinitions": [
+          {
+            "Name": "agent",
+            "Image": {
+              "Fn::Sub": [
+                "docker.io/signoz/cloud-integration-agent:${AgentVersion}",
+                {
+                  "AgentVersion": {
+                    "Ref": "SigNozIntegrationAgentVersion"
+                  }
+                }
+              ]
+            },
+            "Cpu": 256,
+            "Memory": 512,
+            "Essential": true,
+            "Environment": [
+              {
+                "Name": "SIGNOZ_API_URL",
+                "Value": {
+                  "Ref": "SigNozApiUrl"
+                }
+              },
+              {
+                "Name": "SIGNOZ_CLOUD_INTEGRATION_ACCOUNT_ID",
+                "Value": {
+                  "Ref": "SigNozAccountId"
+                }
+              },
+              {
+                "Name": "INGESTION_URL",
+                "Value": {
+                  "Ref": "IngestionUrl"
+                }
+              },
+              {
+                "Name": "INGESTION_SECRET_ARN",
+                "Value": {
+                  "Ref": "SigNozIngestionKeySecret"
+                }
+              },
+              {
+                "Name": "FIREHOSE_STREAM_ROLE_ARN",
+                "Value": {
+                  "Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${SigNozFirehoseRole}"
+                }
+              },
+              {
+                "Name": "FIREHOSE_WRITER_ROLE_ARN",
+                "Value": {
+                  "Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${SigNozFirehoseWriterRole}"
+                }
+              },
+              {
+                "Name": "FORWARDER_ROLE_ARN",
+                "Value": {
+                  "Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${SignozForwarderRole}"
+                }
+              },
+              {
+                "Name": "INTEGRATION_CONFIG_SYNC_PERIOD_SECONDS",
+                "Value": {
+                  "Ref": "IntegrationConfigSyncPeriodSeconds"
+                }
+              },
+              {
+                "Name": "INTEGRATION_AGENT_STACK_REGION",
+                "Value": {
+                  "Fn::Sub": "${AWS::Region}"
+                }
+              },
+              {
+                "Name": "INTEGRATION_AGENT_STACK_NAME",
+                "Value": {
+                  "Fn::Sub": "${AWS::StackName}"
+                }
+              },
+              {
+                "Name": "CLOUD_PROVIDER",
+                "Value": "aws"
+              }
+            ],
+            "Secrets": [
+              {
+                "Name": "SIGNOZ_API_KEY",
+                "ValueFrom": {
+                  "Fn::Sub": [
+                    "${SecretArn}:api_key::",
+                    {
+                      "SecretArn": {
+                        "Ref": "SigNozApiKeySecret"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "Name": "INGESTION_KEY",
+                "ValueFrom": {
+                  "Fn::Sub": [
+                    "${SecretArn}:api_key::",
+                    {
+                      "SecretArn": {
+                        "Ref": "SigNozIngestionKeySecret"
+                      }
+                    }
+                  ]
+                }
+              }
+            ],
+            "LogConfiguration": {
+              "LogDriver": "awslogs",
+              "Options": {
+                "awslogs-group": {
+                  "Ref": "SigNozIntegrationAgentLogGroup"
+                },
+                "awslogs-region": {
+                  "Ref": "AWS::Region"
+                },
+                "awslogs-stream-prefix": "agent"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "SigNozIntegrationAgentLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/ecs/signoz-integration/agent",
+        "RetentionInDays": 14,
+        "Tags": [
+          {
+            "Key": "managed_by",
+            "Value": "signoz-integration-agent"
+          }
+        ]
+      }
+    },
+    "SignozIntegrationAgentECSService": {
+      "Type": "AWS::ECS::Service",
+      "Properties": {
+        "Cluster": {
+          "Ref": "SigNozIntegrationAgentECSCluster"
+        },
+        "TaskDefinition": {
+          "Ref": "SigNozIntegrationAgentECSTaskDefinition"
+        },
+        "LaunchType": "FARGATE",
+        "PlatformVersion": "1.4.0",
+        "DesiredCount": 1,
+        "NetworkConfiguration": {
+          "AwsvpcConfiguration": {
+            "AssignPublicIp": "ENABLED",
+            "SecurityGroups": [
+              {
+                "Ref": "SigNozAgentSecurityGroup"
+              }
+            ],
+            "Subnets": [
+              {
+                "Ref": "Subnet1"
+              },
+              {
+                "Ref": "Subnet2"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
