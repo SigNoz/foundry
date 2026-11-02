@@ -98,7 +98,6 @@ spec:
       admin/secondary_indices_enable_bulk_filtering: "0"
       default/allow_experimental_window_functions: "1"
       default/allow_nondeterministic_mutations: "1"
-      default/allow_simdjson: 0
       default/load_balancing: random
       default/log_queries: 1
       default/max_threads: 16

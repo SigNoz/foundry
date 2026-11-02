@@ -490,7 +490,6 @@ spec:
                 shard: "00"
             profiles:
                 default:
-                    allow_simdjson: 0
                     load_balancing: random
                     log_queries: 1
             quotas:
@@ -610,7 +609,6 @@ spec:
                 shard: "00"
             profiles:
                 default:
-                    allow_simdjson: 0
                     load_balancing: random
                     log_queries: 1
             quotas:
