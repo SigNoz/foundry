@@ -60,16 +60,24 @@ func TestConfigTemplateRender(t *testing.T) {
 		template                   *domain.Template
 		expectedAIProcessorsHeld   bool
 		expectedLogsProcessorsHeld bool
+		pass                       bool
 	}{
-		{"NewestConfig_HoldsAllProcessors", ConfigV014414Template, true, true},
-		{"NewConfig_HoldsAIProcessorsOnly", ConfigV01446Template, true, false},
-		{"OldConfig_HoldsNoProcessors", ConfigV0129xTemplate, false, false},
+		{"NewestConfig_HoldsAllProcessors", ConfigV014414Template, true, true, true},
+		{"NewConfig_HoldsAIProcessorsOnly", ConfigV01446Template, true, false, true},
+		{"OldConfig_HoldsNoProcessors", ConfigV0129xTemplate, false, false, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			buf := bytes.NewBuffer(nil)
-			require.NoError(t, tt.template.Execute(buf, data))
+			err := tt.template.Execute(buf, data)
+			if !tt.pass {
+				assert.Error(t, err)
+
+				return
+			}
+
+			require.NoError(t, err)
 
 			material, err := domain.NewYAMLMaterial(buf.Bytes(), "ingester.yaml")
 			require.NoError(t, err)
