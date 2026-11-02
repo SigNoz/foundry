@@ -84,6 +84,19 @@ spec:
                   cache_read: signoz.gen_ai.usage.cache_read.input_tokens.cost
                   cache_write: signoz.gen_ai.usage.cache_write.input_tokens.cost
                   total: signoz.gen_ai.usage.tokens.cost
+              signozlogsnormalizer: {}
+              filter/drop_stale:
+                error_mode: ignore
+                logs:
+                  log_record:
+                    - time_unix_nano != 0 and time < Now() - Duration("360h")
+                    - time_unix_nano == 0 and observed_time_unix_nano != 0 and observed_time < Now() - Duration("360h")
+                metrics:
+                  datapoint:
+                    - time_unix_nano != 0 and time < Now() - Duration("360h")
+                traces:
+                  span:
+                    - start_time_unix_nano != 0 and start_time < Now() - Duration("360h")
             exporters:
               clickhousetraces:
                 datasource: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_traces
@@ -134,6 +147,7 @@ spec:
                     - signozspanmetrics/delta
                     - signozspanmapper
                     - signozllmpricing
+                    - filter/drop_stale
                     - batch
                   exporters:
                     - clickhousetraces
@@ -143,6 +157,7 @@ spec:
                   receivers:
                     - otlp
                   processors:
+                    - filter/drop_stale
                     - batch
                   exporters:
                     - signozclickhousemetrics
@@ -152,6 +167,8 @@ spec:
                   receivers:
                     - otlp
                   processors:
+                    - signozlogsnormalizer
+                    - filter/drop_stale
                     - batch
                   exporters:
                     - clickhouselogsexporter
@@ -250,6 +267,19 @@ spec:
                   cache_read: signoz.gen_ai.usage.cache_read.input_tokens.cost
                   cache_write: signoz.gen_ai.usage.cache_write.input_tokens.cost
                   total: signoz.gen_ai.usage.tokens.cost
+              signozlogsnormalizer: {}
+              filter/drop_stale:
+                error_mode: ignore
+                logs:
+                  log_record:
+                    - time_unix_nano != 0 and time < Now() - Duration("360h")
+                    - time_unix_nano == 0 and observed_time_unix_nano != 0 and observed_time < Now() - Duration("360h")
+                metrics:
+                  datapoint:
+                    - time_unix_nano != 0 and time < Now() - Duration("360h")
+                traces:
+                  span:
+                    - start_time_unix_nano != 0 and start_time < Now() - Duration("360h")
             exporters:
               clickhousetraces:
                 datasource: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_traces
@@ -300,6 +330,7 @@ spec:
                     - signozspanmetrics/delta
                     - signozspanmapper
                     - signozllmpricing
+                    - filter/drop_stale
                     - batch
                   exporters:
                     - clickhousetraces
@@ -309,6 +340,7 @@ spec:
                   receivers:
                     - otlp
                   processors:
+                    - filter/drop_stale
                     - batch
                   exporters:
                     - signozclickhousemetrics
@@ -318,6 +350,8 @@ spec:
                   receivers:
                     - otlp
                   processors:
+                    - signozlogsnormalizer
+                    - filter/drop_stale
                     - batch
                   exporters:
                     - clickhouselogsexporter

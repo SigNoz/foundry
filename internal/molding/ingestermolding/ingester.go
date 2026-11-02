@@ -19,6 +19,10 @@ var _ molding.Molding = (*ingester)(nil)
 // signozspanmapper and signozllmpricing processors.
 const configV01446Floor = ">=0.144.6"
 
+// configV014414Floor is the first collector release whose
+// signozlogsnormalizer accepts the opamp.position key.
+const configV014414Floor = ">=0.144.14"
+
 type ingester struct {
 	logger *slog.Logger
 }
@@ -89,7 +93,13 @@ func (molding *ingester) getData(config *installation.Casting) (Data, error) {
 
 // A floating image tag such as "latest" gets the newest config.
 func configTemplate(spec v1alpha1.MoldingSpec) *domain.Template {
-	if compat.NewResolved(spec.Image, spec.IsEnabled()).Satisfies(configV01446Floor) {
+	resolved := compat.NewResolved(spec.Image, spec.IsEnabled())
+
+	if resolved.Satisfies(configV014414Floor) {
+		return ConfigV014414Template
+	}
+
+	if resolved.Satisfies(configV01446Floor) {
 		return ConfigV01446Template
 	}
 

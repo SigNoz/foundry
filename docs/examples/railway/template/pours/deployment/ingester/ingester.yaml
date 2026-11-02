@@ -49,6 +49,19 @@ processors:
     send_batch_max_size: 25000
     send_batch_size: 20000
     timeout: 5s
+  filter/drop_stale:
+    error_mode: ignore
+    logs:
+      log_record:
+      - time_unix_nano != 0 and time < Now() - Duration("360h")
+      - time_unix_nano == 0 and observed_time_unix_nano != 0 and observed_time < Now()
+        - Duration("360h")
+    metrics:
+      datapoint:
+      - time_unix_nano != 0 and time < Now() - Duration("360h")
+    traces:
+      span:
+      - start_time_unix_nano != 0 and start_time < Now() - Duration("360h")
   signozllmpricing:
     attrs:
       cache_read: gen_ai.usage.cache_read.input_tokens
@@ -64,6 +77,7 @@ processors:
       in: signoz.gen_ai.usage.input_tokens.cost
       out: signoz.gen_ai.usage.output_tokens.cost
       total: signoz.gen_ai.usage.tokens.cost
+  signozlogsnormalizer: {}
   signozspanmapper:
     groups: []
   signozspanmetrics/delta:
@@ -115,6 +129,8 @@ service:
       - signozmeter
       - metadataexporter
       processors:
+      - signozlogsnormalizer
+      - filter/drop_stale
       - batch
       receivers:
       - otlp
@@ -124,6 +140,7 @@ service:
       - signozmeter
       - metadataexporter
       processors:
+      - filter/drop_stale
       - batch
       receivers:
       - otlp
@@ -143,6 +160,7 @@ service:
       - signozspanmetrics/delta
       - signozspanmapper
       - signozllmpricing
+      - filter/drop_stale
       - batch
       receivers:
       - otlp
