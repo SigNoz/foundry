@@ -44,10 +44,9 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *install
 	// Extract enricher config overrides (applies to all nodes).
 	overrides := config.Spec.TelemetryStore.Status.Extras["_overrides"]
 
-	spec := config.Spec.TelemetryStore.Spec
 	configTemplate := ConfigClickhousev2556YAML
 	// A floating image tag such as "latest" gets the newest config.
-	if compat.NewResolved(spec.Image, spec.IsEnabled()).Satisfies(configV25125Floor) {
+	if compat.NewResolved(config.Spec.TelemetryStore.Spec.Image, config.Spec.TelemetryStore.Spec.IsEnabled()).Satisfies(configV25125Floor) {
 		configTemplate = ConfigClickhousev25125YAML
 	}
 
