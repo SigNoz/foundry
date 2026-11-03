@@ -13,7 +13,7 @@ import (
 func TestIngester(t *testing.T) {
 	assert.NotEmpty(t, ConfigV0129xTemplate)
 	assert.NotEmpty(t, ConfigV01446Template)
-	assert.NotEmpty(t, ConfigV014414Template)
+	assert.NotEmpty(t, ConfigV014415Template)
 	assert.NotEmpty(t, OpampV0129xTemplate)
 }
 
@@ -23,16 +23,16 @@ func TestConfigTemplate(t *testing.T) {
 		image            string
 		expectedTemplate *domain.Template
 	}{
-		{"LatestTag_NewestConfig", "signoz/signoz-otel-collector:latest", ConfigV014414Template},
-		{"CommitTag_NewestConfig", "signoz/signoz-otel-collector:main-0efa06f", ConfigV014414Template},
+		{"LatestTag_NewestConfig", "signoz/signoz-otel-collector:latest", ConfigV014415Template},
+		{"CommitTag_NewestConfig", "signoz/signoz-otel-collector:main-0efa06f", ConfigV014415Template},
 		{"BelowFloor_OldConfig", "signoz/signoz-otel-collector:v0.144.5", ConfigV0129xTemplate},
 		{"AtFloor_NewConfig", "signoz/signoz-otel-collector:0.144.6", ConfigV01446Template},
 		{"AboveFloor_NewConfig", "signoz/signoz-otel-collector:v0.144.11", ConfigV01446Template},
-		{"BelowNormalizerFloor_NewConfig", "signoz/signoz-otel-collector:v0.144.13", ConfigV01446Template},
-		{"AtNormalizerFloor_NewestConfig", "signoz/signoz-otel-collector:0.144.14", ConfigV014414Template},
-		{"AboveNormalizerFloor_NewestConfig", "signoz/signoz-otel-collector:v0.144.15", ConfigV014414Template},
+		{"BelowNormalizerFloor_NewConfig", "signoz/signoz-otel-collector:v0.144.14", ConfigV01446Template},
+		{"AtNormalizerFloor_NewestConfig", "signoz/signoz-otel-collector:0.144.15", ConfigV014415Template},
+		{"AboveNormalizerFloor_NewestConfig", "signoz/signoz-otel-collector:v0.144.16", ConfigV014415Template},
 		{"OldRelease_OldConfig", "signoz/signoz-otel-collector:v0.129.0", ConfigV0129xTemplate},
-		{"UnstatedImage_NewestConfig", "", ConfigV014414Template},
+		{"UnstatedImage_NewestConfig", "", ConfigV014415Template},
 	}
 
 	for _, tt := range tests {
@@ -62,7 +62,7 @@ func TestConfigTemplateRender(t *testing.T) {
 		expectedNormalizerHeld   bool
 		pass                     bool
 	}{
-		{"NewestConfig_HoldsAllProcessors", ConfigV014414Template, true, true, true, true},
+		{"NewestConfig_HoldsAllProcessors", ConfigV014415Template, true, true, true, true},
 		{"NewConfig_HoldsNoNormalizer", ConfigV01446Template, true, true, false, true},
 		{"OldConfig_HoldsNoProcessors", ConfigV0129xTemplate, false, false, false, true},
 	}
