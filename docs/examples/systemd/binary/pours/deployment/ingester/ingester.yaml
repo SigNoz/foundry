@@ -77,6 +77,7 @@ processors:
       in: signoz.gen_ai.usage.input_tokens.cost
       out: signoz.gen_ai.usage.output_tokens.cost
       total: signoz.gen_ai.usage.tokens.cost
+  signozlogsnormalizer: {}
   signozspanmapper:
     groups: []
   signozspanmetrics/delta:
@@ -128,6 +129,7 @@ service:
       - signozmeter
       - metadataexporter
       processors:
+      - signozlogsnormalizer
       - filter/drop_stale
       - batch
       receivers:

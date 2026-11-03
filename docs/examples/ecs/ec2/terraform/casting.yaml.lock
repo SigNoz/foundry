@@ -85,6 +85,7 @@ spec:
                   cache_read: signoz.gen_ai.usage.cache_read.input_tokens.cost
                   cache_write: signoz.gen_ai.usage.cache_write.input_tokens.cost
                   total: signoz.gen_ai.usage.tokens.cost
+              signozlogsnormalizer: {}
               filter/drop_stale:
                 error_mode: ignore
                 logs:
@@ -167,6 +168,7 @@ spec:
                   receivers:
                     - otlp
                   processors:
+                    - signozlogsnormalizer
                     - filter/drop_stale
                     - batch
                   exporters:
@@ -266,6 +268,7 @@ spec:
                   cache_read: signoz.gen_ai.usage.cache_read.input_tokens.cost
                   cache_write: signoz.gen_ai.usage.cache_write.input_tokens.cost
                   total: signoz.gen_ai.usage.tokens.cost
+              signozlogsnormalizer: {}
               filter/drop_stale:
                 error_mode: ignore
                 logs:
@@ -348,6 +351,7 @@ spec:
                   receivers:
                     - otlp
                   processors:
+                    - signozlogsnormalizer
                     - filter/drop_stale
                     - batch
                   exporters:
