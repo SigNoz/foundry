@@ -54,15 +54,24 @@ func TestConfigTemplateRender(t *testing.T) {
 		name                     string
 		template                 *domain.Template
 		expectedAIProcessorsHeld bool
+		expectedStaleFilterHeld  bool
+		pass                     bool
 	}{
-		{"NewConfig_HoldsAIProcessors", ConfigV01446Template, true},
-		{"OldConfig_HoldsNoAIProcessors", ConfigV0129xTemplate, false},
+		{"NewConfig_HoldsAIProcessorsAndStaleFilter", ConfigV01446Template, true, true, true},
+		{"OldConfig_HoldsNoAIProcessorsOrStaleFilter", ConfigV0129xTemplate, false, false, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			buf := bytes.NewBuffer(nil)
-			require.NoError(t, tt.template.Execute(buf, data))
+			err := tt.template.Execute(buf, data)
+			if !tt.pass {
+				assert.Error(t, err)
+
+				return
+			}
+
+			require.NoError(t, err)
 
 			material, err := domain.NewYAMLMaterial(buf.Bytes(), "ingester.yaml")
 			require.NoError(t, err)
@@ -81,6 +90,32 @@ func TestConfigTemplateRender(t *testing.T) {
 
 				assert.Error(t, err, "%s is configured", processor)
 				assert.NotContains(t, pipeline, processor)
+			}
+
+			metricsPipeline, err := material.GetStringSlice("service.pipelines.metrics.processors")
+			require.NoError(t, err)
+
+			logsPipeline, err := material.GetStringSlice("service.pipelines.logs.processors")
+			require.NoError(t, err)
+
+			pipelines := [][]string{pipeline, metricsPipeline, logsPipeline}
+
+			_, err = material.GetBytes("processors.filter/drop_stale")
+			if !tt.expectedStaleFilterHeld {
+				assert.Error(t, err, "filter/drop_stale is configured")
+
+				for _, processors := range pipelines {
+					assert.NotContains(t, processors, "filter/drop_stale")
+				}
+
+				return
+			}
+
+			assert.NoError(t, err, "filter/drop_stale is not configured")
+
+			for _, processors := range pipelines {
+				require.GreaterOrEqual(t, len(processors), 2)
+				assert.Equal(t, []string{"filter/drop_stale", "batch"}, processors[len(processors)-2:])
 			}
 		})
 	}
