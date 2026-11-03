@@ -10,6 +10,7 @@ import (
 var templates embed.FS
 
 var (
+	ConfigClickhousev2556YAML     *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/config.clickhouse.v2556.yaml.gotmpl", domain.FormatYAML)
 	ConfigClickhousev25125YAML    *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/config.clickhouse.v25125.yaml.gotmpl", domain.FormatYAML)
 	FunctionsClickhousev25125YAML *domain.Template = domain.MustNewTemplateFromFS(templates, "templates/functions.clickhouse.v25125.yaml.gotmpl", domain.FormatYAML)
 )

@@ -520,7 +520,6 @@ spec:
               default:
                 allow_experimental_window_functions: "1"
                 allow_nondeterministic_mutations: "1"
-                allow_simdjson: 0
                 load_balancing: random
                 log_queries: 1
                 max_threads: 16
@@ -694,7 +693,6 @@ spec:
               default:
                 allow_experimental_window_functions: "1"
                 allow_nondeterministic_mutations: "1"
-                allow_simdjson: 0
                 load_balancing: random
                 log_queries: 1
                 max_threads: 16

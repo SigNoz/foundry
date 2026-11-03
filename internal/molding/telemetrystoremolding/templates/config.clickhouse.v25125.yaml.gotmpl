@@ -21,7 +21,6 @@ macros:
     shard: "{{ printf "%02d" .ShardID }}"
 profiles:
     default:
-        allow_simdjson: 0
         load_balancing: random
         log_queries: 1
 quotas:

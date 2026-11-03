@@ -8,12 +8,17 @@ import (
 
 	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
+	"github.com/signoz/foundry/internal/compat"
 	"github.com/signoz/foundry/internal/domain"
 	foundryerrors "github.com/signoz/foundry/internal/errors"
 	"github.com/signoz/foundry/internal/molding"
 )
 
 var _ molding.Molding = (*telemetrystore)(nil)
+
+// configV25125Floor is the first ClickHouse release whose simdjson runs on
+// CPUs without AVX2, so the RapidJSON fallback is no longer forced.
+const configV25125Floor = ">=25.8"
 
 type telemetrystore struct {
 	logger *slog.Logger
@@ -39,6 +44,12 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *install
 	// Extract enricher config overrides (applies to all nodes).
 	overrides := config.Spec.TelemetryStore.Status.Extras["_overrides"]
 
+	configTemplate := ConfigClickhousev2556YAML
+	// A floating image tag such as "latest" gets the newest config.
+	if compat.NewResolved(config.Spec.TelemetryStore.Spec.Image, config.Spec.TelemetryStore.Spec.IsEnabled()).Satisfies(configV25125Floor) {
+		configTemplate = ConfigClickhousev25125YAML
+	}
+
 	functionBuf := bytes.NewBuffer(nil)
 	if err := FunctionsClickhousev25125YAML.Execute(functionBuf, data); err != nil {
 		return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute functions template")
@@ -52,7 +63,7 @@ func (molding *telemetrystore) MoldV1Alpha1(ctx context.Context, config *install
 			data.ReplicaID = r
 
 			configBuf := bytes.NewBuffer(nil)
-			if err := ConfigClickhousev25125YAML.Execute(configBuf, data); err != nil {
+			if err := configTemplate.Execute(configBuf, data); err != nil {
 				return foundryerrors.Wrapf(err, foundryerrors.TypeInternal, "failed to execute config template for shard %d replica %d", s, r)
 			}
 

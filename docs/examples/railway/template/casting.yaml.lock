@@ -516,7 +516,6 @@ spec:
               ttl: event_date + INTERVAL 1 DAY DELETE
             profiles:
               default:
-                allow_simdjson: 0
                 load_balancing: random
                 log_queries: 1
             query_log:
@@ -636,7 +635,6 @@ spec:
               ttl: event_date + INTERVAL 1 DAY DELETE
             profiles:
               default:
-                allow_simdjson: 0
                 load_balancing: random
                 log_queries: 1
             query_log:
