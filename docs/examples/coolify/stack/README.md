@@ -12,6 +12,7 @@ Generates a `coolify.yaml` stack definition for deploying SigNoz on a Coolify-ma
 
 > [!NOTE]
 > `foundryctl cast` does not deploy to Coolify automatically. It generates the files and prints instructions for manual deployment.
+> `foundryctl cast down` prints where to remove the deployment on Coolify.
 
 ## Prerequisites
 

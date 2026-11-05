@@ -1,5 +1,5 @@
 [Install]
-WantedBy=multi-user.target
+WantedBy=signoz-installation.target
 
 [Service]
 Environment=SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://localhost:9000
@@ -16,3 +16,4 @@ User=signoz
 [Unit]
 Description=SigNoz TelemetryStore Migrator
 Documentation=https://signoz.io/docs
+PartOf=signoz-installation.target

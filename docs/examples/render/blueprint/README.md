@@ -12,6 +12,7 @@ Generates a Render Blueprint (`render.yaml`) and supporting Dockerfiles for depl
 
 > [!NOTE]
 > `foundryctl cast` does not deploy to Render automatically. It generates the files and prints instructions for manual deployment.
+> `foundryctl cast down` prints where to remove the deployment on Render.
 
 ## Prerequisites
 

@@ -1,5 +1,5 @@
 [Install]
-WantedBy=multi-user.target
+WantedBy=signoz-installation.target
 
 [Service]
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_IPC_LOCK CAP_SYS_NICE CAP_NET_BIND_SERVICE
@@ -17,5 +17,6 @@ User=clickhouse
 [Unit]
 After=time-sync.target network-online.target
 Description=ClickHouse Server (v25.12.5)
+PartOf=signoz-installation.target
 Requires=network-online.target
 Wants=time-sync.target

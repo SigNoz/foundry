@@ -5,7 +5,7 @@
 // in its own casting package. Foundry resolves a Kind to a Planner at runtime
 // via the dispatch map on the Foundry struct and then drives the same set of
 // verbs (Machinery, Patches, Toolers, MoldingKinds, EnrichStatus, Mold,
-// MergeStatusIntoSpec, Forge, Cast) regardless of which Kind it is.
+// MergeStatusIntoSpec, Forge, Cast, Down) regardless of which Kind it is.
 //
 // Keep this package free of orchestration and side effects. It must not
 // construct planners, decide which Kind runs, dispatch by Kind, execute

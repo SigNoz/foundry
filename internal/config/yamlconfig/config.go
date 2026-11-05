@@ -177,6 +177,21 @@ func (config *yamlConfig) GetV1Alpha1(ctx context.Context, path string) ([]v1alp
 	return config.castings(contents, path, loader.resolve)
 }
 
+// GetV1Alpha1NoCompat resolves the casting file as GetV1Alpha1 does, skipping
+// the Kind's compatibility check.
+func (config *yamlConfig) GetV1Alpha1NoCompat(ctx context.Context, path string) ([]v1alpha1.Machinery, error) {
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		return nil, errors.Wrapf(err, errors.TypeNotFound, "failed to read casting file")
+	}
+
+	return config.castings(contents, path, func(l loader, document []byte) (v1alpha1.Machinery, error) {
+		l.check = nil
+
+		return l.resolve(document)
+	})
+}
+
 // GetV1Alpha1Lock reads the lock beside the casting file; its documents are
 // already resolved, so they take neither defaults nor validation.
 func (config *yamlConfig) GetV1Alpha1Lock(ctx context.Context, path string) ([]v1alpha1.Machinery, error) {

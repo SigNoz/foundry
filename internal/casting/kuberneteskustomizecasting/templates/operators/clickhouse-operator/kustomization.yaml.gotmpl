@@ -5,6 +5,13 @@ kind: Kustomization
 # Own tier: applied before the root, so it carries the namespace itself.
 namespace: {{ $.Namespace }}
 
+labels:
+- includeSelectors: false
+  pairs:
+    app.kubernetes.io/instance: {{ $.Metadata.Name }}
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/component: clickhouse-operator
+
 resources:
 - namespace.yaml
 - https://raw.githubusercontent.com/Altinity/clickhouse-operator/0.25.3/deploy/operatorhub/0.25.3/clickhouseinstallations.clickhouse.altinity.com.crd.yaml

@@ -21,4 +21,7 @@ type Casting interface {
 
 	// Runs the forged files.
 	Cast(ctx context.Context, config installation.Casting, poursPath string) error
+
+	// Removes what Cast deployed: definitions only, never data.
+	Down(ctx context.Context, config installation.Casting, poursPath string) error
 }

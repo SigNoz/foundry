@@ -1,5 +1,5 @@
 [Install]
-WantedBy=multi-user.target
+WantedBy=signoz-installation.target
 
 [Service]
 Environment=POSTGRES_DB=signoz
@@ -17,4 +17,5 @@ User=postgres
 After=network-online.target
 Description=PostgreSQL database server
 Documentation=man:postgres(1)
+PartOf=signoz-installation.target
 Wants=network-online.target

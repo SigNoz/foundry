@@ -34,6 +34,10 @@ services:
     - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://signoz-telemetrystore-clickhouse-0-0:9000
     - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
     image: signoz/signoz-otel-collector:latest
+    labels:
+      foundry.signoz.io/kind: Installation
+      foundry.signoz.io/managed-by: foundry
+      foundry.signoz.io/name: signoz
     networks:
       signoz-network:
         aliases:
@@ -58,6 +62,10 @@ services:
       - pg_isready -U signoz -d signoz
       timeout: 10s
     image: postgres:16
+    labels:
+      foundry.signoz.io/kind: Installation
+      foundry.signoz.io/managed-by: foundry
+      foundry.signoz.io/name: signoz
     networks:
     - signoz-network
     volumes:
@@ -83,6 +91,10 @@ services:
       - http://localhost:8080/api/v1/health
       timeout: 10s
     image: signoz/signoz:latest
+    labels:
+      foundry.signoz.io/kind: Installation
+      foundry.signoz.io/managed-by: foundry
+      foundry.signoz.io/name: signoz
     networks:
     - signoz-network
     ports:
@@ -112,6 +124,10 @@ services:
       - ls
       timeout: 10s
     image: clickhouse/clickhouse-keeper:25.12.5
+    labels:
+      foundry.signoz.io/kind: Installation
+      foundry.signoz.io/managed-by: foundry
+      foundry.signoz.io/name: signoz
     networks:
     - signoz-network
     volumes:
@@ -141,6 +157,10 @@ services:
       timeout: 10s
     hostname: signoz-telemetrystore-clickhouse-0-0
     image: clickhouse/clickhouse-server:25.12.5
+    labels:
+      foundry.signoz.io/kind: Installation
+      foundry.signoz.io/managed-by: foundry
+      foundry.signoz.io/name: signoz
     networks:
     - signoz-network
     volumes:
@@ -164,6 +184,10 @@ services:
       restart_policy:
         condition: none
     image: clickhouse/clickhouse-server:25.12.5
+    labels:
+      foundry.signoz.io/kind: Installation
+      foundry.signoz.io/managed-by: foundry
+      foundry.signoz.io/name: signoz
     networks:
     - signoz-network
     volumes:
@@ -187,6 +211,10 @@ services:
     - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://signoz-telemetrystore-clickhouse-0-0:9000
     - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
     image: signoz/signoz-otel-collector:latest
+    labels:
+      foundry.signoz.io/kind: Installation
+      foundry.signoz.io/managed-by: foundry
+      foundry.signoz.io/name: signoz
     networks:
     - signoz-network
 version: "3"

@@ -3,6 +3,10 @@ services:
   {{- range $replicaIdx := until (int $.Spec.TelemetryKeeper.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-telemetrykeeper-{{ $.Spec.TelemetryKeeper.Kind }}-{{ $replicaIdx }}:
     image: {{ $.Spec.TelemetryKeeper.Spec.Image }}
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     networks:
       - {{ $.Metadata.Name }}-network
     {{- if eq $.Spec.TelemetryKeeper.Kind.String "zookeeper" }}
@@ -65,6 +69,10 @@ services:
   {{- range $replicaIdx := until (int (add1 (int $.Spec.TelemetryStore.Spec.Cluster.Replicas))) }}
   {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}:
     image: {{ $.Spec.TelemetryStore.Spec.Image }}
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     hostname: {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-{{ $shardIdx }}-{{ $replicaIdx }}
     networks:
       - {{ $.Metadata.Name }}-network
@@ -102,6 +110,10 @@ services:
   {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-{{ $.Spec.TelemetryStore.Kind }}-user-scripts:
     image: {{ $.Spec.TelemetryStore.Spec.Image }}
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     networks:
       - {{ $.Metadata.Name }}-network
     volumes:
@@ -126,6 +138,10 @@ services:
   {{- range $replicaIdx := until (int $.Spec.MetaStore.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-metastore-{{ $.Spec.MetaStore.Kind }}-{{ $replicaIdx }}:
     image: {{ $.Spec.MetaStore.Spec.Image }}
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     networks:
       - {{ $.Metadata.Name }}-network
     {{- if $.Spec.MetaStore.Spec.Env }}
@@ -152,6 +168,10 @@ services:
   {{- $ingesterReplicas := int $.Spec.Ingester.Spec.Cluster.Replicas }}
   ingester:
     image: {{ $.Spec.Ingester.Spec.Image }}
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     networks:
       {{ $.Metadata.Name }}-network:
         aliases:
@@ -185,6 +205,10 @@ services:
   {{- range $replicaIdx := until (int $.Spec.Signoz.Spec.Cluster.Replicas) }}
   {{ $.Metadata.Name }}-signoz-{{ $replicaIdx }}:
     image: {{ $.Spec.Signoz.Spec.Image }}
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     networks:
       - {{ $.Metadata.Name }}-network
     {{- if $.Spec.Signoz.Spec.Env }}
@@ -217,6 +241,10 @@ services:
   {{- if derefBool $.Spec.MCP.Spec.Enabled }}
   mcp:
     image: {{ $.Spec.MCP.Spec.Image }}
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     networks:
       {{ $.Metadata.Name }}-network:
         aliases:
@@ -236,6 +264,10 @@ services:
   {{- end }}
   {{ $.Metadata.Name }}-telemetrystore-migrator:
     image: {{ $.Spec.Ingester.Spec.Image }}
+    labels:
+      {{- range $key, $value := $.Labels }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
     networks:
       - {{ $.Metadata.Name }}-network
     entrypoint:

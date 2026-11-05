@@ -1,0 +1,6 @@
+[Install]
+WantedBy=multi-user.target
+
+[Unit]
+Description=SigNoz (signoz)
+Documentation=https://signoz.io/docs

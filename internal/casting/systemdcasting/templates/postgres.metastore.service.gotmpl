@@ -3,6 +3,7 @@ Description=PostgreSQL database server
 Documentation=man:postgres(1)
 Wants=network-online.target
 After=network-online.target
+PartOf={{ $.Metadata.Name }}-{{ print $.Kind | lower }}.target
 
 [Service]
 Type=notify
@@ -20,4 +21,4 @@ KillSignal=SIGINT
 TimeoutSec=infinity
 
 [Install]
-WantedBy=multi-user.target
+WantedBy={{ $.Metadata.Name }}-{{ print $.Kind | lower }}.target
