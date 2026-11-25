@@ -51,7 +51,7 @@ The MCP endpoint is the server URL plus `/mcp`. Where the server is reachable de
 |---|---|
 | `docker`/`compose`, `docker`/`swarm` | `http://localhost:8000/mcp` (port `8000` is published) |
 | `systemd`/`binary` | `http://<host>:8000/mcp` |
-| `kubernetes`/`kustomize` | the `signoz-mcp` ClusterIP service on port `8000`; expose it outside the cluster per your setup |
+| `kubernetes`/`helm`, `kubernetes`/`kustomize` | the `signoz-mcp-server` ClusterIP service on port `8000`; expose it outside the cluster per your setup |
 | `render`/`blueprint` | the `signoz-mcp` web service URL from the Render dashboard, plus `/mcp` |
 | `coolify`/`stack`, `railway`/`template` | expose port `8000` on the platform, then use that URL plus `/mcp` |
 

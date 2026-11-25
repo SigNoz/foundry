@@ -125,11 +125,45 @@ spec:
       enabled: true
 ```
 
-This adds a `signoz-mcp` deployment and a ClusterIP service on port `8000`; the in-cluster endpoint is `http://signoz-mcp.signoz:8000/mcp`. Expose it outside the cluster per your setup.
+This adds a `signoz-mcp-server` deployment, service account and ClusterIP service on port `8000`; the in-cluster endpoint is `http://signoz-mcp-server.signoz:8000/mcp`. Expose it outside the cluster per your setup.
 
 ```bash
-kubectl -n signoz get pods -l app.kubernetes.io/component=mcp
+kubectl -n signoz get pods -l app.kubernetes.io/instance=signoz-mcp-server
 ```
+
+Clients send their SigNoz API key with each request in the `SIGNOZ-API-KEY` header. To have the server hold a key instead, keep it in a Secret and reference it from `deployment/mcp/deployment.yaml` with a [patch](../../../concepts/patches.md). Create the namespace and the Secret before casting:
+
+```bash
+kubectl create namespace signoz
+kubectl -n signoz create secret generic signoz-mcp-server --from-literal=SIGNOZ_API_KEY=<your-key>
+```
+
+```yaml
+apiVersion: v1alpha1
+kind: Installation
+metadata:
+  name: signoz
+spec:
+  deployment:
+    flavor: kustomize
+    mode: kubernetes
+  mcp:
+    spec:
+      enabled: true
+  patches:
+    - target: "deployment/mcp/deployment.yaml"
+      operations:
+        - op: add
+          path: /spec/template/spec/containers/0/env/-
+          value:
+            name: SIGNOZ_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: signoz-mcp-server
+                key: SIGNOZ_API_KEY
+```
+
+Anyone who can reach the `signoz-mcp-server` service can then query SigNoz with that key. For the authentication modes, see [HTTP Mode](https://github.com/SigNoz/signoz-mcp-server#http-mode).
 
 To connect an AI client (mint an API key, configure Claude Code or Claude Desktop), see [MCP server](../../../concepts/mcp-server.md).
 

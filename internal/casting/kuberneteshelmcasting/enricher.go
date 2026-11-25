@@ -20,6 +20,7 @@ const (
 	signozOpampPort           = 4320
 	ingesterOTLPGRPCPort      = 4317
 	ingesterOTLPHTTPPort      = 4318
+	mcpHTTPPort               = 8000
 )
 
 var _ molding.MoldingEnricher = (*helmMoldingEnricher)(nil)
@@ -65,7 +66,7 @@ func (e *helmMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.Mo
 	case v1alpha1.MoldingKindTelemetryKeeper:
 		spec := &config.Spec.TelemetryKeeper
 		if spec.Kind != installation.TelemetryKeeperKindZookeeper {
-			return errors.Newf(errors.TypeUnsupported, "deployment '%s/%s' does not support telemetrykeeper.kind: %s, the chart ships zookeeper only, set telemetrykeeper.kind: zookeeper or raise an issue at https://github.com/signoz/foundry/issues", deployment.Mode, deployment.Flavor, spec.Kind)
+			return errors.Newf(errors.TypeUnsupported, "installation '%s/%s' does not support telemetrykeeper.kind: %s, the chart ships zookeeper only, set telemetrykeeper.kind: zookeeper or raise an issue at https://github.com/signoz/foundry/issues", deployment.Mode, deployment.Flavor, spec.Kind)
 		}
 
 		replicas := 1
@@ -94,7 +95,7 @@ func (e *helmMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.Mo
 
 	case v1alpha1.MoldingKindSignoz:
 		if !config.Spec.Signoz.Spec.IsEnabled() {
-			return errors.Newf(errors.TypeUnsupported, "deployment '%s/%s' cannot turn off signoz: the helm chart does not allow it, raise an issue at https://github.com/signoz/foundry/issues", deployment.Mode, deployment.Flavor)
+			return errors.Newf(errors.TypeUnsupported, "installation '%s/%s' cannot turn off signoz: the helm chart does not allow it, raise an issue at https://github.com/signoz/foundry/issues", deployment.Mode, deployment.Flavor)
 		}
 
 		// signoz.fullname is the fullnameOverride verbatim: no component suffix.
@@ -104,7 +105,7 @@ func (e *helmMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.Mo
 
 	case v1alpha1.MoldingKindIngester:
 		if !config.Spec.Ingester.Spec.IsEnabled() {
-			return errors.Newf(errors.TypeUnsupported, "deployment '%s/%s' cannot turn off the ingester: the helm chart does not allow it, raise an issue at https://github.com/signoz/foundry/issues", deployment.Mode, deployment.Flavor)
+			return errors.Newf(errors.TypeUnsupported, "installation '%s/%s' cannot turn off the ingester: the helm chart does not allow it, raise an issue at https://github.com/signoz/foundry/issues", deployment.Mode, deployment.Flavor)
 		}
 
 		name := config.Metadata.Name + "-ingester"
@@ -114,9 +115,12 @@ func (e *helmMoldingEnricher) EnrichStatus(ctx context.Context, kind v1alpha1.Mo
 		}
 
 	case v1alpha1.MoldingKindMCP:
-		if config.Spec.MCP.Spec.IsEnabled() {
-			return errors.Newf(errors.TypeUnsupported, "deployment '%s/%s' does not support mcp yet, the chart has no mcp component, raise an issue at https://github.com/signoz/foundry/issues", deployment.Mode, deployment.Flavor)
+		if !config.Spec.MCP.Spec.IsEnabled() {
+			return nil
 		}
+
+		host := config.Metadata.Name + "-mcp-server." + namespace(*config)
+		config.Spec.MCP.Status.Addresses.HTTP = []string{domain.MustNewAddress("http", host, mcpHTTPPort).String()}
 	}
 
 	return nil

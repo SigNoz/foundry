@@ -1,12 +1,12 @@
-{{- $name := print $.Metadata.Name "-mcp" -}}
+{{- $name := print $.Metadata.Name "-mcp-server" -}}
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ $name }}
   labels:
-    app.kubernetes.io/name: {{ $name }}
-    app.kubernetes.io/instance: {{ $.Metadata.Name }}
-    app.kubernetes.io/component: mcp
+    app.kubernetes.io/name: signoz-mcp-server
+    app.kubernetes.io/instance: {{ $name }}
+    app.kubernetes.io/version: {{ (parseImage $.Spec.MCP.Spec.Image).Tag | trunc 63 | trimSuffix "-" | quote }}
     app.kubernetes.io/managed-by: kustomize
 spec:
   type: ClusterIP
@@ -16,6 +16,5 @@ spec:
       protocol: TCP
       targetPort: http
   selector:
-    app.kubernetes.io/name: {{ $name }}
-    app.kubernetes.io/instance: {{ $.Metadata.Name }}
-    app.kubernetes.io/component: mcp
+    app.kubernetes.io/name: signoz-mcp-server
+    app.kubernetes.io/instance: {{ $name }}

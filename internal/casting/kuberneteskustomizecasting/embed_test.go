@@ -35,6 +35,7 @@ func TestNotEmptyAndValid(t *testing.T) {
 		"signozKustomization":                  signozKustomization,
 		"mcpDeployment":                        mcpDeployment,
 		"mcpService":                           mcpService,
+		"mcpServiceaccount":                    mcpServiceaccount,
 		"mcpKustomization":                     mcpKustomization,
 		"ingesterConfigmap":                    ingesterConfigmap,
 		"ingesterDeployment":                   ingesterDeployment,

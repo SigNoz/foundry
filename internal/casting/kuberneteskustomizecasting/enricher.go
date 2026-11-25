@@ -143,7 +143,7 @@ func (e *kustomizeMoldingEnricher) enrichMCP(config *installation.Casting) error
 		return nil
 	}
 
-	host := config.Metadata.Name + "-mcp." + namespace(*config)
+	host := config.Metadata.Name + "-mcp-server." + namespace(*config)
 	config.Spec.MCP.Status.Addresses.HTTP = []string{domain.MustNewAddress("http", host, mcpHTTPPort).String()}
 	return nil
 }
