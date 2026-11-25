@@ -52,7 +52,7 @@ func (molding *mcp) MoldV1Alpha1(ctx context.Context, config *installation.Casti
 		}
 
 		if val, ok := config.Spec.MCP.Spec.Env["SIGNOZ_URL"]; ok {
-			molding.logger.WarnContext(ctx, "SIGNOZ_URL is going to be overridden", slog.String("value", val))
+			molding.logger.WarnContext(ctx, "SIGNOZ_URL from spec.mcp.spec.env overrides the installation's signoz address", slog.String("value", val))
 		}
 		config.Spec.MCP.Status.Env["SIGNOZ_URL"] = domain.MustNewAddress("http", addrs[0].Host(), addrs[0].Port()).String()
 	}

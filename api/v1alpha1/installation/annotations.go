@@ -77,6 +77,24 @@ var (
 		Mode:        v1alpha1.ModeKubernetes,
 		Description: "Helm chart version to install; `latest` installs the repository's latest chart.",
 	}
+	HelmMCPChart = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/kubernetes-helm-mcp-chart",
+		Default:     "signoz-mcp-server",
+		Mode:        v1alpha1.ModeKubernetes,
+		Description: "SigNoz MCP server chart to install: a name in the chart repository, a URL to a chart archive, or a local chart path.",
+	}
+	HelmMCPChartRepoURL = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/kubernetes-helm-mcp-repo-url",
+		Default:     "https://charts.signoz.io",
+		Mode:        v1alpha1.ModeKubernetes,
+		Description: "Chart repository URL the SigNoz MCP server chart name is resolved against; unused when the chart states its own location.",
+	}
+	HelmMCPChartVersion = v1alpha1.Annotation{
+		Key:         "foundry.signoz.io/kubernetes-helm-mcp-chart-version",
+		Default:     "latest",
+		Mode:        v1alpha1.ModeKubernetes,
+		Description: "SigNoz MCP server chart version to install; `latest` installs the repository's latest chart.",
+	}
 )
 
 // Cluster annotations for the ECS/EC2 deployment of the Installation Kind.
@@ -135,6 +153,9 @@ func Annotations() []v1alpha1.Annotation {
 		HelmChart,
 		HelmChartRepoURL,
 		HelmChartVersion,
+		HelmMCPChart,
+		HelmMCPChartRepoURL,
+		HelmMCPChartVersion,
 		ECSRegion,
 		ECSClusterARN,
 		ECSPrivateSubnetIDs,

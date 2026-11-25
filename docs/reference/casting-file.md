@@ -190,6 +190,9 @@ The version defaults to `0.13.0` when the chart is unstated.
 | `foundry.signoz.io/kubernetes-helm-chart` | `signoz` (Installation), `k8s-infra` (CollectionAgent) | Chart name in the repository, a URL to a chart archive, or a local chart path |
 | `foundry.signoz.io/kubernetes-helm-repo-url` | `https://charts.signoz.io` | Chart repository the chart name is resolved against |
 | `foundry.signoz.io/kubernetes-helm-chart-version` | `latest` | Helm chart version to install; `latest` installs the repository's latest chart |
+| `foundry.signoz.io/kubernetes-helm-mcp-chart` | `signoz-mcp-server` | SigNoz MCP server chart name in the repository, a URL to a chart archive, or a local chart path |
+| `foundry.signoz.io/kubernetes-helm-mcp-repo-url` | `https://charts.signoz.io` | Chart repository the SigNoz MCP server chart name is resolved against |
+| `foundry.signoz.io/kubernetes-helm-mcp-chart-version` | `latest` | SigNoz MCP server chart version to install; `latest` installs the repository's latest chart |
 
 ### ECS annotations
 

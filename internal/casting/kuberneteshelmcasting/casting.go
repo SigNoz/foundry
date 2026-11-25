@@ -1,7 +1,6 @@
 package kuberneteshelmcasting
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
@@ -9,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/signoz/foundry/api/v1alpha1"
 	"github.com/signoz/foundry/api/v1alpha1/installation"
 	rootcasting "github.com/signoz/foundry/internal/casting"
 	"github.com/signoz/foundry/internal/domain"
@@ -39,27 +39,89 @@ func (c *helmCasting) Enricher(ctx context.Context, config *installation.Casting
 }
 
 func (c *helmCasting) Forge(ctx context.Context, config installation.Casting, poursPath string) ([]domain.Material, error) {
-	buf := bytes.NewBuffer(nil)
-	err := valuesYAMLTemplate.Execute(buf, config)
-	if err != nil {
-		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to execute values yaml template")
+	templates := []*domain.Template{valuesYAMLTemplate}
+	if config.Spec.MCP.Spec.IsEnabled() {
+		templates = append(templates, mcpValuesYAMLTemplate)
 	}
 
-	valuesBytes := buf.Bytes()
+	var materials []domain.Material
 
-	valuesMaterial, err := domain.NewYAMLMaterial(valuesBytes, filepath.Join(rootcasting.DeploymentDir, "values.yaml"))
-	if err != nil {
-		return nil, errors.Wrapf(err, errors.TypeInternal, "failed to create values yaml material")
+	for _, tmpl := range templates {
+		name := tmpl.Name()
+		path := filepath.Join(rootcasting.DeploymentDir, strings.TrimSuffix(name, filepath.Ext(name)))
+
+		material, err := tmpl.Render(config, path)
+		if err != nil {
+			return nil, errors.Wrapf(err, errors.TypeInternal, "failed to render %q", name)
+		}
+
+		materials = append(materials, material)
 	}
 
-	return []domain.Material{valuesMaterial}, nil
+	return materials, nil
 }
 
 func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, poursPath string) error {
+	ns := namespace(config)
 
-	valuesFile := filepath.Join(poursPath, rootcasting.DeploymentDir, "values.yaml")
+	for _, kind := range []v1alpha1.MoldingKind{v1alpha1.MoldingKindSignoz, v1alpha1.MoldingKindMCP} {
+		var (
+			tmpl                             *domain.Template
+			release, chart, version, repoURL string
+		)
+
+		switch kind {
+		case v1alpha1.MoldingKindSignoz:
+			if !config.Spec.Signoz.Spec.IsEnabled() {
+				return errors.Newf(errors.TypeUnsupported, "installation '%s/%s' cannot turn off signoz: the helm chart does not allow it, raise an issue at https://github.com/signoz/foundry/issues", config.Spec.Deployment.Mode, config.Spec.Deployment.Flavor)
+			}
+
+			if !config.Spec.Ingester.Spec.IsEnabled() {
+				return errors.Newf(errors.TypeUnsupported, "installation '%s/%s' cannot turn off the ingester: the helm chart does not allow it, raise an issue at https://github.com/signoz/foundry/issues", config.Spec.Deployment.Mode, config.Spec.Deployment.Flavor)
+			}
+
+			tmpl = valuesYAMLTemplate
+			release = config.Metadata.Name
+			chart = installation.HelmChart.Resolve(config.Metadata.Annotations)
+			version = installation.HelmChartVersion.Resolve(config.Metadata.Annotations)
+			repoURL = installation.HelmChartRepoURL.Resolve(config.Metadata.Annotations)
+
+		case v1alpha1.MoldingKindMCP:
+			if !config.Spec.MCP.Spec.IsEnabled() {
+				continue
+			}
+
+			tmpl = mcpValuesYAMLTemplate
+			release = config.Metadata.Name + "-" + kind.String() + "-server"
+			chart = installation.HelmMCPChart.Resolve(config.Metadata.Annotations)
+			version = installation.HelmMCPChartVersion.Resolve(config.Metadata.Annotations)
+			repoURL = installation.HelmMCPChartRepoURL.Resolve(config.Metadata.Annotations)
+		}
+
+		// Helm has no "latest" token: only an empty version means the repository's newest chart.
+		if version == "latest" {
+			version = ""
+		}
+
+		// A chart reference carrying a slash states its own location; the repository applies to a bare name only.
+		if strings.ContainsRune(chart, '/') {
+			repoURL = ""
+		}
+
+		name := tmpl.Name()
+		valuesFile := filepath.Join(poursPath, rootcasting.DeploymentDir, strings.TrimSuffix(name, filepath.Ext(name)))
+
+		if err := c.installOrUpgrade(ctx, release, ns, chart, version, repoURL, valuesFile); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *helmCasting) installOrUpgrade(ctx context.Context, release, ns, chartRef, version, repoURL, valuesFile string) error {
 	if _, err := os.Stat(valuesFile); os.IsNotExist(err) {
-		return errors.Newf(errors.TypeNotFound, "values.yaml does not exist at path %s, run 'forge' first", valuesFile)
+		return errors.Newf(errors.TypeNotFound, "%q does not exist, run 'forge' first", valuesFile)
 	}
 
 	valuesBytes, err := os.ReadFile(valuesFile)
@@ -72,8 +134,6 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 		return errors.Wrapf(err, errors.TypeInvalidInput, "failed to parse values")
 	}
 
-	ns := namespace(config)
-
 	settings := cli.New()
 	settings.SetNamespace(ns)
 
@@ -84,10 +144,8 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 		return errors.Wrapf(err, errors.TypeInternal, "failed to initialize helm action config")
 	}
 
-	chartRef, version, repoURL := chartSource(config)
-
 	c.logger.InfoContext(ctx, "Deploying with Helm",
-		slog.String("release", config.Metadata.Name),
+		slog.String("release", release),
 		slog.String("chart", chartRef),
 		slog.String("repo", repoURL),
 		slog.String("namespace", ns),
@@ -95,11 +153,11 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 
 	histClient := action.NewHistory(actionConfig)
 	histClient.Max = 1
-	_, err = histClient.Run(config.Metadata.Name)
+	_, err = histClient.Run(release)
 
 	if err != nil {
 		install := action.NewInstall(actionConfig)
-		install.ReleaseName = config.Metadata.Name
+		install.ReleaseName = release
 		install.Namespace = ns
 		install.CreateNamespace = true
 		install.Version = version
@@ -139,13 +197,13 @@ func (c *helmCasting) Cast(ctx context.Context, config installation.Casting, pou
 
 		c.logger.InfoContext(ctx, "resolved chart", slog.String("chart", chartRef), slog.String("version", chart.Metadata.Version), slog.String("app_version", chart.Metadata.AppVersion))
 
-		if _, err := upgrade.RunWithContext(ctx, config.Metadata.Name, chart, vals); err != nil {
+		if _, err := upgrade.RunWithContext(ctx, release, chart, vals); err != nil {
 			return errors.Wrapf(err, errors.TypeInternal, "helm upgrade failed")
 		}
 	}
 
 	c.logger.InfoContext(ctx, "Helm deployment complete",
-		slog.String("release", config.Metadata.Name),
+		slog.String("release", release),
 		slog.String("namespace", ns),
 	)
 	return nil
@@ -159,22 +217,4 @@ func namespace(config installation.Casting) string {
 	}
 
 	return ns
-}
-
-// The repository applies to a bare chart name only: a reference carrying a slash
-// states its own location, and helm would look that string up in the index.
-func chartSource(config installation.Casting) (chart, version, repoURL string) {
-	chart = installation.HelmChart.Resolve(config.Metadata.Annotations)
-	version = installation.HelmChartVersion.Resolve(config.Metadata.Annotations)
-
-	// Helm has no "latest" token: only an empty version means the repository's newest chart.
-	if version == "latest" {
-		version = ""
-	}
-
-	if strings.ContainsRune(chart, '/') {
-		return chart, version, ""
-	}
-
-	return chart, version, installation.HelmChartRepoURL.Resolve(config.Metadata.Annotations)
 }

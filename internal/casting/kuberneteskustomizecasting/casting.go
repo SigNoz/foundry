@@ -68,6 +68,7 @@ var (
 	mcpTemplates = []*domain.Template{
 		mcpDeployment,
 		mcpService,
+		mcpServiceaccount,
 		mcpKustomization,
 	}
 	ingesterTemplates = []*domain.Template{

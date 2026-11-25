@@ -1,0 +1,14 @@
+fullnameOverride: {{ $.Metadata.Name }}-mcp-server
+replicaCount: {{ derefIntDefault $.Spec.MCP.Spec.Cluster.Replicas 1 }}
+image:
+  {{- with parseImage $.Spec.MCP.Spec.Image }}
+  repository: {{ with .Registry }}{{ . }}/{{ end }}{{ .Repository }}
+  tag: {{ .Tag | quote }}
+  {{- end }}
+{{- if $.Spec.MCP.Spec.Env }}
+env:
+{{- range $key, $val := $.Spec.MCP.Spec.Env }}
+  - name: {{ $key }}
+    value: {{ $val | quote }}
+{{- end }}
+{{- end }}

@@ -36,9 +36,10 @@ var (
 	signozKustomization  = domain.MustNewTemplateFromFS(templates, "templates/signoz/kustomization.yaml.gotmpl", domain.FormatYAML)
 
 	// mcp.
-	mcpDeployment    = domain.MustNewTemplateFromFS(templates, "templates/mcp/deployment.yaml.gotmpl", domain.FormatYAML)
-	mcpService       = domain.MustNewTemplateFromFS(templates, "templates/mcp/service.yaml.gotmpl", domain.FormatYAML)
-	mcpKustomization = domain.MustNewTemplateFromFS(templates, "templates/mcp/kustomization.yaml.gotmpl", domain.FormatYAML)
+	mcpDeployment     = domain.MustNewTemplateFromFS(templates, "templates/mcp/deployment.yaml.gotmpl", domain.FormatYAML)
+	mcpService        = domain.MustNewTemplateFromFS(templates, "templates/mcp/service.yaml.gotmpl", domain.FormatYAML)
+	mcpServiceaccount = domain.MustNewTemplateFromFS(templates, "templates/mcp/serviceaccount.yaml.gotmpl", domain.FormatYAML)
+	mcpKustomization  = domain.MustNewTemplateFromFS(templates, "templates/mcp/kustomization.yaml.gotmpl", domain.FormatYAML)
 
 	// ingester.
 	ingesterConfigmap      = domain.MustNewTemplateFromFS(templates, "templates/ingester/configmap.yaml.gotmpl", domain.FormatYAML)
