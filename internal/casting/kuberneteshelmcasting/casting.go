@@ -45,6 +45,7 @@ func (c *helmCasting) Forge(ctx context.Context, config installation.Casting, po
 	}
 
 	var materials []domain.Material
+
 	for _, tmpl := range templates {
 		name := tmpl.Name()
 		path := filepath.Join(rootcasting.DeploymentDir, strings.TrimSuffix(name, filepath.Ext(name)))
